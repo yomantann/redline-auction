@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const TOTAL_ROUNDS = 19;
 const INITIAL_TIME = 600.0; // 10 minutes
 const COUNTDOWN_SECONDS = 5;
+const READY_HOLD_DURATION = 3.0; // Seconds to hold before starting
 
 type GamePhase = 'intro' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
@@ -48,6 +49,7 @@ export default function Game() {
   const [currentTime, setCurrentTime] = useState(0.0); // The central auction clock
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [showDetails, setShowDetails] = useState(false);
+  const [readyHoldTime, setReadyHoldTime] = useState(0);
   
   // Players State
   const [players, setPlayers] = useState<Player[]>([
@@ -63,8 +65,63 @@ export default function Game() {
   // Refs for loop management
   const requestRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const readyStartTimeRef = useRef<number | null>(null);
 
   // --- Game Loop Logic ---
+
+  // Ready Phase Logic (3s Hold)
+  useEffect(() => {
+    if (phase === 'ready') {
+      const allReady = players.every(p => p.isHolding);
+      
+      if (allReady) {
+        const animateReady = (time: number) => {
+          if (readyStartTimeRef.current === null) readyStartTimeRef.current = time;
+          const delta = (time - readyStartTimeRef.current) / 1000;
+          
+          setReadyHoldTime(delta);
+
+          if (delta >= READY_HOLD_DURATION) {
+             startCountdown();
+             return;
+          }
+
+          requestRef.current = requestAnimationFrame(animateReady);
+        };
+        requestRef.current = requestAnimationFrame(animateReady);
+      } else {
+        // Reset if anyone releases
+        if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
+        readyStartTimeRef.current = null;
+        setReadyHoldTime(0);
+      }
+    }
+    
+    return () => {
+      if (phase === 'ready' && requestRef.current !== null) cancelAnimationFrame(requestRef.current);
+    };
+  }, [phase, players]);
+
+  // Simulate Bots Getting Ready
+  useEffect(() => {
+    if (phase === 'ready') {
+      // Bots "Ready Up" after random delays
+      const timeoutIds: NodeJS.Timeout[] = [];
+      
+      players.forEach(p => {
+        if (p.isBot && !p.isHolding) {
+          const delay = Math.random() * 2000 + 500; // 0.5s to 2.5s
+          const id = setTimeout(() => {
+             setPlayers(prev => prev.map(pl => pl.id === p.id ? { ...pl, isHolding: true } : pl));
+          }, delay);
+          timeoutIds.push(id);
+        }
+      });
+
+      return () => timeoutIds.forEach(clearTimeout);
+    }
+  }, [phase]); // Re-run when phase enters ready (or if players change, but we guard !isHolding)
+
 
   // Countdown Timer
   useEffect(() => {
@@ -110,12 +167,12 @@ export default function Game() {
       
       requestRef.current = requestAnimationFrame(animate);
     } else {
-      if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
+      if (requestRef.current !== null && phase !== 'ready') cancelAnimationFrame(requestRef.current);
       startTimeRef.current = null;
     }
     
     return () => {
-      if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
+      if (requestRef.current !== null && phase !== 'ready') cancelAnimationFrame(requestRef.current);
     };
   }, [phase, players]); 
 
@@ -217,7 +274,7 @@ export default function Game() {
   const startCountdown = () => {
     setCurrentTime(0);
     setCountdown(COUNTDOWN_SECONDS);
-    setPlayers(prev => prev.map(p => ({ ...p, currentBid: null, isHolding: true }))); 
+    // Everyone is already holding from Ready phase, just proceed
     setPhase('countdown');
   };
 
@@ -281,10 +338,12 @@ export default function Game() {
       setRound(prev => prev + 1);
       setPhase('ready');
       setPlayers(prev => prev.map(p => ({ ...p, isHolding: false, currentBid: null })));
+      setReadyHoldTime(0);
     }
   };
 
   const playerIsReady = players.find(p => p.id === 'p1')?.isHolding;
+  const allPlayersReady = players.every(p => p.isHolding);
 
   // Render Helpers
   const renderPhaseContent = () => {
@@ -342,27 +401,36 @@ export default function Game() {
           <div className="flex flex-col items-center justify-center space-y-12 mt-10">
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-display">ROUND {round} / {TOTAL_ROUNDS}</h2>
-              <p className="text-muted-foreground animate-pulse">Hold the button to start the round</p>
+              <p className="text-muted-foreground animate-pulse">All players must hold button to start</p>
             </div>
             
+            {/* Ready Progress Bar */}
+            {allPlayersReady && (
+              <div className="w-64 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                <motion.div 
+                   className="h-full bg-primary"
+                   style={{ width: `${(readyHoldTime / READY_HOLD_DURATION) * 100}%` }}
+                />
+              </div>
+            )}
+
             <AuctionButton 
               onPress={handlePress} 
               onRelease={handleRelease} 
               isPressed={playerIsReady}
             />
             
-            {playerIsReady && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }} 
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center gap-4"
-              >
-                <p className="text-primary font-bold tracking-widest">READY CONFIRMED</p>
-                <Button variant="outline" onClick={startCountdown} className="border-primary/50 text-primary hover:bg-primary/10">
-                  START AUCTION NOW
-                </Button>
-              </motion.div>
-            )}
+            <div className="flex gap-2 mt-4">
+               {players.map(p => (
+                 <div key={p.id} className={cn(
+                   "w-3 h-3 rounded-full transition-colors duration-300",
+                   p.isHolding ? "bg-primary shadow-[0_0_10px_var(--color-primary)]" : "bg-zinc-800"
+                 )} title={p.name} />
+               ))}
+            </div>
+            <p className="text-xs text-zinc-500 uppercase tracking-widest">
+              {players.filter(p => p.isHolding).length} / {players.length} READY
+            </p>
           </div>
         );
 
@@ -451,7 +519,23 @@ export default function Game() {
                   <span className={p.id === roundWinner?.name ? "text-primary font-bold" : "text-zinc-300"}>
                     {p.name}
                   </span>
-                  <span className="font-mono">{p.currentBid?.toFixed(1)}s</span>
+                  
+                  {/* Show time ONLY if it's YOU or the WINNER (in Easy mode you see all? Request says: "you only know the time that you and that person spent on easy mode") */}
+                  {/* Wait, request says: "you only know the time that you and that person spent on easy mode" */}
+                  {/* This implies on Round End, we should potentially hide other losers' times if in hard mode? */}
+                  {/* Let's follow the standard: Show all times on result screen is usually fair game, but let's stick to request. */}
+                  {/* "you only know the time that you and that person spent on easy mode" -> This sentence is a bit ambiguous. */}
+                  {/* Interpretation: In easy mode, you see everything? Or even in easy mode you only see winner + you? */}
+                  {/* Let's default to: Show ALL in Easy Mode. Show ONLY Winner + You in Hard Mode. */}
+                  
+                  <span className="font-mono">
+                    {showDetails || p.id === 'p1' || p.id === roundWinner?.name // wait roundWinner is {name, time}, players have IDs. 
+                      // My winner matching logic was `p.id === winnerId` in calculation, but `roundWinner` state only stores name/time.
+                      // Let's fix that check: `p.name === roundWinner?.name` works since names are unique enough here.
+                      || (roundWinner && p.name === roundWinner.name)
+                      ? `${p.currentBid?.toFixed(1)}s` 
+                      : "???.?"}
+                  </span>
                 </div>
               ))}
             </div>
