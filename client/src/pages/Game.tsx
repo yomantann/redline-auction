@@ -7,6 +7,8 @@ import { PlayerStats } from "@/components/game/PlayerStats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -16,7 +18,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock } from "lucide-react";
+import { Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Game Constants
@@ -25,6 +27,7 @@ const INITIAL_TIME = 600.0; // 10 minutes
 const COUNTDOWN_SECONDS = 5;
 
 type GamePhase = 'intro' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
+type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
 
 interface Player {
   id: string;
@@ -35,6 +38,7 @@ interface Player {
   isEliminated: boolean;
   currentBid: number | null; // null means still holding or hasn't bid
   isHolding: boolean;
+  personality?: BotPersonality;
 }
 
 export default function Game() {
@@ -43,13 +47,14 @@ export default function Game() {
   const [round, setRound] = useState(1);
   const [currentTime, setCurrentTime] = useState(0.0); // The central auction clock
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const [showDetails, setShowDetails] = useState(false);
   
   // Players State
   const [players, setPlayers] = useState<Player[]>([
     { id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false },
-    { id: 'b1', name: 'Alpha', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false },
-    { id: 'b2', name: 'Beta', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false },
-    { id: 'b3', name: 'Gamma', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false },
+    { id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive' },
+    { id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative' },
+    { id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random' },
   ]);
 
   const [roundWinner, setRoundWinner] = useState<{ name: string; time: number } | null>(null);
@@ -92,16 +97,13 @@ export default function Game() {
         handleBotLogic(deltaTime);
 
         // Check if everyone released
-        const activePlayers = players.filter(p => !p.isEliminated); // Only active players count? Assuming all play all rounds
+        const activePlayers = players.filter(p => !p.isEliminated); 
         const holdingPlayers = activePlayers.filter(p => p.isHolding);
         
         if (holdingPlayers.length === 0) {
           endRound(deltaTime);
           return; // Stop loop
         }
-
-        // Auto-release if max time reached (technically 600s, but practically unlikely to hold that long)
-        // Or if player runs out of time
         
         requestRef.current = requestAnimationFrame(animate);
       };
@@ -115,12 +117,11 @@ export default function Game() {
     return () => {
       if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
     };
-  }, [phase, players]); // Dependency on players for checking holding status
+  }, [phase, players]); 
 
   // Bot Logic
   const handleBotLogic = (time: number) => {
-    // This runs every frame, so we need to be careful not to spam state updates
-    // We should pre-determine bot release times at start of round instead of checking every frame
+    // Logic handled via pre-calculated bids below
   };
 
   // Pre-calculate bot bids when round starts
@@ -128,19 +129,44 @@ export default function Game() {
   
   useEffect(() => {
     if (phase === 'ready') {
-      // Calculate random bids for bots
       const newBotBids: Record<string, number> = {};
       players.forEach(p => {
         if (p.isBot) {
-          // Logic: Random time between 1s and 30s usually, sometimes longer
-          // Ensure they don't bid more than they have
           const maxBid = p.remainingTime;
-          // Weighted random: favors lower numbers
-          let bid = Math.random() * 20 + 1; 
-          if (Math.random() > 0.8) bid += 20; // 20% chance to go long
-          if (Math.random() > 0.95) bid += 40; // 5% chance to go very long
-          
+          let bid = 0;
+
+          // Personality-based Randomness
+          switch (p.personality) {
+            case 'aggressive':
+              // Likes to bid high (20s - 60s), sometimes low to trick
+              if (Math.random() > 0.3) {
+                 bid = 20 + Math.random() * 40; 
+              } else {
+                 bid = Math.random() * 10;
+              }
+              break;
+            
+            case 'conservative':
+              // Likes to save time, bids low (1s - 15s)
+              bid = 1 + Math.random() * 14;
+              break;
+
+            case 'random':
+            default:
+              // Pure chaos
+              bid = Math.random() * 40 + 1;
+              break;
+          }
+
+          // Random fuzzy factor so they don't hit exact integers often
+          bid += Math.random(); 
+
+          // Hard cap at max time
           if (bid > maxBid) bid = maxBid;
+          
+          // Ensure at least 0.1s
+          if (bid < 0.1) bid = 0.1;
+
           newBotBids[p.id] = parseFloat(bid.toFixed(1));
         }
       });
@@ -172,44 +198,32 @@ export default function Game() {
   // User Interactions
   const handlePress = () => {
     if (phase === 'ready') {
-       // User is readying up
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: true } : p));
     }
   };
 
   const handleRelease = () => {
     if (phase === 'ready') {
-      // User un-readied
       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false } : p));
     } else if (phase === 'bidding') {
-      // User bids!
       const bidTime = parseFloat(currentTime.toFixed(1));
       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false, currentBid: bidTime } : p));
     } else if (phase === 'countdown') {
-       // User abandoned auction
-       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false, currentBid: 0 } : p)); // 0 bid means abandoned? Or null?
-       // Rules say: "If you do not wish to participate... release within countdown"
-       // We'll treat abandoned as not participating (0 time deducted, no chance to win)
+       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false, currentBid: 0 } : p));
     }
   };
 
   // Start Round Logic
   const startCountdown = () => {
-    // Reset round state
     setCurrentTime(0);
     setCountdown(COUNTDOWN_SECONDS);
-    setPlayers(prev => prev.map(p => ({ ...p, currentBid: null, isHolding: true }))); // Auto-hold bots
+    setPlayers(prev => prev.map(p => ({ ...p, currentBid: null, isHolding: true }))); 
     setPhase('countdown');
   };
 
   // End Round Logic
   const endRound = (finalTime: number) => {
     setPhase('round_end');
-    
-    // Calculate winner
-    // Rules:
-    // 1. Last player to release wins. (Highest time)
-    // 2. If tie (same 0.1s), token lost.
     
     // Filter participants (those who held past countdown)
     const participants = players.filter(p => p.currentBid !== null && p.currentBid > 0);
@@ -253,11 +267,10 @@ export default function Game() {
     
     // Add to log
     const logMsg = winnerId 
-      ? `Round ${round}: ${winnerName} won with ${winnerTime.toFixed(1)}s` 
-      : `Round ${round}: No winner (Tie or No Bids)`;
+      ? `Round ${round}: ${winnerName} won (${winnerTime.toFixed(1)}s)` 
+      : `Round ${round}: No winner`;
     setRoundLog(prev => [logMsg, ...prev]);
 
-    // Check Game End
     if (round >= TOTAL_ROUNDS) {
       setTimeout(() => setPhase('game_end'), 3000);
     }
@@ -271,7 +284,6 @@ export default function Game() {
     }
   };
 
-  // Check if player is holding button for Ready check
   const playerIsReady = players.find(p => p.id === 'p1')?.isHolding;
 
   // Render Helpers
@@ -286,28 +298,39 @@ export default function Game() {
             <h1 className="text-6xl font-display text-primary text-glow font-bold">TIME AUCTION</h1>
             <p className="text-xl text-muted-foreground">
               You have 10 minutes. 19 Auctions.<br/>
-              Bid time to win tokens.<br/>
-              Hidden bids. Precision matters.
+              Bid time to win tokens.
             </p>
             <div className="grid grid-cols-2 gap-4 text-left bg-card/50 p-6 rounded border border-white/5">
-              <div className="space-y-2">
+               <div className="space-y-2">
                 <h3 className="text-primary font-bold">Rules</h3>
                 <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1">
                   <li>Hold button to start.</li>
                   <li>Release to bid time.</li>
                   <li>Longest time wins token.</li>
-                  <li>Ties cancel the win.</li>
                 </ul>
               </div>
-              <div className="space-y-2">
-                <h3 className="text-destructive font-bold">Winning</h3>
-                <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1">
-                  <li>Most tokens wins game.</li>
-                  <li>Fewest tokens eliminated.</li>
-                  <li>Tiebreaker: Remaining Time.</li>
-                </ul>
+              <div className="space-y-2 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-destructive font-bold">Winning</h3>
+                  <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1">
+                    <li>Most tokens wins game.</li>
+                    <li>Tiebreaker: Remaining Time.</li>
+                  </ul>
+                </div>
               </div>
             </div>
+            
+            <div className="flex items-center gap-2 bg-black/40 p-3 rounded-full border border-white/10">
+              <Switch 
+                id="show-details-intro" 
+                checked={showDetails} 
+                onCheckedChange={setShowDetails} 
+              />
+              <Label htmlFor="show-details-intro" className="text-sm cursor-pointer text-zinc-400">
+                Easy Mode (Show Timer & Clock)
+              </Label>
+            </div>
+
             <Button size="lg" onClick={() => setPhase('ready')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90">
               ENTER GAME
             </Button>
@@ -356,10 +379,10 @@ export default function Game() {
             </div>
 
             <AuctionButton 
-              onPress={() => {}} // No-op during countdown if already holding
+              onPress={() => {}} 
               onRelease={handleRelease} 
               isPressed={players.find(p => p.id === 'p1')?.isHolding}
-              disabled={!players.find(p => p.id === 'p1')?.isHolding} // Can't press again if released
+              disabled={!players.find(p => p.id === 'p1')?.isHolding} 
             />
           </div>
         );
@@ -367,7 +390,14 @@ export default function Game() {
       case 'bidding':
         return (
           <div className="flex flex-col items-center justify-center space-y-12 mt-10">
-            <TimerDisplay time={currentTime} isRunning={true} />
+            {showDetails ? (
+              <TimerDisplay time={currentTime} isRunning={true} />
+            ) : (
+              <div className="flex flex-col items-center justify-center p-8 rounded-lg glass-panel border-accent/20 bg-black/40 h-[200px] w-[300px]">
+                 <span className="text-muted-foreground text-sm tracking-[0.2em] font-display mb-4">AUCTION TIME</span>
+                 <div className="text-6xl font-mono text-zinc-700 animate-pulse">???.?</div>
+              </div>
+            )}
             
             <AuctionButton 
               onPress={() => {}} 
@@ -377,8 +407,8 @@ export default function Game() {
             />
             
             <div className="text-center text-sm text-muted-foreground font-mono">
-              <p>Release to lock in your bid at the current time.</p>
-              <p className="text-xs opacity-50 mt-1">Your exact holding time is hidden.</p>
+              <p>Release to lock in your bid.</p>
+              {!showDetails && <p className="text-xs opacity-50 mt-1">Timer is hidden in Hard Mode.</p>}
             </div>
           </div>
         );
@@ -485,7 +515,18 @@ export default function Game() {
           <Clock className="text-primary" size={24} />
           <h1 className="font-display font-bold text-xl tracking-wider">TIME AUCTION</h1>
         </div>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
+            <Switch 
+              id="show-details" 
+              checked={showDetails} 
+              onCheckedChange={setShowDetails} 
+            />
+            <Label htmlFor="show-details" className="text-xs cursor-pointer text-zinc-400 flex items-center gap-1">
+              {showDetails ? <Eye size={12}/> : <EyeOff size={12}/>} 
+              {showDetails ? "Easy Mode" : "Hard Mode"}
+            </Label>
+          </div>
           <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5">
             ROUND {round} / {TOTAL_ROUNDS}
           </Badge>
@@ -512,7 +553,7 @@ export default function Game() {
                 key={p.id} 
                 player={p} 
                 isCurrentPlayer={p.id === 'p1'} 
-                showTime={false}
+                showTime={showDetails && p.id === 'p1'}
                 remainingTime={p.remainingTime}
               />
             ))}
