@@ -17,9 +17,20 @@ interface PlayerStatsProps {
   isCurrentPlayer?: boolean;
   showTime?: boolean; // Debug only
   remainingTime?: number;
+  formatTime?: (seconds: number) => string;
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime }: PlayerStatsProps) {
+  // Default formatter if not provided
+  const format = formatTime || ((s: number) => s.toFixed(1));
+
+  // Logic to show time:
+  // If showTime is true, show formatted time.
+  // Else, show "??:??.?".
+  // NOTE: If remainingTime is <= 0, we might want to show it regardless? 
+  // User said "until someone spends all their time". 
+  // Let's assume the parent component controls `showTime` logic correctly based on that rule.
+  
   return (
     <div className={cn(
       "relative p-4 rounded-lg border flex flex-col gap-3 transition-all duration-300",
@@ -58,15 +69,12 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime }
           </div>
         </div>
         
-        {/* Only show remaining time for self (if allowed by game rules, but prompt says hidden) or debug */}
-        {/* Prompt: "Each player's holding time is not disclosed to anyone, including themselves" */}
-        {/* So we technically should HIDE this even for the player. But for prototype usability, I'll add a 'cheat' peek or just show ??? */}
         <div className="flex flex-col">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Time Left</span>
           <div className="flex items-center gap-1.5 text-zinc-500">
             <Clock size={14} />
-            <span className="font-mono text-xl font-bold">
-              {showTime && remainingTime !== undefined ? remainingTime.toFixed(1) : "???.?"}
+            <span className={cn("font-mono text-xl font-bold", !showTime && "text-zinc-700 blur-[2px]")}>
+              {showTime && remainingTime !== undefined ? format(remainingTime) : "??:??.?"}
             </span>
           </div>
         </div>

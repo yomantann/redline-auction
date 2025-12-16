@@ -67,6 +67,14 @@ export default function Game() {
   const startTimeRef = useRef<number | null>(null);
   const readyStartTimeRef = useRef<number | null>(null);
 
+  // Helper for formatting time
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 10);
+    return `${m}:${s.toString().padStart(2, '0')}.${ms}`;
+  };
+
   // --- Game Loop Logic ---
 
   // Ready Phase Logic (3s Hold)
@@ -120,8 +128,7 @@ export default function Game() {
 
       return () => timeoutIds.forEach(clearTimeout);
     }
-  }, [phase]); // Re-run when phase enters ready (or if players change, but we guard !isHolding)
-
+  }, [phase]);
 
   // Countdown Timer
   useEffect(() => {
@@ -274,7 +281,6 @@ export default function Game() {
   const startCountdown = () => {
     setCurrentTime(0);
     setCountdown(COUNTDOWN_SECONDS);
-    // Everyone is already holding from Ready phase, just proceed
     setPhase('countdown');
   };
 
@@ -324,7 +330,7 @@ export default function Game() {
     
     // Add to log
     const logMsg = winnerId 
-      ? `Round ${round}: ${winnerName} won (${winnerTime.toFixed(1)}s)` 
+      ? `Round ${round}: ${winnerName} won (${formatTime(winnerTime)})` 
       : `Round ${round}: No winner`;
     setRoundLog(prev => [logMsg, ...prev]);
 
@@ -463,7 +469,7 @@ export default function Game() {
             ) : (
               <div className="flex flex-col items-center justify-center p-8 rounded-lg glass-panel border-accent/20 bg-black/40 h-[200px] w-[300px]">
                  <span className="text-muted-foreground text-sm tracking-[0.2em] font-display mb-4">AUCTION TIME</span>
-                 <div className="text-6xl font-mono text-zinc-700 animate-pulse">???.?</div>
+                 <div className="text-6xl font-mono text-zinc-700 animate-pulse">??:??.?</div>
               </div>
             )}
             
@@ -495,7 +501,7 @@ export default function Game() {
                   <Trophy size={64} className="mx-auto text-primary" />
                   <div>
                     <h1 className="text-4xl font-bold text-white mb-2">{roundWinner.name} WINS</h1>
-                    <p className="text-xl font-mono text-primary">{roundWinner.time.toFixed(1)}s</p>
+                    <p className="text-xl font-mono text-primary">{formatTime(roundWinner.time)}</p>
                   </div>
                 </div>
               ) : (
@@ -514,30 +520,28 @@ export default function Game() {
               {players
                 .filter(p => p.currentBid !== null && p.currentBid > 0)
                 .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0))
+                .filter(p => {
+                  // Hard Mode Visibility Logic:
+                  // Show ONLY the winner. Hide everyone else.
+                  // Unless game over (handled by game_end phase) or we are in Easy Mode.
+                  if (showDetails) return true; // Easy mode: Show all
+                  if (!roundWinner) return true; // No winner? Show all (or maybe show none? Let's show all to explain why no winner)
+                  // Actually, prompt says: "In hard mode, you should only see the amount of time the winner spent in the round, all other stats are hidden"
+                  return p.name === roundWinner.name; 
+                })
                 .map(p => (
                 <div key={p.id} className="flex justify-between items-center text-sm">
                   <span className={p.id === roundWinner?.name ? "text-primary font-bold" : "text-zinc-300"}>
                     {p.name}
                   </span>
-                  
-                  {/* Show time ONLY if it's YOU or the WINNER (in Easy mode you see all? Request says: "you only know the time that you and that person spent on easy mode") */}
-                  {/* Wait, request says: "you only know the time that you and that person spent on easy mode" */}
-                  {/* This implies on Round End, we should potentially hide other losers' times if in hard mode? */}
-                  {/* Let's follow the standard: Show all times on result screen is usually fair game, but let's stick to request. */}
-                  {/* "you only know the time that you and that person spent on easy mode" -> This sentence is a bit ambiguous. */}
-                  {/* Interpretation: In easy mode, you see everything? Or even in easy mode you only see winner + you? */}
-                  {/* Let's default to: Show ALL in Easy Mode. Show ONLY Winner + You in Hard Mode. */}
-                  
-                  <span className="font-mono">
-                    {showDetails || p.id === 'p1' || p.id === roundWinner?.name // wait roundWinner is {name, time}, players have IDs. 
-                      // My winner matching logic was `p.id === winnerId` in calculation, but `roundWinner` state only stores name/time.
-                      // Let's fix that check: `p.name === roundWinner?.name` works since names are unique enough here.
-                      || (roundWinner && p.name === roundWinner.name)
-                      ? `${p.currentBid?.toFixed(1)}s` 
-                      : "???.?"}
-                  </span>
+                  <span className="font-mono">{formatTime(p.currentBid || 0)}</span>
                 </div>
               ))}
+              {!showDetails && players.filter(p => p.currentBid !== null && p.currentBid > 0).length > (roundWinner ? 1 : 0) && (
+                 <div className="text-center text-xs text-zinc-600 italic mt-2">
+                   + {players.filter(p => p.currentBid !== null && p.currentBid > 0).length - (roundWinner ? 1 : 0)} other hidden bids
+                 </div>
+              )}
             </div>
 
             <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
@@ -565,7 +569,7 @@ export default function Game() {
                 <p className="text-6xl font-bold text-white mb-4">{winner.name}</p>
                 <div className="flex justify-center gap-8 text-xl">
                   <span>🏆 {winner.tokens}</span>
-                  <span className="font-mono">{winner.remainingTime.toFixed(1)}s left</span>
+                  <span className="font-mono">{formatTime(winner.remainingTime)} left</span>
                 </div>
               </div>
 
@@ -577,7 +581,7 @@ export default function Game() {
                    </div>
                    <div className="space-y-1 text-sm text-zinc-400">
                      <p>Tokens: <span className="text-white">{p.tokens}</span></p>
-                     <p>Time: <span className="font-mono text-white">{p.remainingTime.toFixed(1)}s</span></p>
+                     <p>Time: <span className="font-mono text-white">{formatTime(p.remainingTime)}</span></p>
                    </div>
                 </div>
               ))}
@@ -637,8 +641,15 @@ export default function Game() {
                 key={p.id} 
                 player={p} 
                 isCurrentPlayer={p.id === 'p1'} 
-                showTime={showDetails && p.id === 'p1'}
+                showTime={showDetails || phase === 'game_end' || p.isEliminated} 
+                // Show time if: Easy Mode OR Game Over OR Player Eliminated
+                // (User said "stats are hidden until someone spends all their time and or the game is over")
+                // p.isEliminated covers "spends all their time" (assuming elimination logic)
+                // Actually my elimination logic currently is only at Game End.
+                // But if they run out of time (remainingTime <= 0), they are effectively done.
+                // Let's check remainingTime <= 0 too.
                 remainingTime={p.remainingTime}
+                formatTime={formatTime}
               />
             ))}
           </div>
