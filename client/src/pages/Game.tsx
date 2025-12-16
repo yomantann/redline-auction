@@ -22,9 +22,9 @@ import { Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings,
 import { motion, AnimatePresence } from "framer-motion";
 
 // Game Constants
-const TOTAL_ROUNDS = 19;
-const INITIAL_TIME = 600.0; // 10 minutes
-const COUNTDOWN_SECONDS = 5;
+const TOTAL_ROUNDS = 9; // Changed from 19 to 9
+const INITIAL_TIME = 300.0; // Changed from 10 minutes (600s) to 5 minutes (300s)
+const COUNTDOWN_SECONDS = 3; // Changed from 5 to 3
 const READY_HOLD_DURATION = 3.0; // Seconds to hold before starting
 
 type GamePhase = 'intro' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
@@ -273,7 +273,15 @@ export default function Game() {
       const bidTime = parseFloat(currentTime.toFixed(1));
       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false, currentBid: bidTime } : p));
     } else if (phase === 'countdown') {
-       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false, currentBid: 0 } : p));
+       // If releasing during countdown, deduct 0.1 seconds immediately and mark as not holding
+       // This essentially 'abandons' the auction but with a small penalty
+       const penalty = 0.1;
+       setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
+         ...p, 
+         isHolding: false, 
+         currentBid: 0, 
+         remainingTime: Math.max(0, p.remainingTime - penalty) 
+       } : p));
     }
   };
 
@@ -362,7 +370,7 @@ export default function Game() {
           >
             <h1 className="text-6xl font-display text-primary text-glow font-bold">TIME AUCTION</h1>
             <p className="text-xl text-muted-foreground">
-              You have 10 minutes. 19 Auctions.<br/>
+              You have 5 minutes. 9 Auctions.<br/>
               Bid time to win tokens.
             </p>
             <div className="grid grid-cols-2 gap-4 text-left bg-card/50 p-6 rounded border border-white/5">
@@ -372,6 +380,7 @@ export default function Game() {
                   <li>Hold button to start.</li>
                   <li>Release to bid time.</li>
                   <li>Longest time wins token.</li>
+                  <li>Early release costs 0.1s.</li>
                 </ul>
               </div>
               <div className="space-y-2 flex flex-col justify-between">
@@ -442,14 +451,16 @@ export default function Game() {
 
       case 'countdown':
         return (
-          <div className="flex flex-col items-center justify-center space-y-12 mt-10">
-             <div className="text-center space-y-2">
+          <div className="flex flex-col items-center justify-center space-y-12 mt-10 h-[400px]"> {/* Fixed height container to prevent layout shift */}
+             <div className="text-center space-y-2 h-[80px]"> {/* Fixed height for text */}
               <h2 className="text-3xl font-display text-destructive">PREPARE TO BID</h2>
-              <p className="text-muted-foreground">Release now to abandon auction</p>
+              <p className="text-muted-foreground">Release now to abandon auction (-0.1s)</p>
             </div>
             
-            <div className="text-9xl font-display font-black text-destructive animate-ping">
-              {countdown}
+            <div className="h-[144px] flex items-center justify-center"> {/* Fixed height for countdown number */}
+              <div className="text-9xl font-display font-black text-destructive animate-ping">
+                {countdown}
+              </div>
             </div>
 
             <AuctionButton 
@@ -463,11 +474,12 @@ export default function Game() {
 
       case 'bidding':
         return (
-          <div className="flex flex-col items-center justify-center space-y-12 mt-10">
-            {showDetails ? (
+          <div className="flex flex-col items-center justify-center space-y-12 mt-10 h-[400px]"> {/* Fixed height container to match countdown */}
+            {/* Logic for showing clock: If easy mode AND within first 10 seconds. */}
+            {showDetails && currentTime <= 10 ? (
               <TimerDisplay time={currentTime} isRunning={true} />
             ) : (
-              <div className="flex flex-col items-center justify-center p-8 rounded-lg glass-panel border-accent/20 bg-black/40 h-[200px] w-[300px]">
+              <div className="flex flex-col items-center justify-center p-8 rounded-lg glass-panel border-accent/20 bg-black/40 h-[200px] w-[320px]"> {/* Match TimerDisplay dimensions */}
                  <span className="text-muted-foreground text-sm tracking-[0.2em] font-display mb-4">AUCTION TIME</span>
                  <div className="text-6xl font-mono text-zinc-700 animate-pulse">??:??.?</div>
               </div>
@@ -483,6 +495,7 @@ export default function Game() {
             <div className="text-center text-sm text-muted-foreground font-mono">
               <p>Release to lock in your bid.</p>
               {!showDetails && <p className="text-xs opacity-50 mt-1">Timer is hidden in Hard Mode.</p>}
+              {showDetails && currentTime > 10 && <p className="text-xs opacity-50 mt-1">Timer hidden after 10s.</p>}
             </div>
           </div>
         );
@@ -643,11 +656,6 @@ export default function Game() {
                 isCurrentPlayer={p.id === 'p1'} 
                 showTime={showDetails || phase === 'game_end' || p.isEliminated} 
                 // Show time if: Easy Mode OR Game Over OR Player Eliminated
-                // (User said "stats are hidden until someone spends all their time and or the game is over")
-                // p.isEliminated covers "spends all their time" (assuming elimination logic)
-                // Actually my elimination logic currently is only at Game End.
-                // But if they run out of time (remainingTime <= 0), they are effectively done.
-                // Let's check remainingTime <= 0 too.
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
               />
