@@ -4,6 +4,7 @@ import { GameLayout } from "@/components/game/GameLayout";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
+import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -22,10 +23,10 @@ import { Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings,
 import { motion, AnimatePresence } from "framer-motion";
 
 // Game Constants
-const TOTAL_ROUNDS = 9; // Changed from 19 to 9
-const INITIAL_TIME = 300.0; // Changed from 10 minutes (600s) to 5 minutes (300s)
-const COUNTDOWN_SECONDS = 3; // Changed from 5 to 3
-const READY_HOLD_DURATION = 3.0; // Seconds to hold before starting
+const TOTAL_ROUNDS = 9; 
+const INITIAL_TIME = 300.0;
+const COUNTDOWN_SECONDS = 3; 
+const READY_HOLD_DURATION = 3.0; 
 
 type GamePhase = 'intro' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
@@ -50,6 +51,9 @@ export default function Game() {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [showDetails, setShowDetails] = useState(false);
   const [readyHoldTime, setReadyHoldTime] = useState(0);
+  
+  // Overlay State
+  const [overlay, setOverlay] = useState<{ type: OverlayType; message?: string; subMessage?: string } | null>(null);
   
   // Players State
   const [players, setPlayers] = useState<Player[]>([
@@ -138,6 +142,8 @@ export default function Game() {
         setCountdown((prev) => {
           if (prev <= 1) {
             // Start Auction
+            // Trigger Overlay
+            setOverlay({ type: "round_start", message: "AUCTION START" });
             setPhase('bidding');
             return 0;
           }
@@ -336,6 +342,21 @@ export default function Game() {
 
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
     
+    // Trigger Result Overlay
+    if (winnerId) {
+       setOverlay({ 
+         type: "round_win", 
+         message: `${winnerName} WINS`, 
+         subMessage: `${formatTime(winnerTime)}` 
+       });
+    } else {
+       setOverlay({ 
+         type: "round_draw", 
+         message: "NO WINNER", 
+         subMessage: "Tie or No Bids" 
+       });
+    }
+    
     // Add to log
     const logMsg = winnerId 
       ? `Round ${round}: ${winnerName} won (${formatTime(winnerTime)})` 
@@ -343,7 +364,10 @@ export default function Game() {
     setRoundLog(prev => [logMsg, ...prev]);
 
     if (round >= TOTAL_ROUNDS) {
-      setTimeout(() => setPhase('game_end'), 3000);
+      setTimeout(() => {
+        setPhase('game_end');
+        setOverlay({ type: "game_over", message: "GAME OVER" });
+      }, 3000);
     }
   };
 
@@ -413,90 +437,120 @@ export default function Game() {
 
       case 'ready':
         return (
-          <div className="flex flex-col items-center justify-center space-y-12 mt-10">
-            <div className="text-center space-y-2">
+          <div className="flex flex-col items-center justify-center h-[450px]">
+            <div className="h-[100px] flex flex-col items-center justify-center space-y-2">
               <h2 className="text-3xl font-display">ROUND {round} / {TOTAL_ROUNDS}</h2>
-              <p className="text-muted-foreground animate-pulse">All players must hold button to start</p>
-            </div>
-            
-            {/* Ready Progress Bar */}
-            {allPlayersReady && (
-              <div className="w-64 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                <motion.div 
-                   className="h-full bg-primary"
-                   style={{ width: `${(readyHoldTime / READY_HOLD_DURATION) * 100}%` }}
-                />
+              {/* Ready Progress Bar Container */}
+              <div className="h-6 flex items-center justify-center">
+                 {allPlayersReady ? (
+                    <div className="w-64 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                      <motion.div 
+                         className="h-full bg-primary"
+                         style={{ width: `${(readyHoldTime / READY_HOLD_DURATION) * 100}%` }}
+                      />
+                    </div>
+                 ) : (
+                    <p className="text-muted-foreground animate-pulse text-sm">All players must hold button to start</p>
+                 )}
               </div>
-            )}
-
-            <AuctionButton 
-              onPress={handlePress} 
-              onRelease={handleRelease} 
-              isPressed={playerIsReady}
-            />
-            
-            <div className="flex gap-2 mt-4">
-               {players.map(p => (
-                 <div key={p.id} className={cn(
-                   "w-3 h-3 rounded-full transition-colors duration-300",
-                   p.isHolding ? "bg-primary shadow-[0_0_10px_var(--color-primary)]" : "bg-zinc-800"
-                 )} title={p.name} />
-               ))}
             </div>
-            <p className="text-xs text-zinc-500 uppercase tracking-widest">
-              {players.filter(p => p.isHolding).length} / {players.length} READY
-            </p>
+            
+            <div className="h-[280px] flex items-center justify-center">
+              <AuctionButton 
+                onPress={handlePress} 
+                onRelease={handleRelease} 
+                isPressed={playerIsReady}
+              />
+            </div>
+            
+            <div className="h-[50px] flex flex-col items-center justify-start gap-2">
+                <div className="flex gap-2">
+                  {players.map(p => (
+                    <div key={p.id} className={cn(
+                      "w-3 h-3 rounded-full transition-colors duration-300",
+                      p.isHolding ? "bg-primary shadow-[0_0_10px_var(--color-primary)]" : "bg-zinc-800"
+                    )} title={p.name} />
+                  ))}
+                </div>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest">
+                  {players.filter(p => p.isHolding).length} / {players.length} READY
+                </p>
+            </div>
           </div>
         );
 
       case 'countdown':
         return (
-          <div className="flex flex-col items-center justify-center space-y-12 mt-10 h-[400px]"> {/* Fixed height container to prevent layout shift */}
-             <div className="text-center space-y-2 h-[80px]"> {/* Fixed height for text */}
+          <div className="flex flex-col items-center justify-center h-[450px]"> 
+             <div className="h-[100px] flex flex-col items-center justify-center space-y-2"> 
               <h2 className="text-3xl font-display text-destructive">PREPARE TO BID</h2>
               <p className="text-muted-foreground">Release now to abandon auction (-0.1s)</p>
             </div>
             
-            <div className="h-[144px] flex items-center justify-center"> {/* Fixed height for countdown number */}
-              <div className="text-9xl font-display font-black text-destructive animate-ping">
-                {countdown}
-              </div>
-            </div>
+            <div className="h-[280px] flex items-center justify-center relative"> 
+              {/* Countdown Number Overlaying the button area or above it? User said "button still slightly moving down". 
+                  Let's keep the button visible but disabled/static, and show countdown clearly.
+                  Actually, the user said "button moves". Keeping the layout rigid is key.
+                  I'll use fixed heights for every flex child.
+              */}
+              
+               <div className="absolute inset-0 flex items-center justify-center z-0 opacity-20">
+                  {/* Ghost button to keep layout consistent visually if needed, but we use the real button below */}
+               </div>
+               
+               <div className="z-20 text-9xl font-display font-black text-destructive animate-ping absolute pointer-events-none">
+                  {countdown}
+               </div>
 
-            <AuctionButton 
-              onPress={() => {}} 
-              onRelease={handleRelease} 
-              isPressed={players.find(p => p.id === 'p1')?.isHolding}
-              disabled={!players.find(p => p.id === 'p1')?.isHolding} 
-            />
+               <div className="z-10">
+                 <AuctionButton 
+                    onPress={() => {}} 
+                    onRelease={handleRelease} 
+                    isPressed={players.find(p => p.id === 'p1')?.isHolding}
+                    disabled={!players.find(p => p.id === 'p1')?.isHolding} 
+                  />
+               </div>
+            </div>
+            
+            <div className="h-[50px]"></div> {/* Spacer to match ready phase footer */}
           </div>
         );
 
       case 'bidding':
         return (
-          <div className="flex flex-col items-center justify-center space-y-12 mt-10 h-[400px]"> {/* Fixed height container to match countdown */}
-            {/* Logic for showing clock: If easy mode AND within first 10 seconds. */}
-            {showDetails && currentTime <= 10 ? (
-              <TimerDisplay time={currentTime} isRunning={true} />
-            ) : (
-              <div className="flex flex-col items-center justify-center p-8 rounded-lg glass-panel border-accent/20 bg-black/40 h-[200px] w-[320px]"> {/* Match TimerDisplay dimensions */}
-                 <span className="text-muted-foreground text-sm tracking-[0.2em] font-display mb-4">AUCTION TIME</span>
-                 <div className="text-6xl font-mono text-zinc-700 animate-pulse">??:??.?</div>
-              </div>
-            )}
+          <div className="flex flex-col items-center justify-center h-[450px]">
+             {/* Timer Area */}
+             <div className="h-[100px] flex items-center justify-center mb-4">
+                {showDetails && currentTime <= 10 ? (
+                  <TimerDisplay time={currentTime} isRunning={true} />
+                ) : (
+                   /* Small placeholder or just text? TimerDisplay is big. 
+                      Let's make sure this container doesn't jump. 
+                      TimerDisplay has p-8 and min-w-[320px].
+                      Let's replicate a compact version or just hide it if we want cleaner UI, but consistent layout is better.
+                   */
+                  <div className="flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]">
+                     <span className="text-muted-foreground text-xs tracking-[0.2em] font-display mb-1">AUCTION TIME</span>
+                     <div className="text-4xl font-mono text-zinc-700 animate-pulse">??:??.?</div>
+                  </div>
+                )}
+             </div>
             
-            <AuctionButton 
-              onPress={() => {}} 
-              onRelease={handleRelease} 
-              isPressed={players.find(p => p.id === 'p1')?.isHolding}
-              disabled={!players.find(p => p.id === 'p1')?.isHolding}
-            />
-            
-            <div className="text-center text-sm text-muted-foreground font-mono">
-              <p>Release to lock in your bid.</p>
-              {!showDetails && <p className="text-xs opacity-50 mt-1">Timer is hidden in Hard Mode.</p>}
-              {showDetails && currentTime > 10 && <p className="text-xs opacity-50 mt-1">Timer hidden after 10s.</p>}
+            <div className="h-[280px] flex items-center justify-center">
+              <AuctionButton 
+                onPress={() => {}} 
+                onRelease={handleRelease} 
+                isPressed={players.find(p => p.id === 'p1')?.isHolding}
+                disabled={!players.find(p => p.id === 'p1')?.isHolding}
+              />
             </div>
+            
+             <div className="h-[50px] flex flex-col items-center justify-start">
+               <div className="text-center text-sm text-muted-foreground font-mono">
+                <p>Release to lock in your bid.</p>
+                {/* {!showDetails && <p className="text-xs opacity-50 mt-1">Timer is hidden in Hard Mode.</p>} */}
+              </div>
+             </div>
           </div>
         );
 
@@ -505,7 +559,7 @@ export default function Game() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center justify-center space-y-8 mt-10 max-w-md mx-auto"
+            className="flex flex-col items-center justify-center space-y-8 mt-10 max-w-md mx-auto h-[450px]"
           >
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-display text-muted-foreground">ROUND {round} RESULTS</h2>
@@ -534,12 +588,8 @@ export default function Game() {
                 .filter(p => p.currentBid !== null && p.currentBid > 0)
                 .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0))
                 .filter(p => {
-                  // Hard Mode Visibility Logic:
-                  // Show ONLY the winner. Hide everyone else.
-                  // Unless game over (handled by game_end phase) or we are in Easy Mode.
-                  if (showDetails) return true; // Easy mode: Show all
-                  if (!roundWinner) return true; // No winner? Show all (or maybe show none? Let's show all to explain why no winner)
-                  // Actually, prompt says: "In hard mode, you should only see the amount of time the winner spent in the round, all other stats are hidden"
+                  if (showDetails) return true; 
+                  if (!roundWinner) return true; 
                   return p.name === roundWinner.name; 
                 })
                 .map(p => (
@@ -573,7 +623,7 @@ export default function Game() {
         const loser = sortedPlayers[sortedPlayers.length - 1];
 
         return (
-          <div className="flex flex-col items-center justify-center space-y-8 mt-10">
+          <div className="flex flex-col items-center justify-center space-y-8 mt-10 h-[450px]">
             <h1 className="text-5xl font-display font-bold text-white">GAME OVER</h1>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
@@ -610,6 +660,13 @@ export default function Game() {
 
   return (
     <GameLayout>
+      <GameOverlay 
+        type={overlay?.type || null} 
+        message={overlay?.message} 
+        subMessage={overlay?.subMessage} 
+        onComplete={() => setOverlay(null)} 
+      />
+
       {/* Header Info */}
       <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
         <div className="flex items-center gap-2">
