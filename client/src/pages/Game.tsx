@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast"; // Added toast hook
 import { GameLayout } from "@/components/game/GameLayout";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
@@ -190,6 +191,7 @@ const CHARACTERS: Character[] = [
 ];
 
 export default function Game() {
+  const { toast } = useToast();
   // Game State
   const [phase, setPhase] = useState<GamePhase>('intro');
   const [round, setRound] = useState(1);
@@ -617,46 +619,56 @@ export default function Game() {
 
     // Update stats logic here (tokens, time subtraction)
     let playersOut: string[] = [];
-    let abilityTriggered = false;
-    let abilityMsg = "";
+    
+    // Track abilities triggered this round for notifications
+    const activeAbilities: { player: string, ability: string, effect: string }[] = [];
 
     const updatedPlayers = players.map(p => {
       let newTime = p.remainingTime;
       let newTokens = p.tokens;
       
       // --- ABILITY EFFECTS (Passive / Triggered on Result) ---
-      if (abilitiesEnabled && !p.isBot && p.id === 'p1' && selectedCharacter?.ability) {
-        const ability = selectedCharacter.ability;
-        let triggered = false;
-        
-        // TIME REFUNDS
-        if (ability.effect === 'TIME_REFUND') {
-            if (ability.name === 'SPIRIT SHIELD' && p.id !== winnerId) { newTime += 1.0; triggered = true; }
-            if (ability.name === 'CYRO FREEZE') { newTime += 0.5; triggered = true; }
-            if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 1.5; triggered = true; }
-            if (ability.name === 'PAY DAY' && p.id === winnerId) { newTime += 0.5; triggered = true; }
-            if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) < 0.5) { newTime += 2.0; triggered = true; }
-            if (ability.name === 'JAWLINE') { newTime += 1.0; triggered = true; }
-            if (ability.name === 'PANIC MASH') { newTime += (Math.random() > 0.5 ? 1.0 : -1.0); triggered = true; }
-            if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 10) { newTime += 2.0; triggered = true; }
+      if (abilitiesEnabled && !p.isEliminated) {
+        // Find ability for this player (User or Bot)
+        // User: selectedCharacter
+        // Bot: We need to find their character from CHARACTERS based on name/icon or if we stored it
+        // Simpler: We initialized bots with names = char.name. So we can look up by name.
+        const character = p.isBot 
+           ? CHARACTERS.find(c => c.name === p.name) 
+           : selectedCharacter;
+           
+        if (character?.ability) {
+            const ability = character.ability;
+            let triggered = false;
+            
+            // TIME REFUNDS
+            if (ability.effect === 'TIME_REFUND') {
+                if (ability.name === 'SPIRIT SHIELD' && p.id !== winnerId) { newTime += 1.0; triggered = true; }
+                if (ability.name === 'CYRO FREEZE') { newTime += 0.5; triggered = true; }
+                if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 1.5; triggered = true; }
+                if (ability.name === 'PAY DAY' && p.id === winnerId) { newTime += 0.5; triggered = true; }
+                if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) < 0.5) { newTime += 2.0; triggered = true; }
+                if (ability.name === 'JAWLINE') { newTime += 1.0; triggered = true; }
+                if (ability.name === 'PANIC MASH') { newTime += (Math.random() > 0.5 ? 1.0 : -1.0); triggered = true; }
+                if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 10) { newTime += 2.0; triggered = true; }
+            }
+            
+            // TOKEN BOOSTS
+            if (ability.effect === 'TOKEN_BOOST' && p.id === winnerId) {
+                if (ability.name === 'HYPER CLICK' && (p.currentBid || 0) < winnerTime + 1.0) { newTokens += 1; triggered = true; }
+                if (ability.name === 'TO THE MOON' && (p.currentBid || 0) > 30) { newTokens += 1; triggered = true; } 
+                if (ability.name === 'DIVIDEND' && round % 3 === 0) { newTokens += 1; triggered = true; }
+            }
+            
+            // DISRUPT (Applied to enemies logic would go here, simplified as refund to self for now or handled in separate loop)
+             if (ability.effect === 'DISRUPT' && playerAbilityUsed && p.id === 'p1') {
+                 // Logic handled at button press time for active abilities, or here for result based
+             }
+    
+             if (triggered) {
+                 activeAbilities.push({ player: p.name, ability: ability.name, effect: ability.effect });
+             }
         }
-        
-        // TOKEN BOOSTS
-        if (ability.effect === 'TOKEN_BOOST' && p.id === winnerId) {
-            if (ability.name === 'HYPER CLICK' && (p.currentBid || 0) < winnerTime + 1.0) { newTokens += 1; triggered = true; }
-            if (ability.name === 'TO THE MOON' && (p.currentBid || 0) > 30) { newTokens += 1; triggered = true; } 
-            if (ability.name === 'DIVIDEND' && round % 3 === 0) { newTokens += 1; triggered = true; }
-        }
-        
-        // DISRUPT (Applied to enemies logic would go here, simplified as refund to self for now or handled in separate loop)
-         if (ability.effect === 'DISRUPT' && playerAbilityUsed) {
-             // Logic handled at button press time for active abilities, or here for result based
-         }
-
-         if (triggered) {
-             abilityTriggered = true;
-             abilityMsg = `${ability.name} ACTIVATED`;
-         }
       }
 
       if (p.currentBid !== null && p.currentBid > 0) {
@@ -762,11 +774,20 @@ export default function Game() {
       subMessage: overlaySub 
     });
 
-    if (abilityTriggered) {
-        // Queue ability popup slightly after result popup
+    // Notify all activated abilities
+    if (activeAbilities.length > 0) {
         setTimeout(() => {
-            setOverlay({ type: 'ability_trigger', message: abilityMsg, subMessage: 'Limit Break Activated!' });
-        }, 2000);
+            activeAbilities.forEach((ability, index) => {
+                setTimeout(() => {
+                   toast({
+                     title: `${ability.player}: LIMIT BREAK`,
+                     description: `${ability.ability} ACTIVATED!`,
+                     className: "bg-blue-950 border-blue-500 text-blue-100",
+                     duration: 4000,
+                   });
+                }, index * 800); // Stagger them slightly
+            });
+        }, 1500);
     }
     
     // Add to log

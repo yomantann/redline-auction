@@ -63,7 +63,7 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
           {isWaiting ? "BID LOCKED" : isPressed ? "HOLDING" : "PRESS"}
         </span>
         <span className="text-xs text-zinc-600 font-mono mt-2 uppercase tracking-wider">
-          {isWaiting ? "Waiting for others..." : isPressed ? "Release to Bid" : "Hold to Ready"}
+          {isWaiting ? "Waiting for others..." : isPressed ? "" : "Hold to Ready"}
         </span>
       </button>
 
