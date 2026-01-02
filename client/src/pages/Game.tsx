@@ -93,29 +93,94 @@ interface Character {
   image: string; // Changed from icon to image
   description: string;
   color: string;
+  ability?: {
+    name: string;
+    description: string;
+    effect: 'TIME_REFUND' | 'TOKEN_BOOST' | 'DISRUPT' | 'PEEK';
+  };
 }
 
 const CHARACTERS: Character[] = [
-  { id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400' },
-  { id: 'popcat', name: 'Click-Click', title: 'The Glitch', image: charPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400' },
-  { id: 'winter', name: 'Frost Protocol', title: 'The Disciplined', image: charWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400' },
-  { id: 'doge', name: 'Shiba Prime', title: 'The Moonwalker', image: charDoge, description: 'Chaotic luck and high variance.', color: 'text-yellow-400' },
-  { id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, description: 'Feels bad, plays smart.', color: 'text-green-500' },
-  { id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400' },
-  { id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, description: 'Loud and disruptive tactics.', color: 'text-red-400' },
-  { id: 'fine', name: 'Inferno Calm', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500' },
-  { id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, description: 'Always looking for a better deal.', color: 'text-blue-400' },
-  { id: 'stonks', name: 'Market Maker', title: 'The Strategist', image: charStonks, description: 'Stonks only go up.', color: 'text-emerald-400' },
-  { id: 'floyd', name: 'Money May', title: 'The Champion', image: charFloyd, description: 'Undefeated in financial combat.', color: 'text-yellow-500' },
-  { id: 'rat', name: 'Rat King', title: 'The Scavenger', image: charRat, description: 'Sneaky tactics and hidden cheese.', color: 'text-gray-500' },
-  { id: 'baldwin', name: 'Leper King', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500' },
-  { id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500' },
-  { id: 'gigachad', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300' },
-  { id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400' },
-  { id: 'disaster', name: 'Pyro Girl', title: 'The Anarchist', image: charDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600' },
-  { id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, description: 'Always sweating the big decisions.', color: 'text-red-400' },
-  { id: 'pepesilvia', name: 'Conspiracy', title: 'The Seeker', image: charPepeSilvia, description: 'Connecting dots that do not exist.', color: 'text-amber-600' },
-  { id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, description: 'Smiling through the bear market.', color: 'text-slate-400' },
+  { 
+    id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    ability: { name: 'SPIRIT SHIELD', description: 'Get 1.0s refund if you lose the round.', effect: 'TIME_REFUND' }
+  },
+  { 
+    id: 'popcat', name: 'Click-Click', title: 'The Glitch', image: charPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
+    ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win by < 1s.', effect: 'TOKEN_BOOST' }
+  },
+  { 
+    id: 'winter', name: 'Frost Protocol', title: 'The Disciplined', image: charWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    ability: { name: 'CYRO FREEZE', description: 'Refund 0.5s regardless of outcome.', effect: 'TIME_REFUND' }
+  },
+  { 
+    id: 'doge', name: 'Shiba Prime', title: 'The Moonwalker', image: charDoge, description: 'Chaotic luck and high variance.', color: 'text-yellow-400',
+    ability: { name: 'TO THE MOON', description: 'Double tokens if you win with > 30s bid.', effect: 'TOKEN_BOOST' }
+  },
+  { 
+    id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    ability: { name: 'SAD REVEAL', description: 'See if opponents are holding.', effect: 'PEEK' }
+  },
+  { 
+    id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    ability: { name: 'RAINBOW RUN', description: 'Get 1.5s refund if you bid > 40s.', effect: 'TIME_REFUND' }
+  },
+  { 
+    id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, description: 'Loud and disruptive tactics.', color: 'text-red-400',
+    ability: { name: 'MANAGER CALL', description: 'Remove 1s from random opponent.', effect: 'DISRUPT' }
+  },
+  { 
+    id: 'fine', name: 'Inferno Calm', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    ability: { name: 'FIRE WALL', description: 'Immune to disruption.', effect: 'TIME_REFUND' }
+  },
+  { 
+    id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
+    ability: { name: 'SNEAK PEEK', description: 'See who is still holding.', effect: 'PEEK' }
+  },
+  { 
+    id: 'stonks', name: 'Market Maker', title: 'The Strategist', image: charStonks, description: 'Stonks only go up.', color: 'text-emerald-400',
+    ability: { name: 'DIVIDEND', description: 'Gain +1 token every 3rd win.', effect: 'TOKEN_BOOST' }
+  },
+  { 
+    id: 'floyd', name: 'Money May', title: 'The Champion', image: charFloyd, description: 'Undefeated in financial combat.', color: 'text-yellow-500',
+    ability: { name: 'PAY DAY', description: 'Get 0.5s refund on every win.', effect: 'TIME_REFUND' }
+  },
+  { 
+    id: 'rat', name: 'Rat King', title: 'The Scavenger', image: charRat, description: 'Sneaky tactics and hidden cheese.', color: 'text-gray-500',
+    ability: { name: 'CHEESE TAX', description: 'Steal 1s from winner if you lose.', effect: 'DISRUPT' }
+  },
+  { 
+    id: 'baldwin', name: 'Leper King', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
+    ability: { name: 'ROYAL DECREE', description: 'Get 2s refund if you bid exactly 20s.', effect: 'TIME_REFUND' }
+  },
+  { 
+    id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    ability: { name: 'AXE SWING', description: 'Remove 2s from opponent with most time.', effect: 'DISRUPT' }
+  },
+  { 
+    id: 'gigachad', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
+    ability: { name: 'JAWLINE', description: 'Ignore first 1s of every bid.', effect: 'TIME_REFUND' }
+  },
+  { 
+    id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    ability: { name: 'SMART PLAY', description: 'See active bot count.', effect: 'PEEK' }
+  },
+  { 
+    id: 'disaster', name: 'Pyro Girl', title: 'The Anarchist', image: charDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    ability: { name: 'BURN IT', description: 'Remove 0.5s from everyone else.', effect: 'DISRUPT' }
+  },
+  { 
+    id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, description: 'Always sweating the big decisions.', color: 'text-red-400',
+    ability: { name: 'PANIC MASH', description: '50% chance +1s refund, 50% -1s penalty.', effect: 'TIME_REFUND' }
+  },
+  { 
+    id: 'pepesilvia', name: 'Conspiracy', title: 'The Seeker', image: charPepeSilvia, description: 'Connecting dots that do not exist.', color: 'text-amber-600',
+    ability: { name: 'RED STRING', description: 'See random opponent bid.', effect: 'PEEK' }
+  },
+  { 
+    id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, description: 'Smiling through the bear market.', color: 'text-slate-400',
+    ability: { name: 'HIDE PAIN', description: 'Get 2s refund if you lose by > 10s.', effect: 'TIME_REFUND' }
+  },
 ];
 
 export default function Game() {
@@ -130,6 +195,8 @@ export default function Game() {
   const [readyHoldTime, setReadyHoldTime] = useState(0);
   const [moleTarget, setMoleTarget] = useState<string | null>(null);
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
+  const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
+  const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
   
   // Overlay State
   const [overlay, setOverlay] = useState<{ type: OverlayType; message?: string; subMessage?: string } | null>(null);
@@ -524,6 +591,35 @@ export default function Game() {
       let newTime = p.remainingTime;
       let newTokens = p.tokens;
       
+      // --- ABILITY EFFECTS (Passive / Triggered on Result) ---
+      if (abilitiesEnabled && !p.isBot && p.id === 'p1' && selectedCharacter?.ability) {
+        const ability = selectedCharacter.ability;
+        
+        // TIME REFUNDS
+        if (ability.effect === 'TIME_REFUND') {
+            if (ability.name === 'SPIRIT SHIELD' && p.id !== winnerId) newTime += 1.0;
+            if (ability.name === 'CYRO FREEZE') newTime += 0.5;
+            if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) newTime += 1.5;
+            if (ability.name === 'PAY DAY' && p.id === winnerId) newTime += 0.5;
+            if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) < 0.5) newTime += 2.0;
+            if (ability.name === 'JAWLINE') newTime += 1.0; 
+            if (ability.name === 'PANIC MASH') newTime += (Math.random() > 0.5 ? 1.0 : -1.0);
+            if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 10) newTime += 2.0;
+        }
+        
+        // TOKEN BOOSTS
+        if (ability.effect === 'TOKEN_BOOST' && p.id === winnerId) {
+            if (ability.name === 'HYPER CLICK' && (p.currentBid || 0) < winnerTime + 1.0) newTokens += 1;
+            if (ability.name === 'TO THE MOON' && (p.currentBid || 0) > 30) newTokens += 1; // Double means +1 on top of +1
+            if (ability.name === 'DIVIDEND' && round % 3 === 0) newTokens += 1;
+        }
+        
+        // DISRUPT (Applied to enemies logic would go here, simplified as refund to self for now or handled in separate loop)
+         if (ability.effect === 'DISRUPT' && playerAbilityUsed) {
+             // Logic handled at button press time for active abilities, or here for result based
+         }
+      }
+
       if (p.currentBid !== null && p.currentBid > 0) {
         // If THE_MOLE and this player is the mole, do NOT subtract time
         if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
@@ -648,6 +744,7 @@ export default function Game() {
       setPhase('ready');
       setPlayers(prev => prev.map(p => ({ ...p, isHolding: false, currentBid: null })));
       setReadyHoldTime(0);
+      setPlayerAbilityUsed(false); // Reset ability usage
     }
   };
 
@@ -741,6 +838,19 @@ export default function Game() {
                   Protocols
                 </Label>
               </div>
+              <Separator orientation="vertical" className="h-6 bg-white/10" />
+              <div className="flex items-center gap-2">
+                <Switch 
+                  id="abilities-intro" 
+                  checked={abilitiesEnabled} 
+                  onCheckedChange={setAbilitiesEnabled} 
+                  className="data-[state=checked]:bg-blue-500"
+                />
+                <Label htmlFor="abilities-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
+                  <Zap size={14} className={abilitiesEnabled ? "text-blue-400" : "text-muted-foreground"}/>
+                  LIMIT BREAK
+                </Label>
+              </div>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
@@ -832,6 +942,15 @@ export default function Game() {
                   <h3 className="font-bold text-white mb-1">{char.name}</h3>
                   <p className="text-xs text-primary/80 uppercase tracking-wider mb-2 font-display">{char.title}</p>
                   <p className="text-xs text-zinc-500 leading-tight line-clamp-2">{char.description}</p>
+                  
+                  {char.ability && (
+                    <div className="mt-3 pt-3 border-t border-white/5 w-full">
+                       <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">
+                          <Zap size={10} fill="currentColor" /> {char.ability.name}
+                       </div>
+                       <p className="text-[10px] text-zinc-400 leading-tight">{char.ability.description}</p>
+                    </div>
+                  )}
                 </motion.button>
               ))}
             </div>
@@ -1125,6 +1244,21 @@ export default function Game() {
                 <button onClick={() => setShowProtocolGuide(true)} className="text-zinc-500 hover:text-white transition-colors ml-1" title="Protocol Guide">
                    <BookOpen size={14} />
                 </button>
+             </div>
+
+             <Separator orientation="vertical" className="h-4 bg-white/10" />
+
+             <div className="flex items-center gap-2">
+                <Switch 
+                  id="abilities" 
+                  checked={abilitiesEnabled} 
+                  onCheckedChange={setAbilitiesEnabled} 
+                  className="data-[state=checked]:bg-blue-500 scale-75 origin-right"
+                />
+                <Label htmlFor="abilities" className={cn("text-sm cursor-pointer flex items-center gap-1", abilitiesEnabled ? "text-blue-400" : "text-zinc-400")}>
+                  <Zap size={12}/>
+                  LIMIT BREAK
+                </Label>
              </div>
           </div>
           <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5">
