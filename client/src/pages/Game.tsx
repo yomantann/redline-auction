@@ -415,16 +415,6 @@ export default function Game() {
        overlaySub = "Tie or No Bids";
     }
 
-    // Secondary Overlays (Check losers for specific achievements)
-    // "Bad Judgment": Losing player bid > 30s.
-    // "Undercut": 2nd place.
-    // "Zero Bid": Bid ~0.
-    // Since we can only show one overlay at a time easily with this system, 
-    // we prioritize the WINNER's achievement or ELIMINATION.
-    // However, if we want to show 'Bad Judgment' for a loser, we might need a queue or just random priority.
-    // Let's stick to the Winner priority for now unless a "Bad Judgment" is truly egregious (>60s loss?).
-    // Or if there is NO winner, maybe check for Funny Message (Zero Bid).
-    
     if (!winnerId && participants.length === 0) {
        // Everyone zero bid / abandoned?
        overlayType = "zero_bid";
@@ -463,7 +453,11 @@ export default function Game() {
   };
 
   const playerIsReady = players.find(p => p.id === 'p1')?.isHolding;
+  const playerBid = players.find(p => p.id === 'p1')?.currentBid;
   const allPlayersReady = players.every(p => p.isHolding);
+
+  // New logic for 'waiting' state
+  const isWaiting = phase === 'bidding' && playerBid !== null && playerBid > 0;
 
   // Render Helpers
   const renderPhaseContent = () => {
@@ -612,6 +606,7 @@ export default function Game() {
                 onRelease={handleRelease} 
                 isPressed={players.find(p => p.id === 'p1')?.isHolding}
                 disabled={!players.find(p => p.id === 'p1')?.isHolding}
+                isWaiting={isWaiting} // Pass waiting state
               />
             </div>
             

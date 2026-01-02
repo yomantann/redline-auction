@@ -35,7 +35,7 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
       const timer = setTimeout(() => {
         setIsVisible(false);
         if (onComplete) setTimeout(onComplete, 300); // Faster exit
-      }, 1000); // 1 Second Duration
+      }, 2000); // 2 Seconds Duration
       return () => clearTimeout(timer);
     }
   }, [type, onComplete]);
@@ -93,8 +93,6 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
     }
   };
 
-  // Position: "well below the bid button". 
-  // We'll use absolute positioning from the bottom of the screen to ensure it's below the center area.
   return (
     <AnimatePresence>
       {isVisible && type && (
