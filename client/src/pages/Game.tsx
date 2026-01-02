@@ -204,6 +204,13 @@ export default function Game() {
   const [readyHoldTime, setReadyHoldTime] = useState(0);
   const [moleTarget, setMoleTarget] = useState<string | null>(null);
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
+  const [showProtocolSelect, setShowProtocolSelect] = useState(false);
+  const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
+        'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
+        'OPEN_HAND', 'NOISE_CANCEL', 'MUTE_PROTOCOL', 
+        'PRIVATE_CHANNEL', 'NO_LOOK', 'LOCK_ON', 
+        'THE_MOLE', 'PANIC_ROOM'
+  ]);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
   const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
   
@@ -509,14 +516,8 @@ export default function Game() {
   // Start Round Logic
   const startCountdown = () => {
     // Check for Protocol Trigger (35% chance if enabled)
-    if (protocolsEnabled && Math.random() > 0.65) {
-      const protocols: ProtocolType[] = [
-        'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
-        'OPEN_HAND', 'NOISE_CANCEL', 'MUTE_PROTOCOL', 
-        'PRIVATE_CHANNEL', 'NO_LOOK', 'LOCK_ON', 
-        'THE_MOLE', 'PANIC_ROOM'
-      ];
-      const newProtocol = protocols[Math.floor(Math.random() * protocols.length)];
+    if (protocolsEnabled && allowedProtocols.length > 0 && Math.random() > 0.65) {
+      const newProtocol = allowedProtocols[Math.floor(Math.random() * allowedProtocols.length)];
       setActiveProtocol(newProtocol);
       
       let msg = "PROTOCOL INITIATED";
@@ -667,7 +668,7 @@ export default function Game() {
     let playersOut: string[] = [];
     
     // Track abilities triggered this round for notifications
-    const activeAbilities: { player: string, ability: string, effect: string, details?: string }[] = [];
+    const activeAbilities: { player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string }[] = [];
 
     const updatedPlayers = players.map(p => {
       let newTime = p.remainingTime;
@@ -686,6 +687,8 @@ export default function Game() {
         if (character?.ability) {
             const ability = character.ability;
             let triggered = false;
+            let targetName = "";
+            let targetId = "";
             
             // TIME REFUNDS
             if (ability.effect === 'TIME_REFUND') {
@@ -715,68 +718,46 @@ export default function Game() {
                  // "BURN IT": Remove 0.5s from everyone else
                  
                  // We need to identify WHO was impacted to notify the caster.
-                 let impacted = "";
                  
                  if (ability.name === 'MANAGER CALL') {
                      // Find random opponent (not me, not eliminated)
                      const validTargets = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated);
                      if (validTargets.length > 0) {
                          const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-                         impacted = target.name;
+                         targetName = target.name;
+                         targetId = target.id;
                      }
                  } else if (ability.name === 'AXE SWING') {
                      // Most time remaining (excluding me)
                      const validTargets = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated);
                      if (validTargets.length > 0) {
                         const target = validTargets.reduce((prev, current) => (prev.remainingTime > current.remainingTime) ? prev : current);
-                        impacted = target.name;
+                        targetName = target.name;
+                        targetId = target.id;
                      }
                  } else if (ability.name === 'CHEESE TAX') {
                      if (winnerId && winnerId !== 'p1') {
-                         impacted = winnerName || "Winner";
+                         targetName = winnerName || "Winner";
+                         targetId = winnerId;
                      }
                  } else if (ability.name === 'BURN IT') {
-                     impacted = "ALL OPPONENTS";
+                     targetName = "ALL OPPONENTS";
                  }
                  
-                 if (impacted) {
-                     triggered = true; // Mark as triggered so we get the notification
-                     // We can repurpose the effect string or add a property to show target
-                     // Or just bake it into the message we push?
-                     // activeAbilities stores { player, ability, effect }
-                     // We need a way to pass the "Impacted: X" info.
-                     // I'll modify activeAbilities structure slightly or append it to effect.
+                 if (targetName) {
+                     triggered = true; 
                  }
-                 
-                 // Note: We aren't actually *applying* the disrupt effect here because this is inside the loop determining notifications/stats
-                 // But wait, `updatedPlayers` loop *is* where we apply effects?
-                 // Currently DISRUPT logic was empty placeholders.
-                 // To properly apply DISRUPT effects to *other* players, we need to do it *outside* this map, or do a second pass?
-                 // Or `players.map` is creating new state. We can't easily modify *other* players while iterating `p`.
-                 // So DISRUPT effects should be calculated beforehand or in a separate pass.
-                 // However, for this task "If a limit break impacts another player, the player that cast it should know who was impacted", 
-                 // I need to enable the notification first.
-                 
-                 // IMPORTANT: The actual logic to deduct time from others is missing in the previous code block for DISRUPT.
-                 // I will add a logic block *before* `updatedPlayers` to calculate disruptions if I want them to be real.
-                 // For now, I will simulate the *notification* of who would be hit, as requested.
              }
     
              if (triggered) {
-                 // If it was a disrupt ability, find out who was hit (re-run logic or capture it)
-                 let extraInfo = "";
-                 if (ability.effect === 'DISRUPT') {
-                     if (ability.name === 'MANAGER CALL') {
-                         const validTargets = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated);
-                         if (validTargets.length > 0) extraInfo = ` on ${validTargets[Math.floor(Math.random() * validTargets.length)].name}`;
-                     } else if (ability.name === 'AXE SWING') {
-                         const validTargets = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated);
-                         if (validTargets.length > 0) extraInfo = ` on ${validTargets.reduce((prev, current) => (prev.remainingTime > current.remainingTime) ? prev : current).name}`;
-                     } else if (ability.name === 'BURN IT') extraInfo = " on EVERYONE";
-                     else if (ability.name === 'CHEESE TAX' && winnerId && winnerId !== 'p1') extraInfo = ` on ${winnerName}`;
-                 }
-                 
-                 activeAbilities.push({ player: p.name, ability: ability.name, effect: ability.effect, details: extraInfo });
+                 activeAbilities.push({ 
+                     player: p.name, 
+                     playerId: p.id,
+                     ability: ability.name, 
+                     effect: ability.effect, 
+                     targetName,
+                     targetId 
+                 });
              }
         }
       }
@@ -887,17 +868,46 @@ export default function Game() {
     // Notify all activated abilities
     if (activeAbilities.length > 0) {
         setTimeout(() => {
-            activeAbilities.forEach((ability, index) => {
-                setTimeout(() => {
+            activeAbilities.forEach((ability) => {
+               let show = false;
+               let title = `${ability.player}: LIMIT BREAK`;
+               let desc = `${ability.ability} ACTIVATED`;
+               let variant = "default"; // blue/normal
+
+               // Case 1: I cast it
+               if (ability.playerId === 'p1') {
+                   show = true;
+                   if (ability.targetName) {
+                       desc += ` on ${ability.targetName}`;
+                   }
+               } 
+               // Case 2: I was hit
+               else if (ability.targetId === 'p1') {
+                   show = true;
+                   title = `WARNING: ${ability.player}`;
+                   desc = `${ability.ability} HIT YOU!`;
+                   variant = "destructive";
+               } 
+               // Case 3: Global effect hitting everyone (including me)
+               else if (ability.targetName === 'ALL OPPONENTS') {
+                   show = true;
+                   title = `WARNING: ${ability.player}`;
+                   desc = `${ability.ability} HIT EVERYONE!`;
+                   variant = "destructive";
+               }
+
+               if (show) {
                    toast({
-                     title: `${ability.player}: LIMIT BREAK`,
-                     description: `${ability.ability} ACTIVATED${ability.details || ''}!`,
-                     className: "bg-blue-950 border-blue-500 text-blue-100",
-                     duration: 4000,
+                     title: title,
+                     description: desc,
+                     className: variant === "destructive"
+                        ? "bg-red-950 border-red-500 text-red-100" 
+                        : "bg-blue-950 border-blue-500 text-blue-100",
+                     duration: 6000, 
                    });
-                }, index * 800); // Stagger them slightly
+               }
             });
-        }, 1500);
+        }, 500); 
     }
     
     // Add to log
@@ -982,6 +992,56 @@ export default function Game() {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center space-y-8 text-center max-w-2xl mx-auto mt-20"
           >
+            {/* Protocol Selection Dialog */}
+            <Dialog open={showProtocolSelect} onOpenChange={setShowProtocolSelect}>
+                <DialogContent className="bg-zinc-950 border-white/10 max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-destructive font-display tracking-widest">PROTOCOL CONFIGURATION</DialogTitle>
+                        <DialogDescription>
+                            Select allowed protocols for this session.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                        {[
+                            { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
+                            { id: 'DOUBLE_STAKES', label: 'HIGH STAKES', desc: 'Double tokens for winner' },
+                            { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD Glitches & Scramble' },
+                            { id: 'OPEN_HAND', label: 'OPEN HAND', desc: 'Player forced to reveal plan' },
+                            { id: 'NOISE_CANCEL', label: 'NOISE CANCEL', desc: 'Player forced to make noise' },
+                            { id: 'MUTE_PROTOCOL', label: 'SILENCE ENFORCED', desc: 'Silence required' },
+                            { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
+                            { id: 'NO_LOOK', label: 'BLIND BIDDING', desc: 'Cannot look at screen' },
+                            { id: 'LOCK_ON', label: 'LOCK ON', desc: 'Eye contact required' },
+                            { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
+                            { id: 'PANIC_ROOM', label: 'PANIC ROOM', desc: '2x Speed' },
+                        ].map((p) => (
+                            <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-zinc-900/50 border border-white/5">
+                                <Switch 
+                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                    onCheckedChange={(checked) => {
+                                        setAllowedProtocols(prev => 
+                                            checked 
+                                            ? [...prev, p.id as ProtocolType]
+                                            : prev.filter(id => id !== p.id)
+                                        );
+                                    }}
+                                />
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-bold text-zinc-200">{p.label}</h4>
+                                    <p className="text-xs text-zinc-500">{p.desc}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <div className="text-xs text-zinc-500 w-full text-left pt-2">
+                            {allowedProtocols.length} selected
+                        </div>
+                        <Button variant="outline" onClick={() => setShowProtocolSelect(false)}>Done</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <h1 className="text-6xl font-display text-primary text-glow font-bold">REDLINE AUCTION</h1>
             <p className="text-xl text-muted-foreground">
               Bid time to win tokens.<br/>
@@ -1030,16 +1090,27 @@ export default function Game() {
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
                 
                 <div className="flex items-center gap-2">
-                  <Switch 
-                    id="protocols-intro" 
-                    checked={protocolsEnabled} 
-                    onCheckedChange={setProtocolsEnabled} 
-                    className="data-[state=checked]:bg-destructive"
-                  />
-                  <Label htmlFor="protocols-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
-                    <AlertTriangle size={14} className={protocolsEnabled ? "text-destructive" : "text-muted-foreground"}/>
-                    Protocols
-                  </Label>
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                        id="protocols-intro" 
+                        checked={protocolsEnabled} 
+                        onCheckedChange={setProtocolsEnabled} 
+                        className="data-[state=checked]:bg-destructive"
+                    />
+                    <Label htmlFor="protocols-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
+                        <AlertTriangle size={14} className={protocolsEnabled ? "text-destructive" : "text-muted-foreground"}/>
+                        Protocols
+                    </Label>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-zinc-400 hover:text-white"
+                    disabled={!protocolsEnabled}
+                    onClick={() => setShowProtocolSelect(true)}
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
                 </div>
 
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
