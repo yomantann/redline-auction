@@ -20,7 +20,10 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff } from "lucide-react";
+import { 
+  Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
+  Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Game Constants
@@ -29,7 +32,7 @@ const INITIAL_TIME = 300.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
+type GamePhase = 'intro' | 'character_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
 
 interface Player {
@@ -42,7 +45,30 @@ interface Player {
   currentBid: number | null; // null means still holding or hasn't bid
   isHolding: boolean;
   personality?: BotPersonality;
+  characterIcon?: React.ReactNode;
 }
+
+interface Character {
+  id: string;
+  name: string;
+  title: string;
+  icon: React.ReactNode;
+  description: string;
+  color: string;
+}
+
+const CHARACTERS: Character[] = [
+  { id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', icon: <Shield size={32} />, description: 'Stoic protection against bad bids.', color: 'text-zinc-400' },
+  { id: 'popcat', name: 'Click-Click', title: 'The Glitch', icon: <MousePointer2 size={32} />, description: 'Hyperactive timing precision.', color: 'text-pink-400' },
+  { id: 'winter', name: 'Frost Protocol', title: 'The Disciplined', icon: <Snowflake size={32} />, description: 'Cold, calculated efficiency.', color: 'text-cyan-400' },
+  { id: 'doge', name: 'Shiba Prime', title: 'The Moonwalker', icon: <Rocket size={32} />, description: 'Chaotic luck and high variance.', color: 'text-yellow-400' },
+  { id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', icon: <Brain size={32} />, description: 'Feels bad, plays smart.', color: 'text-green-500' },
+  { id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', icon: <Zap size={32} />, description: 'Neon trails and fast reactions.', color: 'text-purple-400' },
+  { id: 'karen', name: 'The Accuser', title: 'The Aggressor', icon: <Megaphone size={32} />, description: 'Loud and disruptive tactics.', color: 'text-red-400' },
+  { id: 'fine', name: 'Inferno Calm', title: 'The Survivor', icon: <Flame size={32} />, description: 'Perfectly chill in chaos.', color: 'text-orange-500' },
+  { id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', icon: <Eye size={32} />, description: 'Always looking for a better deal.', color: 'text-blue-400' },
+  { id: 'stonks', name: 'Market Maker', title: 'The Strategist', icon: <TrendingUp size={32} />, description: 'Stonks only go up.', color: 'text-emerald-400' },
+];
 
 export default function Game() {
   // Game State
@@ -63,6 +89,8 @@ export default function Game() {
     { id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative' },
     { id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random' },
   ]);
+
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
 
   const [roundWinner, setRoundWinner] = useState<{ name: string; time: number } | null>(null);
   const [roundLog, setRoundLog] = useState<string[]>([]);
@@ -453,8 +481,19 @@ export default function Game() {
     }
   };
 
+  const selectCharacter = (char: Character) => {
+    setSelectedCharacter(char);
+    setPlayers(prev => prev.map(p => {
+      if (p.id === 'p1') {
+        return { ...p, name: char.name, characterIcon: char.icon };
+      }
+      return p;
+    }));
+    setPhase('ready');
+  };
+
   const playerIsReady = players.find(p => p.id === 'p1')?.isHolding;
-  const playerBid = players.find(p => p.id === 'p1')?.currentBid;
+  const playerBid = players.find(p => p.id === 'p1')?.currentBid ?? null;
   const allPlayersReady = players.every(p => p.isHolding);
 
   // New logic for 'waiting' state
@@ -469,7 +508,7 @@ export default function Game() {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center space-y-8 text-center max-w-2xl mx-auto mt-20"
           >
-            <h1 className="text-6xl font-display text-primary text-glow font-bold">TIME AUCTION</h1>
+            <h1 className="text-6xl font-display text-primary text-glow font-bold">REDLINE AUCTION</h1>
             <p className="text-xl text-muted-foreground">
               You have 5 minutes. 9 Auctions.<br/>
               Bid time to win tokens.
@@ -506,9 +545,41 @@ export default function Game() {
               </Label>
             </div>
 
-            <Button size="lg" onClick={() => setPhase('ready')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90">
               ENTER GAME
             </Button>
+          </motion.div>
+        );
+
+      case 'character_select':
+        return (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="w-full max-w-5xl mx-auto space-y-6"
+          >
+            <div className="text-center mb-8">
+              <h2 className="text-4xl font-display font-bold text-white mb-2">CHOOSE YOUR DRIVER</h2>
+              <p className="text-muted-foreground">Select your persona for the auction.</p>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {CHARACTERS.map((char) => (
+                <motion.button
+                  key={char.id}
+                  whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.05)" }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => selectCharacter(char)}
+                  className="flex flex-col items-center p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center"
+                >
+                  <div className={cn("p-4 rounded-full bg-white/5 mb-3 group-hover:bg-white/10 transition-colors", char.color)}>
+                    {char.icon}
+                  </div>
+                  <h3 className="font-bold text-white mb-1">{char.name}</h3>
+                  <p className="text-xs text-primary/80 uppercase tracking-wider mb-2 font-display">{char.title}</p>
+                  <p className="text-xs text-zinc-500 leading-tight">{char.description}</p>
+                </motion.button>
+              ))}
+            </div>
           </motion.div>
         );
 
@@ -738,7 +809,7 @@ export default function Game() {
       <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
         <div className="flex items-center gap-2">
           <Clock className="text-primary" size={24} />
-          <h1 className="font-display font-bold text-xl tracking-wider">TIME AUCTION</h1>
+          <h1 className="font-display font-bold text-xl tracking-wider">REDLINE AUCTION</h1>
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
