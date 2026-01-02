@@ -52,13 +52,19 @@ import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png'
 
 
 // Game Constants
-const TOTAL_ROUNDS = 9; 
-const INITIAL_TIME = 300.0;
+const STANDARD_TOTAL_ROUNDS = 9; 
+const STANDARD_INITIAL_TIME = 300.0;
+const LONG_TOTAL_ROUNDS = 18;
+const LONG_INITIAL_TIME = 600.0;
+const SHORT_TOTAL_ROUNDS = 5;
+const SHORT_INITIAL_TIME = 150.0;
+
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
 type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
+type GameDuration = 'standard' | 'long' | 'short';
 type ProtocolType = 
   | 'DATA_BLACKOUT' 
   | 'DOUBLE_STAKES' 
@@ -187,6 +193,7 @@ export default function Game() {
   // Game State
   const [phase, setPhase] = useState<GamePhase>('intro');
   const [round, setRound] = useState(1);
+  const [gameDuration, setGameDuration] = useState<GameDuration>('standard');
   const [currentTime, setCurrentTime] = useState(0.0); // The central auction clock
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [showDetails, setShowDetails] = useState(false);
@@ -198,16 +205,40 @@ export default function Game() {
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
   const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
   
+  // Derived Constants based on Duration
+  const getTotalRounds = () => {
+     if (gameDuration === 'long') return LONG_TOTAL_ROUNDS;
+     if (gameDuration === 'short') return SHORT_TOTAL_ROUNDS;
+     return STANDARD_TOTAL_ROUNDS;
+  };
+
+  const getInitialTime = () => {
+     if (gameDuration === 'long') return LONG_INITIAL_TIME;
+     if (gameDuration === 'short') return SHORT_INITIAL_TIME;
+     return STANDARD_INITIAL_TIME;
+  };
+
+  const totalRounds = getTotalRounds();
+  const initialTime = getInitialTime();
+
   // Overlay State
   const [overlay, setOverlay] = useState<{ type: OverlayType; message?: string; subMessage?: string } | null>(null);
   
   // Players State
   const [players, setPlayers] = useState<Player[]>([
-    { id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false },
-    { id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive' },
-    { id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative' },
-    { id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random' },
+    { id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false },
+    { id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive' },
+    { id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative' },
+    { id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random' },
   ]);
+
+  // Update players when duration changes (only during intro)
+  useEffect(() => {
+    if (phase === 'intro') {
+       const newInitialTime = getInitialTime();
+       setPlayers(prev => prev.map(p => ({ ...p, remainingTime: newInitialTime })));
+    }
+  }, [gameDuration, phase]);
 
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
 
@@ -729,7 +760,7 @@ export default function Game() {
       : `Round ${round}: No winner`;
     setRoundLog(prev => [logMsg, ...prev]);
 
-    if (round >= TOTAL_ROUNDS || players.filter(p => !p.isEliminated && p.remainingTime > 0).length <= 1) {
+    if (round >= totalRounds || players.filter(p => !p.isEliminated && p.remainingTime > 0).length <= 1) {
        // Game End condition
        setTimeout(() => {
         setPhase('game_end');
@@ -739,7 +770,7 @@ export default function Game() {
   };
 
   const nextRound = () => {
-    if (round < TOTAL_ROUNDS) {
+    if (round < totalRounds) {
       setRound(prev => prev + 1);
       setPhase('ready');
       setPlayers(prev => prev.map(p => ({ ...p, isHolding: false, currentBid: null })));
@@ -790,8 +821,12 @@ export default function Game() {
           >
             <h1 className="text-6xl font-display text-primary text-glow font-bold">REDLINE AUCTION</h1>
             <p className="text-xl text-muted-foreground">
-              You have 5 minutes. 9 Auctions.<br/>
-              Bid time to win tokens.
+              Bid time to win tokens.<br/>
+              <span className="text-sm font-mono opacity-70">
+                {gameDuration === 'short' && "SPEED MODE: 2.5 Minutes | 5 Rounds"}
+                {gameDuration === 'standard' && "STANDARD: 5 Minutes | 9 Rounds"}
+                {gameDuration === 'long' && "MARATHON: 10 Minutes | 18 Rounds"}
+              </span>
             </p>
             <div className="grid grid-cols-2 gap-4 text-left bg-card/50 p-6 rounded border border-white/5">
                <div className="space-y-2">
@@ -800,7 +835,7 @@ export default function Game() {
                   <li>Hold button to start.</li>
                   <li>Release to bid time.</li>
                   <li>Longest time wins token.</li>
-                  <li>Early release costs 0.1s.</li>
+                  <li>Early release costs {gameDuration === 'short' ? '0.05s' : gameDuration === 'long' ? '0.2s' : '0.1s'}.</li>
                 </ul>
               </div>
               <div className="space-y-2 flex flex-col justify-between">
@@ -809,47 +844,94 @@ export default function Game() {
                   <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1">
                     <li>Most tokens wins game.</li>
                     <li>Tiebreaker: Remaining Time.</li>
+                    <li>{gameDuration === 'short' ? 'Protocol Chance: 50%' : gameDuration === 'long' ? 'Protocol Chance: 25%' : 'Protocol Chance: 35%'}</li>
                   </ul>
                 </div>
               </div>
             </div>
             
-            <div className="flex items-center gap-6 bg-black/40 p-3 rounded-full border border-white/10">
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="show-details-intro" 
-                  checked={showDetails} 
-                  onCheckedChange={setShowDetails} 
-                />
-                <Label htmlFor="show-details-intro" className="text-sm cursor-pointer text-zinc-400">
-                  Easy Mode
-                </Label>
+            <div className="flex flex-col gap-4 bg-black/40 p-4 rounded-xl border border-white/10 w-full max-w-lg">
+              {/* Top Row: Modes */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    id="show-details-intro" 
+                    checked={showDetails} 
+                    onCheckedChange={setShowDetails} 
+                  />
+                  <Label htmlFor="show-details-intro" className="text-sm cursor-pointer text-zinc-400">
+                    Easy Mode
+                  </Label>
+                </div>
+                
+                <Separator orientation="vertical" className="h-6 bg-white/10" />
+                
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    id="protocols-intro" 
+                    checked={protocolsEnabled} 
+                    onCheckedChange={setProtocolsEnabled} 
+                    className="data-[state=checked]:bg-destructive"
+                  />
+                  <Label htmlFor="protocols-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
+                    <AlertTriangle size={14} className={protocolsEnabled ? "text-destructive" : "text-muted-foreground"}/>
+                    Protocols
+                  </Label>
+                </div>
+
+                <Separator orientation="vertical" className="h-6 bg-white/10" />
+
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    id="abilities-intro" 
+                    checked={abilitiesEnabled} 
+                    onCheckedChange={setAbilitiesEnabled} 
+                    className="data-[state=checked]:bg-blue-500"
+                  />
+                  <Label htmlFor="abilities-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
+                    <Zap size={14} className={abilitiesEnabled ? "text-blue-400" : "text-muted-foreground"}/>
+                    Abilities
+                  </Label>
+                </div>
               </div>
-              <Separator orientation="vertical" className="h-6 bg-white/10" />
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="protocols-intro" 
-                  checked={protocolsEnabled} 
-                  onCheckedChange={setProtocolsEnabled} 
-                  className="data-[state=checked]:bg-destructive"
-                />
-                <Label htmlFor="protocols-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
-                  <AlertTriangle size={14} className={protocolsEnabled ? "text-destructive" : "text-muted-foreground"}/>
-                  Protocols
-                </Label>
-              </div>
-              <Separator orientation="vertical" className="h-6 bg-white/10" />
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="abilities-intro" 
-                  checked={abilitiesEnabled} 
-                  onCheckedChange={setAbilitiesEnabled} 
-                  className="data-[state=checked]:bg-blue-500"
-                />
-                <Label htmlFor="abilities-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
-                  <Zap size={14} className={abilitiesEnabled ? "text-blue-400" : "text-muted-foreground"}/>
-                  LIMIT BREAK
-                </Label>
+
+              <Separator className="bg-white/10" />
+
+              {/* Bottom Row: Duration */}
+              <div className="flex items-center justify-center gap-2">
+                 <button 
+                   onClick={() => setGameDuration('short')}
+                   className={cn(
+                     "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
+                     gameDuration === 'short' 
+                       ? "bg-purple-500/20 border-purple-500 text-purple-400" 
+                       : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
+                   )}
+                 >
+                   SPEED (2.5m)
+                 </button>
+                 <button 
+                   onClick={() => setGameDuration('standard')}
+                   className={cn(
+                     "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
+                     gameDuration === 'standard' 
+                       ? "bg-primary/20 border-primary text-primary" 
+                       : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
+                   )}
+                 >
+                   STANDARD (5m)
+                 </button>
+                 <button 
+                   onClick={() => setGameDuration('long')}
+                   className={cn(
+                     "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
+                     gameDuration === 'long' 
+                       ? "bg-orange-500/20 border-orange-500 text-orange-400" 
+                       : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
+                   )}
+                 >
+                   MARATHON (10m)
+                 </button>
               </div>
             </div>
             
@@ -961,7 +1043,7 @@ export default function Game() {
         return (
           <div className="flex flex-col items-center justify-center h-[450px]">
             <div className="h-[100px] flex flex-col items-center justify-center space-y-2">
-              <h2 className="text-3xl font-display">ROUND {round} / {TOTAL_ROUNDS}</h2>
+              <h2 className="text-3xl font-display">ROUND {round} / {totalRounds}</h2>
               {/* Ready Progress Bar Container */}
               <div className="h-6 flex items-center justify-center">
                  {allPlayersReady ? (
@@ -1262,7 +1344,7 @@ export default function Game() {
              </div>
           </div>
           <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5">
-            ROUND {round} / {TOTAL_ROUNDS}
+            ROUND {round} / {totalRounds}
           </Badge>
         </div>
       </div>
