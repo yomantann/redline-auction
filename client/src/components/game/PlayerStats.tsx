@@ -10,6 +10,7 @@ interface Player {
   isEliminated: boolean;
   hasBidThisRound?: boolean;
   bidTime?: number; // Only for round result
+  characterIcon?: string | React.ReactNode;
 }
 
 interface PlayerStatsProps {
@@ -44,10 +45,14 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={cn(
-            "p-2 rounded-full",
-            isCurrentPlayer ? "bg-primary/20 text-primary" : "bg-zinc-800 text-zinc-400"
+            "w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border border-white/10 bg-black/40",
+            isCurrentPlayer ? "border-primary/50" : ""
           )}>
-            {player.isBot ? <Cpu size={16} /> : <User size={16} />}
+            {typeof player.characterIcon === 'string' ? (
+               <img src={player.characterIcon} alt={player.name} className="w-full h-full object-cover" />
+             ) : (
+               player.characterIcon || (player.isBot ? <Cpu size={16} className="text-zinc-500"/> : <User size={16} className="text-zinc-500"/>)
+             )}
           </div>
           <span className={cn("font-display font-bold tracking-wide", isCurrentPlayer ? "text-foreground" : "text-muted-foreground")}>
             {player.name}

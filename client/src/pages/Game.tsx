@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input"; // Add Input for multiplayer
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -22,9 +23,23 @@ import {
 } from "@/components/ui/dialog";
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
-  Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User
+  Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
+  Users, Globe, Lock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+// Import Generated Images
+import charHarambe from '@assets/generated_images/cyberpunk_gorilla_guardian.png';
+import charPopcat from '@assets/generated_images/cyberpunk_popcat.png';
+import charWinter from '@assets/generated_images/cyberpunk_winter_soldier.png';
+import charDoge from '@assets/generated_images/cyberpunk_shiba_inu_astronaut.png';
+import charPepe from '@assets/generated_images/cyberpunk_sad_green_alien_analyst.png';
+import charNyan from '@assets/generated_images/cyberpunk_neon_rainbow_cat.png';
+import charKaren from '@assets/generated_images/cyberpunk_yelling_commander.png';
+import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
+import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
+import charStonks from '@assets/generated_images/cyberpunk_stonks_man.png';
+
 
 // Game Constants
 const TOTAL_ROUNDS = 9; 
@@ -32,7 +47,7 @@ const INITIAL_TIME = 300.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'character_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
 
 interface Player {
@@ -45,29 +60,29 @@ interface Player {
   currentBid: number | null; // null means still holding or hasn't bid
   isHolding: boolean;
   personality?: BotPersonality;
-  characterIcon?: React.ReactNode;
+  characterIcon?: string | React.ReactNode; // Can be image URL or icon
 }
 
 interface Character {
   id: string;
   name: string;
   title: string;
-  icon: React.ReactNode;
+  image: string; // Changed from icon to image
   description: string;
   color: string;
 }
 
 const CHARACTERS: Character[] = [
-  { id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', icon: <Shield size={32} />, description: 'Stoic protection against bad bids.', color: 'text-zinc-400' },
-  { id: 'popcat', name: 'Click-Click', title: 'The Glitch', icon: <MousePointer2 size={32} />, description: 'Hyperactive timing precision.', color: 'text-pink-400' },
-  { id: 'winter', name: 'Frost Protocol', title: 'The Disciplined', icon: <Snowflake size={32} />, description: 'Cold, calculated efficiency.', color: 'text-cyan-400' },
-  { id: 'doge', name: 'Shiba Prime', title: 'The Moonwalker', icon: <Rocket size={32} />, description: 'Chaotic luck and high variance.', color: 'text-yellow-400' },
-  { id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', icon: <Brain size={32} />, description: 'Feels bad, plays smart.', color: 'text-green-500' },
-  { id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', icon: <Zap size={32} />, description: 'Neon trails and fast reactions.', color: 'text-purple-400' },
-  { id: 'karen', name: 'The Accuser', title: 'The Aggressor', icon: <Megaphone size={32} />, description: 'Loud and disruptive tactics.', color: 'text-red-400' },
-  { id: 'fine', name: 'Inferno Calm', title: 'The Survivor', icon: <Flame size={32} />, description: 'Perfectly chill in chaos.', color: 'text-orange-500' },
-  { id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', icon: <Eye size={32} />, description: 'Always looking for a better deal.', color: 'text-blue-400' },
-  { id: 'stonks', name: 'Market Maker', title: 'The Strategist', icon: <TrendingUp size={32} />, description: 'Stonks only go up.', color: 'text-emerald-400' },
+  { id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400' },
+  { id: 'popcat', name: 'Click-Click', title: 'The Glitch', image: charPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400' },
+  { id: 'winter', name: 'Frost Protocol', title: 'The Disciplined', image: charWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400' },
+  { id: 'doge', name: 'Shiba Prime', title: 'The Moonwalker', image: charDoge, description: 'Chaotic luck and high variance.', color: 'text-yellow-400' },
+  { id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, description: 'Feels bad, plays smart.', color: 'text-green-500' },
+  { id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400' },
+  { id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, description: 'Loud and disruptive tactics.', color: 'text-red-400' },
+  { id: 'fine', name: 'Inferno Calm', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500' },
+  { id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, description: 'Always looking for a better deal.', color: 'text-blue-400' },
+  { id: 'stonks', name: 'Market Maker', title: 'The Strategist', image: charStonks, description: 'Stonks only go up.', color: 'text-emerald-400' },
 ];
 
 export default function Game() {
@@ -99,6 +114,9 @@ export default function Game() {
   const requestRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const readyStartTimeRef = useRef<number | null>(null);
+
+  // Multiplayer State
+  const [lobbyCode, setLobbyCode] = useState("");
 
   // Helper for formatting time
   const formatTime = (seconds: number) => {
@@ -485,7 +503,7 @@ export default function Game() {
     setSelectedCharacter(char);
     setPlayers(prev => prev.map(p => {
       if (p.id === 'p1') {
-        return { ...p, name: char.name, characterIcon: char.icon };
+        return { ...p, name: char.name, characterIcon: char.image };
       }
       return p;
     }));
@@ -498,6 +516,19 @@ export default function Game() {
 
   // New logic for 'waiting' state
   const isWaiting = phase === 'bidding' && playerBid !== null && playerBid > 0;
+
+  // Multiplayer handlers (mock)
+  const handleCreateRoom = () => {
+    // In real app, this would call backend to create room
+    // For mockup, we just pretend and go to char select
+    setPhase('character_select');
+  };
+  
+  const handleJoinRoom = () => {
+    if (lobbyCode.length > 0) {
+      setPhase('character_select');
+    }
+  };
 
   // Render Helpers
   const renderPhaseContent = () => {
@@ -544,10 +575,67 @@ export default function Game() {
                 Easy Mode (Show Timer & Clock)
               </Label>
             </div>
+            
+            <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+              <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 max-w-xs">
+                 SINGLE PLAYER
+              </Button>
+              <Button size="lg" variant="outline" onClick={() => setPhase('multiplayer_lobby')} className="text-xl px-12 py-6 border-white/20 hover:bg-white/10 flex-1 max-w-xs">
+                 MULTIPLAYER
+              </Button>
+            </div>
 
-            <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90">
-              ENTER GAME
-            </Button>
+          </motion.div>
+        );
+
+      case 'multiplayer_lobby':
+        return (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center h-[450px] max-w-md mx-auto w-full space-y-8"
+          >
+             <div className="text-center space-y-2">
+               <Globe className="w-16 h-16 text-primary mx-auto mb-4" />
+               <h2 className="text-3xl font-display font-bold">MULTIPLAYER LOBBY</h2>
+               <p className="text-muted-foreground">Join the global network.</p>
+             </div>
+
+             <div className="grid grid-cols-1 gap-6 w-full">
+                {/* Create Room */}
+                <div className="bg-card/30 p-6 rounded-lg border border-white/10 hover:border-primary/50 transition-colors text-center space-y-4">
+                   <h3 className="font-bold text-lg flex items-center justify-center gap-2"><Users size={20}/> Create Room</h3>
+                   <p className="text-xs text-zinc-500">Host a private match for friends.</p>
+                   <Button onClick={handleCreateRoom} className="w-full">Create New Lobby</Button>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-white/10" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-black px-2 text-zinc-500">Or join existing</span>
+                  </div>
+                </div>
+
+                {/* Join Room */}
+                <div className="bg-card/30 p-6 rounded-lg border border-white/10 hover:border-primary/50 transition-colors text-center space-y-4">
+                   <h3 className="font-bold text-lg flex items-center justify-center gap-2"><Lock size={20}/> Join Room</h3>
+                   <div className="flex gap-2">
+                     <Input 
+                       placeholder="Enter Room Code" 
+                       className="bg-black/50 border-white/20 font-mono uppercase text-center tracking-widest"
+                       value={lobbyCode}
+                       onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
+                       maxLength={6}
+                     />
+                     <Button onClick={handleJoinRoom} variant="secondary" disabled={lobbyCode.length < 4}>Join</Button>
+                   </div>
+                </div>
+             </div>
+
+             <Button variant="ghost" onClick={() => setPhase('intro')} className="text-zinc-500 hover:text-white">
+               Back to Menu
+             </Button>
           </motion.div>
         );
 
@@ -569,14 +657,14 @@ export default function Game() {
                   whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.05)" }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => selectCharacter(char)}
-                  className="flex flex-col items-center p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center"
+                  className="flex flex-col items-center p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden"
                 >
-                  <div className={cn("p-4 rounded-full bg-white/5 mb-3 group-hover:bg-white/10 transition-colors", char.color)}>
-                    {char.icon}
+                  <div className={cn("w-24 h-24 rounded-full mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10", char.color)}>
+                     <img src={char.image} alt={char.name} className="w-full h-full object-cover" />
                   </div>
                   <h3 className="font-bold text-white mb-1">{char.name}</h3>
                   <p className="text-xs text-primary/80 uppercase tracking-wider mb-2 font-display">{char.title}</p>
-                  <p className="text-xs text-zinc-500 leading-tight">{char.description}</p>
+                  <p className="text-xs text-zinc-500 leading-tight line-clamp-2">{char.description}</p>
                 </motion.button>
               ))}
             </div>
