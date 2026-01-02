@@ -24,7 +24,7 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock
+  Users, Globe, Lock, BookOpen
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -108,6 +108,8 @@ export default function Game() {
   const [protocolsEnabled, setProtocolsEnabled] = useState(false);
   const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
   const [readyHoldTime, setReadyHoldTime] = useState(0);
+  const [moleTarget, setMoleTarget] = useState<string | null>(null);
+  const [showProtocolGuide, setShowProtocolGuide] = useState(false);
   
   // Overlay State
   const [overlay, setOverlay] = useState<{ type: OverlayType; message?: string; subMessage?: string } | null>(null);
@@ -444,9 +446,13 @@ export default function Game() {
         case 'THE_MOLE':
           // In single player, we pretend the user might be the mole or someone else
           // If we want to target the user specifically sometimes:
-          const moleTarget = Math.random() > 0.5 ? 'YOU' : getRandomPlayer();
+          const target = Math.random() > 0.5 ? 'YOU' : getRandomPlayer();
+          const targetId = target === 'YOU' ? 'p1' : players.find(p => p.name === target)?.id || null;
+          
+          setMoleTarget(targetId); // Store for logic
+          
           msg = "THE MOLE";
-          sub = `${moleTarget} must secretly lose this round.`;
+          sub = `${target} must secretly lose this round.`;
           break;
         case 'PANIC_ROOM':
           msg = "PANIC ROOM";
@@ -499,7 +505,14 @@ export default function Game() {
       let newTokens = p.tokens;
       
       if (p.currentBid !== null && p.currentBid > 0) {
-        newTime -= p.currentBid;
+        // If THE_MOLE and this player is the mole, do NOT subtract time
+        if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
+           // Mole plays for free (time-wise) but must lose to "win" the protocol (though we aren't tracking protocol wins separately yet)
+           // User request: "mole can still bid but that time is not subtracted from their time left"
+           newTime -= 0; 
+        } else {
+           newTime -= p.currentBid;
+        }
       }
       
       if (p.id === winnerId) {
@@ -1089,6 +1102,9 @@ export default function Game() {
                   <AlertTriangle size={12}/>
                   Protocols
                 </Label>
+                <button onClick={() => setShowProtocolGuide(true)} className="text-zinc-500 hover:text-white transition-colors ml-1" title="Protocol Guide">
+                   <BookOpen size={14} />
+                </button>
              </div>
           </div>
           <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5">
@@ -1096,6 +1112,49 @@ export default function Game() {
           </Badge>
         </div>
       </div>
+
+      <Dialog open={showProtocolGuide} onOpenChange={setShowProtocolGuide}>
+        <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
+          <DialogHeader>
+            <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-destructive flex items-center gap-2">
+              <AlertTriangle /> PROTOCOL DATABASE
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              When PROTOCOLS are enabled, random events (35% chance) may trigger at the start of a round.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {[
+              { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
+              { name: "HIGH STAKES", desc: "Winner receives DOUBLE tokens for this round.", type: "Economy" },
+              { name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual" },
+              { name: "OPEN HAND", desc: "One player must publicly state they will not bid (Bluffing allowed).", type: "Social" },
+              { name: "NOISE CANCEL", desc: "Selected player must make continuous noise for first 15s.", type: "Social" },
+              { name: "MUTE PROTOCOL", desc: "Complete silence enforced. Speaking is shunned.", type: "Social" },
+              { name: "PRIVATE CHANNEL", desc: "Two players selected to discuss strategy privately.", type: "Social" },
+              { name: "NO LOOK", desc: "Players cannot look at screens until they release button.", type: "Physical" },
+              { name: "LOCK ON", desc: "Two players must maintain eye contact entire round.", type: "Social" },
+              { name: "THE MOLE", desc: "Selected player must LOSE. Their bid time is NOT subtracted.", type: "Hidden Role" },
+              { name: "PANIC ROOM", desc: "Game speed 2x. Winner gets Double Tokens.", type: "Game State" },
+            ].map((p, i) => (
+              <div key={i} className="bg-white/5 p-4 rounded border border-white/5 hover:border-destructive/50 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-bold text-white text-sm">{p.name}</h4>
+                  <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+              </div>
+            ))}
+          </div>
+          
+          <DialogFooter className="mt-6">
+            <Button onClick={() => setShowProtocolGuide(false)} variant="secondary" className="w-full">
+              ACKNOWLEDGE
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 min-h-[600px]">
         {/* Main Game Area */}
