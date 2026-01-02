@@ -49,7 +49,19 @@ const READY_HOLD_DURATION = 3.0;
 
 type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
-type ProtocolType = 'DATA_BLACKOUT' | 'DOUBLE_STAKES' | 'SYSTEM_FAILURE' | 'SILENCE' | null;
+type ProtocolType = 
+  | 'DATA_BLACKOUT' 
+  | 'DOUBLE_STAKES' 
+  | 'SYSTEM_FAILURE' 
+  | 'OPEN_HAND' 
+  | 'NOISE_CANCEL' 
+  | 'MUTE_PROTOCOL' 
+  | 'PRIVATE_CHANNEL' 
+  | 'NO_LOOK' 
+  | 'LOCK_ON' 
+  | 'THE_MOLE' 
+  | 'PANIC_ROOM' 
+  | null;
 
 interface Player {
   id: string;
@@ -209,7 +221,11 @@ export default function Game() {
     if (phase === 'bidding') {
       const animate = (time: number) => {
         if (startTimeRef.current === null) startTimeRef.current = time;
-        const deltaTime = (time - startTimeRef.current) / 1000;
+        
+        // Calculate deltaTime based on speed (Panic Room = 2x)
+        const rawDelta = (time - startTimeRef.current) / 1000;
+        const multiplier = activeProtocol === 'PANIC_ROOM' ? 2 : 1;
+        const deltaTime = rawDelta * multiplier;
         
         setCurrentTime(deltaTime);
 
@@ -365,14 +381,26 @@ export default function Game() {
 
   // Start Round Logic
   const startCountdown = () => {
-    // Check for Protocol Trigger (25% chance if enabled)
-    if (protocolsEnabled && Math.random() > 0.75) {
-      const protocols: ProtocolType[] = ['DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE'];
+    // Check for Protocol Trigger (35% chance if enabled)
+    if (protocolsEnabled && Math.random() > 0.65) {
+      const protocols: ProtocolType[] = [
+        'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
+        'OPEN_HAND', 'NOISE_CANCEL', 'MUTE_PROTOCOL', 
+        'PRIVATE_CHANNEL', 'NO_LOOK', 'LOCK_ON', 
+        'THE_MOLE', 'PANIC_ROOM'
+      ];
       const newProtocol = protocols[Math.floor(Math.random() * protocols.length)];
       setActiveProtocol(newProtocol);
       
       let msg = "PROTOCOL INITIATED";
       let sub = "Unknown Effect";
+      
+      // Helper to get random player name(s)
+      const getRandomPlayer = () => players[Math.floor(Math.random() * players.length)].name;
+      const getTwoRandomPlayers = () => {
+        const shuffled = [...players].sort(() => 0.5 - Math.random());
+        return [shuffled[0].name, shuffled[1].name];
+      };
       
       switch(newProtocol) {
         case 'DATA_BLACKOUT': 
@@ -385,7 +413,44 @@ export default function Game() {
           break;
         case 'SYSTEM_FAILURE': 
           msg = "SYSTEM FAILURE"; 
-          sub = "HUD Glitches Detected";
+          sub = "HUD Glitches & Timer Scramble";
+          break;
+        case 'OPEN_HAND':
+          msg = "OPEN HAND";
+          sub = `${getRandomPlayer()} must state they won't bid!`;
+          break;
+        case 'NOISE_CANCEL':
+          msg = "NOISE CANCEL";
+          sub = `${getRandomPlayer()} must make noise for 15s!`;
+          break;
+        case 'MUTE_PROTOCOL':
+          msg = "SILENCE ENFORCED";
+          sub = "All players must remain silent!";
+          break;
+        case 'PRIVATE_CHANNEL':
+          const [p1, p2] = getTwoRandomPlayers();
+          msg = "PRIVATE CHANNEL";
+          sub = `${p1} & ${p2} discuss strategy now!`;
+          break;
+        case 'NO_LOOK':
+          msg = "BLIND BIDDING";
+          sub = "Do not look at screens until drop!";
+          break;
+        case 'LOCK_ON':
+          const [l1, l2] = getTwoRandomPlayers();
+          msg = "LOCK ON";
+          sub = `${l1} & ${l2} must maintain eye contact!`;
+          break;
+        case 'THE_MOLE':
+          // In single player, we pretend the user might be the mole or someone else
+          // If we want to target the user specifically sometimes:
+          const moleTarget = Math.random() > 0.5 ? 'YOU' : getRandomPlayer();
+          msg = "THE MOLE";
+          sub = `${moleTarget} must secretly lose this round.`;
+          break;
+        case 'PANIC_ROOM':
+          msg = "PANIC ROOM";
+          sub = "Time 2x Speed | Double Win Tokens";
           break;
       }
       
@@ -438,7 +503,7 @@ export default function Game() {
       }
       
       if (p.id === winnerId) {
-        newTokens += (activeProtocol === 'DOUBLE_STAKES' ? 2 : 1);
+        newTokens += (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM' ? 2 : 1);
       }
       
       // Check elimination
@@ -829,7 +894,9 @@ export default function Game() {
                        {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
                      </span>
                      <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : "animate-pulse")}>
-                       {isBlackout ? "ERROR" : "??:??.?"}
+                       {activeProtocol === 'SYSTEM_FAILURE' 
+                          ? `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}` 
+                          : isBlackout ? "ERROR" : "??:??.?"}
                      </div>
                   </div>
                 )}
