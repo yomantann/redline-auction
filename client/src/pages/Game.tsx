@@ -312,6 +312,7 @@ export default function Game() {
     let winnerName: string | null = null;
     let winnerTime = 0;
     
+    // Determine winner
     if (participants.length > 0) {
       const potentialWinner = participants[0];
       // Check for tie
@@ -324,8 +325,10 @@ export default function Game() {
       }
     }
 
-    // Update stats
-    setPlayers(prev => prev.map(p => {
+    // Update stats logic here (tokens, time subtraction)
+    let playersOut: string[] = [];
+
+    const updatedPlayers = players.map(p => {
       let newTime = p.remainingTime;
       let newTokens = p.tokens;
       
@@ -337,25 +340,103 @@ export default function Game() {
         newTokens += 1;
       }
       
-      return { ...p, remainingTime: newTime, tokens: newTokens };
-    }));
+      // Check elimination
+      if (newTime <= 0 && p.remainingTime > 0) {
+        playersOut.push(p.name);
+      }
 
+      return { ...p, remainingTime: Math.max(0, newTime), tokens: newTokens };
+    });
+
+    setPlayers(updatedPlayers);
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
     
-    // Trigger Result Overlay
-    if (winnerId) {
-       setOverlay({ 
-         type: "round_win", 
-         message: `${winnerName} WINS`, 
-         subMessage: `${formatTime(winnerTime)}` 
-       });
+    // --- DETERMINE OVERLAY TYPE ---
+    let overlayType: OverlayType = null;
+    let overlayMsg = "";
+    let overlaySub = "";
+
+    if (playersOut.length > 0) {
+      overlayType = "time_out";
+      overlayMsg = "PLAYER ELIMINATED";
+      overlaySub = "Out of time!";
+    } else if (winnerId) {
+       const winnerPlayer = participants[0]; // winner is first
+       const secondPlayer = participants.length > 1 ? participants[1] : null;
+       const winnerBid = winnerPlayer.currentBid || 0;
+       const secondBid = secondPlayer?.currentBid || 0;
+       const margin = winnerBid - secondBid;
+
+       // 1. Smug Confidence (Round 1 Win)
+       if (round === 1) {
+         overlayType = "smug_confidence";
+         overlayMsg = "SMUG CONFIDENCE";
+         overlaySub = `${winnerName} takes the lead!`;
+       }
+       // 2. Fake Calm (Margin >= 15s)
+       else if (secondPlayer && margin >= 15) {
+         overlayType = "fake_calm";
+         overlayMsg = "FAKE CALM";
+         overlaySub = `Won by ${margin.toFixed(1)}s!`;
+       }
+       // 3. Genius Move (Margin <= 5s)
+       else if (secondPlayer && margin <= 5) {
+         overlayType = "genius_move";
+         overlayMsg = "GENIUS MOVE";
+         overlaySub = `Won by just ${margin.toFixed(1)}s`;
+       }
+       // 4. Easy W (Bid < 20s)
+       else if (winnerBid < 20) {
+         overlayType = "easy_w";
+         overlayMsg = "EASY W";
+         overlaySub = `Won with only ${winnerBid.toFixed(1)}s`;
+       }
+       // 5. Comeback Hope (Winner was last in tokens before this win)
+       // We check tokens BEFORE this win. 
+       else {
+         const winnerTokensBefore = players.find(p => p.id === winnerId)?.tokens || 0;
+         const minTokens = Math.min(...players.map(p => p.tokens));
+         if (winnerTokensBefore === minTokens && players.some(p => p.tokens > winnerTokensBefore)) {
+           overlayType = "comeback_hope";
+           overlayMsg = "COMEBACK HOPE";
+           overlaySub = `${winnerName} stays in the fight!`;
+         } else {
+           // Default Win
+           overlayType = "round_win";
+           overlayMsg = `${winnerName} WINS`;
+           overlaySub = `${formatTime(winnerTime)}`;
+         }
+       }
+
     } else {
-       setOverlay({ 
-         type: "round_draw", 
-         message: "NO WINNER", 
-         subMessage: "Tie or No Bids" 
-       });
+       // No winner
+       overlayType = "round_draw";
+       overlayMsg = "NO WINNER";
+       overlaySub = "Tie or No Bids";
     }
+
+    // Secondary Overlays (Check losers for specific achievements)
+    // "Bad Judgment": Losing player bid > 30s.
+    // "Undercut": 2nd place.
+    // "Zero Bid": Bid ~0.
+    // Since we can only show one overlay at a time easily with this system, 
+    // we prioritize the WINNER's achievement or ELIMINATION.
+    // However, if we want to show 'Bad Judgment' for a loser, we might need a queue or just random priority.
+    // Let's stick to the Winner priority for now unless a "Bad Judgment" is truly egregious (>60s loss?).
+    // Or if there is NO winner, maybe check for Funny Message (Zero Bid).
+    
+    if (!winnerId && participants.length === 0) {
+       // Everyone zero bid / abandoned?
+       overlayType = "zero_bid";
+       overlayMsg = "CRICKETS...";
+       overlaySub = "No one dared to bid!";
+    }
+
+    setOverlay({ 
+      type: overlayType, 
+      message: overlayMsg, 
+      subMessage: overlaySub 
+    });
     
     // Add to log
     const logMsg = winnerId 
@@ -363,8 +444,9 @@ export default function Game() {
       : `Round ${round}: No winner`;
     setRoundLog(prev => [logMsg, ...prev]);
 
-    if (round >= TOTAL_ROUNDS) {
-      setTimeout(() => {
+    if (round >= TOTAL_ROUNDS || players.filter(p => !p.isEliminated && p.remainingTime > 0).length <= 1) {
+       // Game End condition
+       setTimeout(() => {
         setPhase('game_end');
         setOverlay({ type: "game_over", message: "GAME OVER" });
       }, 3000);
@@ -488,14 +570,7 @@ export default function Game() {
             </div>
             
             <div className="h-[280px] flex items-center justify-center relative"> 
-              {/* Countdown Number Overlaying the button area or above it? User said "button still slightly moving down". 
-                  Let's keep the button visible but disabled/static, and show countdown clearly.
-                  Actually, the user said "button moves". Keeping the layout rigid is key.
-                  I'll use fixed heights for every flex child.
-              */}
-              
                <div className="absolute inset-0 flex items-center justify-center z-0 opacity-20">
-                  {/* Ghost button to keep layout consistent visually if needed, but we use the real button below */}
                </div>
                
                <div className="z-20 text-9xl font-display font-black text-destructive animate-ping absolute pointer-events-none">
@@ -512,7 +587,7 @@ export default function Game() {
                </div>
             </div>
             
-            <div className="h-[50px]"></div> {/* Spacer to match ready phase footer */}
+            <div className="h-[50px]"></div> 
           </div>
         );
 
@@ -524,11 +599,6 @@ export default function Game() {
                 {showDetails && currentTime <= 10 ? (
                   <TimerDisplay time={currentTime} isRunning={true} />
                 ) : (
-                   /* Small placeholder or just text? TimerDisplay is big. 
-                      Let's make sure this container doesn't jump. 
-                      TimerDisplay has p-8 and min-w-[320px].
-                      Let's replicate a compact version or just hide it if we want cleaner UI, but consistent layout is better.
-                   */
                   <div className="flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]">
                      <span className="text-muted-foreground text-xs tracking-[0.2em] font-display mb-1">AUCTION TIME</span>
                      <div className="text-4xl font-mono text-zinc-700 animate-pulse">??:??.?</div>
@@ -680,7 +750,7 @@ export default function Game() {
               checked={showDetails} 
               onCheckedChange={setShowDetails} 
             />
-            <Label htmlFor="show-details" className="text-xs cursor-pointer text-zinc-400 flex items-center gap-1">
+            <Label htmlFor="show-details" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
               {showDetails ? <Eye size={12}/> : <EyeOff size={12}/>} 
               {showDetails ? "Easy Mode" : "Hard Mode"}
             </Label>
