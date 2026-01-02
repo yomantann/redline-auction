@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck } from "lucide-react";
 
@@ -27,15 +27,13 @@ interface GameOverlayProps {
 }
 
 export function GameOverlay({ type, message, subMessage, onComplete }: GameOverlayProps) {
-  const [isVisible, setIsVisible] = useState(false);
-
+  
   useEffect(() => {
     if (type) {
-      setIsVisible(true);
+      // Auto-dismiss after 2 seconds
       const timer = setTimeout(() => {
-        setIsVisible(false);
-        if (onComplete) setTimeout(onComplete, 300); // Faster exit
-      }, 2000); // 2 Seconds Duration
+        if (onComplete) onComplete();
+      }, 2000); 
       return () => clearTimeout(timer);
     }
   }, [type, onComplete]);
@@ -95,9 +93,10 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
 
   return (
     <AnimatePresence>
-      {isVisible && type && (
+      {type && (
         <div className="fixed bottom-24 left-0 right-0 z-50 flex items-center justify-center pointer-events-none p-4">
           <motion.div
+            key="overlay-content" // Force re-render if needed, but framer handles it
             className={`flex flex-col items-center justify-center py-4 px-12 rounded-xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[300px] text-center`}
             initial="hidden"
             animate="visible"

@@ -5,6 +5,7 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
+import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -725,6 +726,7 @@ export default function Game() {
 
   return (
     <GameLayout>
+      <MusicPlayer />
       <GameOverlay 
         type={overlay?.type || null} 
         message={overlay?.message} 
