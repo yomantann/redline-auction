@@ -617,6 +617,8 @@ export default function Game() {
 
     // Update stats logic here (tokens, time subtraction)
     let playersOut: string[] = [];
+    let abilityTriggered = false;
+    let abilityMsg = "";
 
     const updatedPlayers = players.map(p => {
       let newTime = p.remainingTime;
@@ -625,29 +627,35 @@ export default function Game() {
       // --- ABILITY EFFECTS (Passive / Triggered on Result) ---
       if (abilitiesEnabled && !p.isBot && p.id === 'p1' && selectedCharacter?.ability) {
         const ability = selectedCharacter.ability;
+        let triggered = false;
         
         // TIME REFUNDS
         if (ability.effect === 'TIME_REFUND') {
-            if (ability.name === 'SPIRIT SHIELD' && p.id !== winnerId) newTime += 1.0;
-            if (ability.name === 'CYRO FREEZE') newTime += 0.5;
-            if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) newTime += 1.5;
-            if (ability.name === 'PAY DAY' && p.id === winnerId) newTime += 0.5;
-            if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) < 0.5) newTime += 2.0;
-            if (ability.name === 'JAWLINE') newTime += 1.0; 
-            if (ability.name === 'PANIC MASH') newTime += (Math.random() > 0.5 ? 1.0 : -1.0);
-            if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 10) newTime += 2.0;
+            if (ability.name === 'SPIRIT SHIELD' && p.id !== winnerId) { newTime += 1.0; triggered = true; }
+            if (ability.name === 'CYRO FREEZE') { newTime += 0.5; triggered = true; }
+            if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 1.5; triggered = true; }
+            if (ability.name === 'PAY DAY' && p.id === winnerId) { newTime += 0.5; triggered = true; }
+            if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) < 0.5) { newTime += 2.0; triggered = true; }
+            if (ability.name === 'JAWLINE') { newTime += 1.0; triggered = true; }
+            if (ability.name === 'PANIC MASH') { newTime += (Math.random() > 0.5 ? 1.0 : -1.0); triggered = true; }
+            if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 10) { newTime += 2.0; triggered = true; }
         }
         
         // TOKEN BOOSTS
         if (ability.effect === 'TOKEN_BOOST' && p.id === winnerId) {
-            if (ability.name === 'HYPER CLICK' && (p.currentBid || 0) < winnerTime + 1.0) newTokens += 1;
-            if (ability.name === 'TO THE MOON' && (p.currentBid || 0) > 30) newTokens += 1; // Double means +1 on top of +1
-            if (ability.name === 'DIVIDEND' && round % 3 === 0) newTokens += 1;
+            if (ability.name === 'HYPER CLICK' && (p.currentBid || 0) < winnerTime + 1.0) { newTokens += 1; triggered = true; }
+            if (ability.name === 'TO THE MOON' && (p.currentBid || 0) > 30) { newTokens += 1; triggered = true; } 
+            if (ability.name === 'DIVIDEND' && round % 3 === 0) { newTokens += 1; triggered = true; }
         }
         
         // DISRUPT (Applied to enemies logic would go here, simplified as refund to self for now or handled in separate loop)
          if (ability.effect === 'DISRUPT' && playerAbilityUsed) {
              // Logic handled at button press time for active abilities, or here for result based
+         }
+
+         if (triggered) {
+             abilityTriggered = true;
+             abilityMsg = `${ability.name} ACTIVATED`;
          }
       }
 
