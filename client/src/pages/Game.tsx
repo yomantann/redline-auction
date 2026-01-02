@@ -386,26 +386,31 @@ export default function Game() {
   const [botBids, setBotBids] = useState<Record<string, number>>({});
   
   // Initialize Bots with Random Unique Characters on Mount
-  useEffect(() => {
-    // Shuffle characters to ensure uniqueness
-    const shuffledChars = [...CHARACTERS].sort(() => 0.5 - Math.random());
-    let charIndex = 0;
+  // Removed this useEffect as it only runs once and causes bots to be blank on restart.
+  // Moved logic to assignBotCharacters function called during character selection.
 
-    setPlayers(prev => prev.map(p => {
-      if (p.isBot) {
-        // Assign next available character
-        const char = shuffledChars[charIndex % shuffledChars.length];
-        charIndex++;
-        
-        return { 
-          ...p, 
-          name: char.name, // Rename bot to character name
-          characterIcon: char.image 
-        };
-      }
-      return p;
-    }));
-  }, []);
+  const assignBotCharacters = (playerChar: Character) => {
+      const shuffledChars = [...CHARACTERS]
+        .filter(c => c.id !== playerChar.id) // Exclude player's character
+        .sort(() => 0.5 - Math.random());
+      
+      let charIndex = 0;
+
+      setPlayers(prev => prev.map(p => {
+        if (p.isBot) {
+          const char = shuffledChars[charIndex % shuffledChars.length];
+          charIndex++;
+          
+          return { 
+            ...p, 
+            name: char.name, 
+            characterIcon: char.image,
+            // Bots also get abilities if enabled, but we just store the icon/name for now
+          };
+        }
+        return p;
+      }));
+  };
 
   useEffect(() => {
     if (phase === 'ready') {
@@ -922,6 +927,9 @@ export default function Game() {
 
   const selectCharacter = (char: Character) => {
     setSelectedCharacter(char);
+    // Assign random characters to bots now that player has chosen
+    assignBotCharacters(char);
+    
     setPlayers(prev => prev.map(p => {
       if (p.id === 'p1') {
         return { ...p, name: char.name, characterIcon: char.image };
