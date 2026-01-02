@@ -432,25 +432,25 @@ export default function Game() {
        const margin = winnerBid - secondBid;
 
        // 1. Smug Confidence (Round 1 Win)
-       if (round === 1) {
+       if (round === 1 && winnerId === 'p1') {
          overlayType = "smug_confidence";
          overlayMsg = "SMUG CONFIDENCE";
          overlaySub = `${winnerName} takes the lead!`;
        }
        // 2. Fake Calm (Margin >= 15s)
-       else if (secondPlayer && margin >= 15) {
+       else if (secondPlayer && margin >= 15 && winnerId === 'p1') {
          overlayType = "fake_calm";
          overlayMsg = "FAKE CALM";
          overlaySub = `Won by ${margin.toFixed(1)}s!`;
        }
        // 3. Genius Move (Margin <= 5s)
-       else if (secondPlayer && margin <= 5) {
+       else if (secondPlayer && margin <= 5 && winnerId === 'p1') {
          overlayType = "genius_move";
          overlayMsg = "GENIUS MOVE";
          overlaySub = `Won by just ${margin.toFixed(1)}s`;
        }
        // 4. Easy W (Bid < 20s)
-       else if (winnerBid < 20) {
+       else if (winnerBid < 20 && winnerId === 'p1') {
          overlayType = "easy_w";
          overlayMsg = "EASY W";
          overlaySub = `Won with only ${winnerBid.toFixed(1)}s`;
@@ -460,7 +460,7 @@ export default function Game() {
        else {
          const winnerTokensBefore = players.find(p => p.id === winnerId)?.tokens || 0;
          const minTokens = Math.min(...players.map(p => p.tokens));
-         if (winnerTokensBefore === minTokens && players.some(p => p.tokens > winnerTokensBefore)) {
+         if (winnerTokensBefore === minTokens && players.some(p => p.tokens > winnerTokensBefore) && winnerId === 'p1') {
            overlayType = "comeback_hope";
            overlayMsg = "COMEBACK HOPE";
            overlaySub = `${winnerName} stays in the fight!`;
