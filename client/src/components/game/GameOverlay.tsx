@@ -30,10 +30,10 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
   
   useEffect(() => {
     if (type) {
-      // Auto-dismiss after 2 seconds
+      // Auto-dismiss after 5 seconds
       const timer = setTimeout(() => {
         if (onComplete) onComplete();
-      }, 2000); 
+      }, 5000); 
       return () => clearTimeout(timer);
     }
   }, [type, onComplete]);
@@ -94,10 +94,10 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
   return (
     <AnimatePresence>
       {type && (
-        <div className="fixed bottom-24 left-0 right-0 z-50 flex items-center justify-center pointer-events-none p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
           <motion.div
             key="overlay-content" // Force re-render if needed, but framer handles it
-            className={`flex flex-col items-center justify-center py-4 px-12 rounded-xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[300px] text-center`}
+            className={`flex flex-col items-center justify-center py-8 px-16 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[400px] text-center`}
             initial="hidden"
             animate="visible"
             exit="exit"

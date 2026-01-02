@@ -244,6 +244,23 @@ export default function Game() {
   // Pre-calculate bot bids when round starts
   const [botBids, setBotBids] = useState<Record<string, number>>({});
   
+  // Initialize Bots with Random Characters on Mount
+  useEffect(() => {
+    setPlayers(prev => prev.map(p => {
+      if (p.isBot) {
+        // Assign random unused character
+        const randomChar = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+        // Ideally we'd ensure uniqueness but random is fine for now
+        return { 
+          ...p, 
+          name: randomChar.name, // Rename bot to character name
+          characterIcon: randomChar.image 
+        };
+      }
+      return p;
+    }));
+  }, []);
+
   useEffect(() => {
     if (phase === 'ready') {
       const newBotBids: Record<string, number> = {};
