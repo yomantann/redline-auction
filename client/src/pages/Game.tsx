@@ -56,7 +56,7 @@ const STANDARD_TOTAL_ROUNDS = 9;
 const STANDARD_INITIAL_TIME = 300.0;
 const LONG_TOTAL_ROUNDS = 18;
 const LONG_INITIAL_TIME = 600.0;
-const SHORT_TOTAL_ROUNDS = 5;
+const SHORT_TOTAL_ROUNDS = 9; // Changed from 5 to 9 as requested
 const SHORT_INITIAL_TIME = 150.0;
 
 const COUNTDOWN_SECONDS = 3; 
@@ -753,6 +753,13 @@ export default function Game() {
       message: overlayMsg, 
       subMessage: overlaySub 
     });
+
+    if (abilityTriggered) {
+        // Queue ability popup slightly after result popup
+        setTimeout(() => {
+            setOverlay({ type: 'ability_trigger', message: abilityMsg, subMessage: 'Limit Break Activated!' });
+        }, 2000);
+    }
     
     // Add to log
     const logMsg = winnerId 

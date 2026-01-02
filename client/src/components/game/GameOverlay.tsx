@@ -18,6 +18,7 @@ export type OverlayType =
   | "bad_judgment"
   | "zero_bid"
   | "protocol_alert"
+  | "ability_trigger"
   | null;
 
 interface GameOverlayProps {
@@ -63,6 +64,7 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
       case "bad_judgment": return <ThumbsDown size={48} className="text-red-400" />;
       case "zero_bid": return <AlertTriangle size={48} className="text-yellow-200" />;
       case "protocol_alert": return <AlertTriangle size={48} className="text-destructive animate-pulse" />;
+      case "ability_trigger": return <Zap size={48} className="text-blue-400" />;
       
       default: return null;
     }
@@ -83,6 +85,7 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
       case "eliminated":
       case "protocol_alert":
         return "text-destructive border-destructive/20 bg-black/80";
+      case "ability_trigger": return "text-blue-400 border-blue-500/20 bg-black/80";
       case "comeback_hope": return "text-emerald-400 border-emerald-500/20 bg-black/80";
       case "smug_confidence": return "text-purple-400 border-purple-500/20 bg-black/80";
       case "bad_judgment": return "text-red-400 border-red-500/20 bg-black/80";
@@ -97,7 +100,7 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
   return (
     <AnimatePresence>
       {type && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none p-8 pb-32">
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-8" style={{ paddingTop: '20vh' }}>
           <motion.div 
             key="overlay-content" // Force re-render if needed, but framer handles it
             className={`flex flex-col items-center justify-center py-6 px-12 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[400px] text-center pointer-events-auto`}
