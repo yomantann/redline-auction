@@ -39,6 +39,16 @@ import charKaren from '@assets/generated_images/cyberpunk_yelling_commander.png'
 import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
 import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
 import charStonks from '@assets/generated_images/cyberpunk_stonks_man.png';
+import charFloyd from '@assets/generated_images/cyberpunk_boxer_money.png';
+import charRat from '@assets/generated_images/cyberpunk_rat_king.png';
+import charBaldwin from '@assets/generated_images/cyberpunk_baldwin_mask.png';
+import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
+import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
+import charThinker from '@assets/generated_images/cyberpunk_thinker.png';
+import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
+import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
+import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
+import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
 
 
 // Game Constants
@@ -96,6 +106,16 @@ const CHARACTERS: Character[] = [
   { id: 'fine', name: 'Inferno Calm', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500' },
   { id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, description: 'Always looking for a better deal.', color: 'text-blue-400' },
   { id: 'stonks', name: 'Market Maker', title: 'The Strategist', image: charStonks, description: 'Stonks only go up.', color: 'text-emerald-400' },
+  { id: 'floyd', name: 'Money May', title: 'The Champion', image: charFloyd, description: 'Undefeated in financial combat.', color: 'text-yellow-500' },
+  { id: 'rat', name: 'Rat King', title: 'The Scavenger', image: charRat, description: 'Sneaky tactics and hidden cheese.', color: 'text-gray-500' },
+  { id: 'baldwin', name: 'Leper King', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500' },
+  { id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500' },
+  { id: 'gigachad', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300' },
+  { id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400' },
+  { id: 'disaster', name: 'Pyro Girl', title: 'The Anarchist', image: charDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600' },
+  { id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, description: 'Always sweating the big decisions.', color: 'text-red-400' },
+  { id: 'pepesilvia', name: 'Conspiracy', title: 'The Seeker', image: charPepeSilvia, description: 'Connecting dots that do not exist.', color: 'text-amber-600' },
+  { id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, description: 'Smiling through the bear market.', color: 'text-slate-400' },
 ];
 
 export default function Game() {
