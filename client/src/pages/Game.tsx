@@ -846,6 +846,20 @@ export default function Game() {
     }
   };
 
+  const quitGame = () => {
+     setPhase('intro');
+     setRound(1);
+     setOverlay(null);
+     setRoundLog([]);
+     const time = getInitialTime();
+     setPlayers([
+        { id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false },
+        { id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive' },
+        { id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative' },
+        { id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'random' },
+     ]);
+  };
+
   // Render Helpers
   const renderPhaseContent = () => {
     switch (phase) {
@@ -1329,6 +1343,11 @@ export default function Game() {
       {/* Header Info */}
       <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
         <div className="flex items-center gap-2">
+          {phase !== 'intro' && (
+            <Button variant="ghost" size="icon" onClick={quitGame} className="mr-2 text-muted-foreground hover:text-white hover:bg-white/10" title="Quit to Menu">
+               <LogOut size={20} />
+            </Button>
+          )}
           <Clock className="text-primary" size={24} />
           <h1 className="font-display font-bold text-xl tracking-wider">REDLINE AUCTION</h1>
         </div>
