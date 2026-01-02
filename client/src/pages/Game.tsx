@@ -189,8 +189,8 @@ export default function Game() {
         setCountdown((prev) => {
           if (prev <= 1) {
             // Start Auction
-            // Trigger Overlay
-            setOverlay({ type: "round_start", message: "AUCTION START" });
+            // Trigger Overlay removed as requested
+            // setOverlay({ type: "round_start", message: "AUCTION START" });
             setPhase('bidding');
             return 0;
           }
@@ -806,12 +806,33 @@ export default function Game() {
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-display text-muted-foreground">ROUND {round} RESULTS</h2>
               {roundWinner ? (
-                <div className="py-6 space-y-4">
-                  <Trophy size={64} className="mx-auto text-primary" />
-                  <div>
-                    <h1 className="text-4xl font-bold text-white mb-2">{roundWinner.name} WINS</h1>
-                    <p className="text-xl font-mono text-primary">{formatTime(roundWinner.time)}</p>
+                <div className="py-6 space-y-4 flex flex-col items-center">
+                  <div className="relative">
+                    <Trophy size={64} className="mx-auto text-primary relative z-10" />
+                    {/* Winner Image Behind Trophy or Next to it */}
+                     {players.find(p => p.name === roundWinner.name)?.characterIcon && (
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full overflow-hidden border-4 border-primary/50 shadow-[0_0_20px_var(--color-primary)] z-0 opacity-80">
+                           {typeof players.find(p => p.name === roundWinner.name)?.characterIcon === 'string' ? (
+                             <img src={players.find(p => p.name === roundWinner.name)?.characterIcon as string} alt="Winner" className="w-full h-full object-cover" />
+                           ) : (
+                             <div className="w-full h-full bg-zinc-800" />
+                           )}
+                        </div>
+                     )}
                   </div>
+                  
+                  {/* Clean layout for image + text */}
+                   <div className="flex items-center justify-center gap-4 mt-4">
+                     {players.find(p => p.name === roundWinner.name)?.characterIcon && typeof players.find(p => p.name === roundWinner.name)?.characterIcon === 'string' && (
+                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary shadow-lg">
+                           <img src={players.find(p => p.name === roundWinner.name)?.characterIcon as string} alt="Winner" className="w-full h-full object-cover" />
+                        </div>
+                     )}
+                     <div className="text-left">
+                        <h1 className="text-4xl font-bold text-white mb-1 leading-none">{roundWinner.name} WINS</h1>
+                        <p className="text-xl font-mono text-primary">{formatTime(roundWinner.time)}</p>
+                     </div>
+                   </div>
                 </div>
               ) : (
                 <div className="py-6 space-y-4">
