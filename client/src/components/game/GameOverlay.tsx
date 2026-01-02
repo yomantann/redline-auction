@@ -17,6 +17,7 @@ export type OverlayType =
   | "smug_confidence"
   | "bad_judgment"
   | "zero_bid"
+  | "protocol_alert"
   | null;
 
 interface GameOverlayProps {
@@ -61,6 +62,7 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
       case "smug_confidence": return <Trophy size={48} className="text-purple-400" />;
       case "bad_judgment": return <ThumbsDown size={48} className="text-red-400" />;
       case "zero_bid": return <AlertTriangle size={48} className="text-yellow-200" />;
+      case "protocol_alert": return <AlertTriangle size={48} className="text-destructive animate-pulse" />;
       
       default: return null;
     }
@@ -79,6 +81,7 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
       case "easy_w": return "text-green-400 border-green-500/20 bg-black/80";
       case "time_out": 
       case "eliminated":
+      case "protocol_alert":
         return "text-destructive border-destructive/20 bg-black/80";
       case "comeback_hope": return "text-emerald-400 border-emerald-500/20 bg-black/80";
       case "smug_confidence": return "text-purple-400 border-purple-500/20 bg-black/80";

@@ -49,6 +49,7 @@ const READY_HOLD_DURATION = 3.0;
 
 type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
+type ProtocolType = 'DATA_BLACKOUT' | 'DOUBLE_STAKES' | 'SYSTEM_FAILURE' | 'SILENCE' | null;
 
 interface Player {
   id: string;
@@ -92,6 +93,8 @@ export default function Game() {
   const [currentTime, setCurrentTime] = useState(0.0); // The central auction clock
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [showDetails, setShowDetails] = useState(false);
+  const [protocolsEnabled, setProtocolsEnabled] = useState(false);
+  const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
   const [readyHoldTime, setReadyHoldTime] = useState(0);
   
   // Overlay State
@@ -244,17 +247,22 @@ export default function Game() {
   // Pre-calculate bot bids when round starts
   const [botBids, setBotBids] = useState<Record<string, number>>({});
   
-  // Initialize Bots with Random Characters on Mount
+  // Initialize Bots with Random Unique Characters on Mount
   useEffect(() => {
+    // Shuffle characters to ensure uniqueness
+    const shuffledChars = [...CHARACTERS].sort(() => 0.5 - Math.random());
+    let charIndex = 0;
+
     setPlayers(prev => prev.map(p => {
       if (p.isBot) {
-        // Assign random unused character
-        const randomChar = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
-        // Ideally we'd ensure uniqueness but random is fine for now
+        // Assign next available character
+        const char = shuffledChars[charIndex % shuffledChars.length];
+        charIndex++;
+        
         return { 
           ...p, 
-          name: randomChar.name, // Rename bot to character name
-          characterIcon: randomChar.image 
+          name: char.name, // Rename bot to character name
+          characterIcon: char.image 
         };
       }
       return p;
@@ -357,6 +365,35 @@ export default function Game() {
 
   // Start Round Logic
   const startCountdown = () => {
+    // Check for Protocol Trigger (25% chance if enabled)
+    if (protocolsEnabled && Math.random() > 0.75) {
+      const protocols: ProtocolType[] = ['DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE'];
+      const newProtocol = protocols[Math.floor(Math.random() * protocols.length)];
+      setActiveProtocol(newProtocol);
+      
+      let msg = "PROTOCOL INITIATED";
+      let sub = "Unknown Effect";
+      
+      switch(newProtocol) {
+        case 'DATA_BLACKOUT': 
+          msg = "DATA BLACKOUT"; 
+          sub = "Timers Hidden";
+          break;
+        case 'DOUBLE_STAKES': 
+          msg = "HIGH STAKES"; 
+          sub = "Double Tokens for Winner";
+          break;
+        case 'SYSTEM_FAILURE': 
+          msg = "SYSTEM FAILURE"; 
+          sub = "HUD Glitches Detected";
+          break;
+      }
+      
+      setOverlay({ type: "protocol_alert", message: msg, subMessage: sub });
+    } else {
+      setActiveProtocol(null);
+    }
+
     setCurrentTime(0);
     setCountdown(COUNTDOWN_SECONDS);
     setPhase('countdown');
@@ -401,7 +438,7 @@ export default function Game() {
       }
       
       if (p.id === winnerId) {
-        newTokens += 1;
+        newTokens += (activeProtocol === 'DOUBLE_STAKES' ? 2 : 1);
       }
       
       // Check elimination
@@ -582,15 +619,30 @@ export default function Game() {
               </div>
             </div>
             
-            <div className="flex items-center gap-2 bg-black/40 p-3 rounded-full border border-white/10">
-              <Switch 
-                id="show-details-intro" 
-                checked={showDetails} 
-                onCheckedChange={setShowDetails} 
-              />
-              <Label htmlFor="show-details-intro" className="text-sm cursor-pointer text-zinc-400">
-                Easy Mode (Show Timer & Clock)
-              </Label>
+            <div className="flex items-center gap-6 bg-black/40 p-3 rounded-full border border-white/10">
+              <div className="flex items-center gap-2">
+                <Switch 
+                  id="show-details-intro" 
+                  checked={showDetails} 
+                  onCheckedChange={setShowDetails} 
+                />
+                <Label htmlFor="show-details-intro" className="text-sm cursor-pointer text-zinc-400">
+                  Easy Mode
+                </Label>
+              </div>
+              <Separator orientation="vertical" className="h-6 bg-white/10" />
+              <div className="flex items-center gap-2">
+                <Switch 
+                  id="protocols-intro" 
+                  checked={protocolsEnabled} 
+                  onCheckedChange={setProtocolsEnabled} 
+                  className="data-[state=checked]:bg-destructive"
+                />
+                <Label htmlFor="protocols-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
+                  <AlertTriangle size={14} className={protocolsEnabled ? "text-destructive" : "text-muted-foreground"}/>
+                  Protocols
+                </Label>
+              </div>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
@@ -763,16 +815,22 @@ export default function Game() {
         );
 
       case 'bidding':
+        const isBlackout = activeProtocol === 'DATA_BLACKOUT' || activeProtocol === 'SYSTEM_FAILURE';
+        
         return (
           <div className="flex flex-col items-center justify-center h-[450px]">
              {/* Timer Area */}
              <div className="h-[100px] flex items-center justify-center mb-4">
-                {showDetails && currentTime <= 10 ? (
+                {showDetails && !isBlackout && currentTime <= 10 ? (
                   <TimerDisplay time={currentTime} isRunning={true} />
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]">
-                     <span className="text-muted-foreground text-xs tracking-[0.2em] font-display mb-1">AUCTION TIME</span>
-                     <div className="text-4xl font-mono text-zinc-700 animate-pulse">??:??.?</div>
+                  <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "animate-pulse border-destructive/20")}>
+                     <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
+                       {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
+                     </span>
+                     <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : "animate-pulse")}>
+                       {isBlackout ? "ERROR" : "??:??.?"}
+                     </div>
                   </div>
                 )}
              </div>
@@ -938,16 +996,33 @@ export default function Game() {
           <h1 className="font-display font-bold text-xl tracking-wider">REDLINE AUCTION</h1>
         </div>
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
-            <Switch 
-              id="show-details" 
-              checked={showDetails} 
-              onCheckedChange={setShowDetails} 
-            />
-            <Label htmlFor="show-details" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
-              {showDetails ? <Eye size={12}/> : <EyeOff size={12}/>} 
-              {showDetails ? "Easy Mode" : "Hard Mode"}
-            </Label>
+          <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
+             <div className="flex items-center gap-2">
+                <Switch 
+                  id="show-details" 
+                  checked={showDetails} 
+                  onCheckedChange={setShowDetails} 
+                />
+                <Label htmlFor="show-details" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
+                  {showDetails ? <Eye size={12}/> : <EyeOff size={12}/>} 
+                  {showDetails ? "Easy" : "Hard"}
+                </Label>
+             </div>
+             
+             <Separator orientation="vertical" className="h-4 bg-white/10" />
+
+             <div className="flex items-center gap-2">
+                <Switch 
+                  id="protocols" 
+                  checked={protocolsEnabled} 
+                  onCheckedChange={setProtocolsEnabled} 
+                  className="data-[state=checked]:bg-destructive scale-75 origin-right"
+                />
+                <Label htmlFor="protocols" className={cn("text-sm cursor-pointer flex items-center gap-1", protocolsEnabled ? "text-destructive" : "text-zinc-400")}>
+                  <AlertTriangle size={12}/>
+                  Protocols
+                </Label>
+             </div>
           </div>
           <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5">
             ROUND {round} / {TOTAL_ROUNDS}
