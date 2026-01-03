@@ -582,14 +582,6 @@ export default function Game() {
           if (target === 'YOU') {
               sub = "YOU are the Mole! Lose secretly.";
           } else {
-              // For others, we don't reveal WHO it is, just that there IS a mole
-              // Or if user wants "only 1 player should see the popup", we might just hide it for non-targets?
-              // Let's make it so only the target sees the "You are the mole" popup.
-              // For everyone else, maybe a generic "A Mole has been chosen" or nothing?
-              // User said "If a protocol is specific to 1 player only 1 player should see the popup."
-              // So if I am NOT the mole, I shouldn't see a popup saying "Someone else is the mole" if it's meant to be secret?
-              // But 'THE_MOLE' event usually implies everyone knows there IS a mole, just not WHO.
-              // However, adhering strictly to "only 1 player should see", let's hide it for others.
               sub = "A Mole is active..."; 
           }
           break;
@@ -601,32 +593,28 @@ export default function Game() {
       
       // Filter out popups that shouldn't be seen by the player
       let showPopup = true;
-      if (newProtocol === 'THE_MOLE' && moleTarget !== 'p1') {
-          // If I'm not the mole, do I see anything? 
-          // User: "If a protocol is specific to 1 player only 1 player should see the popup."
-          // So if I am not the target, showPopup = false
-          showPopup = false; 
-      }
-      
-      if (newProtocol === 'PRIVATE_CHANNEL') {
-          // If I'm not in the channel (p1 is 'YOU')
-          // p1, p2 are names returned by getTwoRandomPlayers()
-          // We need to check if 'YOU' is in the names.
-          // The helper `getTwoRandomPlayers` returns names.
-          // Note: `players` array has name 'YOU' for p1.
-          // But `getTwoRandomPlayers` logic: `const shuffled = [...players].sort... return [shuffled[0].name...`
-          // So if 'YOU' is not in the list, hide it.
-          // Wait, `sub` string is constructed with names. I can check if `sub` contains 'YOU'.
-          if (!sub.includes('YOU')) showPopup = false;
+      const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'NOISE_CANCEL', 'LOCK_ON'];
+
+      if (targetProtocols.includes(newProtocol)) {
+         // Default to hiding unless I am involved
+         showPopup = false;
+
+         // Check involvement
+         if (newProtocol === 'THE_MOLE') {
+             // Only show if I am the mole target
+             if (moleTarget === 'p1') showPopup = true;
+         } else if (sub.includes('YOU') || sub.includes(players.find(p => p.id === 'p1')?.name || 'YOU')) {
+             // If the message mentions me, I see it
+             showPopup = true;
+         }
       }
 
       if (showPopup) {
          setOverlay({ type: "protocol_alert", message: msg, subMessage: sub });
       } else {
-         // Even if visual popup is hidden, we might want to set active protocol state? Yes, already set above.
-         // Just don't show the big overlay.
-         // Maybe a small toast or nothing?
-         // User asked for "only 1 player should see the popup", implying silence for others.
+         // Show a generic "Hidden Protocol Active" message for others
+         // But only if it's one of the targeted ones where they aren't included
+         setOverlay({ type: "protocol_alert", message: "SECRET PROTOCOL", subMessage: "A hidden protocol is active..." });
       }
     } else {
       setActiveProtocol(null);
@@ -774,7 +762,11 @@ export default function Game() {
       }
       
       if (p.id === winnerId) {
-        newTokens += (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM' ? 2 : 1);
+        let tokensToAdd = 1;
+        if (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') {
+            tokensToAdd = 2;
+        }
+        newTokens += tokensToAdd;
       }
       
       // Check elimination
@@ -1046,7 +1038,7 @@ export default function Game() {
             <p className="text-xl text-muted-foreground">
               Bid time to win tokens.<br/>
               <span className="text-sm font-mono opacity-70">
-                {gameDuration === 'short' && "SPEED MODE: 2.5 Minutes | 5 Rounds"}
+                {gameDuration === 'short' && "SPEED MODE: 2.5 Minutes | 9 Rounds"}
                 {gameDuration === 'standard' && "STANDARD: 5 Minutes | 9 Rounds"}
                 {gameDuration === 'long' && "MARATHON: 10 Minutes | 18 Rounds"}
               </span>
