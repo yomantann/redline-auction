@@ -467,8 +467,10 @@ export default function Game() {
   }, [phase]);
 
   // Check bot bids during bidding phase
+  // Also check for PEEK abilities (Sadman Logic / Pepe)
   useEffect(() => {
     if (phase === 'bidding') {
+      // Release bots
       const botsToRelease = players.filter(p => 
         p.isBot && 
         p.isHolding && 
@@ -483,8 +485,46 @@ export default function Game() {
           return p;
         }));
       }
+      
+      // PEEK Logic: If I am 'pepe' (Sadman Logic), I can see if others are holding
+      // Or 'bf' (Sneak Peek)
+      // Check if player has this ability
+      const playerChar = selectedCharacter; // Or find player p1 char
+      if (playerChar?.ability?.effect === 'PEEK') {
+          // If 'SAD REVEAL' -> See if opponents are holding (Badges appear on their cards)
+          // This is handled in PlayerStats UI if we pass a prop or state
+          // We can set a state here to "reveal" holding status
+          // Let's assume we want to trigger it randomly or always?
+          // Description: "See if opponents are holding."
+          // User asked: "Do you randomly in some rounds get to see if others are holding?"
+          // Let's implement a random chance per round for this "insight" to be active.
+          // We can use a state `peekActive` set at round start.
+      }
     }
   }, [currentTime, phase, botBids]);
+
+  // Round Start Logic extension for PEEK
+  const [peekActive, setPeekActive] = useState(false);
+  
+  useEffect(() => {
+      if (phase === 'countdown') {
+          // 30% chance to activate PEEK ability if player has one
+          if (selectedCharacter?.ability?.effect === 'PEEK') {
+              const chance = Math.random();
+              setPeekActive(chance > 0.7); // 30% chance
+              if (chance > 0.7) {
+                  toast({
+                      title: "INSIGHT ACTIVATED",
+                      description: `${selectedCharacter.ability.name}: You can see opponent status this round!`,
+                      className: "bg-green-950 border-green-500 text-green-100",
+                      duration: 4000
+                  });
+              }
+          } else {
+              setPeekActive(false);
+          }
+      }
+  }, [phase, round]);
 
 
   // User Interactions
@@ -865,6 +905,7 @@ export default function Game() {
                let title = `${ability.player}: LIMIT BREAK`;
                let desc = `${ability.ability} ACTIVATED`;
                let variant = "default"; // blue/normal
+               let className = "text-xl py-6 px-8 border-2 shadow-xl"; // Default larger styles
 
                // Case 1: I cast it
                if (ability.playerId === 'p1') {
@@ -872,30 +913,49 @@ export default function Game() {
                    if (ability.targetName) {
                        desc += ` on ${ability.targetName}`;
                    }
+                   if (ability.effect === 'TIME_REFUND') {
+                        desc += " (+TIME)";
+                        className += " bg-emerald-950 border-emerald-500 text-emerald-100";
+                   } else if (ability.effect === 'TOKEN_BOOST') {
+                        desc += " (+TOKENS)";
+                        className += " bg-yellow-950 border-yellow-500 text-yellow-100";
+                   } else {
+                        className += " bg-blue-950 border-blue-500 text-blue-100";
+                   }
                } 
                // Case 2: I was hit
                else if (ability.targetId === 'p1') {
                    show = true;
-                   title = `WARNING: ${ability.player}`;
-                   desc = `${ability.ability} HIT YOU!`;
+                   title = `⚠️ WARNING: ${ability.player}`;
+                   desc = `${ability.ability} HIT YOU! (-TIME)`;
                    variant = "destructive";
+                   className += " bg-red-950 border-red-500 text-red-100 animate-pulse";
                } 
                // Case 3: Global effect hitting everyone (including me)
                else if (ability.targetName === 'ALL OPPONENTS') {
                    show = true;
-                   title = `WARNING: ${ability.player}`;
+                   title = `⚠️ GLOBAL THREAT: ${ability.player}`;
                    desc = `${ability.ability} HIT EVERYONE!`;
                    variant = "destructive";
+                   className += " bg-orange-950 border-orange-500 text-orange-100 animate-pulse";
+               }
+               // Case 4: Special Notification for Click-Click winning 2 tokens
+               else if (ability.ability === 'HYPER CLICK' && ability.effect === 'TOKEN_BOOST' && activeAbilities.some(a => a.playerId === 'p1')) {
+                   // If I am p1 and I see someone else triggered this? No, ability.playerId is the caster.
+                   // If *someone else* got a token boost, maybe we want to know?
+                   // User asked: "Click won and got 2 tokens, but I want that to either show more clearly or have some sort of dialogue to notify the others."
+                   show = true;
+                   title = `${ability.player} BONUS!`;
+                   desc = "HYPER CLICK AWARDED +1 TOKEN!";
+                   className += " bg-purple-950 border-purple-500 text-purple-100";
                }
 
                if (show) {
                    toast({
                      title: title,
                      description: desc,
-                     className: variant === "destructive"
-                        ? "bg-red-950 border-red-500 text-red-100" 
-                        : "bg-blue-950 border-blue-500 text-blue-100",
-                     duration: 6000, 
+                     className: className,
+                     duration: 12000, // Double duration (was 6000)
                    });
                }
             });

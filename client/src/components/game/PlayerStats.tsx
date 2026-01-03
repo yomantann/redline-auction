@@ -11,6 +11,7 @@ interface Player {
   hasBidThisRound?: boolean;
   bidTime?: number; // Only for round result
   characterIcon?: string | React.ReactNode;
+  isHolding?: boolean; // Added for Peek Logic
 }
 
 interface PlayerStatsProps {
@@ -19,19 +20,19 @@ interface PlayerStatsProps {
   showTime?: boolean; // Debug only
   remainingTime?: number;
   formatTime?: (seconds: number) => string;
+  peekActive?: boolean; // New prop for PEEK ability
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
-  // Logic to show time:
-  // If showTime is true, show formatted time.
-  // Else, show "??:??.?".
-  // NOTE: If remainingTime is <= 0, we might want to show it regardless? 
-  // User said "until someone spends all their time". 
-  // Let's assume the parent component controls `showTime` logic correctly based on that rule.
-  
+  // PEEK LOGIC:
+  // If peekActive is true, and this is NOT the current player, and they are holding...
+  // Show a visual indicator.
+  // Note: player.isHolding must be passed from parent or extended in Player interface
+  const showHolding = peekActive && !isCurrentPlayer && player.isHolding;
+
   return (
     <div className={cn(
       "relative p-4 rounded-lg border flex flex-col gap-3 transition-all duration-300",
@@ -42,6 +43,13 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     )}
     data-testid={`player-card-${player.id}`}
     >
+      {/* PEEK INDICATOR OVERLAY */}
+      {showHolding && (
+          <div className="absolute -top-2 -right-2 bg-green-500 text-black text-[10px] font-black px-3 py-1 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse z-20 flex items-center gap-1">
+             <User size={10} /> HOLDING
+          </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={cn(

@@ -100,7 +100,7 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
   return (
     <AnimatePresence>
       {type && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-8">
+        <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none p-8 pb-32">
           <motion.div 
             key="overlay-content" // Force re-render if needed, but framer handles it
             className={`flex flex-col items-center justify-center py-6 px-12 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[400px] text-center pointer-events-auto`}
