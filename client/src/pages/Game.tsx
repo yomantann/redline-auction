@@ -66,19 +66,47 @@ const READY_HOLD_DURATION = 3.0;
 type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
 type GameDuration = 'standard' | 'long' | 'short';
+// NEW PROTOCOL TYPES
+type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'GROUP_SELFIE' | 'HUM_TUNE';
+type BioProtocol = 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND';
+
+// Extended Protocol Type
 type ProtocolType = 
-  | 'DATA_BLACKOUT' 
-  | 'DOUBLE_STAKES' 
-  | 'SYSTEM_FAILURE' 
-  | 'OPEN_HAND' 
-  | 'NOISE_CANCEL' 
-  | 'MUTE_PROTOCOL' 
-  | 'PRIVATE_CHANNEL' 
-  | 'NO_LOOK' 
-  | 'LOCK_ON' 
-  | 'THE_MOLE' 
-  | 'PANIC_ROOM' 
+  | 'DATA_BLACKOUT' | 'DOUBLE_STAKES' | 'SYSTEM_FAILURE' 
+  | 'OPEN_HAND' | 'NOISE_CANCEL' | 'MUTE_PROTOCOL' 
+  | 'PRIVATE_CHANNEL' | 'NO_LOOK' | 'LOCK_ON' 
+  | 'THE_MOLE' | 'PANIC_ROOM' 
+  | SocialProtocol
+  | BioProtocol
   | null;
+
+// ... (Existing Characters)
+
+// NEW CHARACTERS (SOCIAL MODE)
+const SOCIAL_CHARACTERS: Character[] = [
+  { 
+    id: 'party_king', name: 'Party King', title: 'The Host', image: charGigachad, description: 'Wins hearts and rounds.', color: 'text-purple-500',
+    ability: { name: 'VIBE CHECK', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' } // Simplified for now
+  },
+  {
+    id: 'gossip', name: 'The Gossip', title: 'The Spiller', image: charPepeSilvia, description: 'Knows everything.', color: 'text-pink-500',
+    ability: { name: 'LEAK', description: 'See random opponent bid.', effect: 'PEEK' }
+  }
+];
+
+// NEW CHARACTERS (BIO-FUEL MODE)
+const BIO_CHARACTERS: Character[] = [
+  { 
+    id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charHarambe, description: 'Can handle anything.', color: 'text-green-600',
+    ability: { name: 'IRON STOMACH', description: 'Immune to "Drink" penalties (Lore only).', effect: 'TIME_REFUND' }
+  },
+  {
+    id: 'bartender', name: 'Mixologist', title: 'The Server', image: charFine, description: 'Serves the pain.', color: 'text-orange-600',
+    ability: { name: 'LAST CALL', description: 'Remove 1s from everyone.', effect: 'DISRUPT' }
+  }
+];
+
+// ... (Game Component)
 
 interface Player {
   id: string;
@@ -191,72 +219,61 @@ const CHARACTERS: Character[] = [
   },
 ];
 
-type GameMode = 'COMPETITIVE' | 'CASUAL' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+// New Types for Refactored Game Modes
+type GameDifficulty = 'COMPETITIVE' | 'CASUAL';
+type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+
+// ... (Existing types)
 
 export default function Game() {
   const { toast } = useToast();
   // Game State
   const [phase, setPhase] = useState<GamePhase>('intro');
-  const [gameMode, setGameMode] = useState<GameMode>('COMPETITIVE');
-  const [round, setRound] = useState(1);
-  const [gameDuration, setGameDuration] = useState<GameDuration>('standard');
-  const [currentTime, setCurrentTime] = useState(0.0); // The central auction clock
-  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
-  const [showDetails, setShowDetails] = useState(false);
-  const [protocolsEnabled, setProtocolsEnabled] = useState(false);
-  const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
-  const [readyHoldTime, setReadyHoldTime] = useState(0);
-  const [moleTarget, setMoleTarget] = useState<string | null>(null);
-  const [showProtocolGuide, setShowProtocolGuide] = useState(false);
-  const [showProtocolSelect, setShowProtocolSelect] = useState(false);
-  const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
-        'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
-        'OPEN_HAND', 'NOISE_CANCEL', 'MUTE_PROTOCOL', 
-        'PRIVATE_CHANNEL', 'NO_LOOK', 'LOCK_ON', 
-        'THE_MOLE', 'PANIC_ROOM'
-  ]);
-  const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
-  const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
-  const [showPopupLibrary, setShowPopupLibrary] = useState(false);
-  const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[]>([]);
+  const [difficulty, setDifficulty] = useState<GameDifficulty>('COMPETITIVE');
+  const [variant, setVariant] = useState<GameVariant>('STANDARD');
+  
+  // Derived state for backward compatibility or simple logic
+  const showDetails = difficulty === 'CASUAL';
 
-  // Sync Show Details with Game Mode
+  // ... (Rest of state)
+
+  // Sync Protocols with Variant
   useEffect(() => {
-    if (gameMode === 'CASUAL') setShowDetails(true);
-    else setShowDetails(false);
-    
-    // Auto-enable protocols for Social Overdrive
-    if (gameMode === 'SOCIAL_OVERDRIVE') {
+    if (variant === 'SOCIAL_OVERDRIVE' || variant === 'BIO_FUEL') {
         setProtocolsEnabled(true);
+        // We will merge protocol lists dynamically in startCountdown
     }
-  }, [gameMode]);
+  }, [variant]);
 
-  const toggleGameMode = () => {
-    setGameMode(prev => {
-      if (prev === 'COMPETITIVE') return 'CASUAL';
-      if (prev === 'CASUAL') return 'SOCIAL_OVERDRIVE';
+  const toggleDifficulty = () => {
+      setDifficulty(prev => prev === 'COMPETITIVE' ? 'CASUAL' : 'COMPETITIVE');
+  };
+
+  const toggleVariant = () => {
+    setVariant(prev => {
+      if (prev === 'STANDARD') return 'SOCIAL_OVERDRIVE';
       if (prev === 'SOCIAL_OVERDRIVE') return 'BIO_FUEL';
-      return 'COMPETITIVE';
+      return 'STANDARD';
     });
   };
 
-  const getModeIcon = () => {
-    switch (gameMode) {
-      case 'COMPETITIVE': return <Shield size={12} />;
-      case 'CASUAL': return <Eye size={12} />;
+  const getVariantIcon = () => {
+    switch (variant) {
+      case 'STANDARD': return <Shield size={12} />;
       case 'SOCIAL_OVERDRIVE': return <PartyPopper size={12} />;
       case 'BIO_FUEL': return <Martini size={12} />;
     }
   };
 
-  const getModeColor = () => {
-    switch (gameMode) {
-      case 'COMPETITIVE': return "text-zinc-400";
-      case 'CASUAL': return "text-emerald-400";
+  const getVariantColor = () => {
+    switch (variant) {
+      case 'STANDARD': return "text-zinc-400";
       case 'SOCIAL_OVERDRIVE': return "text-purple-400";
       case 'BIO_FUEL': return "text-orange-400";
     }
   };
+  
+  // ... (Rest of component)
 
   // Derived Constants based on Duration
   const getTotalRounds = () => {
@@ -444,7 +461,12 @@ export default function Game() {
   // Moved logic to assignBotCharacters function called during character selection.
 
   const assignBotCharacters = (playerChar: Character) => {
-      const shuffledChars = [...CHARACTERS]
+      // Build Character Pool based on Variant
+      let pool = [...CHARACTERS];
+      if (variant === 'SOCIAL_OVERDRIVE') pool = [...pool, ...SOCIAL_CHARACTERS];
+      if (variant === 'BIO_FUEL') pool = [...pool, ...BIO_CHARACTERS];
+
+      const shuffledChars = pool
         .filter(c => c.id !== playerChar.id) // Exclude player's character
         .sort(() => 0.5 - Math.random());
       
@@ -603,8 +625,24 @@ export default function Game() {
   // Start Round Logic
   const startCountdown = () => {
     // Check for Protocol Trigger (35% chance if enabled)
-    if (protocolsEnabled && allowedProtocols.length > 0 && Math.random() > 0.65) {
-      const newProtocol = allowedProtocols[Math.floor(Math.random() * allowedProtocols.length)];
+    if (protocolsEnabled && Math.random() > 0.65) {
+      
+      // Build Protocol Pool
+      let protocolPool = [...allowedProtocols];
+      
+      if (variant === 'SOCIAL_OVERDRIVE') {
+          protocolPool = [...protocolPool, 'TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'];
+      }
+      if (variant === 'BIO_FUEL') {
+          protocolPool = [...protocolPool, 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
+      }
+      
+      // Filter out nulls
+      protocolPool = protocolPool.filter(p => p !== null);
+
+      if (protocolPool.length === 0) return;
+
+      const newProtocol = protocolPool[Math.floor(Math.random() * protocolPool.length)];
       setActiveProtocol(newProtocol);
       
       let msg = "PROTOCOL INITIATED";
@@ -618,80 +656,56 @@ export default function Game() {
       };
       
       switch(newProtocol) {
-        case 'DATA_BLACKOUT': 
-          msg = "DATA BLACKOUT"; 
-          sub = "Timers Hidden";
-          break;
-        case 'DOUBLE_STAKES': 
-          msg = "HIGH STAKES"; 
-          sub = "Double Tokens for Winner";
-          break;
-        case 'SYSTEM_FAILURE': 
-          msg = "SYSTEM FAILURE"; 
-          sub = "HUD Glitches & Timer Scramble";
-          break;
-        case 'OPEN_HAND':
-          msg = "OPEN HAND";
-          sub = `${getRandomPlayer()} must state they won't bid!`;
-          break;
-        case 'NOISE_CANCEL':
-          msg = "NOISE CANCEL";
-          sub = `${getRandomPlayer()} must make noise for 15s!`;
-          break;
-        case 'MUTE_PROTOCOL':
-          msg = "SILENCE ENFORCED";
-          sub = "All players must remain silent!";
-          break;
-        case 'PRIVATE_CHANNEL':
-          const [p1, p2] = getTwoRandomPlayers();
-          msg = "PRIVATE CHANNEL";
-          sub = `${p1} & ${p2} discuss strategy now!`;
-          break;
-        case 'NO_LOOK':
-          msg = "BLIND BIDDING";
-          sub = "Do not look at screens until drop!";
-          break;
+        // ... STANDARD PROTOCOLS ...
+        case 'DATA_BLACKOUT': msg = "DATA BLACKOUT"; sub = "Timers Hidden"; break;
+        case 'DOUBLE_STAKES': msg = "HIGH STAKES"; sub = "Double Tokens for Winner"; break;
+        case 'SYSTEM_FAILURE': msg = "SYSTEM FAILURE"; sub = "HUD Glitches & Timer Scramble"; break;
+        case 'OPEN_HAND': msg = "OPEN HAND"; sub = `${getRandomPlayer()} must state they won't bid!`; break;
+        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = `${getRandomPlayer()} must make noise for 15s!`; break;
+        case 'MUTE_PROTOCOL': msg = "SILENCE ENFORCED"; sub = "All players must remain silent!"; break;
+        case 'PRIVATE_CHANNEL': 
+            const [p1, p2] = getTwoRandomPlayers();
+            msg = "PRIVATE CHANNEL"; sub = `${p1} & ${p2} discuss strategy now!`; 
+            break;
+        case 'NO_LOOK': msg = "BLIND BIDDING"; sub = "Do not look at screens until drop!"; break;
         case 'LOCK_ON':
-          const [l1, l2] = getTwoRandomPlayers();
-          msg = "LOCK ON";
-          sub = `${l1} & ${l2} must maintain eye contact!`;
-          break;
+            const [l1, l2] = getTwoRandomPlayers();
+            msg = "LOCK ON"; sub = `${l1} & ${l2} must maintain eye contact!`;
+            break;
         case 'THE_MOLE':
-          // In single player, we pretend the user might be the mole or someone else
-          // If we want to target the user specifically sometimes:
           const target = Math.random() > 0.5 ? 'YOU' : getRandomPlayer();
           const targetId = target === 'YOU' ? 'p1' : players.find(p => p.name === target)?.id || null;
-          
-          setMoleTarget(targetId); // Store for logic
-          
+          setMoleTarget(targetId);
           msg = "THE MOLE";
-          
-          if (target === 'YOU') {
-              sub = "YOU are the Mole! Lose secretly.";
-          } else {
-              sub = "A Mole is active..."; 
-          }
+          sub = target === 'YOU' ? "YOU are the Mole! Lose secretly." : "A Mole is active..."; 
           break;
-        case 'PANIC_ROOM':
-          msg = "PANIC ROOM";
-          sub = "Time 2x Speed | Double Win Tokens";
-          break;
+        case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
+        
+        // ... SOCIAL PROTOCOLS ...
+        case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner gives a Dare to Loser!"; break;
+        case 'SWITCH_SEATS': msg = "SCRAMBLE"; sub = "Everyone switch seats left!"; break;
+        case 'GROUP_SELFIE': msg = "MEMORY LEAK"; sub = "Take a group selfie now!"; break;
+        case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
+        
+        // ... BIO PROTOCOLS ...
+        case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone take a sip!"; break;
+        case 'BOTTOMS_UP': msg = "SYSTEM FLUSH"; sub = "Loser of this round finishes drink!"; break;
+        case 'PARTNER_DRINK': 
+            const [b1, b2] = getTwoRandomPlayers();
+            msg = "LINKED SYSTEMS"; sub = `${b1} & ${b2} are drinking buddies this round!`; 
+            break;
+        case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water only this round!"; break;
       }
       
       // Filter out popups that shouldn't be seen by the player
       let showPopup = true;
-      const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'NOISE_CANCEL', 'LOCK_ON'];
+      const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'NOISE_CANCEL', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE'];
 
       if (newProtocol && targetProtocols.includes(newProtocol)) {
-         // Default to hiding unless I am involved
          showPopup = false;
-
-         // Check involvement
          if (newProtocol === 'THE_MOLE') {
-             // Only show if I am the mole target
              if (moleTarget === 'p1') showPopup = true;
          } else if (sub.includes('YOU') || sub.includes(players.find(p => p.id === 'p1')?.name || 'YOU')) {
-             // If the message mentions me, I see it
              showPopup = true;
          }
       }
@@ -699,8 +713,6 @@ export default function Game() {
       if (showPopup) {
          setOverlay({ type: "protocol_alert", message: msg, subMessage: sub });
       } else {
-         // Show a generic "Hidden Protocol Active" message for others
-         // But only if it's one of the targeted ones where they aren't included
          setOverlay({ type: "protocol_alert", message: "SECRET PROTOCOL", subMessage: "A hidden protocol is active..." });
       }
     } else {
@@ -979,7 +991,7 @@ export default function Game() {
     }
 
     // BIO-FUEL Logic: Add drink prompt if applicable
-    if (gameMode === 'BIO_FUEL' && (overlayType === 'time_out' || winnerId)) {
+    if (variant === 'BIO_FUEL' && (overlayType === 'time_out' || winnerId)) {
         if (overlayType === 'time_out') {
              overlaySub = "ELIMINATED! CONSUME BIO-FUEL.";
         } else if (winnerId) {
@@ -1700,17 +1712,34 @@ export default function Game() {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
              
-             {/* GAME MODE TOGGLE */}
+             {/* DIFFICULTY TOGGLE */}
              <div className="flex items-center gap-2">
                 <Button 
                    variant="ghost" 
                    size="sm" 
-                   onClick={toggleGameMode}
+                   onClick={toggleDifficulty}
                    className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
                 >
-                   <span className={getModeColor()}>{getModeIcon()}</span>
-                   <span className={cn("tracking-widest", getModeColor())}>
-                      {gameMode.replace('_', ' ')}
+                   {difficulty === 'CASUAL' ? <Eye size={12} className="text-emerald-400"/> : <EyeOff size={12} className="text-zinc-400"/>}
+                   <span className={difficulty === 'CASUAL' ? "text-emerald-400" : "text-zinc-400"}>
+                      {difficulty}
+                   </span>
+                </Button>
+             </div>
+
+             <Separator orientation="vertical" className="h-4 bg-white/10" />
+
+             {/* VARIANT TOGGLE */}
+             <div className="flex items-center gap-2">
+                <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   onClick={toggleVariant}
+                   className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
+                >
+                   <span className={getVariantColor()}>{getVariantIcon()}</span>
+                   <span className={cn("tracking-widest", getVariantColor())}>
+                      {variant.replace('_', ' ')}
                    </span>
                 </Button>
              </div>
