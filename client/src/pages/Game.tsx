@@ -216,6 +216,7 @@ export default function Game() {
         'THE_MOLE', 'PANIC_ROOM'
   ]);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
+  const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
   const [showPopupLibrary, setShowPopupLibrary] = useState(false);
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[]>([]);
 
@@ -681,7 +682,7 @@ export default function Game() {
       let showPopup = true;
       const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'NOISE_CANCEL', 'LOCK_ON'];
 
-      if (targetProtocols.includes(newProtocol)) {
+      if (newProtocol && targetProtocols.includes(newProtocol)) {
          // Default to hiding unless I am involved
          showPopup = false;
 
