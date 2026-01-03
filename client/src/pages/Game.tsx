@@ -1276,7 +1276,7 @@ export default function Game() {
                   <Switch 
                     id="show-details-intro" 
                     checked={showDetails} 
-                    onCheckedChange={setShowDetails} 
+                    onCheckedChange={(checked) => setDifficulty(checked ? 'CASUAL' : 'COMPETITIVE')} 
                   />
                   <Label htmlFor="show-details-intro" className="text-sm cursor-pointer text-zinc-400">
                     Easy Mode
