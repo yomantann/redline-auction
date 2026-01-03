@@ -871,9 +871,11 @@ export default function Game() {
            overlaySub = `${winnerName} stays in the fight!`;
          } else {
            // Default Win
-           overlayType = "round_win";
-           overlayMsg = `${winnerName} WINS`;
-           overlaySub = `${formatTime(winnerTime)}`;
+           // Removed overlayType = "round_win" as per user request ("We also dont need a popup on who won")
+           // But we still want to show something if it's NOT a special win?
+           // User said: "We also dont need a popup on who won since it always says at the top."
+           // So for standard wins, we show nothing?
+           overlayType = null;
          }
        }
 

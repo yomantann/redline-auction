@@ -45,12 +45,17 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     >
       {/* PEEK INDICATOR OVERLAY */}
       {showHolding && (
-          <div className="absolute -top-2 -right-2 bg-green-500 text-black text-[10px] font-black px-3 py-1 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse z-20 flex items-center gap-1">
-             <User size={10} /> HOLDING
+          <div className="absolute -top-3 -right-3 bg-green-500 text-black text-xs font-black px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.8)] animate-pulse z-50 flex items-center gap-1 border-2 border-white">
+             <User size={12} /> HOLDING
           </div>
       )}
 
-      <div className="flex items-center justify-between">
+      {/* DOUBLE TOKENS INDICATOR */}
+      {player.hasBidThisRound && (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-0">
+             {/* Can add effect here if needed */}
+          </div>
+      )}
         <div className="flex items-center gap-2">
           <div className={cn(
             "w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border border-white/10 bg-black/40",
