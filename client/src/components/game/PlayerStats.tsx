@@ -21,9 +21,10 @@ interface PlayerStatsProps {
   remainingTime?: number;
   formatTime?: (seconds: number) => string;
   peekActive?: boolean; // New prop for PEEK ability
+  isDoubleTokens?: boolean;
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -51,11 +52,13 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       )}
 
       {/* DOUBLE TOKENS INDICATOR */}
-      {player.hasBidThisRound && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-0">
-             {/* Can add effect here if needed */}
+      {isDoubleTokens && (
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg z-20 animate-bounce whitespace-nowrap">
+             2x ROUND
           </div>
       )}
+
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={cn(
             "w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border border-white/10 bg-black/40",

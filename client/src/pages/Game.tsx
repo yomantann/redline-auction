@@ -1706,6 +1706,8 @@ export default function Game() {
                 // Show time if: Easy Mode OR Game Over OR Player Eliminated
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
+                peekActive={peekActive}
+                isDoubleTokens={isDoubleTokens}
               />
             ))}
           </div>
