@@ -25,7 +25,7 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen, CircleHelp
+  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -191,10 +191,13 @@ const CHARACTERS: Character[] = [
   },
 ];
 
+type GameMode = 'COMPETITIVE' | 'CASUAL' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+
 export default function Game() {
   const { toast } = useToast();
   // Game State
   const [phase, setPhase] = useState<GamePhase>('intro');
+  const [gameMode, setGameMode] = useState<GameMode>('COMPETITIVE');
   const [round, setRound] = useState(1);
   const [gameDuration, setGameDuration] = useState<GameDuration>('standard');
   const [currentTime, setCurrentTime] = useState(0.0); // The central auction clock
@@ -215,6 +218,44 @@ export default function Game() {
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
   const [showPopupLibrary, setShowPopupLibrary] = useState(false);
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[]>([]);
+
+  // Sync Show Details with Game Mode
+  useEffect(() => {
+    if (gameMode === 'CASUAL') setShowDetails(true);
+    else setShowDetails(false);
+    
+    // Auto-enable protocols for Social Overdrive
+    if (gameMode === 'SOCIAL_OVERDRIVE') {
+        setProtocolsEnabled(true);
+    }
+  }, [gameMode]);
+
+  const toggleGameMode = () => {
+    setGameMode(prev => {
+      if (prev === 'COMPETITIVE') return 'CASUAL';
+      if (prev === 'CASUAL') return 'SOCIAL_OVERDRIVE';
+      if (prev === 'SOCIAL_OVERDRIVE') return 'BIO_FUEL';
+      return 'COMPETITIVE';
+    });
+  };
+
+  const getModeIcon = () => {
+    switch (gameMode) {
+      case 'COMPETITIVE': return <Shield size={12} />;
+      case 'CASUAL': return <Eye size={12} />;
+      case 'SOCIAL_OVERDRIVE': return <PartyPopper size={12} />;
+      case 'BIO_FUEL': return <Martini size={12} />;
+    }
+  };
+
+  const getModeColor = () => {
+    switch (gameMode) {
+      case 'COMPETITIVE': return "text-zinc-400";
+      case 'CASUAL': return "text-emerald-400";
+      case 'SOCIAL_OVERDRIVE': return "text-purple-400";
+      case 'BIO_FUEL': return "text-orange-400";
+    }
+  };
 
   // Derived Constants based on Duration
   const getTotalRounds = () => {
@@ -936,6 +977,15 @@ export default function Game() {
        overlaySub = "No one dared to bid!";
     }
 
+    // BIO-FUEL Logic: Add drink prompt if applicable
+    if (gameMode === 'BIO_FUEL' && (overlayType === 'time_out' || winnerId)) {
+        if (overlayType === 'time_out') {
+             overlaySub = "ELIMINATED! CONSUME BIO-FUEL.";
+        } else if (winnerId) {
+             overlaySub = "OTHERS MUST REFUEL.";
+        }
+    }
+
     setOverlay({ 
       type: overlayType, 
       message: overlayMsg, 
@@ -1648,16 +1698,20 @@ export default function Game() {
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
+             
+             {/* GAME MODE TOGGLE */}
              <div className="flex items-center gap-2">
-                <Switch 
-                  id="show-details" 
-                  checked={showDetails} 
-                  onCheckedChange={setShowDetails} 
-                />
-                <Label htmlFor="show-details" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
-                  {showDetails ? <Eye size={12}/> : <EyeOff size={12}/>} 
-                  {showDetails ? "Easy" : "Hard"}
-                </Label>
+                <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   onClick={toggleGameMode}
+                   className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
+                >
+                   <span className={getModeColor()}>{getModeIcon()}</span>
+                   <span className={cn("tracking-widest", getModeColor())}>
+                      {gameMode.replace('_', ' ')}
+                   </span>
+                </Button>
              </div>
              
              <Separator orientation="vertical" className="h-4 bg-white/10" />
