@@ -86,11 +86,15 @@ type ProtocolType =
 const SOCIAL_CHARACTERS: Character[] = [
   { 
     id: 'party_king', name: 'Party King', title: 'The Host', image: charGigachad, description: 'Wins hearts and rounds.', color: 'text-purple-500',
-    ability: { name: 'VIBE CHECK', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' } // Simplified for now
+    ability: { name: 'VIBE CHECK', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' },
+    socialAbility: { name: 'HOST RULES', description: 'Make a new social rule for the next round.' },
+    bioAbility: { name: 'CHEERS', description: 'Initiate a group toast. Everyone drinks.' }
   },
   {
     id: 'gossip', name: 'The Gossip', title: 'The Spiller', image: charPepeSilvia, description: 'Knows everything.', color: 'text-pink-500',
-    ability: { name: 'LEAK', description: 'See random opponent bid.', effect: 'PEEK' }
+    ability: { name: 'LEAK', description: 'See random opponent bid.', effect: 'PEEK' },
+    socialAbility: { name: 'RUMOR', description: 'Start a rumor about another player. If they deny it, they lose 0.5s.' },
+    bioAbility: { name: 'SPILL TEA', description: 'Take a drink to reveal a "secret" (see an opponent\'s bid).' }
   }
 ];
 
@@ -98,11 +102,15 @@ const SOCIAL_CHARACTERS: Character[] = [
 const BIO_CHARACTERS: Character[] = [
   { 
     id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charHarambe, description: 'Can handle anything.', color: 'text-green-600',
-    ability: { name: 'IRON STOMACH', description: 'Immune to "Drink" penalties (Lore only).', effect: 'TIME_REFUND' }
+    ability: { name: 'IRON STOMACH', description: 'Immune to "Drink" penalties (Lore only).', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'ARM WRESTLE', description: 'Challenge someone to a thumb war for 0.5s.' },
+    bioAbility: { name: 'BOTTOMLESS', description: 'Immune to one drink penalty per game.' }
   },
   {
     id: 'bartender', name: 'Mixologist', title: 'The Server', image: charFine, description: 'Serves the pain.', color: 'text-orange-600',
-    ability: { name: 'LAST CALL', description: 'Remove 1s from everyone.', effect: 'DISRUPT' }
+    ability: { name: 'LAST CALL', description: 'Remove 1s from everyone.', effect: 'DISRUPT' },
+    socialAbility: { name: 'ORDER UP', description: 'Give a command. First to obey gets +0.5s.' },
+    bioAbility: { name: 'MYSTERY MIX', description: 'Mix a drink. Winner of next round must drink it.' }
   }
 ];
 
@@ -134,88 +142,136 @@ interface Character {
     description: string;
     effect: 'TIME_REFUND' | 'TOKEN_BOOST' | 'DISRUPT' | 'PEEK';
   };
+  socialAbility?: {
+    name: string;
+    description: string;
+  };
+  bioAbility?: {
+    name: string;
+    description: string;
+  };
 }
 
 const CHARACTERS: Character[] = [
   { 
     id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
-    ability: { name: 'SPIRIT SHIELD', description: 'Get 1.0s refund if you lose the round.', effect: 'TIME_REFUND' }
+    ability: { name: 'SPIRIT SHIELD', description: 'Get 1.0s refund if you lose the round.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'VIBE GUARD', description: 'Designate a player who cannot be targeted by social dares this round.' },
+    bioAbility: { name: 'BANANA SHAKE', description: 'Mix a drink for someone else.' }
   },
   { 
     id: 'popcat', name: 'Click-Click', title: 'The Glitch', image: charPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
-    ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win by < 1s.', effect: 'TOKEN_BOOST' }
+    ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win by < 1s.', effect: 'TOKEN_BOOST' },
+    socialAbility: { name: 'POP OFF', description: 'Start a "Pop" chant; last one to join drinks/penalized.' },
+    bioAbility: { name: 'QUICK SIP', description: 'Take 3 rapid sips instead of 1 normal drink.' }
   },
   { 
     id: 'winter', name: 'Frost Protocol', title: 'The Disciplined', image: charWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
-    ability: { name: 'CYRO FREEZE', description: 'Refund 0.5s regardless of outcome.', effect: 'TIME_REFUND' }
+    ability: { name: 'CYRO FREEZE', description: 'Refund 0.5s regardless of outcome.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'COLD SHOULDER', description: 'Ignore all social interactions this round.' },
+    bioAbility: { name: 'BRAIN FREEZE', description: 'If you drink, everyone else must freeze for 3s.' }
   },
   { 
     id: 'doge', name: 'Shiba Prime', title: 'The Moonwalker', image: charDoge, description: 'Chaotic luck and high variance.', color: 'text-yellow-400',
-    ability: { name: 'TO THE MOON', description: 'Double tokens if you win with > 30s bid.', effect: 'TOKEN_BOOST' }
+    ability: { name: 'TO THE MOON', description: 'Double tokens if you win with > 30s bid.', effect: 'TOKEN_BOOST' },
+    socialAbility: { name: 'MUCH WOW', description: 'Must compliment every player before bidding.' },
+    bioAbility: { name: 'SUCH THIRST', description: 'Double the drink penalty for yourself to steal 0.5s.' }
   },
   { 
     id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
-    ability: { name: 'SAD REVEAL', description: 'See if opponents are holding.', effect: 'PEEK' }
+    ability: { name: 'SAD REVEAL', description: 'See if opponents are holding.', effect: 'PEEK' },
+    socialAbility: { name: 'FEELS BAD', description: 'Make everyone share a sad story. Best one wins 0.5s.' },
+    bioAbility: { name: 'COMFORT DRINK', description: 'Designate a drinking buddy for the round.' }
   },
   { 
     id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
-    ability: { name: 'RAINBOW RUN', description: 'Get 1.5s refund if you bid > 40s.', effect: 'TIME_REFUND' }
+    ability: { name: 'RAINBOW RUN', description: 'Get 1.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'SUGAR RUSH', description: 'Speak 2x speed for the round.' },
+    bioAbility: { name: 'RAINBOW SHOT', description: 'Mix two drinks together if penalized.' }
   },
   { 
     id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, description: 'Loud and disruptive tactics.', color: 'text-red-400',
-    ability: { name: 'MANAGER CALL', description: 'Remove 1s from random opponent.', effect: 'DISRUPT' }
+    ability: { name: 'MANAGER CALL', description: 'Remove 1s from random opponent.', effect: 'DISRUPT' },
+    socialAbility: { name: 'COMPLAINT', description: 'Object to the last round results. Everyone votes.' },
+    bioAbility: { name: 'SPILL HAZARD', description: 'Accuse someone of spilling; they drink.' }
   },
   { 
     id: 'fine', name: 'Inferno Calm', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
-    ability: { name: 'FIRE WALL', description: 'Immune to disruption.', effect: 'TIME_REFUND' }
+    ability: { name: 'FIRE WALL', description: 'Immune to disruption.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'HOT SEAT', description: 'Choose a player to answer a truth.' },
+    bioAbility: { name: 'ON FIRE', description: 'If you win, everyone else drinks.' }
   },
   { 
     id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
-    ability: { name: 'SNEAK PEEK', description: 'See who is still holding.', effect: 'PEEK' }
+    ability: { name: 'SNEAK PEEK', description: 'See who is still holding.', effect: 'PEEK' },
+    socialAbility: { name: 'DISTRACTION', description: 'Point at something; anyone who looks loses 0.5s.' },
+    bioAbility: { name: 'THE EX', description: 'Toast to an ex. Everyone drinks.' }
   },
   { 
     id: 'stonks', name: 'Market Maker', title: 'The Strategist', image: charStonks, description: 'Stonks only go up.', color: 'text-emerald-400',
-    ability: { name: 'DIVIDEND', description: 'Gain +1 token every 3rd win.', effect: 'TOKEN_BOOST' }
+    ability: { name: 'DIVIDEND', description: 'Gain +1 token every 3rd win.', effect: 'TOKEN_BOOST' },
+    socialAbility: { name: 'SALES PITCH', description: 'Must sell your bid strategy to the group.' },
+    bioAbility: { name: 'LIQUID ASSETS', description: 'Trade your drink penalty with someone else.' }
   },
   { 
     id: 'floyd', name: 'Money May', title: 'The Champion', image: charFloyd, description: 'Undefeated in financial combat.', color: 'text-yellow-500',
-    ability: { name: 'PAY DAY', description: 'Get 0.5s refund on every win.', effect: 'TIME_REFUND' }
+    ability: { name: 'PAY DAY', description: 'Get 0.5s refund on every win.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'SHOW OFF', description: 'Flex on camera/group. Best flex wins 0.2s.' },
+    bioAbility: { name: 'CHAMPAGNE', description: 'Immune to drink penalties for one round.' }
   },
   { 
     id: 'rat', name: 'Rat King', title: 'The Scavenger', image: charRat, description: 'Sneaky tactics and hidden cheese.', color: 'text-gray-500',
-    ability: { name: 'CHEESE TAX', description: 'Steal 1s from winner if you lose.', effect: 'DISRUPT' }
+    ability: { name: 'CHEESE TAX', description: 'Steal 1s from winner if you lose.', effect: 'DISRUPT' },
+    socialAbility: { name: 'SNITCH', description: 'Reveal someone\'s tell to the group.' },
+    bioAbility: { name: 'SCAVENGE', description: 'Finish someone else\'s unfinished drink.' }
   },
   { 
     id: 'baldwin', name: 'Leper King', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
-    ability: { name: 'ROYAL DECREE', description: 'Get 2s refund if you bid exactly 20s.', effect: 'TIME_REFUND' }
+    ability: { name: 'ROYAL DECREE', description: 'Get 2s refund if you bid exactly 20s.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'SILENCE', description: 'Command silence. First to speak drinks.' },
+    bioAbility: { name: 'ROYAL CUP', description: 'Make a rule for the cup.' }
   },
   { 
     id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
-    ability: { name: 'AXE SWING', description: 'Remove 2s from opponent with most time.', effect: 'DISRUPT' }
+    ability: { name: 'AXE SWING', description: 'Remove 2s from opponent with most time.', effect: 'DISRUPT' },
+    socialAbility: { name: 'BUSINESS CARD', description: 'Present your card. Best presentation wins.' },
+    bioAbility: { name: 'RESERVATION', description: 'Skip one drink penalty.' }
   },
   { 
     id: 'gigachad', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
-    ability: { name: 'JAWLINE', description: 'Ignore first 1s of every bid.', effect: 'TIME_REFUND' }
+    ability: { name: 'JAWLINE', description: 'Ignore first 1s of every bid.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'MOG', description: 'Stare down an opponent. If they blink, they lose 0.5s.' },
+    bioAbility: { name: 'RAW EGG', description: 'Pretend to drink a raw egg. Intimidate opponents.' }
   },
   { 
     id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
-    ability: { name: 'SMART PLAY', description: 'See active bot count.', effect: 'PEEK' }
+    ability: { name: 'SMART PLAY', description: 'See active bot count.', effect: 'PEEK' },
+    socialAbility: { name: 'BAD ADVICE', description: 'Give terrible advice. Anyone who follows drinks.' },
+    bioAbility: { name: 'HEAD TAP', description: 'Tap head before drinking. If you forget, drink double.' }
   },
   { 
     id: 'disaster', name: 'Pyro Girl', title: 'The Anarchist', image: charDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
-    ability: { name: 'BURN IT', description: 'Remove 0.5s from everyone else.', effect: 'DISRUPT' }
+    ability: { name: 'BURN IT', description: 'Remove 0.5s from everyone else.', effect: 'DISRUPT' },
+    socialAbility: { name: 'ROAST', description: 'Roast another player. If they laugh, they lose 0.5s.' },
+    bioAbility: { name: 'SPICY', description: 'Everyone takes a drink.' }
   },
   { 
     id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, description: 'Always sweating the big decisions.', color: 'text-red-400',
-    ability: { name: 'PANIC MASH', description: '50% chance +1s refund, 50% -1s penalty.', effect: 'TIME_REFUND' }
+    ability: { name: 'PANIC MASH', description: '50% chance +1s refund, 50% -1s penalty.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drink.' },
+    bioAbility: { name: 'TWO BUTTONS', description: 'Choose left or right. Losers drink.' }
   },
   { 
     id: 'pepesilvia', name: 'Conspiracy', title: 'The Seeker', image: charPepeSilvia, description: 'Connecting dots that do not exist.', color: 'text-amber-600',
-    ability: { name: 'RED STRING', description: 'See random opponent bid.', effect: 'PEEK' }
+    ability: { name: 'RED STRING', description: 'See random opponent bid.', effect: 'PEEK' },
+    socialAbility: { name: 'CAROL', description: 'Yell a random name. Anyone who looks drinks.' },
+    bioAbility: { name: 'MAIL ROOM', description: 'Pass your drink to the left.' }
   },
   { 
     id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, description: 'Smiling through the bear market.', color: 'text-slate-400',
-    ability: { name: 'HIDE PAIN', description: 'Get 2s refund if you lose by > 10s.', effect: 'TIME_REFUND' }
+    ability: { name: 'HIDE PAIN', description: 'Get 2s refund if you lose by > 10s.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'GRIMACE', description: 'Make a face. Everyone must copy. Last one drinks.' },
+    bioAbility: { name: 'SUPPRESS', description: 'Don\'t react to your drink. If you do, drink again.' }
   },
 ];
 
@@ -1284,6 +1340,22 @@ export default function Game() {
                 </div>
                 
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
+
+                 <div className="flex items-center gap-2">
+                   <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={toggleVariant}
+                      className="h-8 px-3 text-xs font-mono bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
+                   >
+                      <span className={getVariantColor()}>{getVariantIcon()}</span>
+                      <span className={cn("tracking-widest", getVariantColor())}>
+                         {variant.replace('_', ' ')}
+                      </span>
+                   </Button>
+                </div>
+                
+                <Separator orientation="vertical" className="h-6 bg-white/10" />
                 
                 <div className="flex items-center gap-2">
                   <div className="flex items-center space-x-2">
@@ -1437,10 +1509,15 @@ export default function Game() {
             <div className="text-center mb-8">
               <h2 className="text-4xl font-display font-bold text-white mb-2">CHOOSE YOUR DRIVER</h2>
               <p className="text-muted-foreground">Select your persona for the auction.</p>
+              {variant !== 'STANDARD' && (
+                  <Badge variant="outline" className={cn("mt-2 border-white/10", getVariantColor())}>
+                      {getVariantIcon()} {variant.replace('_', ' ')} MODE ACTIVE
+                  </Badge>
+              )}
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {CHARACTERS.map((char) => (
+              {[...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])].map((char) => (
                 <motion.button
                   key={char.id}
                   whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.05)" }}
@@ -1461,6 +1538,24 @@ export default function Game() {
                           <Zap size={10} fill="currentColor" /> {char.ability.name}
                        </div>
                        <p className="text-[10px] text-zinc-400 leading-tight">{char.ability.description}</p>
+                    </div>
+                  )}
+
+                  {variant === 'SOCIAL_OVERDRIVE' && char.socialAbility && (
+                    <div className="mt-2 pt-2 border-t border-purple-500/20 w-full bg-purple-500/5 rounded p-1">
+                       <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">
+                          <PartyPopper size={10} /> {char.socialAbility.name}
+                       </div>
+                       <p className="text-[10px] text-purple-300/70 leading-tight">{char.socialAbility.description}</p>
+                    </div>
+                  )}
+
+                  {variant === 'BIO_FUEL' && char.bioAbility && (
+                    <div className="mt-2 pt-2 border-t border-orange-500/20 w-full bg-orange-500/5 rounded p-1">
+                       <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-1">
+                          <Martini size={10} /> {char.bioAbility.name}
+                       </div>
+                       <p className="text-[10px] text-orange-300/70 leading-tight">{char.bioAbility.description}</p>
                     </div>
                   )}
                 </motion.button>
@@ -1861,6 +1956,7 @@ export default function Game() {
           </DialogHeader>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-white mt-4 border-b border-white/10 pb-2">STANDARD PROTOCOLS</h3>
             {[
               { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
               { name: "HIGH STAKES", desc: "Winner receives DOUBLE tokens for this round.", type: "Economy" },
@@ -1880,6 +1976,38 @@ export default function Game() {
                   <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
                 </div>
                 <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+              </div>
+            ))}
+
+            <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-purple-400 mt-4 border-b border-purple-500/30 pb-2 flex items-center gap-2"><PartyPopper size={18}/> SOCIAL OVERDRIVE</h3>
+            {[
+                { name: "TRUTH DARE", desc: "Winner asks a Truth, Loser does a Dare.", type: "Social" },
+                { name: "SWITCH SEATS", desc: "Players must physically swap seats before next round.", type: "Physical" },
+                { name: "GROUP SELFIE", desc: "Everyone must pose for a photo. Last one ready loses 1s.", type: "Social" },
+                { name: "HUM TUNE", desc: "You must hum a song while bidding. If you stop, you forfeit.", type: "Social" },
+            ].map((p, i) => (
+              <div key={`social-${i}`} className="bg-purple-500/5 p-4 rounded border border-purple-500/20 hover:border-purple-500/50 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-bold text-purple-200 text-sm">{p.name}</h4>
+                  <Badge variant="outline" className="text-[10px] py-0 h-5 border-purple-500/20 text-purple-400">{p.type}</Badge>
+                </div>
+                <p className="text-xs text-purple-300/70 leading-relaxed">{p.desc}</p>
+              </div>
+            ))}
+
+            <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-orange-400 mt-4 border-b border-orange-500/30 pb-2 flex items-center gap-2"><Martini size={18}/> BIO-FUEL</h3>
+            {[
+                { name: "HYDRATE", desc: "Everyone takes a sip.", type: "Bio" },
+                { name: "BOTTOMS UP", desc: "Winner must finish their drink.", type: "Bio" },
+                { name: "PARTNER DRINK", desc: "Pick a partner. When you drink, they drink.", type: "Bio" },
+                { name: "WATER ROUND", desc: "Winner gives a glass of water to someone.", type: "Bio" },
+            ].map((p, i) => (
+              <div key={`bio-${i}`} className="bg-orange-500/5 p-4 rounded border border-orange-500/20 hover:border-orange-500/50 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-bold text-orange-200 text-sm">{p.name}</h4>
+                  <Badge variant="outline" className="text-[10px] py-0 h-5 border-orange-500/20 text-orange-400">{p.type}</Badge>
+                </div>
+                <p className="text-xs text-orange-300/70 leading-relaxed">{p.desc}</p>
               </div>
             ))}
           </div>
