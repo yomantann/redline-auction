@@ -235,7 +235,26 @@ export default function Game() {
   // Derived state for backward compatibility or simple logic
   const showDetails = difficulty === 'CASUAL';
 
-  // ... (Rest of state)
+  const [round, setRound] = useState(1);
+  const [gameDuration, setGameDuration] = useState<GameDuration>('standard');
+  const [currentTime, setCurrentTime] = useState(0.0); // The central auction clock
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const [protocolsEnabled, setProtocolsEnabled] = useState(false);
+  const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
+  const [readyHoldTime, setReadyHoldTime] = useState(0);
+  const [moleTarget, setMoleTarget] = useState<string | null>(null);
+  const [showProtocolGuide, setShowProtocolGuide] = useState(false);
+  const [showProtocolSelect, setShowProtocolSelect] = useState(false);
+  const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
+        'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
+        'OPEN_HAND', 'NOISE_CANCEL', 'MUTE_PROTOCOL', 
+        'PRIVATE_CHANNEL', 'NO_LOOK', 'LOCK_ON', 
+        'THE_MOLE', 'PANIC_ROOM'
+  ]);
+  const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
+  const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
+  const [showPopupLibrary, setShowPopupLibrary] = useState(false);
+  const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[]>([]);
 
   // Sync Protocols with Variant
   useEffect(() => {
