@@ -229,6 +229,9 @@ export default function Game() {
 
   const totalRounds = getTotalRounds();
   const initialTime = getInitialTime();
+  
+  // Check if double tokens active for UI
+  const isDoubleTokens = activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM';
 
   // Overlay State
   const [overlay, setOverlay] = useState<{ type: OverlayType; message?: string; subMessage?: string } | null>(null);
