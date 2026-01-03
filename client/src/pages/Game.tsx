@@ -91,6 +91,7 @@ interface Player {
   isHolding: boolean;
   personality?: BotPersonality;
   characterIcon?: string | React.ReactNode; // Can be image URL or icon
+  roundImpact?: string; // New field to show result of last round (e.g. "+1.0s")
 }
 
 interface Character {
@@ -212,8 +213,9 @@ export default function Game() {
         'THE_MOLE', 'PANIC_ROOM'
   ]);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
-  const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
-  
+  const [showPopupLibrary, setShowPopupLibrary] = useState(false);
+  const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[]>([]);
+
   // Derived Constants based on Duration
   const getTotalRounds = () => {
      if (gameDuration === 'long') return LONG_TOTAL_ROUNDS;
@@ -699,18 +701,16 @@ export default function Game() {
     let playersOut: string[] = [];
     
     // Track abilities triggered this round for notifications
-    const activeAbilities: { player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string }[] = [];
+    const newAbilities: { player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[] = [];
 
     const updatedPlayers = players.map(p => {
       let newTime = p.remainingTime;
       let newTokens = p.tokens;
+      let roundImpact = ""; // Store impact string for UI
       
       // --- ABILITY EFFECTS (Passive / Triggered on Result) ---
       if (abilitiesEnabled && !p.isEliminated) {
         // Find ability for this player (User or Bot)
-        // User: selectedCharacter
-        // Bot: We need to find their character from CHARACTERS based on name/icon or if we stored it
-        // Simpler: We initialized bots with names = char.name. So we can look up by name.
         const character = p.isBot 
            ? CHARACTERS.find(c => c.name === p.name) 
            : selectedCharacter;
@@ -720,24 +720,30 @@ export default function Game() {
             let triggered = false;
             let targetName = "";
             let targetId = "";
+            let impactVal = "";
             
             // TIME REFUNDS
             if (ability.effect === 'TIME_REFUND') {
-                if (ability.name === 'SPIRIT SHIELD' && p.id !== winnerId) { newTime += 1.0; triggered = true; }
-                if (ability.name === 'CYRO FREEZE') { newTime += 0.5; triggered = true; }
-                if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 1.5; triggered = true; }
-                if (ability.name === 'PAY DAY' && p.id === winnerId) { newTime += 0.5; triggered = true; }
-                if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) < 0.5) { newTime += 2.0; triggered = true; }
-                if (ability.name === 'JAWLINE') { newTime += 1.0; triggered = true; }
-                if (ability.name === 'PANIC MASH') { newTime += (Math.random() > 0.5 ? 1.0 : -1.0); triggered = true; }
-                if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 10) { newTime += 2.0; triggered = true; }
+                if (ability.name === 'SPIRIT SHIELD' && p.id !== winnerId) { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
+                if (ability.name === 'CYRO FREEZE') { newTime += 0.5; triggered = true; impactVal = "+0.5s"; }
+                if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 1.5; triggered = true; impactVal = "+1.5s"; }
+                if (ability.name === 'PAY DAY' && p.id === winnerId) { newTime += 0.5; triggered = true; impactVal = "+0.5s"; }
+                if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) < 0.5) { newTime += 2.0; triggered = true; impactVal = "+2.0s"; }
+                if (ability.name === 'JAWLINE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
+                if (ability.name === 'PANIC MASH') { 
+                    const gain = Math.random() > 0.5;
+                    newTime += (gain ? 1.0 : -1.0); 
+                    triggered = true; 
+                    impactVal = gain ? "+1.0s" : "-1.0s";
+                }
+                if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 10) { newTime += 2.0; triggered = true; impactVal = "+2.0s"; }
             }
             
             // TOKEN BOOSTS
             if (ability.effect === 'TOKEN_BOOST' && p.id === winnerId) {
-                if (ability.name === 'HYPER CLICK' && (p.currentBid || 0) < winnerTime + 1.0) { newTokens += 1; triggered = true; }
-                if (ability.name === 'TO THE MOON' && (p.currentBid || 0) > 30) { newTokens += 1; triggered = true; } 
-                if (ability.name === 'DIVIDEND' && round % 3 === 0) { newTokens += 1; triggered = true; }
+                if (ability.name === 'HYPER CLICK' && (p.currentBid || 0) < winnerTime + 1.0) { newTokens += 1; triggered = true; impactVal = "+1 Token"; }
+                if (ability.name === 'TO THE MOON' && (p.currentBid || 0) > 30) { newTokens += 1; triggered = true; impactVal = "+1 Token"; } 
+                if (ability.name === 'DIVIDEND' && round % 3 === 0) { newTokens += 1; triggered = true; impactVal = "+1 Token"; }
             }
             
             // DISRUPT (Applied to enemies logic would go here, simplified as refund to self for now or handled in separate loop)
@@ -757,6 +763,7 @@ export default function Game() {
                          const target = validTargets[Math.floor(Math.random() * validTargets.length)];
                          targetName = target.name;
                          targetId = target.id;
+                         impactVal = "-1.0s (Target)";
                      }
                  } else if (ability.name === 'AXE SWING') {
                      // Most time remaining (excluding me)
@@ -765,14 +772,17 @@ export default function Game() {
                         const target = validTargets.reduce((prev, current) => (prev.remainingTime > current.remainingTime) ? prev : current);
                         targetName = target.name;
                         targetId = target.id;
+                        impactVal = "-2.0s (Target)";
                      }
                  } else if (ability.name === 'CHEESE TAX') {
                      if (winnerId && winnerId !== 'p1') {
                          targetName = winnerName || "Winner";
                          targetId = winnerId;
+                         impactVal = "-1.0s (Steal)";
                      }
                  } else if (ability.name === 'BURN IT') {
                      targetName = "ALL OPPONENTS";
+                     impactVal = "-0.5s (All)";
                  }
                  
                  if (targetName) {
@@ -781,14 +791,18 @@ export default function Game() {
              }
     
              if (triggered) {
-                 activeAbilities.push({ 
+                 newAbilities.push({ 
                      player: p.name, 
                      playerId: p.id,
                      ability: ability.name, 
                      effect: ability.effect, 
                      targetName,
-                     targetId 
+                     targetId,
+                     impactValue: impactVal
                  });
+                 if (impactVal && !targetName) {
+                     roundImpact = impactVal;
+                 }
              }
         }
       }
@@ -805,21 +819,47 @@ export default function Game() {
       }
       
       if (p.id === winnerId) {
-        let tokensToAdd = 1;
-        if (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') {
-            tokensToAdd = 2;
+        // MOLE LOGIC: If mole wins, they LOSE a token (can go negative)
+        if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
+            newTokens -= 1; // Penalty for winning as Mole
+            roundImpact = "-1 Token (Mole Win)";
+        } else {
+            let tokensToAdd = 1;
+            if (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') {
+                tokensToAdd = 2;
+            }
+            newTokens += tokensToAdd;
         }
-        newTokens += tokensToAdd;
       }
+
+      // Apply disruptive effects to targets
+      newAbilities.forEach(ab => {
+          if (ab.effect === 'DISRUPT') {
+              if (ab.targetId === p.id) {
+                  if (ab.ability === 'MANAGER CALL') { newTime -= 1.0; roundImpact = "-1.0s"; }
+                  if (ab.ability === 'AXE SWING') { newTime -= 2.0; roundImpact = "-2.0s"; }
+                  if (ab.ability === 'CHEESE TAX') { newTime -= 1.0; roundImpact = "-1.0s"; }
+              }
+              if (ab.targetName === 'ALL OPPONENTS' && p.id !== ab.playerId) {
+                   newTime -= 0.5; roundImpact = "-0.5s";
+              }
+          }
+      });
       
       // Check elimination
       if (newTime <= 0 && p.remainingTime > 0) {
         playersOut.push(p.name);
       }
 
-      return { ...p, remainingTime: Math.max(0, newTime), tokens: newTokens };
+      return { ...p, remainingTime: Math.max(0, newTime), tokens: newTokens, roundImpact: roundImpact }; // Add roundImpact to player state? No, Player type needs update
     });
-
+    
+    // We need to update Player interface to accept roundImpact string
+    // I'll update the state, but first I need to update the interface in a separate edit if I haven't already.
+    // I will assume I can update Player interface in Game.tsx or where it is defined.
+    // Wait, Player interface is in Game.tsx line 83. I need to update that first. 
+    
+    setActiveAbilities(newAbilities); // Save for notification loop
     setPlayers(updatedPlayers);
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
     
@@ -1635,12 +1675,59 @@ export default function Game() {
                   LIMIT BREAK
                 </Label>
              </div>
+             {/* Popup Library Info Button */}
+             <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-zinc-400 hover:text-white ml-2"
+                onClick={() => setShowPopupLibrary(true)}
+                title="Popup Gallery"
+             >
+                <BookOpen className="h-4 w-4" />
+             </Button>
           </div>
           <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5">
             ROUND {round} / {totalRounds}
           </Badge>
         </div>
       </div>
+
+      {/* POPUP LIBRARY DIALOG */}
+      <Dialog open={showPopupLibrary} onOpenChange={setShowPopupLibrary}>
+        <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
+          <DialogHeader>
+            <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-primary flex items-center gap-2">
+              <BookOpen /> EVENT DATABASE
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              A guide to all special victory conditions and game events.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {[
+              { title: "SMUG CONFIDENCE", desc: "Win Round 1 immediately.", color: "text-purple-400 border-purple-500/20" },
+              { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
+              { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
+              { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
+              { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
+              { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-destructive border-destructive/20" },
+              { title: "ZERO BID", desc: "No one bids or everyone abandons.", color: "text-yellow-200 border-yellow-200/20" },
+            ].map((p, i) => (
+              <div key={i} className={`bg-black/40 p-4 rounded border ${p.color} transition-colors`}>
+                <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+              </div>
+            ))}
+          </div>
+          
+          <DialogFooter className="mt-6">
+            <Button onClick={() => setShowPopupLibrary(false)} variant="secondary" className="w-full">
+              CLOSE
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showProtocolGuide} onOpenChange={setShowProtocolGuide}>
         <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
