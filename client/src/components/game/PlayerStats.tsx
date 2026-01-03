@@ -23,9 +23,10 @@ interface PlayerStatsProps {
   formatTime?: (seconds: number) => string;
   peekActive?: boolean; // New prop for PEEK ability
   isDoubleTokens?: boolean;
+  children?: React.ReactNode; // Slot for animations
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, children }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -45,6 +46,9 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     )}
     data-testid={`player-card-${player.id}`}
     >
+      {/* Animation Container */}
+      {children}
+
       {/* PEEK INDICATOR OVERLAY */}
       {showHolding && (
           <div className="absolute -top-3 -right-3 bg-green-500 text-black text-xs font-black px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.8)] animate-pulse z-50 flex items-center gap-1 border-2 border-white">

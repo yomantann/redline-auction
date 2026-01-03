@@ -52,6 +52,9 @@ import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
 import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
 
 
+import { AbilityAnimation, AnimationType } from "@/components/game/AbilityAnimation";
+import logoFuturistic from '@assets/generated_images/redline_auction_futuristic_logo_red_neon.png';
+
 // Game Constants
 const STANDARD_TOTAL_ROUNDS = 9; 
 const STANDARD_INITIAL_TIME = 300.0;
@@ -311,6 +314,18 @@ export default function Game() {
   const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
   const [showPopupLibrary, setShowPopupLibrary] = useState(false);
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[]>([]);
+  
+  // Animation State
+  const [animations, setAnimations] = useState<{ id: string; playerId: string; type: AnimationType; value?: string }[]>([]);
+
+  const triggerAnimation = (playerId: string, type: AnimationType, value?: string) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setAnimations(prev => [...prev, { id, playerId, type, value }]);
+  };
+
+  const removeAnimation = (id: string) => {
+    setAnimations(prev => prev.filter(a => a.id !== id));
+  };
 
   // Sync Protocols with Variant
   useEffect(() => {
@@ -963,6 +978,20 @@ export default function Game() {
 
       // Apply disruptive effects to targets
       newAbilities.forEach(ab => {
+          let type: AnimationType = 'TOKEN_BOOST';
+          if (ab.effect === 'TIME_REFUND') type = 'TIME_REFUND';
+          if (ab.effect === 'DISRUPT') type = 'DISRUPT';
+          if (ab.effect === 'PEEK') type = 'PEEK';
+          if (ab.effect === 'TOKEN_BOOST') type = 'TOKEN_BOOST';
+
+          // Trigger on source player (caster)
+          triggerAnimation(ab.playerId, type, ab.impactValue);
+
+          // If there is a target, trigger DAMAGE on them
+          if (ab.targetId) {
+                triggerAnimation(ab.targetId, 'DAMAGE', ab.impactValue);
+          }
+
           if (ab.effect === 'DISRUPT') {
               if (ab.targetId === p.id) {
                   if (ab.ability === 'MANAGER CALL') { newTime -= 1.0; roundImpact = "-1.0s"; }
@@ -1327,7 +1356,7 @@ export default function Game() {
             
             <div className="flex flex-col gap-4 bg-black/40 p-4 rounded-xl border border-white/10 w-full max-w-lg">
               {/* Top Row: Modes */}
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center justify-center gap-4">
                 <div className="flex items-center gap-2">
                   <Switch 
                     id="show-details-intro" 
@@ -1820,8 +1849,8 @@ export default function Game() {
                <LogOut size={20} />
             </Button>
           )}
-          <Clock className="text-primary" size={24} />
-          <h1 className="font-display font-bold text-xl tracking-wider">REDLINE AUCTION</h1>
+          <img src={logoFuturistic} alt="Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+          <h1 className="font-display font-bold text-xl tracking-wider hidden sm:block">REDLINE AUCTION</h1>
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
@@ -2046,7 +2075,16 @@ export default function Game() {
                 formatTime={formatTime}
                 peekActive={peekActive}
                 isDoubleTokens={isDoubleTokens}
-              />
+              >
+                 {animations.filter(a => a.playerId === p.id).map(a => (
+                    <AbilityAnimation 
+                        key={a.id} 
+                        type={a.type} 
+                        value={a.value} 
+                        onComplete={() => removeAnimation(a.id)} 
+                    />
+                 ))}
+              </PlayerStats>
             ))}
           </div>
 
