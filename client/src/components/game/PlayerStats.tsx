@@ -95,17 +95,17 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Time Left</span>
           <div className="flex items-center gap-1.5 text-zinc-500">
             <Clock size={14} />
-            <div className="flex flex-col items-start">
+            <div className="flex items-center gap-2">
                 <span className={cn("font-mono text-xl font-bold", !showTime && "text-zinc-700 blur-[2px]")}>
                   {showTime && remainingTime !== undefined ? format(remainingTime) : "??:??.?"}
                 </span>
                 {/* SHOW IMPACT */}
                 {player.roundImpact && (
                     <span className={cn(
-                        "text-[10px] font-bold animate-pulse",
+                        "text-sm font-bold animate-pulse",
                         player.roundImpact.includes('+') ? "text-emerald-400" : "text-red-400"
                     )}>
-                        ({player.roundImpact})
+                        {player.roundImpact}
                     </span>
                 )}
             </div>

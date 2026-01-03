@@ -25,7 +25,7 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen
+  Users, Globe, Lock, BookOpen, CircleHelp
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -1011,7 +1011,24 @@ export default function Game() {
     const logMsg = winnerId 
       ? `Round ${round}: ${winnerName} won (${formatTime(winnerTime)})` 
       : `Round ${round}: No winner`;
-    setRoundLog(prev => [logMsg, ...prev]);
+    
+    // Add extra logs for special events
+    const extraLogs: string[] = [];
+    
+    // Mole Penalty Log
+    if (activeProtocol === 'THE_MOLE' && winnerId === moleTarget) {
+        extraLogs.push(`>> MOLE PENALTY: ${winnerName} lost 1 Token!`);
+    }
+
+    // Ability Token Boost Log (Click-Click etc)
+    // We can check if any ability result was a token boost
+    newAbilities.forEach(ab => {
+        if (ab.effect === 'TOKEN_BOOST') {
+             extraLogs.push(`>> ${ab.player} GAINED TOKENS!`);
+        }
+    });
+
+    setRoundLog(prev => [...extraLogs, logMsg, ...prev]);
 
     if (round >= totalRounds || players.filter(p => !p.isEliminated && p.remainingTime > 0).length <= 1) {
        // Game End condition
@@ -1683,7 +1700,7 @@ export default function Game() {
                 onClick={() => setShowPopupLibrary(true)}
                 title="Popup Gallery"
              >
-                <BookOpen className="h-4 w-4" />
+                <CircleHelp className="h-4 w-4" />
              </Button>
           </div>
           <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5">
@@ -1697,7 +1714,7 @@ export default function Game() {
         <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
           <DialogHeader>
             <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-primary flex items-center gap-2">
-              <BookOpen /> EVENT DATABASE
+              <CircleHelp /> EVENT DATABASE
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
               A guide to all special victory conditions and game events.
