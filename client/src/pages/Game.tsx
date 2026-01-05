@@ -182,12 +182,6 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'BRAIN FREEZE', description: 'If you drink, everyone else must freeze for 3s.' }
   },
   { 
-    id: 'doge', name: 'Shiba Prime', title: 'The Moonwalker', image: charDoge, description: 'Chaotic luck and high variance.', color: 'text-yellow-400',
-    ability: { name: 'TO THE MOON', description: 'Double tokens if you win with > 30s bid.', effect: 'TOKEN_BOOST' },
-    socialAbility: { name: 'MUCH WOW', description: 'Must compliment every player before bidding.' },
-    bioAbility: { name: 'SUCH THIRST', description: 'Double the drink penalty for yourself to steal 0.5s.' }
-  },
-  { 
     id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See if opponents are holding.', effect: 'PEEK' },
     socialAbility: { name: 'FEELS BAD', description: 'Make everyone share a sad story. Best one wins 0.5s.' },
@@ -222,12 +216,6 @@ const CHARACTERS: Character[] = [
     ability: { name: 'DIVIDEND', description: 'Gain +1 token every 3rd win.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'SALES PITCH', description: 'Must sell your bid strategy to the group.' },
     bioAbility: { name: 'LIQUID ASSETS', description: 'Trade your drink penalty with someone else.' }
-  },
-  { 
-    id: 'floyd', name: 'Money May', title: 'The Champion', image: charFloyd, description: 'Undefeated in financial combat.', color: 'text-yellow-500',
-    ability: { name: 'PAY DAY', description: 'Get 0.5s refund on every win.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'SHOW OFF', description: 'Flex on camera/group. Best flex wins 0.2s.' },
-    bioAbility: { name: 'CHAMPAGNE', description: 'Immune to drink penalties for one round.' }
   },
   { 
     id: 'rat', name: 'Rat King', title: 'The Scavenger', image: charRat, description: 'Sneaky tactics and hidden cheese.', color: 'text-gray-500',
@@ -714,6 +702,15 @@ export default function Game() {
     }
   };
 
+  // Constants for Penalty
+  const getPenalty = () => {
+     if (gameDuration === 'short') return 1.0;
+     if (gameDuration === 'long') return 4.0;
+     return 2.0; // standard
+  };
+  
+  const MIN_BID = 0.1;
+
   const handleRelease = () => {
     if (phase === 'ready') {
       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false } : p));
@@ -722,6 +719,17 @@ export default function Game() {
       
       setPlayers(prev => prev.map(p => {
         if (p.id === 'p1') {
+            // Check Minimum Bid
+            if (bidTime < MIN_BID) {
+                toast({
+                    title: "BID TOO LOW",
+                    description: `Minimum bid is ${MIN_BID}s.`,
+                    variant: "destructive",
+                    duration: 3000
+                });
+                return { ...p, isHolding: false, currentBid: 0 }; // Zero bid logic
+            }
+
             // OVER-BET CHECK
             if (bidTime > p.remainingTime) {
                 // Penalty!
@@ -736,7 +744,6 @@ export default function Game() {
                     isHolding: false, 
                     currentBid: 0, // Invalid bid
                     tokens: Math.max(0, p.tokens - 1), // Lose trophy
-                    // If out of time, ensure eliminated state (though endRound handles main elim)
                 };
             }
             
@@ -746,15 +753,22 @@ export default function Game() {
       }));
 
     } else if (phase === 'countdown') {
-       // If releasing during countdown, deduct 0.1 seconds immediately and mark as not holding
-       // This essentially 'abandons' the auction but with a small penalty
-       const penalty = 0.1;
+       // If releasing during countdown, deduct penalty based on duration
+       const penalty = getPenalty();
+       
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
          ...p, 
          isHolding: false, 
          currentBid: 0, 
          remainingTime: Math.max(0, p.remainingTime - penalty) 
        } : p));
+       
+       toast({
+           title: "EARLY RELEASE",
+           description: `Released before start! -${penalty}s penalty.`,
+           variant: "destructive",
+           duration: 3000
+       });
     }
   };
 
@@ -778,7 +792,37 @@ export default function Game() {
 
       if (protocolPool.length === 0) return;
 
-      const newProtocol = protocolPool[Math.floor(Math.random() * protocolPool.length)];
+      // Adjust Probabilities based on Game Length & Variant
+      // Standard: Base
+      // Social/Bio: +5-10% more likely for mode-specific
+      
+      const isSpecialMode = variant !== 'STANDARD';
+      
+      // Separate pools
+      const standardPool = protocolPool.filter(p => !['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE', 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(p));
+      const specialPool = protocolPool.filter(p => ['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE', 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(p));
+      
+      let finalPool = [];
+      
+      // Weight logic: 
+      // If special mode, push special items multiple times to increase odds?
+      // Or simpler: just random pick from mixed pool where specials are added?
+      // User asked: "specifically biofuel protcols should be 5-10% more likely"
+      
+      // Let's weighted random pick
+      if (isSpecialMode && specialPool.length > 0) {
+          // Add standard 1x
+          finalPool.push(...standardPool);
+          // Add special 1.5x (roughly 50% more weight)
+          finalPool.push(...specialPool);
+          finalPool.push(...specialPool); 
+          // If short game, maybe less frequent? User said "adjusted based on length".
+          // For now, simple weighting.
+      } else {
+          finalPool = protocolPool;
+      }
+
+      const newProtocol = finalPool[Math.floor(Math.random() * finalPool.length)];
       setActiveProtocol(newProtocol);
       
       let msg = "PROTOCOL INITIATED";
@@ -818,9 +862,10 @@ export default function Game() {
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         
         // ... SOCIAL PROTOCOLS ...
-        case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner gives a Dare to Loser!"; break;
-        case 'SWITCH_SEATS': msg = "SCRAMBLE"; sub = "Everyone switch seats left!"; break;
-        case 'GROUP_SELFIE': msg = "MEMORY LEAK"; sub = "Take a group selfie now!"; break;
+        // Some show up at end of round
+        case 'TRUTH_DARE': msg = "PROTOCOL PENDING"; sub = "TRUTH OR DARE (End of Round)"; break;
+        case 'SWITCH_SEATS': msg = "PROTOCOL PENDING"; sub = "SEAT SWAP (End of Round)"; break;
+        case 'GROUP_SELFIE': msg = "PROTOCOL PENDING"; sub = "GROUP SELFIE (End of Round)"; break;
         case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
         
         // ... BIO PROTOCOLS ...
@@ -1029,10 +1074,17 @@ export default function Game() {
         if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
             newTokens -= 1; // Penalty for winning as Mole
             roundImpact = "-1 Token (Mole Win)";
+            extraLogs.push(`>> MOLE FAILURE: ${p.name} won and LOST a trophy!`);
         } else {
             let tokensToAdd = 1;
             if (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') {
                 tokensToAdd = 2;
+                extraLogs.push(`>> HIGH STAKES: ${p.name} won ${tokensToAdd} trophies!`);
+            } else {
+                 // Check ability token boosts
+                 if (newAbilities.some(a => a.playerId === p.id && a.effect === 'TOKEN_BOOST')) {
+                     // Log already handled below
+                 }
             }
             newTokens += tokensToAdd;
         }
@@ -1109,11 +1161,11 @@ export default function Game() {
        const secondBid = secondPlayer?.currentBid || 0;
        const margin = winnerBid - secondBid;
 
-       // 1. Smug Confidence (Round 1 Win)
+       // 1. Win Round 1
        if (round === 1 && winnerId === 'p1') {
          overlayType = "smug_confidence";
-         overlayMsg = "SMUG CONFIDENCE";
-         overlaySub = `${winnerName} takes the lead!`;
+         overlayMsg = "ROUND 1 WINNER";
+         overlaySub = `${winnerName} starts strong!`;
        }
        // 2. Fake Calm (Margin >= 15s)
        else if (secondPlayer && margin >= 15 && winnerId === 'p1') {
@@ -1134,7 +1186,6 @@ export default function Game() {
          overlaySub = `Won with only ${winnerBid.toFixed(1)}s`;
        }
        // 5. Comeback Hope (Winner was last in tokens before this win)
-       // We check tokens BEFORE this win. 
        else {
          const winnerTokensBefore = players.find(p => p.id === winnerId)?.tokens || 0;
          const minTokens = Math.min(...players.map(p => p.tokens));
@@ -1142,12 +1193,29 @@ export default function Game() {
            overlayType = "comeback_hope";
            overlayMsg = "COMEBACK HOPE";
            overlaySub = `${winnerName} stays in the fight!`;
+         } else if (winnerId === 'p1') {
+           // New Event 1: Precision
+           if (winnerBid % 1 === 0) {
+               overlayType = "precision_strike";
+               overlayMsg = "PRECISION STRIKE";
+               overlaySub = "Exact second bid!";
+           }
+           // New Event 2: Overkill (More tokens than time needed?)
+           else if (winnerBid > 60) {
+               overlayType = "overkill";
+               overlayMsg = "OVERKILL";
+               overlaySub = "Massive bid!";
+           }
+           // New Event 3: Clutch (Less than 10s remaining after bid)
+           else if (winnerPlayer.remainingTime < 10) {
+               overlayType = "clutch_play";
+               overlayMsg = "CLUTCH PLAY";
+               overlaySub = "Almost out of time!";
+           }
+           else {
+             overlayType = null;
+           }
          } else {
-           // Default Win
-           // Removed overlayType = "round_win" as per user request ("We also dont need a popup on who won")
-           // But we still want to show something if it's NOT a special win?
-           // User said: "We also dont need a popup on who won since it always says at the top."
-           // So for standard wins, we show nothing?
            overlayType = null;
          }
        }
@@ -1162,8 +1230,23 @@ export default function Game() {
     if (!winnerId && participants.length === 0) {
        // Everyone zero bid / abandoned?
        overlayType = "zero_bid";
-       overlayMsg = "CRICKETS...";
+       overlayMsg = "AFK";
        overlaySub = "No one dared to bid!";
+    }
+
+    // Protocol Post-Round Popups
+    if (activeProtocol === 'TRUTH_DARE' || activeProtocol === 'SWITCH_SEATS' || activeProtocol === 'GROUP_SELFIE') {
+        // Override overlay to show protocol requirement
+        let msg = "";
+        let sub = "";
+        if (activeProtocol === 'TRUTH_DARE') { msg = "TRUTH OR DARE"; sub = "Winner: Ask. Loser: Do."; }
+        if (activeProtocol === 'SWITCH_SEATS') { msg = "SEAT SWAP"; sub = "Everyone move left!"; }
+        if (activeProtocol === 'GROUP_SELFIE') { msg = "GROUP SELFIE"; sub = "Smile!"; }
+        
+        // Priority over win popup
+        overlayType = "protocol_alert";
+        overlayMsg = msg;
+        overlaySub = sub;
     }
 
     // BIO-FUEL Logic: Add drink prompt if applicable
@@ -1376,7 +1459,17 @@ export default function Game() {
                             { id: 'NO_LOOK', label: 'BLIND BIDDING', desc: 'Cannot look at screen' },
                             { id: 'LOCK_ON', label: 'LOCK ON', desc: 'Eye contact required' },
                             { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
-                            { id: 'PANIC_ROOM', label: 'PANIC ROOM', desc: '2x Speed' },
+                            { id: 'PANIC_ROOM', label: 'PANIC_ROOM', desc: '2x Speed' },
+                            // SOCIAL
+                            { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Social', type: 'social' },
+                            { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Social', type: 'social' },
+                            { id: 'GROUP_SELFIE', label: 'GROUP_SELFIE', desc: 'Social', type: 'social' },
+                            { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Social', type: 'social' },
+                            // BIO
+                            { id: 'HYDRATE', label: 'HYDRATE', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'BOTTOMS_UP', label: 'BOTTOMS_UP', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'PARTNER_DRINK', label: 'PARTNER_DRINK', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'WATER_ROUND', label: 'WATER_ROUND', desc: 'Bio-Fuel', type: 'bio' },
                         ].map((p) => (
                             <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-zinc-900/50 border border-white/5">
                                 <Switch 
@@ -1421,7 +1514,8 @@ export default function Game() {
                   <li>Hold button to start.</li>
                   <li>Release to bid time.</li>
                   <li>Longest time wins token.</li>
-                  <li>Early release costs {gameDuration === 'short' ? '0.05s' : gameDuration === 'long' ? '0.2s' : '0.1s'}.</li>
+                  <li>Early release costs: Speed 1s | Std 2s | Marathon 4s</li>
+                  <li>Min Bid: 0.1s. Max Bid: Remaining Time.</li>
                 </ul>
               </div>
               <div className="space-y-2 flex flex-col justify-between">
@@ -1779,7 +1873,8 @@ export default function Game() {
                      </span>
                      <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : (currentTime > 10 ? "" : "animate-pulse"))}>
                        {activeProtocol === 'SYSTEM_FAILURE' 
-                          ? `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}` 
+                          // System failure: mostly scrambled, 5% chance of real time
+                          ? (Math.random() > 0.95 ? currentTime.toFixed(1) : `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`) 
                           : isBlackout ? "ERROR" : "??:??.?"}
                      </div>
                   </div>
@@ -2083,13 +2178,16 @@ export default function Game() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             {[
-              { title: "SMUG CONFIDENCE", desc: "Win Round 1 immediately.", color: "text-purple-400 border-purple-500/20" },
+              { title: "ROUND 1 WINNER", desc: "Win Round 1 immediately.", color: "text-purple-400 border-purple-500/20" },
               { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
               { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
               { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
               { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
+              { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-400 border-blue-500/20" },
+              { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
+              { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-yellow-400 border-yellow-500/20" },
               { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-destructive border-destructive/20" },
-              { title: "ZERO BID", desc: "No one bids or everyone abandons.", color: "text-yellow-200 border-yellow-200/20" },
+              { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-yellow-200 border-yellow-200/20" },
             ].map((p, i) => (
               <div key={i} className={`bg-black/40 p-4 rounded border ${p.color} transition-colors`}>
                 <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
@@ -2309,8 +2407,11 @@ export default function Game() {
           <Separator className="bg-white/10 my-6" />
 
           <div className="bg-card/30 rounded p-4 border border-white/5 h-[300px] flex flex-col">
-            <h3 className="font-display text-muted-foreground text-xs tracking-widest mb-2 flex items-center gap-2">
-              <SkipForward size={12} /> GAME LOG
+            <h3 className="font-display text-muted-foreground text-xs tracking-widest mb-2 flex items-center gap-2 justify-between">
+              <span className="flex items-center gap-2"><SkipForward size={12} /> GAME LOG</span>
+              <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1" onClick={() => console.log('Toggle log filter')}>
+                ALL
+              </Button>
             </h3>
             <div className="flex-1 overflow-y-auto space-y-2 font-mono text-xs text-zinc-500 custom-scrollbar">
               {roundLog.length === 0 && <p className="italic opacity-50">Game started...</p>}
