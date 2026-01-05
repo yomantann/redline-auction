@@ -1132,7 +1132,7 @@ export default function Game() {
           totalImpactGiven: p.totalImpactGiven + playerImpactGiven,
           specialEvents: playerSpecialEvents,
           protocolsTriggered: [...new Set([...p.protocolsTriggered, ...playerProtocols])], // Unique
-          totalDrinks: p.totalDrinks + (overlayType === 'time_out' && p.isEliminated ? 1 : 0), // Simple mock tracking
+          totalDrinks: p.totalDrinks + (newTime <= 0 && p.remainingTime > 0 ? 1 : 0), // Simple mock tracking: Drink if eliminated this round
           socialDares: p.socialDares + (variant === 'SOCIAL_OVERDRIVE' && activeProtocol ? 1 : 0) // Simple mock tracking
       }; 
     });
