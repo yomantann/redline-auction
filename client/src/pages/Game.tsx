@@ -938,6 +938,7 @@ export default function Game() {
     // Track abilities triggered this round for notifications
     const newAbilities: { player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[] = [];
     const triggeredProtocols: string[] = activeProtocol ? [activeProtocol] : [];
+    const extraLogs: string[] = [];
 
     const updatedPlayers = players.map(p => {
       let newTime = p.remainingTime;
@@ -1335,7 +1336,7 @@ export default function Game() {
       : `Round ${round}: No winner`;
     
     // Add extra logs for special events
-    const extraLogs: string[] = [];
+    // Log array already initialized at start of function
     
     // Mole Penalty Log
     if (activeProtocol === 'THE_MOLE' && winnerId === moleTarget) {
@@ -1422,10 +1423,22 @@ export default function Game() {
      setRoundLog([]);
      const time = getInitialTime();
      setPlayers([
-        { id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false },
-        { id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive' },
-        { id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative' },
-        { id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'random' },
+        { 
+            id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false,
+            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        },
+        { 
+            id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
+            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        },
+        { 
+            id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
+            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        },
+        { 
+            id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
+            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        },
      ]);
   };
 

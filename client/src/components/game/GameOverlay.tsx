@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck } from "lucide-react";
+import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck, Crosshair, Flame, Hourglass } from "lucide-react";
 
 export type OverlayType = 
   | "round_start" 
@@ -19,6 +19,9 @@ export type OverlayType =
   | "zero_bid"
   | "protocol_alert"
   | "ability_trigger"
+  | "precision_strike"
+  | "overkill"
+  | "clutch_play"
   | null;
 
 interface GameOverlayProps {
@@ -66,6 +69,10 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
       case "protocol_alert": return <AlertTriangle size={48} className="text-destructive animate-pulse" />;
       case "ability_trigger": return <Zap size={48} className="text-blue-400" />;
       
+      case "precision_strike": return <Crosshair size={48} className="text-blue-400" />;
+      case "overkill": return <Flame size={48} className="text-red-500" />;
+      case "clutch_play": return <Hourglass size={48} className="text-yellow-400" />;
+      
       default: return null;
     }
   };
@@ -90,6 +97,10 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
       case "smug_confidence": return "text-purple-400 border-purple-500/20 bg-black/80";
       case "bad_judgment": return "text-red-400 border-red-500/20 bg-black/80";
       case "zero_bid": return "text-yellow-200 border-yellow-200/20 bg-black/80";
+      
+      case "precision_strike": return "text-blue-400 border-blue-500/20 bg-black/80";
+      case "overkill": return "text-red-500 border-red-500/20 bg-black/80";
+      case "clutch_play": return "text-yellow-400 border-yellow-500/20 bg-black/80";
       
       case "round_draw": 
       default: 
