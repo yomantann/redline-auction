@@ -25,8 +25,14 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull
+  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info
 } from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Import Generated Images
@@ -421,6 +427,7 @@ export default function Game() {
   const requestRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const readyStartTimeRef = useRef<number | null>(null);
+  const overLimitToastShownRef = useRef(false);
 
   // Multiplayer State
   const [lobbyCode, setLobbyCode] = useState("");
@@ -523,6 +530,49 @@ export default function Game() {
 
         // Check if any bots should release
         handleBotLogic(deltaTime);
+
+        // Auto-Eliminate if Player Over-Bets during holding
+        // (If player holds longer than they have time for)
+        const currentPlayer = players.find(p => p.id === 'p1');
+        if (currentPlayer && currentPlayer.isHolding && !currentPlayer.isEliminated) {
+            if (deltaTime > currentPlayer.remainingTime) {
+                // Force Eliminate
+                 setPlayers(prev => prev.map(p => {
+                     if (p.id === 'p1') {
+                         if (!overLimitToastShownRef.current) {
+                              overLimitToastShownRef.current = true;
+                              // We use setTimeout to avoid state update conflict or rendering issues in animation frame? 
+                              // Actually direct toast call is fine usually.
+                         }
+                         return { 
+                             ...p, 
+                             isHolding: false, 
+                             currentBid: 0, 
+                             tokens: Math.max(0, p.tokens - 1), 
+                             remainingTime: 0, 
+                             isEliminated: true 
+                         };
+                     }
+                     return p;
+                 }));
+                 // Note: endRound will be triggered in next frame because holdingPlayers check will see p1 released (isHolding: false)
+            }
+        }
+        
+        if (overLimitToastShownRef.current) {
+             toast({
+                title: "OVER-LIMIT ELIMINATION",
+                description: "You held longer than your remaining time! Eliminated & Lost Trophy.",
+                variant: "destructive",
+                duration: 4000
+            });
+            overLimitToastShownRef.current = false; // Reset? No, wait until next round.
+            // Actually, if we reset it here, it might spam. We should reset it at start of round.
+            // But since this loop runs every frame, we need to be careful.
+            // Better to just set the flag here and handle reset in startCountdown.
+            // Wait, I can't call toast inside render/animation frame efficiently if I rely on state update.
+            // Let's just trust the flag. I'll reset the flag in startCountdown.
+        }
 
         // Check if everyone released
         const activePlayers = players.filter(p => !p.isEliminated); 
@@ -733,9 +783,14 @@ export default function Game() {
             // OVER-BET CHECK
             if (bidTime > p.remainingTime) {
                 // Penalty!
+                const newTime = 0; // Depleted to zero
+                
+                // Add log
+                setRoundLog(prev => [`>> OVER-LIMIT: ${p.name} bet more than available! Lost Trophy & Time Depleted.`, ...prev]);
+
                 toast({
                     title: "OVER-LIMIT PENALTY",
-                    description: `You bid ${bidTime}s but only had ${p.remainingTime.toFixed(1)}s! Lost 1 Token.`,
+                    description: `You bid ${bidTime}s but only had ${p.remainingTime.toFixed(1)}s! Lost 1 Token & Time Depleted.`,
                     variant: "destructive",
                     duration: 4000
                 });
@@ -744,6 +799,7 @@ export default function Game() {
                     isHolding: false, 
                     currentBid: 0, // Invalid bid
                     tokens: Math.max(0, p.tokens - 1), // Lose trophy
+                    remainingTime: newTime
                 };
             }
             
@@ -903,6 +959,7 @@ export default function Game() {
     setCurrentTime(0);
     setCountdown(COUNTDOWN_SECONDS);
     setPhase('countdown');
+    overLimitToastShownRef.current = false; // Reset over-limit flag
   };
 
   // End Round Logic
@@ -1162,10 +1219,10 @@ export default function Game() {
        const secondBid = secondPlayer?.currentBid || 0;
        const margin = winnerBid - secondBid;
 
-       // 1. Win Round 1
+       // 1. Smug Confidence (Round 1 Win) - Title Changed Back
        if (round === 1 && winnerId === 'p1') {
          overlayType = "smug_confidence";
-         overlayMsg = "ROUND 1 WINNER";
+         overlayMsg = "SMUG CONFIDENCE";
          overlaySub = `${winnerName} starts strong!`;
        }
        // 2. Fake Calm (Margin >= 15s)
@@ -1461,6 +1518,10 @@ export default function Game() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                        {/* SYSTEM PROTOCOLS */}
+                        <div className="md:col-span-2 mt-4 mb-2">
+                             <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-white/10 pb-1">SYSTEM PROTOCOLS</h4>
+                        </div>
                         {[
                             { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
                             { id: 'DOUBLE_STAKES', label: 'HIGH STAKES', desc: 'Double tokens for winner' },
@@ -1473,16 +1534,6 @@ export default function Game() {
                             { id: 'LOCK_ON', label: 'LOCK ON', desc: 'Eye contact required' },
                             { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
                             { id: 'PANIC_ROOM', label: 'PANIC_ROOM', desc: '2x Speed' },
-                            // SOCIAL
-                            { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Social', type: 'social' },
-                            { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Social', type: 'social' },
-                            { id: 'GROUP_SELFIE', label: 'GROUP_SELFIE', desc: 'Social', type: 'social' },
-                            { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Social', type: 'social' },
-                            // BIO
-                            { id: 'HYDRATE', label: 'HYDRATE', desc: 'Bio-Fuel', type: 'bio' },
-                            { id: 'BOTTOMS_UP', label: 'BOTTOMS_UP', desc: 'Bio-Fuel', type: 'bio' },
-                            { id: 'PARTNER_DRINK', label: 'PARTNER_DRINK', desc: 'Bio-Fuel', type: 'bio' },
-                            { id: 'WATER_ROUND', label: 'WATER_ROUND', desc: 'Bio-Fuel', type: 'bio' },
                         ].map((p) => (
                             <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-zinc-900/50 border border-white/5">
                                 <Switch 
@@ -1498,6 +1549,78 @@ export default function Game() {
                                 <div className="space-y-1">
                                     <h4 className="text-sm font-bold text-zinc-200">{p.label}</h4>
                                     <p className="text-xs text-zinc-500">{p.desc}</p>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* SOCIAL PROTOCOLS */}
+                        <div className="md:col-span-2 mt-4 mb-2">
+                             <h4 className="text-xs font-bold text-purple-400 uppercase tracking-widest border-b border-purple-500/20 pb-1 flex items-center gap-2">
+                                <PartyPopper size={12}/> SOCIAL OVERDRIVE
+                             </h4>
+                        </div>
+                        {[
+                            { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Social', type: 'social' },
+                            { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Social', type: 'social' },
+                            { id: 'GROUP_SELFIE', label: 'GROUP_SELFIE', desc: 'Social', type: 'social' },
+                            { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Social', type: 'social' },
+                        ].map((p) => (
+                            <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-purple-950/20 border border-purple-500/10">
+                                <Switch 
+                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                    disabled={variant === 'BIO_FUEL'} // Cannot enable social in bio mode manually if strict
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                             if (variant === 'BIO_FUEL') {
+                                                 setVariant('SOCIAL_OVERDRIVE');
+                                                 // Remove bio protocols
+                                                 setAllowedProtocols(prev => prev.filter(id => !['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(id)));
+                                             }
+                                             setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                        } else {
+                                             setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                        }
+                                    }}
+                                />
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-bold text-purple-200">{p.label}</h4>
+                                    <p className="text-xs text-purple-400">{p.desc}</p>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* BIO PROTOCOLS */}
+                        <div className="md:col-span-2 mt-4 mb-2">
+                             <h4 className="text-xs font-bold text-orange-400 uppercase tracking-widest border-b border-orange-500/20 pb-1 flex items-center gap-2">
+                                <Martini size={12}/> BIO-FUEL
+                             </h4>
+                        </div>
+                        {[
+                            { id: 'HYDRATE', label: 'HYDRATE', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'BOTTOMS_UP', label: 'BOTTOMS_UP', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'PARTNER_DRINK', label: 'PARTNER_DRINK', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'WATER_ROUND', label: 'WATER_ROUND', desc: 'Bio-Fuel', type: 'bio' },
+                        ].map((p) => (
+                            <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-orange-950/20 border border-orange-500/10">
+                                <Switch 
+                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                    disabled={variant === 'SOCIAL_OVERDRIVE'} // Cannot enable bio in social mode manually if strict
+                                    onCheckedChange={(checked) => {
+                                         if (checked) {
+                                             if (variant === 'SOCIAL_OVERDRIVE') {
+                                                 setVariant('BIO_FUEL');
+                                                 // Remove social protocols
+                                                 setAllowedProtocols(prev => prev.filter(id => !['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'].includes(id)));
+                                             }
+                                             setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                        } else {
+                                             setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                        }
+                                    }}
+                                />
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-bold text-orange-200">{p.label}</h4>
+                                    <p className="text-xs text-orange-400">{p.desc}</p>
                                 </div>
                             </div>
                         ))}
@@ -1527,7 +1650,7 @@ export default function Game() {
                   <li>Hold button to start.</li>
                   <li>Release to bid time.</li>
                   <li>Longest time wins token.</li>
-                  <li>Early release costs: Speed 1s | Std 2s | Marathon 4s</li>
+                  <li>Early release costs: {gameDuration === 'short' ? 'Speed 1s' : gameDuration === 'long' ? 'Marathon 4s' : 'Std 2s'}</li>
                   <li>Min Bid: 0.1s. Max Bid: Remaining Time.</li>
                 </ul>
               </div>
@@ -1886,8 +2009,8 @@ export default function Game() {
                      </span>
                      <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : (currentTime > 10 ? "" : "animate-pulse"))}>
                        {activeProtocol === 'SYSTEM_FAILURE' 
-                          // System failure: mostly scrambled, 5% chance of real time
-                          ? (Math.random() > 0.95 ? currentTime.toFixed(1) : `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`) 
+                          // System failure: mostly scrambled, 25% chance of real time (increased from 5%)
+                          ? (Math.random() > 0.75 ? currentTime.toFixed(1) : `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`) 
                           : isBlackout ? "ERROR" : "??:??.?"}
                      </div>
                   </div>
@@ -1900,7 +2023,8 @@ export default function Game() {
                 onRelease={handleRelease} 
                 isPressed={players.find(p => p.id === 'p1')?.isHolding}
                 disabled={!players.find(p => p.id === 'p1')?.isHolding}
-                isWaiting={isWaiting} // Pass waiting state
+                isWaiting={false} // No waiting in bidding phase visually
+                showPulse={currentTime <= 10}
               />
             </div>
             
@@ -2191,7 +2315,7 @@ export default function Game() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             {[
-              { title: "ROUND 1 WINNER", desc: "Win Round 1 immediately.", color: "text-purple-400 border-purple-500/20" },
+              { title: "SMUG CONFIDENCE", desc: "Win Round 1 immediately.", color: "text-purple-400 border-purple-500/20" },
               { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
               { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
               { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
@@ -2362,12 +2486,11 @@ export default function Game() {
                     </div>
                     <div className="bg-black/30 p-3 rounded">
                         <div className="text-[10px] text-zinc-500 uppercase">Time Left</div>
-                        <div className="text-xl font-mono text-white">{selectedPlayerStats?.remainingTime ? formatTime(selectedPlayerStats.remainingTime) : "00:00.0"}</div>
+                        <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== 'p1' && "blur-sm select-none")}>
+                            {selectedPlayerStats?.remainingTime ? formatTime(selectedPlayerStats.remainingTime) : "00:00.0"}
+                        </div>
                     </div>
-                    <div className="bg-black/30 p-3 rounded">
-                        <div className="text-[10px] text-zinc-500 uppercase">Total Bid Time</div>
-                        <div className="text-sm font-mono text-zinc-300">{selectedPlayerStats?.totalTimeBid?.toFixed(1)}s</div>
-                    </div>
+                    {/* Removed Total Bid Time as requested */}
                     <div className="bg-black/30 p-3 rounded">
                         <div className="text-[10px] text-zinc-500 uppercase">Impact Given</div>
                         <div className="text-sm font-mono text-zinc-300">{selectedPlayerStats?.totalImpactGiven?.toFixed(1)}s</div>
@@ -2403,6 +2526,7 @@ export default function Game() {
                 formatTime={formatTime}
                 peekActive={peekActive}
                 isDoubleTokens={isDoubleTokens}
+                isSystemFailure={activeProtocol === 'SYSTEM_FAILURE'}
                 onClick={() => setSelectedPlayerStats(p)}
               >
                  {animations.filter(a => a.playerId === p.id).map(a => (

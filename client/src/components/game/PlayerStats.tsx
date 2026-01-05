@@ -23,11 +23,12 @@ interface PlayerStatsProps {
   formatTime?: (seconds: number) => string;
   peekActive?: boolean; // New prop for PEEK ability
   isDoubleTokens?: boolean;
+  isSystemFailure?: boolean; // New prop for System Failure scramble
   children?: React.ReactNode; // Slot for animations
   onClick?: () => void;
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, children, onClick }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, children, onClick }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -45,7 +46,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       isCurrentPlayer 
         ? "bg-primary/5 border-primary/30 shadow-[0_0_15px_rgba(255,215,0,0.1)]" 
         : "bg-card/50 border-white/5",
-      player.isEliminated && "opacity-50 grayscale",
+      player.isEliminated && "opacity-50 grayscale border-red-500/50 bg-red-900/10",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
     data-testid={`player-card-${player.id}`}
@@ -79,13 +80,18 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
                player.characterIcon || (player.isBot ? <Cpu size={16} className="text-zinc-500"/> : <User size={16} className="text-zinc-500"/>)
              )}
           </div>
-          <span className={cn("font-display font-bold tracking-wide", isCurrentPlayer ? "text-foreground" : "text-muted-foreground")}>
+          <span className={cn("font-display font-bold tracking-wide", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isEliminated && "text-red-500 line-through")}>
             {player.name}
           </span>
         </div>
-        {player.hasBidThisRound === false && (
+        {player.hasBidThisRound === false && !player.isEliminated && (
            <span className="text-[10px] bg-accent/20 text-accent px-2 py-0.5 rounded border border-accent/20 animate-pulse">
              BIDDING
+           </span>
+        )}
+        {player.isEliminated && (
+            <span className="text-[10px] bg-red-950 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold">
+             ELIMINATED
            </span>
         )}
       </div>
@@ -105,7 +111,10 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
             <Clock size={14} />
             <div className="flex items-center gap-2">
                 <span className={cn("font-mono text-xl font-bold", !showTime && "text-zinc-700 blur-[2px]")}>
-                  {showTime && remainingTime !== undefined ? format(remainingTime) : "??:??.?"}
+                  {isSystemFailure 
+                    ? (Math.random() > 0.8 ? format(remainingTime || 0) : "??:??.?")
+                    : (showTime && remainingTime !== undefined ? format(remainingTime) : "??:??.?")
+                  }
                 </span>
                 {/* SHOW IMPACT */}
                 {player.roundImpact && (

@@ -8,9 +8,10 @@ interface AuctionButtonProps {
   disabled?: boolean;
   isPressed?: boolean;
   isWaiting?: boolean; // New prop to indicate waiting for others
+  showPulse?: boolean; // New prop to control pulsing
 }
 
-export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiting }: AuctionButtonProps) {
+export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiting, showPulse = true }: AuctionButtonProps) {
   // We use local state for visual feedback immediately, but parent controls logic
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -22,12 +23,12 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
         isWaiting 
           ? "border-yellow-500/20 scale-100 opacity-80 animate-ping duration-[3s]" 
           : "border-primary/20",
-        isPressed && !isWaiting ? "scale-90 opacity-50" : !isWaiting ? "scale-100 opacity-100 animate-pulse" : ""
+        isPressed && !isWaiting ? "scale-90 opacity-50" : (!isWaiting && showPulse) ? "scale-100 opacity-100 animate-pulse" : ""
       )} />
       <div className={cn(
         "absolute inset-4 rounded-full border transition-all duration-500",
         isWaiting ? "border-yellow-500/40 animate-spin duration-[10s]" : "border-primary/40",
-        isPressed && !isWaiting ? "scale-95 border-primary/60" : !isWaiting ? "scale-100 rotate-180" : ""
+        isPressed && !isWaiting ? "scale-95 border-primary/60" : (!isWaiting && showPulse) ? "scale-100 rotate-180" : ""
       )} />
 
       {/* The Button */}
