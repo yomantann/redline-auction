@@ -107,6 +107,10 @@ const SOCIAL_CHARACTERS: Character[] = [
   }
 ];
 
+import charDangerZone from '@assets/generated_images/cyberpunk_holographic_stripper_dancer.png';
+
+// ... (Existing Characters)
+
 // NEW CHARACTERS (BIO-FUEL MODE)
 const BIO_CHARACTERS: Character[] = [
   { 
@@ -116,7 +120,7 @@ const BIO_CHARACTERS: Character[] = [
     bioAbility: { name: 'BOTTOMLESS', description: 'Immune to one drink penalty per game.' }
   },
   {
-    id: 'bartender', name: 'Mixologist', title: 'The Server', image: charFine, description: 'Serves the pain.', color: 'text-orange-600',
+    id: 'danger_zone', name: 'Danger Zone', title: 'Holo-Dancer', image: charDangerZone, description: 'Mesmerizing moves, dangerous bids.', color: 'text-pink-600',
     ability: { name: 'LAST CALL', description: 'Remove 1s from everyone.', effect: 'DISRUPT' },
     socialAbility: { name: 'ORDER UP', description: 'Give a command. First to obey gets +0.5s.' },
     bioAbility: { name: 'MYSTERY MIX', description: 'Mix a drink. Winner of next round must drink it.' }
@@ -141,6 +145,7 @@ interface Player {
   totalTimeBid: number;
   totalImpactGiven: number;
   specialEvents: string[];
+  eventDatabasePopups: string[]; // NEW: Track Event DB Popups
   protocolsTriggered: string[];
   totalDrinks: number;
   socialDares: number;
@@ -394,19 +399,19 @@ export default function Game() {
   const [players, setPlayers] = useState<Player[]>([
     { 
         id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false,
-        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0 
+        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0 
     },
     { 
         id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
-        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
     },
     { 
         id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
-        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
     },
     { 
         id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
-        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
     },
   ]);
 
@@ -798,10 +803,10 @@ export default function Game() {
                 return { 
                     ...p, 
                     isHolding: false, 
-                    currentBid: bidTime, // Set bid to time held, but time left goes to 0
+                    currentBid: bidTime, 
                     tokens: Math.max(0, p.tokens - 1), // Lose trophy
                     remainingTime: newTime,
-                    isEliminated: true
+                    isEliminated: true // Stop playing
                 };
             }
             
@@ -814,31 +819,17 @@ export default function Game() {
        // If releasing during countdown, deduct penalty based on duration
        const penalty = getPenalty();
        
-       if (difficulty === 'CASUAL') {
-           // Defer penalty for Casual Mode
-           setPendingPenalties(prev => ({
-               ...prev,
-               p1: (prev.p1 || 0) + penalty
-           }));
-            setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
-                ...p, 
-                isHolding: false, 
-                currentBid: 0,
-                // Don't deduct yet
-            } : p));
-       } else {
-           // Immediate deduction for Competitive
-            setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
-                ...p, 
-                isHolding: false, 
-                currentBid: 0, 
-                remainingTime: Math.max(0, p.remainingTime - penalty) 
-            } : p));
-       }
+       // IMMEDIATE DEDUCTION LOGIC FOR ALL MODES
+       setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
+            ...p, 
+            isHolding: false, 
+            currentBid: 0, 
+            remainingTime: Math.max(0, p.remainingTime - penalty) // Deduct immediately
+       } : p));
        
        toast({
            title: "EARLY RELEASE",
-           description: `Released before start! -${penalty}s penalty${difficulty === 'CASUAL' ? ' (Applied at end)' : ''}.`,
+           description: `Released before start! -${penalty}s penalty applied immediately.`,
            variant: "destructive",
            duration: 3000
        });
@@ -847,7 +838,7 @@ export default function Game() {
 
   // Start Round Logic
   const startCountdown = () => {
-    // Check for Protocol Trigger (35% chance if enabled)
+    // Check for Protocol Trigger 
     if (protocolsEnabled && Math.random() > 0.65) {
       
       // Build Protocol Pool
@@ -865,35 +856,8 @@ export default function Game() {
 
       if (protocolPool.length === 0) return;
 
-      // Adjust Probabilities based on Game Length & Variant
-      // Standard: Base
-      // Social/Bio: +5-10% more likely for mode-specific
-      
-      const isSpecialMode = variant !== 'STANDARD';
-      
-      // Separate pools
-      const standardPool = protocolPool.filter(p => !['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE', 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(p));
-      const specialPool = protocolPool.filter(p => ['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE', 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(p));
-      
-      let finalPool = [];
-      
-      // Weight logic: 
-      // If special mode, push special items multiple times to increase odds?
-      // Or simpler: just random pick from mixed pool where specials are added?
-      // User asked: "specifically biofuel protcols should be 5-10% more likely"
-      
-      // Let's weighted random pick
-      if (isSpecialMode && specialPool.length > 0) {
-          // Add standard 1x
-          finalPool.push(...standardPool);
-          // Add special 1.5x (roughly 50% more weight)
-          finalPool.push(...specialPool);
-          finalPool.push(...specialPool); 
-          // If short game, maybe less frequent? User said "adjusted based on length".
-          // For now, simple weighting.
-      } else {
-          finalPool = protocolPool;
-      }
+      // Equal Chance Logic (Unweighted)
+      const finalPool = protocolPool;
 
       const newProtocol = finalPool[Math.floor(Math.random() * finalPool.length)];
       setActiveProtocol(newProtocol);
@@ -909,6 +873,7 @@ export default function Game() {
       };
       
       switch(newProtocol) {
+
         // ... STANDARD PROTOCOLS ...
         case 'DATA_BLACKOUT': msg = "DATA BLACKOUT"; sub = "Timers Hidden"; break;
         case 'DOUBLE_STAKES': msg = "HIGH STAKES"; sub = "Double Tokens for Winner"; break;
@@ -1011,6 +976,11 @@ export default function Game() {
             subMessage: "Exact Time Match! No Winner."
         });
         setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
+        
+        // Add to Event Database tracker for involved players
+        // We'll add it to everyone for simplicity or just the tied players. Let's add to everyone to track global events.
+        // Actually, request says "when an event from the event database happens to a player".
+        // Tie is global.
       }
     }
 
@@ -1023,17 +993,57 @@ export default function Game() {
     const extraLogs: string[] = [];
 
     const updatedPlayers = players.map(p => {
+      // SKIP ELIMINATED PLAYERS FROM CHANGES
+      if (p.isEliminated) return p;
+
       let newTime = p.remainingTime;
       let newTokens = p.tokens;
       let roundImpact = ""; // Store impact string for UI
       let playerImpactGiven = 0; // Track impact given by this player
       let playerSpecialEvents: string[] = [...p.specialEvents];
-      let playerProtocols: string[] = [...p.protocolsTriggered, ...triggeredProtocols.filter(() => Math.random() > 0.5)]; // Simplified protocol tracking attribution (random for now or if they won)
+      let playerEventPopups: string[] = [...(p.eventDatabasePopups || [])]; // Track Popups
+      let playerProtocols: string[] = [...p.protocolsTriggered, ...triggeredProtocols.filter(() => Math.random() > 0.5)]; 
       
       if (activeProtocol && p.id === winnerId) {
           playerProtocols.push(`${activeProtocol} (WON)`);
       }
       
+      // Calculate Base Time (Subtract Bid)
+      if (p.currentBid !== null && p.currentBid > 0) {
+          newTime = Math.max(0, newTime - p.currentBid);
+      }
+
+      // Check Specific Event Database Popups for this player
+      if (p.id === winnerId) {
+           // WINNING CONDITIONS
+           if (round === 1) playerEventPopups.push("SMUG CONFIDENCE");
+           if (winnerTime < 20.0) playerEventPopups.push("EASY W");
+           if (Number.isInteger(winnerTime)) playerEventPopups.push("PRECISION STRIKE");
+           if (winnerTime > 60.0) playerEventPopups.push("OVERKILL");
+           if (newTime < 10.0) playerEventPopups.push("CLUTCH PLAY");
+           
+           // Margin check needs second place
+           if (participants.length > 1) {
+               const margin = winnerTime - (participants[1].currentBid || 0);
+               if (margin > 15.0) playerEventPopups.push("FAKE CALM");
+               if (margin < 5.0) playerEventPopups.push("GENIUS MOVE");
+           }
+           
+           // Least tokens check
+           const minTokens = Math.min(...players.map(pl => pl.tokens));
+           if (p.tokens === minTokens && p.tokens < Math.max(...players.map(pl => pl.tokens))) {
+               playerEventPopups.push("COMEBACK HOPE");
+           }
+      }
+      
+      if (!winnerId && participants.length > 1 && participants[0].currentBid === participants[1].currentBid) {
+           playerEventPopups.push("DEADLOCK SYNC");
+      }
+      
+      if (participants.length === 0) {
+           playerEventPopups.push("AFK");
+      }
+
       // --- ABILITY EFFECTS (Passive / Triggered on Result) ---
       if (abilitiesEnabled && !p.isEliminated) {
         // Find ability for this player (User or Bot)
@@ -1201,9 +1211,26 @@ export default function Game() {
           }
       });
       
-      // Check elimination
-      if (newTime <= 0 && p.remainingTime > 0) {
-        playersOut.push(p.name);
+      // Apply deferred penalties logic (or immediate in new flow)
+      // Check pending penalties
+      const pending = pendingPenalties[p.id];
+      if (pending) {
+          newTime -= pending;
+          roundImpact = roundImpact ? `${roundImpact} -${pending}s (Penalty)` : `-${pending}s (Penalty)`;
+          extraLogs.push(`>> PENALTY: ${p.name} released early (-${pending}s)`);
+      }
+      
+      // CHECK FOR ELIMINATION
+      // "When someone finished with exactly 0 seconds time left, or the holding penalty will eliminate them in the next round, they should just not be allowed to play the remainder of rounds and are not penalized."
+      
+      if (newTime <= 0) {
+          newTime = 0;
+          if (!p.isEliminated) {
+             // Eliminate them NOW
+             playersOut.push(p.name);
+             // Don't add to event popup here if we want to avoid double notification, 
+             // but logic below might rely on playersOut
+          }
       }
 
       return { 
@@ -1211,20 +1238,16 @@ export default function Game() {
           remainingTime: Math.max(0, newTime), 
           tokens: newTokens, 
           roundImpact: roundImpact,
+          isEliminated: newTime <= 0, // Set flag
           totalImpactGiven: p.totalImpactGiven + playerImpactGiven,
           specialEvents: playerSpecialEvents,
-          protocolsTriggered: [...new Set([...p.protocolsTriggered, ...playerProtocols])], // Unique
-          totalDrinks: p.totalDrinks + (newTime <= 0 && p.remainingTime > 0 ? 1 : 0), // Simple mock tracking: Drink if eliminated this round
-          socialDares: p.socialDares + (variant === 'SOCIAL_OVERDRIVE' && activeProtocol ? 1 : 0) // Simple mock tracking
+          protocolsTriggered: [...new Set([...p.protocolsTriggered, ...playerProtocols])], 
+          totalDrinks: p.totalDrinks + (newTime <= 0 && p.remainingTime > 0 ? 1 : 0),
+          socialDares: p.socialDares + (variant === 'SOCIAL_OVERDRIVE' && activeProtocol ? 1 : 0)
       }; 
     });
-    
-    // We need to update Player interface to accept roundImpact string
-    // I'll update the state, but first I need to update the interface in a separate edit if I haven't already.
-    // I will assume I can update Player interface in Game.tsx or where it is defined.
-    // Wait, Player interface is in Game.tsx line 83. I need to update that first. 
-    
-    setActiveAbilities(newAbilities); // Save for notification loop
+
+    setPendingPenalties({}); // Clear pending penalties after applying
     setPlayers(updatedPlayers);
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
     
@@ -2182,12 +2205,12 @@ export default function Game() {
                    
                    <div className="grid grid-cols-2 gap-2 text-xs">
                        <div className="bg-black/20 p-2 rounded">
-                           <div className="text-zinc-500">Time Bid</div>
-                           <div className="font-mono text-white">{p.totalTimeBid.toFixed(1)}s</div>
+                           <div className="text-zinc-500">Time Left</div>
+                           <div className="font-mono text-white">{formatTime(p.remainingTime)}</div>
                        </div>
                        <div className="bg-black/20 p-2 rounded">
-                           <div className="text-zinc-500">Impact</div>
-                           <div className="font-mono text-white">{p.totalImpactGiven > 0 ? "+" : ""}{p.totalImpactGiven.toFixed(1)}s</div>
+                           <div className="text-zinc-500">Events</div>
+                           <div className="font-mono text-white">{p.eventDatabasePopups.length}</div>
                        </div>
                    </div>
 
@@ -2382,7 +2405,7 @@ export default function Game() {
               <AlertTriangle /> PROTOCOL DATABASE
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
-              When PROTOCOLS are enabled, random events (35% chance) may trigger at the start of a round.
+              When PROTOCOLS are enabled, random events may trigger at the start of a round.
             </DialogDescription>
           </DialogHeader>
           
@@ -2390,7 +2413,7 @@ export default function Game() {
             {variant === 'BIO_FUEL' && (
                 <div className="col-span-1 md:col-span-2 bg-orange-950/30 border border-orange-500/30 p-3 rounded mb-2 flex items-center gap-3 text-orange-200 text-sm">
                     <AlertTriangle className="shrink-0 text-orange-500" size={18} />
-                    <p><strong>DISCLAIMER:</strong> Bio-Fuel mode is intended for adults (21+). Please play responsibly and use non-alcoholic beverages if preferred.</p>
+                    <p><strong>DISCLAIMER:</strong> Bio-Fuel mode is intended for adults (21+). Please play responsibly.</p>
                 </div>
             )}
             <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-white mt-4 border-b border-white/10 pb-2">STANDARD PROTOCOLS</h3>
@@ -2567,13 +2590,11 @@ export default function Game() {
                 peekActive={peekActive}
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={activeProtocol === 'SYSTEM_FAILURE'}
-                // Hide details if competitive mode AND active round (bidding or countdown)
+                // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
-                    if (difficulty === 'COMPETITIVE' && (phase === 'bidding' || phase === 'countdown' || phase === 'ready')) {
-                         // Still show if it's the player themselves, or allow ability view? 
-                         // "Selecting a player should not show any details other than their abilities in competitive mode."
-                         // We'll set a flag in the dialog or restrict what's shown there.
-                         setSelectedPlayerStats({...p, remainingTime: -1, tokens: -1, totalImpactGiven: -1}); // Pass masked data or handle in dialog
+                    if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
+                         // Mask all stats
+                         setSelectedPlayerStats({...p, remainingTime: -1, tokens: -1, totalImpactGiven: -1}); 
                     } else {
                          setSelectedPlayerStats(p);
                     }

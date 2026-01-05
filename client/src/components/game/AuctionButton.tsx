@@ -23,7 +23,7 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
         isWaiting 
           ? "border-yellow-500/20 scale-100 opacity-80 animate-ping duration-[3s]" 
           : "border-primary/20",
-        isPressed && !isWaiting ? "scale-90 opacity-50" : (!isWaiting && showPulse) ? "scale-100 opacity-100 animate-pulse" : ""
+        isPressed && !isWaiting ? "scale-90 opacity-50" : "" 
       )} />
       <div className={cn(
         "absolute inset-4 rounded-full border transition-all duration-500",
