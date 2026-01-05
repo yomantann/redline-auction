@@ -26,9 +26,10 @@ interface PlayerStatsProps {
   isSystemFailure?: boolean; // New prop for System Failure scramble
   children?: React.ReactNode; // Slot for animations
   onClick?: () => void;
+  hideDetails?: boolean; // New prop to hide extra details
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, children, onClick }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, children, onClick, hideDetails }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -38,6 +39,15 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // Note: player.isHolding must be passed from parent or extended in Player interface
   const showHolding = peekActive && !isCurrentPlayer && player.isHolding;
 
+  // SCRAMBLE LOGIC FOR SYSTEM FAILURE
+  // If system failure is active, we scramble the time display every render
+  const getDisplayTime = () => {
+      if (isSystemFailure) {
+          return `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`;
+      }
+      return showTime && remainingTime !== undefined ? format(remainingTime) : "??:??.?";
+  };
+
   return (
     <div 
       onClick={onClick}
@@ -46,7 +56,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       isCurrentPlayer 
         ? "bg-primary/5 border-primary/30 shadow-[0_0_15px_rgba(255,215,0,0.1)]" 
         : "bg-card/50 border-white/5",
-      player.isEliminated && "opacity-50 grayscale border-red-500/50 bg-red-900/10",
+      player.isEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
     data-testid={`player-card-${player.id}`}
@@ -80,7 +90,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
                player.characterIcon || (player.isBot ? <Cpu size={16} className="text-zinc-500"/> : <User size={16} className="text-zinc-500"/>)
              )}
           </div>
-          <span className={cn("font-display font-bold tracking-wide", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isEliminated && "text-red-500 line-through")}>
+          <span className={cn("font-display font-bold tracking-wide", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isEliminated && "text-red-500")}>
             {player.name}
           </span>
         </div>
@@ -90,7 +100,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
            </span>
         )}
         {player.isEliminated && (
-            <span className="text-[10px] bg-red-950 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold">
+            <span className="text-[10px] bg-red-950 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold animate-pulse">
              ELIMINATED
            </span>
         )}
@@ -111,10 +121,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
             <Clock size={14} />
             <div className="flex items-center gap-2">
                 <span className={cn("font-mono text-xl font-bold", !showTime && "text-zinc-700 blur-[2px]")}>
-                  {isSystemFailure 
-                    ? (Math.random() > 0.8 ? format(remainingTime || 0) : "??:??.?")
-                    : (showTime && remainingTime !== undefined ? format(remainingTime) : "??:??.?")
-                  }
+                  {getDisplayTime()}
                 </span>
                 {/* SHOW IMPACT */}
                 {player.roundImpact && (

@@ -604,7 +604,8 @@ export default function Game() {
 
   // Pre-calculate bot bids when round starts
   const [botBids, setBotBids] = useState<Record<string, number>>({});
-  
+  const [pendingPenalties, setPendingPenalties] = useState<Record<string, number>>({}); // For Casual/Easy Mode deferred penalties
+
   // Initialize Bots with Random Unique Characters on Mount
   // Removed this useEffect as it only runs once and causes bots to be blank on restart.
   // Moved logic to assignBotCharacters function called during character selection.
@@ -797,9 +798,10 @@ export default function Game() {
                 return { 
                     ...p, 
                     isHolding: false, 
-                    currentBid: 0, // Invalid bid
+                    currentBid: bidTime, // Set bid to time held, but time left goes to 0
                     tokens: Math.max(0, p.tokens - 1), // Lose trophy
-                    remainingTime: newTime
+                    remainingTime: newTime,
+                    isEliminated: true
                 };
             }
             
@@ -812,16 +814,31 @@ export default function Game() {
        // If releasing during countdown, deduct penalty based on duration
        const penalty = getPenalty();
        
-       setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
-         ...p, 
-         isHolding: false, 
-         currentBid: 0, 
-         remainingTime: Math.max(0, p.remainingTime - penalty) 
-       } : p));
+       if (difficulty === 'CASUAL') {
+           // Defer penalty for Casual Mode
+           setPendingPenalties(prev => ({
+               ...prev,
+               p1: (prev.p1 || 0) + penalty
+           }));
+            setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
+                ...p, 
+                isHolding: false, 
+                currentBid: 0,
+                // Don't deduct yet
+            } : p));
+       } else {
+           // Immediate deduction for Competitive
+            setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
+                ...p, 
+                isHolding: false, 
+                currentBid: 0, 
+                remainingTime: Math.max(0, p.remainingTime - penalty) 
+            } : p));
+       }
        
        toast({
            title: "EARLY RELEASE",
-           description: `Released before start! -${penalty}s penalty.`,
+           description: `Released before start! -${penalty}s penalty${difficulty === 'CASUAL' ? ' (Applied at end)' : ''}.`,
            variant: "destructive",
            duration: 3000
        });
@@ -986,6 +1003,14 @@ export default function Game() {
         winnerId = potentialWinner.id;
         winnerName = potentialWinner.name;
         winnerTime = potentialWinner.currentBid || 0;
+      } else {
+        // Tie Logic
+        setOverlay({
+            type: "protocol_alert",
+            message: "DEADLOCK SYNC",
+            subMessage: "Exact Time Match! No Winner."
+        });
+        setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
       }
     }
 
@@ -2217,8 +2242,16 @@ export default function Game() {
           <img src={logoFuturistic} alt="Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
           <h1 className="font-display font-bold text-xl tracking-wider hidden sm:block">REDLINE AUCTION</h1>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
+          <div className="flex items-center gap-6">
+            
+            {variant === 'BIO_FUEL' && (
+                <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-orange-950/40 border border-orange-500/30 rounded text-xs text-orange-300">
+                    <AlertTriangle size={12} className="text-orange-500" />
+                    <span className="font-bold tracking-widest">21+ ONLY</span>
+                </div>
+            )}
+
+            <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
              
              {/* DIFFICULTY TOGGLE */}
              <div className="flex items-center gap-2">
@@ -2323,6 +2356,7 @@ export default function Game() {
               { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-400 border-blue-500/20" },
               { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
               { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-yellow-400 border-yellow-500/20" },
+              { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-200 border-white/20" },
               { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-destructive border-destructive/20" },
               { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-yellow-200 border-yellow-200/20" },
             ].map((p, i) => (
@@ -2478,24 +2512,30 @@ export default function Game() {
                     })()}
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-black/30 p-3 rounded">
-                        <div className="text-[10px] text-zinc-500 uppercase">Tokens</div>
-                        <div className="text-xl font-mono text-primary">{selectedPlayerStats?.tokens}</div>
-                    </div>
-                    <div className="bg-black/30 p-3 rounded">
-                        <div className="text-[10px] text-zinc-500 uppercase">Time Left</div>
-                        <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== 'p1' && "blur-sm select-none")}>
-                            {selectedPlayerStats?.remainingTime ? formatTime(selectedPlayerStats.remainingTime) : "00:00.0"}
+                {/* Stats Grid - Hidden if masked (time = -1) */}
+                {selectedPlayerStats?.remainingTime !== -1 && (
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-black/30 p-3 rounded">
+                            <div className="text-[10px] text-zinc-500 uppercase">Tokens</div>
+                            <div className="text-xl font-mono text-primary">{selectedPlayerStats?.tokens}</div>
+                        </div>
+                        <div className="bg-black/30 p-3 rounded">
+                            <div className="text-[10px] text-zinc-500 uppercase">Time Left</div>
+                            <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== 'p1' && "blur-sm select-none")}>
+                                {selectedPlayerStats?.remainingTime ? formatTime(selectedPlayerStats.remainingTime) : "00:00.0"}
+                            </div>
+                        </div>
+                        <div className="bg-black/30 p-3 rounded">
+                            <div className="text-[10px] text-zinc-500 uppercase">Impact Given</div>
+                            <div className="text-sm font-mono text-zinc-300">{selectedPlayerStats?.totalImpactGiven?.toFixed(1)}s</div>
                         </div>
                     </div>
-                    {/* Removed Total Bid Time as requested */}
-                    <div className="bg-black/30 p-3 rounded">
-                        <div className="text-[10px] text-zinc-500 uppercase">Impact Given</div>
-                        <div className="text-sm font-mono text-zinc-300">{selectedPlayerStats?.totalImpactGiven?.toFixed(1)}s</div>
+                )}
+                 {selectedPlayerStats?.remainingTime === -1 && (
+                    <div className="bg-black/30 p-3 rounded flex items-center justify-center text-zinc-500 text-xs italic">
+                        STATS HIDDEN IN COMPETITIVE MODE
                     </div>
-                </div>
+                 )}
             </div>
         </DialogContent>
       </Dialog>
@@ -2527,7 +2567,17 @@ export default function Game() {
                 peekActive={peekActive}
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={activeProtocol === 'SYSTEM_FAILURE'}
-                onClick={() => setSelectedPlayerStats(p)}
+                // Hide details if competitive mode AND active round (bidding or countdown)
+                onClick={() => {
+                    if (difficulty === 'COMPETITIVE' && (phase === 'bidding' || phase === 'countdown' || phase === 'ready')) {
+                         // Still show if it's the player themselves, or allow ability view? 
+                         // "Selecting a player should not show any details other than their abilities in competitive mode."
+                         // We'll set a flag in the dialog or restrict what's shown there.
+                         setSelectedPlayerStats({...p, remainingTime: -1, tokens: -1, totalImpactGiven: -1}); // Pass masked data or handle in dialog
+                    } else {
+                         setSelectedPlayerStats(p);
+                    }
+                }}
               >
                  {animations.filter(a => a.playerId === p.id).map(a => (
                     <AbilityAnimation 
