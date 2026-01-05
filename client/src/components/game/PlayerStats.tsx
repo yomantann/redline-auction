@@ -24,9 +24,10 @@ interface PlayerStatsProps {
   peekActive?: boolean; // New prop for PEEK ability
   isDoubleTokens?: boolean;
   children?: React.ReactNode; // Slot for animations
+  onClick?: () => void;
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, children }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, children, onClick }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -37,12 +38,15 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   const showHolding = peekActive && !isCurrentPlayer && player.isHolding;
 
   return (
-    <div className={cn(
+    <div 
+      onClick={onClick}
+      className={cn(
       "relative p-4 rounded-lg border flex flex-col gap-3 transition-all duration-300",
       isCurrentPlayer 
         ? "bg-primary/5 border-primary/30 shadow-[0_0_15px_rgba(255,215,0,0.1)]" 
         : "bg-card/50 border-white/5",
-      player.isEliminated && "opacity-50 grayscale"
+      player.isEliminated && "opacity-50 grayscale",
+      onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
     data-testid={`player-card-${player.id}`}
     >

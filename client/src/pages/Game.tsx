@@ -131,6 +131,13 @@ interface Player {
   personality?: BotPersonality;
   characterIcon?: string | React.ReactNode; // Can be image URL or icon
   roundImpact?: string; // New field to show result of last round (e.g. "+1.0s")
+  // Stats
+  totalTimeBid: number;
+  totalImpactGiven: number;
+  specialEvents: string[];
+  protocolsTriggered: string[];
+  totalDrinks: number;
+  socialDares: number;
 }
 
 interface Character {
@@ -315,6 +322,8 @@ export default function Game() {
   const [showPopupLibrary, setShowPopupLibrary] = useState(false);
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[]>([]);
   
+  const [selectedPlayerStats, setSelectedPlayerStats] = useState<Player | null>(null);
+
   // Animation State
   const [animations, setAnimations] = useState<{ id: string; playerId: string; type: AnimationType; value?: string }[]>([]);
 
@@ -389,10 +398,22 @@ export default function Game() {
   
   // Players State
   const [players, setPlayers] = useState<Player[]>([
-    { id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false },
-    { id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive' },
-    { id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative' },
-    { id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random' },
+    { 
+        id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false,
+        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0 
+    },
+    { 
+        id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
+        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+    },
+    { 
+        id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
+        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+    },
+    { 
+        id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
+        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+    },
   ]);
 
   // Update players when duration changes (only during intro)
@@ -698,7 +719,32 @@ export default function Game() {
       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false } : p));
     } else if (phase === 'bidding') {
       const bidTime = parseFloat(currentTime.toFixed(1));
-      setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false, currentBid: bidTime } : p));
+      
+      setPlayers(prev => prev.map(p => {
+        if (p.id === 'p1') {
+            // OVER-BET CHECK
+            if (bidTime > p.remainingTime) {
+                // Penalty!
+                toast({
+                    title: "OVER-LIMIT PENALTY",
+                    description: `You bid ${bidTime}s but only had ${p.remainingTime.toFixed(1)}s! Lost 1 Token.`,
+                    variant: "destructive",
+                    duration: 4000
+                });
+                return { 
+                    ...p, 
+                    isHolding: false, 
+                    currentBid: 0, // Invalid bid
+                    tokens: Math.max(0, p.tokens - 1), // Lose trophy
+                    // If out of time, ensure eliminated state (though endRound handles main elim)
+                };
+            }
+            
+            return { ...p, isHolding: false, currentBid: bidTime, totalTimeBid: p.totalTimeBid + bidTime };
+        }
+        return p;
+      }));
+
     } else if (phase === 'countdown') {
        // If releasing during countdown, deduct 0.1 seconds immediately and mark as not holding
        // This essentially 'abandons' the auction but with a small penalty
@@ -846,11 +892,19 @@ export default function Game() {
     
     // Track abilities triggered this round for notifications
     const newAbilities: { player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[] = [];
+    const triggeredProtocols: string[] = activeProtocol ? [activeProtocol] : [];
 
     const updatedPlayers = players.map(p => {
       let newTime = p.remainingTime;
       let newTokens = p.tokens;
       let roundImpact = ""; // Store impact string for UI
+      let playerImpactGiven = 0; // Track impact given by this player
+      let playerSpecialEvents: string[] = [...p.specialEvents];
+      let playerProtocols: string[] = [...p.protocolsTriggered, ...triggeredProtocols.filter(() => Math.random() > 0.5)]; // Simplified protocol tracking attribution (random for now or if they won)
+      
+      if (activeProtocol && p.id === winnerId) {
+          playerProtocols.push(`${activeProtocol} (WON)`);
+      }
       
       // --- ABILITY EFFECTS (Passive / Triggered on Result) ---
       if (abilitiesEnabled && !p.isEliminated) {
@@ -931,10 +985,18 @@ export default function Game() {
                  
                  if (targetName) {
                      triggered = true; 
+                     // Add to stats
+                     if (impactVal.includes('-')) {
+                         // Negative impact on others = positive impact score? Or just raw seconds moved.
+                         // Let's count "impact" as absolute seconds changed for others.
+                         const seconds = parseFloat(impactVal.replace(/[^0-9.]/g, '')) || 0;
+                         playerImpactGiven += seconds;
+                     }
                  }
              }
     
              if (triggered) {
+                 playerSpecialEvents.push(ability.name);
                  newAbilities.push({ 
                      player: p.name, 
                      playerId: p.id,
@@ -1009,7 +1071,17 @@ export default function Game() {
         playersOut.push(p.name);
       }
 
-      return { ...p, remainingTime: Math.max(0, newTime), tokens: newTokens, roundImpact: roundImpact }; // Add roundImpact to player state? No, Player type needs update
+      return { 
+          ...p, 
+          remainingTime: Math.max(0, newTime), 
+          tokens: newTokens, 
+          roundImpact: roundImpact,
+          totalImpactGiven: p.totalImpactGiven + playerImpactGiven,
+          specialEvents: playerSpecialEvents,
+          protocolsTriggered: [...new Set([...p.protocolsTriggered, ...playerProtocols])], // Unique
+          totalDrinks: p.totalDrinks + (overlayType === 'time_out' && p.isEliminated ? 1 : 0), // Simple mock tracking
+          socialDares: p.socialDares + (variant === 'SOCIAL_OVERDRIVE' && activeProtocol ? 1 : 0) // Simple mock tracking
+      }; 
     });
     
     // We need to update Player interface to accept roundImpact string
@@ -1210,10 +1282,20 @@ export default function Game() {
     if (round < totalRounds) {
       setRound(prev => prev + 1);
       setPhase('ready');
-      setPlayers(prev => prev.map(p => ({ ...p, isHolding: false, currentBid: null })));
+      setPlayers(prev => prev.map(p => ({ ...p, isHolding: false, currentBid: null, roundImpact: undefined }))); // Clear impact for new round
       setReadyHoldTime(0);
       setPlayerAbilityUsed(false); // Reset ability usage
     }
+  };
+
+  const selectRandomCharacter = () => {
+      // Pool based on variant
+      let pool = [...CHARACTERS];
+      if (variant === 'SOCIAL_OVERDRIVE') pool = [...pool, ...SOCIAL_CHARACTERS];
+      if (variant === 'BIO_FUEL') pool = [...pool, ...BIO_CHARACTERS];
+      
+      const randomChar = pool[Math.floor(Math.random() * pool.length)];
+      selectCharacter(randomChar);
   };
 
   const selectCharacter = (char: Character) => {
@@ -1546,6 +1628,20 @@ export default function Game() {
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+               {/* RANDOM BUTTON */}
+               <motion.button
+                  whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.1)" }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={selectRandomCharacter}
+                  className="flex flex-col items-center p-4 rounded-xl border border-dashed border-white/20 bg-white/5 hover:border-primary/50 transition-colors group text-center justify-center min-h-[200px]"
+                >
+                  <div className="w-20 h-20 rounded-full bg-white/10 mb-3 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-colors">
+                     <CircleHelp size={32} className="text-zinc-500 group-hover:text-primary transition-colors" />
+                  </div>
+                  <h3 className="font-display font-bold text-lg text-white group-hover:text-primary transition-colors">RANDOM</h3>
+                  <p className="text-xs text-zinc-500 mt-1">Roll the dice</p>
+                </motion.button>
+
               {[...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])].map((char) => (
                 <motion.button
                   key={char.id}
@@ -1681,7 +1777,7 @@ export default function Game() {
                      <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
                        {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
                      </span>
-                     <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : "animate-pulse")}>
+                     <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : (currentTime > 10 ? "" : "animate-pulse"))}>
                        {activeProtocol === 'SYSTEM_FAILURE' 
                           ? `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}` 
                           : isBlackout ? "ERROR" : "??:??.?"}
@@ -1796,28 +1892,65 @@ export default function Game() {
         const loser = sortedPlayers[sortedPlayers.length - 1];
 
         return (
-          <div className="flex flex-col items-center justify-center space-y-8 mt-10 h-[450px]">
+          <div className="flex flex-col items-center justify-center space-y-8 mt-10 h-[550px] overflow-y-auto custom-scrollbar">
             <h1 className="text-5xl font-display font-bold text-white">GAME OVER</h1>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
-              <div className="col-span-1 md:col-span-3 bg-primary/10 border border-primary/50 p-8 rounded-lg text-center">
-                <h3 className="text-primary font-display tracking-widest text-lg mb-2">WINNER</h3>
-                <p className="text-6xl font-bold text-white mb-4">{winner.name}</p>
-                <div className="flex justify-center gap-8 text-xl">
-                  <span>🏆 {winner.tokens}</span>
-                  <span className="font-mono">{formatTime(winner.remainingTime)} left</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+              <div className="col-span-1 md:col-span-3 bg-primary/10 border border-primary/50 p-6 rounded-lg text-center flex items-center justify-between px-12">
+                <div>
+                    <h3 className="text-primary font-display tracking-widest text-lg mb-1">WINNER</h3>
+                    <p className="text-5xl font-bold text-white">{winner.name}</p>
+                </div>
+                <div className="flex gap-12 text-xl">
+                  <div className="text-center">
+                      <div className="text-4xl mb-1">🏆 {winner.tokens}</div>
+                      <div className="text-xs text-zinc-400 uppercase tracking-widest">Tokens</div>
+                  </div>
+                  <div className="text-center">
+                      <div className="text-4xl font-mono mb-1">{formatTime(winner.remainingTime)}</div>
+                      <div className="text-xs text-zinc-400 uppercase tracking-widest">Remaining</div>
+                  </div>
                 </div>
               </div>
 
-              {sortedPlayers.slice(1).map((p, i) => (
-                <div key={p.id} className={cn("p-6 rounded border bg-card/50", p.id === loser.id ? "border-destructive/50 bg-destructive/5" : "border-white/10")}>
-                   <div className="flex justify-between items-start mb-4">
-                     <span className="text-2xl font-bold">{i + 2}. {p.name}</span>
-                     {p.id === loser.id && <span className="text-destructive text-xs font-bold uppercase border border-destructive px-2 py-0.5 rounded">Eliminated</span>}
+              {sortedPlayers.map((p, i) => (
+                <div key={p.id} className={cn("p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden", p.id === loser.id ? "border-destructive/50 bg-destructive/5" : "border-white/10")}>
+                   {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
+                   {p.id === loser.id && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
+                   
+                   <div className="flex items-center gap-2 mb-2">
+                       <span className="font-bold text-xl text-zinc-500">#{i + 1}</span>
+                       <span className="font-bold text-lg">{p.name}</span>
                    </div>
-                   <div className="space-y-1 text-sm text-zinc-400">
-                     <p>Tokens: <span className="text-white">{p.tokens}</span></p>
-                     <p>Time: <span className="font-mono text-white">{formatTime(p.remainingTime)}</span></p>
+                   
+                   <div className="grid grid-cols-2 gap-2 text-xs">
+                       <div className="bg-black/20 p-2 rounded">
+                           <div className="text-zinc-500">Time Bid</div>
+                           <div className="font-mono text-white">{p.totalTimeBid.toFixed(1)}s</div>
+                       </div>
+                       <div className="bg-black/20 p-2 rounded">
+                           <div className="text-zinc-500">Impact</div>
+                           <div className="font-mono text-white">{p.totalImpactGiven > 0 ? "+" : ""}{p.totalImpactGiven.toFixed(1)}s</div>
+                       </div>
+                   </div>
+
+                   {/* Stats / Badges */}
+                   <div className="flex flex-wrap gap-1 mt-1">
+                       {p.specialEvents.length > 0 && (
+                           <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-400" title={p.specialEvents.join(', ')}>
+                               {p.specialEvents.length} Events
+                           </Badge>
+                       )}
+                       {p.protocolsTriggered.length > 0 && (
+                           <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive" title={p.protocolsTriggered.join(', ')}>
+                               {p.protocolsTriggered.length} Protocols
+                           </Badge>
+                       )}
+                       {variant === 'BIO_FUEL' && (
+                           <Badge variant="outline" className="text-[10px] border-orange-500/30 text-orange-400">
+                               {p.totalDrinks} Drinks
+                           </Badge>
+                       )}
                    </div>
                 </div>
               ))}
@@ -1985,6 +2118,12 @@ export default function Game() {
           </DialogHeader>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {variant === 'BIO_FUEL' && (
+                <div className="col-span-1 md:col-span-2 bg-orange-950/30 border border-orange-500/30 p-3 rounded mb-2 flex items-center gap-3 text-orange-200 text-sm">
+                    <AlertTriangle className="shrink-0 text-orange-500" size={18} />
+                    <p><strong>DISCLAIMER:</strong> Bio-Fuel mode is intended for adults (21+). Please play responsibly and use non-alcoholic beverages if preferred.</p>
+                </div>
+            )}
             <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-white mt-4 border-b border-white/10 pb-2">STANDARD PROTOCOLS</h3>
             {[
               { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
@@ -2049,6 +2188,84 @@ export default function Game() {
         </DialogContent>
       </Dialog>
 
+      {/* PLAYER DETAILS DIALOG */}
+      <Dialog open={!!selectedPlayerStats} onOpenChange={(o) => !o && setSelectedPlayerStats(null)}>
+        <DialogContent className="bg-black/90 border-white/10 backdrop-blur-xl">
+            <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20">
+                    {typeof selectedPlayerStats?.characterIcon === 'string' ? (
+                        <img src={selectedPlayerStats.characterIcon} alt={selectedPlayerStats?.name} className="w-full h-full object-cover" />
+                    ) : (
+                        <User />
+                    )}
+                </div>
+                <span className="font-display tracking-widest uppercase text-xl">{selectedPlayerStats?.name}</span>
+                {selectedPlayerStats?.isBot && <Badge variant="secondary" className="ml-2 text-[10px]">BOT</Badge>}
+            </DialogTitle>
+            <DialogDescription>
+                Detailed player statistics and abilities.
+            </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 mt-4">
+                {/* Ability Section */}
+                <div className="bg-white/5 p-4 rounded border border-white/10">
+                    <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-2"><Zap size={14} className="text-blue-400"/> ABILITIES</h4>
+                    {/* Show abilities based on current mode */}
+                    {(() => {
+                        // Find character definition to get ability details
+                        const char = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === selectedPlayerStats?.name);
+                        if (!char) return <p className="text-zinc-500 text-xs">Unknown character data.</p>;
+                        
+                        return (
+                            <div className="space-y-3">
+                                <div className="text-xs">
+                                    <span className="text-blue-300 font-bold block">{char.ability?.name}</span>
+                                    <span className="text-zinc-400">{char.ability?.description}</span>
+                                </div>
+                                
+                                {variant === 'SOCIAL_OVERDRIVE' && char.socialAbility && (
+                                    <div className="text-xs pt-2 border-t border-white/5">
+                                        <span className="text-purple-300 font-bold block flex items-center gap-1"><PartyPopper size={10}/> {char.socialAbility.name}</span>
+                                        <span className="text-zinc-400">{char.socialAbility.description}</span>
+                                    </div>
+                                )}
+                                
+                                {variant === 'BIO_FUEL' && char.bioAbility && (
+                                    <div className="text-xs pt-2 border-t border-white/5">
+                                        <span className="text-orange-300 font-bold block flex items-center gap-1"><Martini size={10}/> {char.bioAbility.name}</span>
+                                        <span className="text-zinc-400">{char.bioAbility.description}</span>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-black/30 p-3 rounded">
+                        <div className="text-[10px] text-zinc-500 uppercase">Tokens</div>
+                        <div className="text-xl font-mono text-primary">{selectedPlayerStats?.tokens}</div>
+                    </div>
+                    <div className="bg-black/30 p-3 rounded">
+                        <div className="text-[10px] text-zinc-500 uppercase">Time Left</div>
+                        <div className="text-xl font-mono text-white">{selectedPlayerStats?.remainingTime ? formatTime(selectedPlayerStats.remainingTime) : "00:00.0"}</div>
+                    </div>
+                    <div className="bg-black/30 p-3 rounded">
+                        <div className="text-[10px] text-zinc-500 uppercase">Total Bid Time</div>
+                        <div className="text-sm font-mono text-zinc-300">{selectedPlayerStats?.totalTimeBid?.toFixed(1)}s</div>
+                    </div>
+                    <div className="bg-black/30 p-3 rounded">
+                        <div className="text-[10px] text-zinc-500 uppercase">Impact Given</div>
+                        <div className="text-sm font-mono text-zinc-300">{selectedPlayerStats?.totalImpactGiven?.toFixed(1)}s</div>
+                    </div>
+                </div>
+            </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 min-h-[600px]">
         {/* Main Game Area */}
         <div className="lg:col-span-3 relative bg-black/20 rounded-2xl border border-white/5 p-8 flex flex-col items-center min-h-[500px]">
@@ -2075,6 +2292,7 @@ export default function Game() {
                 formatTime={formatTime}
                 peekActive={peekActive}
                 isDoubleTokens={isDoubleTokens}
+                onClick={() => setSelectedPlayerStats(p)}
               >
                  {animations.filter(a => a.playerId === p.id).map(a => (
                     <AbilityAnimation 
