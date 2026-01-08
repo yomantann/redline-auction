@@ -788,15 +788,15 @@ export default function Game() {
 
             // OVER-BET CHECK
             if (bidTime > p.remainingTime) {
-                // Penalty!
+                // Eliminate but NO trophy loss
                 const newTime = 0; // Depleted to zero
                 
                 // Add log
-                setRoundLog(prev => [`>> OVER-LIMIT: ${p.name} bet more than available! Lost Trophy & Time Depleted.`, ...prev]);
+                setRoundLog(prev => [`>> OVER-LIMIT: ${p.name} bet more than available! Time Depleted & Eliminated.`, ...prev]);
 
                 toast({
-                    title: "OVER-LIMIT PENALTY",
-                    description: `You bid ${bidTime}s but only had ${p.remainingTime.toFixed(1)}s! Lost 1 Token & Time Depleted.`,
+                    title: "OVER-LIMIT",
+                    description: `You bid ${bidTime}s but only had ${p.remainingTime.toFixed(1)}s! Time Depleted.`,
                     variant: "destructive",
                     duration: 4000
                 });
@@ -804,7 +804,7 @@ export default function Game() {
                     ...p, 
                     isHolding: false, 
                     currentBid: bidTime, 
-                    tokens: Math.max(0, p.tokens - 1), // Lose trophy
+                    // NO tokens change - removed trophy penalty
                     remainingTime: newTime,
                     isEliminated: true // Stop playing
                 };
@@ -1458,7 +1458,10 @@ export default function Game() {
 
     setRoundLog(prev => [...extraLogs, logMsg, ...prev]);
 
-    if (round >= totalRounds || players.filter(p => !p.isEliminated && p.remainingTime > 0).length <= 1) {
+    // Check game end conditions
+    const remainingActivePlayers = updatedPlayers.filter(p => !p.isEliminated && p.remainingTime > 0);
+    
+    if (round >= totalRounds || remainingActivePlayers.length <= 1) {
        // Game End condition
        setTimeout(() => {
         setPhase('game_end');
@@ -1468,6 +1471,16 @@ export default function Game() {
   };
 
   const nextRound = () => {
+    // Check if all players are eliminated
+    const activePlayers = players.filter(p => !p.isEliminated && p.remainingTime > 0);
+    
+    if (activePlayers.length <= 1 || round >= totalRounds) {
+      // End game immediately if only 1 or 0 players remain
+      setPhase('game_end');
+      setOverlay({ type: "game_over", message: "GAME OVER" });
+      return;
+    }
+    
     if (round < totalRounds) {
       setRound(prev => prev + 1);
       setPhase('ready');
@@ -1530,19 +1543,19 @@ export default function Game() {
      setPlayers([
         { 
             id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false,
-            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
         },
         { 
             id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
-            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
         },
         { 
             id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
-            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
         },
         { 
             id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
-            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
         },
      ]);
   };
@@ -2210,7 +2223,7 @@ export default function Game() {
                        </div>
                        <div className="bg-black/20 p-2 rounded">
                            <div className="text-zinc-500">Events</div>
-                           <div className="font-mono text-white">{p.eventDatabasePopups.length}</div>
+                           <div className="font-mono text-white">{p.eventDatabasePopups?.length || 0}</div>
                        </div>
                    </div>
 
