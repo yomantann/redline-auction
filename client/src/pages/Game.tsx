@@ -94,35 +94,40 @@ type ProtocolType =
 // NEW CHARACTERS (SOCIAL MODE)
 const SOCIAL_CHARACTERS: Character[] = [
   { 
-    id: 'party_king', name: 'Party King', title: 'The Host', image: charGigachad, description: 'Wins hearts and rounds.', color: 'text-purple-500',
-    ability: { name: 'VIBE CHECK', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' },
-    socialAbility: { name: 'HOST RULES', description: 'Make a new social rule for the next round.' },
-    bioAbility: { name: 'CHEERS', description: 'Initiate a group toast. Everyone drinks.' }
+    id: 'prom_king', name: 'Prom King', title: 'The Crowned', image: charPromKing, description: 'Royalty of the moment.', color: 'text-purple-500',
+    ability: { name: 'SPOTLIGHT', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' },
+    socialAbility: { name: 'ROYAL DECREE', description: 'Make a new social rule for the next round.' },
+    bioAbility: { name: 'CORONATION', description: 'Initiate a group toast. Everyone drinks.' }
   },
   {
-    id: 'gossip', name: 'The Gossip', title: 'The Spiller', image: charPepeSilvia, description: 'Knows everything.', color: 'text-pink-500',
-    ability: { name: 'LEAK', description: 'See random opponent bid.', effect: 'PEEK' },
-    socialAbility: { name: 'RUMOR', description: 'Start a rumor about another player. If they deny it, they lose 0.5s.' },
-    bioAbility: { name: 'SPILL TEA', description: 'Take a drink to reveal a "secret" (see an opponent\'s bid).' }
+    id: 'idol_core', name: 'Idol Core', title: 'The Star', image: charIdolCore, description: 'Stage presence and perfect timing.', color: 'text-pink-500',
+    ability: { name: 'FANCAM', description: 'See random opponent bid.', effect: 'PEEK' },
+    socialAbility: { name: 'DISPATCH', description: 'Start a rumor about another player. If they deny it, they lose 0.5s.' },
+    bioAbility: { name: 'DEBUT', description: 'Take a drink to reveal a "secret" (see an opponent\'s bid).' }
   }
 ];
 
-import charDangerZone from '@assets/generated_images/cyberpunk_holographic_stripper_dancer.png';
+import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
+import charMonkeyHaircut from '@assets/generated_images/monkey_haircut_meme_character.png';
+import charIdolCore from '@assets/generated_images/k-pop_idol_futuristic_character.png';
+import charPromKing from '@assets/generated_images/futuristic_prom_king_character.png';
+import charRockShush from '@assets/generated_images/the_rock_shush_meme.png';
+import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
 
 // ... (Existing Characters)
 
 // NEW CHARACTERS (BIO-FUEL MODE)
 const BIO_CHARACTERS: Character[] = [
   { 
-    id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charHarambe, description: 'Can handle anything.', color: 'text-green-600',
+    id: 'tank', name: 'The Rock', title: 'Iron Liver', image: charRockShush, description: 'Can you smell what he\'s cooking?', color: 'text-green-600',
     ability: { name: 'IRON STOMACH', description: 'Immune to "Drink" penalties (Lore only).', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'ARM WRESTLE', description: 'Challenge someone to a thumb war for 0.5s.' },
+    socialAbility: { name: 'PEOPLE\'S ELBOW', description: 'Challenge someone to a thumb war for 0.5s.' },
     bioAbility: { name: 'BOTTOMLESS', description: 'Immune to one drink penalty per game.' }
   },
   {
-    id: 'danger_zone', name: 'Danger Zone', title: 'Holo-Dancer', image: charDangerZone, description: 'Mesmerizing moves, dangerous bids.', color: 'text-pink-600',
+    id: 'danger_zone', name: 'Danger Zone', title: 'Club Queen', image: charDangerZone, description: 'Works the pole, takes your soul.', color: 'text-pink-600',
     ability: { name: 'LAST CALL', description: 'Remove 1s from everyone.', effect: 'DISRUPT' },
-    socialAbility: { name: 'ORDER UP', description: 'Give a command. First to obey gets +0.5s.' },
+    socialAbility: { name: 'PRIVATE DANCE', description: 'Give a command. First to obey gets +0.5s.' },
     bioAbility: { name: 'MYSTERY MIX', description: 'Mix a drink. Winner of next round must drink it.' }
   }
 ];
@@ -187,7 +192,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'QUICK SIP', description: 'Take 3 rapid sips instead of 1 normal drink.' }
   },
   { 
-    id: 'winter', name: 'Frost Protocol', title: 'The Disciplined', image: charWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'winter', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 0.5s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: 'Ignore all social interactions this round.' },
     bioAbility: { name: 'BRAIN FREEZE', description: 'If you drink, everyone else must freeze for 3s.' }
@@ -253,7 +258,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'RAW EGG', description: 'Pretend to drink a raw egg. Intimidate opponents.' }
   },
   { 
-    id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charRollSafe, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'SMART PLAY', description: 'See active bot count.', effect: 'PEEK' },
     socialAbility: { name: 'BAD ADVICE', description: 'Give terrible advice. Anyone who follows drinks.' },
     bioAbility: { name: 'HEAD TAP', description: 'Tap head before drinking. If you forget, drink double.' }
@@ -271,10 +276,10 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'TWO BUTTONS', description: 'Choose left or right. Losers drink.' }
   },
   { 
-    id: 'pepesilvia', name: 'Conspiracy', title: 'The Seeker', image: charPepeSilvia, description: 'Connecting dots that do not exist.', color: 'text-amber-600',
-    ability: { name: 'RED STRING', description: 'See random opponent bid.', effect: 'PEEK' },
-    socialAbility: { name: 'CAROL', description: 'Yell a random name. Anyone who looks drinks.' },
-    bioAbility: { name: 'MAIL ROOM', description: 'Pass your drink to the left.' }
+    id: 'lethimcook', name: 'Let Him Cook', title: 'The Chef', image: charMonkeyHaircut, description: 'Trust the process. He\'s cooking.', color: 'text-amber-600',
+    ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'COOKING', description: 'Yell a random name. Anyone who looks drinks.' },
+    bioAbility: { name: 'SECRET SAUCE', description: 'Pass your drink to the left.' }
   },
   { 
     id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, description: 'Smiling through the bear market.', color: 'text-slate-400',
@@ -1073,6 +1078,7 @@ export default function Game() {
                     impactVal = gain ? "+1.0s" : "-1.0s";
                 }
                 if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 10) { newTime += 2.0; triggered = true; impactVal = "+2.0s"; }
+                if (ability.name === 'CHEF\'S SPECIAL' && p.id === winnerId && winnerTime > 10) { newTime += 4.0; triggered = true; impactVal = "+4.0s"; }
             }
             
             // TOKEN BOOSTS
