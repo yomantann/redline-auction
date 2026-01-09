@@ -47,11 +47,11 @@ import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
 import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
 import charStonks from '@assets/generated_images/cyberpunk_stonks_man.png';
 import charFloyd from '@assets/generated_images/cyberpunk_boxer_money.png';
-import charRat from '@assets/generated_images/detailed_cyberpunk_time_rat_character.png';
-import charBaldwin from '@assets/generated_images/cyberpunk_masked_knight_character.png';
+import charRat from '@assets/generated_images/cyberpunk_rat_with_dark_sunglasses.png';
+import charBaldwin from '@assets/generated_images/cyberpunk_anointed_royal_masked_figure.png';
 import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
 import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
-import charThinker from '@assets/generated_images/futuristic_roll_safe_meme_character.png';
+import charThinker from '@assets/generated_images/roll_safe_with_unique_cyberpunk_background.png';
 import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
@@ -96,7 +96,7 @@ const SOCIAL_CHARACTERS: Character[] = [
   { 
     id: 'prom_king', name: 'Prom King', title: 'The Crowned', image: charPromKing, description: 'Royalty of the moment.', color: 'text-purple-500',
     ability: { name: 'SPOTLIGHT', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' },
-    socialAbility: { name: 'ROYAL DECREE', description: 'Make a new social rule for the next round.' },
+    socialAbility: { name: 'CROWN LAW', description: '1 random round: Make a rule for remainder of game.' },
     bioAbility: { name: 'CORONATION', description: 'Initiate a group toast. Everyone drinks.' }
   },
   {
@@ -108,7 +108,7 @@ const SOCIAL_CHARACTERS: Character[] = [
 ];
 
 import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
-import charMonkeyHaircut from '@assets/generated_images/cyberpunk_monkey_meme_character.png';
+import charMonkeyHaircut from '@assets/generated_images/primate_chef_with_unique_background.png';
 import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
 import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
 import charRockShush from '@assets/generated_images/cute_rock_with_shush_gesture.png';
@@ -216,7 +216,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'SPILL HAZARD', description: '25% chance: Accuse someone of spilling; they drink (shown to driver post-round).' }
   },
   { 
-    id: 'fine', name: 'Inferno Calm', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    id: 'fine', name: 'Low Flame', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
     ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols and disruptions.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: '25% chance: Choose a player to answer a truth (shown to driver after round).' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks (shown to all after your winning round).' }
@@ -228,13 +228,13 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'THE EX', description: '10% chance: 1 random player toasts to an ex (shown to them at end of round).' }
   },
   { 
-    id: 'rat', name: 'Cheese Bandit', title: 'The Time Thief', image: charRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'rat', name: 'The Rind', title: 'The Time Thief', image: charRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: '5% chance: 1 random player must reveal someone\'s tell (shown to them after round).' },
     bioAbility: { name: 'SCAVENGE', description: '5% chance: 1 random player finishes someone else\'s drink (shown to them after round).' }
   },
   { 
-    id: 'baldwin', name: 'The Leper', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
+    id: 'baldwin', name: 'The Anointed', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 4s refund if you bid within 0.1s of exactly 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: '50% chance: Everyone is commanded silence at start of round.' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round at end: Make a rule for remainder of game.' }
@@ -258,28 +258,28 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'BIG BRAIN', description: '15% chance at end of round: Option to have everyone pass drink to the left.' }
   },
   { 
-    id: 'disaster', name: 'Pyro Girl', title: 'The Anarchist', image: charDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
-    ability: { name: 'BURN IT', description: 'Remove 0.5s from everyone else.', effect: 'DISRUPT' },
-    socialAbility: { name: 'ROAST', description: 'Roast another player. If they laugh, they lose 0.5s.' },
-    bioAbility: { name: 'SPICY', description: 'Everyone takes a drink.' }
+    id: 'disaster', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
+    socialAbility: { name: 'VIRAL MOMENT', description: '1 random round: Re-enact a meme. Best performance wins.' },
+    bioAbility: { name: 'SPICY', description: '20% chance post-round: Everyone drinks (all notified).' }
   },
   { 
     id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, description: 'Always sweating the big decisions.', color: 'text-red-400',
-    ability: { name: 'PANIC MASH', description: '50% chance +1s refund, 50% -1s penalty.', effect: 'TIME_REFUND' },
+    ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drink.' },
-    bioAbility: { name: 'TWO BUTTONS', description: 'Choose left or right. Losers drink.' }
+    bioAbility: { name: 'EMERGENCY MEETING', description: '25% chance: Everyone points at person to gang up on next round for drinking.' }
   },
   { 
     id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, description: 'Trust the process. He\'s cooking.', color: 'text-amber-600',
-    ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'MONKEY SEE', description: 'Yell a random name. Anyone who looks drinks.' },
-    bioAbility: { name: 'BANANA SPLIT', description: 'Pass your drink to the left.' }
+    ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s over second place.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'FRESH CUT', description: '10% chance post-round: 1 random player must compliment everyone.' },
+    bioAbility: { name: 'GREEDY GRAB', description: '5% chance post-round: Previous winner must burn 40s next round or finish drink.' }
   },
   { 
     id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, description: 'Smiling through the bear market.', color: 'text-slate-400',
-    ability: { name: 'HIDE PAIN', description: 'Get 2s refund if you lose by > 10s.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'GRIMACE', description: 'Make a face. Everyone must copy. Last one drinks.' },
-    bioAbility: { name: 'SUPPRESS', description: 'Don\'t react to your drink. If you do, drink again.' }
+    ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'BOOMER', description: 'You forgot what your power was (never triggers).' },
+    bioAbility: { name: 'SUPPRESS', description: 'If anyone reacts to their drink, they drink again.' }
   },
 ];
 
@@ -1102,12 +1102,19 @@ export default function Game() {
                 if (ability.name === 'JAWLINE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
                 if (ability.name === 'PANIC MASH') { 
                     const gain = Math.random() > 0.5;
-                    newTime += (gain ? 1.0 : -1.0); 
+                    newTime += (gain ? 3.0 : -3.0); 
                     triggered = true; 
-                    impactVal = gain ? "+1.0s" : "-1.0s";
+                    impactVal = gain ? "+3.0s" : "-3.0s";
                 }
-                if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 10) { newTime += 2.0; triggered = true; impactVal = "+2.0s"; }
-                if (ability.name === 'CHEF\'S SPECIAL' && p.id === winnerId && winnerTime > 10) { newTime += 4.0; triggered = true; impactVal = "+4.0s"; }
+                if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 15) { newTime += 3.0; triggered = true; impactVal = "+3.0s"; }
+                // CHEF'S SPECIAL: Only triggers if you win by > 10s over second place
+                if (ability.name === 'CHEF\'S SPECIAL' && p.id === winnerId) { 
+                    const sortedBids = players.filter(pl => pl.id !== winnerId && !pl.isEliminated).map(pl => pl.currentBid || 0).sort((a, b) => b - a);
+                    const secondPlaceBid = sortedBids[0] || 0;
+                    if (winnerTime - secondPlaceBid > 10) { 
+                        newTime += 4.0; triggered = true; impactVal = "+4.0s"; 
+                    }
+                }
             }
             
             // TOKEN BOOSTS
@@ -1131,7 +1138,7 @@ export default function Game() {
                  // "MANAGER CALL": Remove 1s from random opponent
                  // "CHEESE TAX": Steal 2s from winner if you lose
                  // "AXE SWING": Remove 2s from opponent with most time
-                 // "BURN IT": Remove 0.5s from everyone else
+                 // "BURN IT": Remove 1s from everyone else
                  
                  // We need to identify WHO was impacted to notify the caster.
                  
@@ -1163,7 +1170,7 @@ export default function Game() {
                      }
                  } else if (ability.name === 'BURN IT') {
                      targetName = "ALL OPPONENTS";
-                     impactVal = "-0.5s (All)";
+                     impactVal = "-1.0s (All)";
                  }
                  
                  if (targetName) {
@@ -1256,7 +1263,7 @@ export default function Game() {
                   if (ab.ability === 'CHEESE TAX') { newTime -= 2.0; roundImpact = "-2.0s"; }
               }
               if (ab.targetName === 'ALL OPPONENTS' && p.id !== ab.playerId) {
-                   newTime -= 0.5; roundImpact = "-0.5s";
+                   newTime -= 1.0; roundImpact = "-1.0s";
               }
           }
       });
