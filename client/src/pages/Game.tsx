@@ -41,13 +41,13 @@ import charPopcat from '@assets/generated_images/cyberpunk_popcat.png';
 import charWinter from '@assets/generated_images/cyberpunk_winter_soldier.png';
 import charDoge from '@assets/generated_images/cyberpunk_shiba_inu_astronaut.png';
 import charPepe from '@assets/generated_images/cyberpunk_sad_green_alien_analyst.png';
-import charNyan from '@assets/generated_images/fast_rainbow_frog_meme_character.png';
+import charNyan from '@assets/generated_images/fast_cyberpunk_rainbow_frog_character.png';
 import charKaren from '@assets/generated_images/cyberpunk_yelling_commander.png';
 import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
 import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
 import charStonks from '@assets/generated_images/cyberpunk_stonks_man.png';
 import charFloyd from '@assets/generated_images/cyberpunk_boxer_money.png';
-import charRat from '@assets/generated_images/cyberpunk_rat_king.png';
+import charRat from '@assets/generated_images/cyberpunk_time_thief_rat_character.png';
 import charBaldwin from '@assets/generated_images/cyberpunk_baldwin_mask.png';
 import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
 import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
@@ -206,38 +206,32 @@ const CHARACTERS: Character[] = [
   { 
     id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'SUGAR RUSH', description: 'Speak 2x speed for the round.' },
-    bioAbility: { name: 'RAINBOW SHOT', description: 'Mix two drinks together if penalized.' }
+    socialAbility: { name: 'SUGAR RUSH', description: '15% chance: 1 random opponent must speak 2x speed (shown at start of round).' },
+    bioAbility: { name: 'RAINBOW SHOT', description: '10% chance: 1 random player mixes two drinks (shown at end of round).' }
   },
   { 
     id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, description: 'Loud and disruptive tactics.', color: 'text-red-400',
-    ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent.', effect: 'DISRUPT' },
-    socialAbility: { name: 'COMPLAINT', description: 'Object to the last round results. Everyone votes.' },
-    bioAbility: { name: 'SPILL HAZARD', description: 'Accuse someone of spilling; they drink.' }
+    ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
+    socialAbility: { name: 'COMPLAINT', description: '15% chance: Everyone votes on winner\'s punishment (shown to all at end of round).' },
+    bioAbility: { name: 'SPILL HAZARD', description: '25% chance: Accuse someone of spilling; they drink (shown to driver post-round).' }
   },
   { 
     id: 'fine', name: 'Inferno Calm', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
-    ability: { name: 'FIRE WALL', description: 'Immune to disruption.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'HOT SEAT', description: 'Choose a player to answer a truth.' },
-    bioAbility: { name: 'ON FIRE', description: 'If you win, everyone else drinks.' }
+    ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols and disruptions.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'HOT SEAT', description: '25% chance: Choose a player to answer a truth (shown to driver after round).' },
+    bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks (shown to all after your winning round).' }
   },
   { 
     id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
-    ability: { name: 'SNEAK PEEK', description: 'See who is still holding.', effect: 'PEEK' },
-    socialAbility: { name: 'DISTRACTION', description: 'Point at something; anyone who looks loses 0.5s.' },
-    bioAbility: { name: 'THE EX', description: 'Toast to an ex. Everyone drinks.' }
+    ability: { name: 'SNEAK PEEK', description: 'See 1 random player holding. All other banks scrambled.', effect: 'PEEK' },
+    socialAbility: { name: 'DISTRACTION', description: '35% chance at start: Point at something; anyone who looks must drop buzzer (shown to driver).' },
+    bioAbility: { name: 'THE EX', description: '10% chance: 1 random player toasts to an ex (shown to them at end of round).' }
   },
   { 
-    id: 'stonks', name: 'Market Maker', title: 'The Strategist', image: charStonks, description: 'Stonks only go up.', color: 'text-emerald-400',
-    ability: { name: 'DIVIDEND', description: 'Gain +1 token every 3rd win.', effect: 'TOKEN_BOOST' },
-    socialAbility: { name: 'SALES PITCH', description: 'Must sell your bid strategy to the group.' },
-    bioAbility: { name: 'LIQUID ASSETS', description: 'Trade your drink penalty with someone else.' }
-  },
-  { 
-    id: 'rat', name: 'Rat King', title: 'The Scavenger', image: charRat, description: 'Sneaky tactics and hidden cheese.', color: 'text-gray-500',
-    ability: { name: 'CHEESE TAX', description: 'Steal 1s from winner if you lose.', effect: 'DISRUPT' },
-    socialAbility: { name: 'SNITCH', description: 'Reveal someone\'s tell to the group.' },
-    bioAbility: { name: 'SCAVENGE', description: 'Finish someone else\'s unfinished drink.' }
+    id: 'rat', name: 'Time Rat', title: 'The Time Thief', image: charRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
+    socialAbility: { name: 'SNITCH', description: '5% chance: 1 random player must reveal someone\'s tell (shown to them after round).' },
+    bioAbility: { name: 'SCAVENGE', description: '5% chance: 1 random player finishes someone else\'s drink (shown to them after round).' }
   },
   { 
     id: 'baldwin', name: 'Leper King', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
@@ -1135,7 +1129,7 @@ export default function Game() {
              if (ability.effect === 'DISRUPT' && playerAbilityUsed && p.id === 'p1') {
                  // DISRUPT logic:
                  // "MANAGER CALL": Remove 1s from random opponent
-                 // "CHEESE TAX": Steal 1s from winner if you lose
+                 // "CHEESE TAX": Steal 2s from winner if you lose
                  // "AXE SWING": Remove 2s from opponent with most time
                  // "BURN IT": Remove 0.5s from everyone else
                  
@@ -1160,10 +1154,12 @@ export default function Game() {
                         impactVal = "-2.0s (Target)";
                      }
                  } else if (ability.name === 'CHEESE TAX') {
-                     if (winnerId && winnerId !== 'p1') {
+                     // Triggers when you LOSE - steal 2s from winner
+                     if (winnerId && winnerId !== 'p1' && p.id !== winnerId) {
                          targetName = winnerName || "Winner";
                          targetId = winnerId;
-                         impactVal = "-1.0s (Steal)";
+                         impactVal = "-2.0s (Steal)";
+                         newTime += 2.0; // Gain the stolen time
                      }
                  } else if (ability.name === 'BURN IT') {
                      targetName = "ALL OPPONENTS";
@@ -1257,7 +1253,7 @@ export default function Game() {
               if (ab.targetId === p.id) {
                   if (ab.ability === 'MANAGER CALL') { newTime -= 2.0; roundImpact = "-2.0s"; }
                   if (ab.ability === 'AXE SWING') { newTime -= 2.0; roundImpact = "-2.0s"; }
-                  if (ab.ability === 'CHEESE TAX') { newTime -= 1.0; roundImpact = "-1.0s"; }
+                  if (ab.ability === 'CHEESE TAX') { newTime -= 2.0; roundImpact = "-2.0s"; }
               }
               if (ab.targetName === 'ALL OPPONENTS' && p.id !== ab.playerId) {
                    newTime -= 0.5; roundImpact = "-0.5s";
