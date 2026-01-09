@@ -41,17 +41,17 @@ import charPopcat from '@assets/generated_images/cyberpunk_popcat.png';
 import charWinter from '@assets/generated_images/cyberpunk_winter_soldier.png';
 import charDoge from '@assets/generated_images/cyberpunk_shiba_inu_astronaut.png';
 import charPepe from '@assets/generated_images/cyberpunk_sad_green_alien_analyst.png';
-import charNyan from '@assets/generated_images/fast_cyberpunk_rainbow_frog_character.png';
+import charNyan from '@assets/generated_images/fast_cyberpunk_rainbow_rabbit_character.png';
 import charKaren from '@assets/generated_images/cyberpunk_yelling_commander.png';
 import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
 import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
 import charStonks from '@assets/generated_images/cyberpunk_stonks_man.png';
 import charFloyd from '@assets/generated_images/cyberpunk_boxer_money.png';
-import charRat from '@assets/generated_images/cyberpunk_time_thief_rat_character.png';
-import charBaldwin from '@assets/generated_images/cyberpunk_baldwin_mask.png';
+import charRat from '@assets/generated_images/detailed_cyberpunk_time_rat_character.png';
+import charBaldwin from '@assets/generated_images/cyberpunk_masked_knight_character.png';
 import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
 import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
-import charThinker from '@assets/generated_images/cyberpunk_thinker.png';
+import charThinker from '@assets/generated_images/futuristic_roll_safe_meme_character.png';
 import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
@@ -228,34 +228,34 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'THE EX', description: '10% chance: 1 random player toasts to an ex (shown to them at end of round).' }
   },
   { 
-    id: 'rat', name: 'Time Rat', title: 'The Time Thief', image: charRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'rat', name: 'Cheese Bandit', title: 'The Time Thief', image: charRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: '5% chance: 1 random player must reveal someone\'s tell (shown to them after round).' },
     bioAbility: { name: 'SCAVENGE', description: '5% chance: 1 random player finishes someone else\'s drink (shown to them after round).' }
   },
   { 
-    id: 'baldwin', name: 'Leper King', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
-    ability: { name: 'ROYAL DECREE', description: 'Get 2s refund if you bid exactly 20s.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'SILENCE', description: 'Command silence. First to speak drinks.' },
-    bioAbility: { name: 'ROYAL CUP', description: 'Make a rule for the cup.' }
+    id: 'baldwin', name: 'The Leper', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
+    ability: { name: 'ROYAL DECREE', description: 'Get 4s refund if you bid within 0.1s of exactly 20s.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'COMMAND SILENCE', description: '50% chance: Everyone is commanded silence at start of round.' },
+    bioAbility: { name: 'ROYAL CUP', description: '1 random round at end: Make a rule for remainder of game.' }
   },
   { 
     id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
-    ability: { name: 'AXE SWING', description: 'Remove 2s from opponent with most time.', effect: 'DISRUPT' },
-    socialAbility: { name: 'BUSINESS CARD', description: 'Present your card. Best presentation wins.' },
-    bioAbility: { name: 'RESERVATION', description: 'Skip one drink penalty.' }
+    ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
+    socialAbility: { name: 'CC\'D', description: '20% chance: 1 random player must copy your actions next round (both notified at end).' },
+    bioAbility: { name: 'REASSIGNED', description: '50% chance: Choose 1 player to take a drink (shown to driver at end of round).' }
   },
   { 
     id: 'gigachad', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
-    ability: { name: 'JAWLINE', description: 'Ignore first 1s of every bid.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'MOG', description: 'Stare down an opponent. If they blink, they lose 0.5s.' },
-    bioAbility: { name: 'RAW EGG', description: 'Pretend to drink a raw egg. Intimidate opponents.' }
+    ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'MOG', description: '20% chance: 1 random player must drop if they lose stare challenge (both notified at start).' },
+    bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall (shown post-round).' }
   },
   { 
-    id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charRollSafe, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
-    ability: { name: 'SMART PLAY', description: 'See active bot count.', effect: 'PEEK' },
-    socialAbility: { name: 'BAD ADVICE', description: 'Give terrible advice. Anyone who follows drinks.' },
-    bioAbility: { name: 'HEAD TAP', description: 'Tap head before drinking. If you forget, drink double.' }
+    id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    ability: { name: 'SMART PLAY', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
+    socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules all game.' },
+    bioAbility: { name: 'BIG BRAIN', description: '15% chance at end of round: Option to have everyone pass drink to the left.' }
   },
   { 
     id: 'disaster', name: 'Pyro Girl', title: 'The Anarchist', image: charDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
@@ -1098,7 +1098,7 @@ export default function Game() {
                 if (ability.name === 'CYRO FREEZE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
                 if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 3.5; triggered = true; impactVal = "+3.5s"; }
                 if (ability.name === 'PAY DAY' && p.id === winnerId) { newTime += 0.5; triggered = true; impactVal = "+0.5s"; }
-                if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) < 0.5) { newTime += 2.0; triggered = true; impactVal = "+2.0s"; }
+                if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) <= 0.1) { newTime += 4.0; triggered = true; impactVal = "+4.0s"; }
                 if (ability.name === 'JAWLINE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
                 if (ability.name === 'PANIC MASH') { 
                     const gain = Math.random() > 0.5;
@@ -1145,8 +1145,8 @@ export default function Game() {
                          impactVal = "-2.0s (Target)";
                      }
                  } else if (ability.name === 'AXE SWING') {
-                     // Most time remaining (excluding me)
-                     const validTargets = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated);
+                     // Most time remaining (excluding me, excluding eliminated)
+                     const validTargets = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated && pl.remainingTime > 0);
                      if (validTargets.length > 0) {
                         const target = validTargets.reduce((prev, current) => (prev.remainingTime > current.remainingTime) ? prev : current);
                         targetName = target.name;
