@@ -59,7 +59,7 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
         
         <span className={cn(
           "font-display text-2xl font-bold tracking-widest transition-colors duration-200 text-center px-2",
-          isPressed ? "text-primary text-glow" : isWaiting ? "text-yellow-500 animate-pulse text-xl" : "text-zinc-400"
+          isPressed ? "text-primary text-glow" : isWaiting ? "text-yellow-500 text-xl" : "text-zinc-400"
         )}>
           {isWaiting ? "BID LOCKED" : isPressed ? "HOLDING" : "PRESS"}
         </span>

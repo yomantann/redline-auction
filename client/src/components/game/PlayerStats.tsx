@@ -66,7 +66,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
 
       {/* PEEK INDICATOR OVERLAY */}
       {showHolding && (
-          <div className="absolute -top-3 -right-3 bg-green-500 text-black text-xs font-black px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.8)] animate-pulse z-50 flex items-center gap-1 border-2 border-white">
+          <div className="absolute -top-3 -right-3 bg-green-500 text-black text-xs font-black px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.8)] z-50 flex items-center gap-1 border-2 border-white">
              <User size={12} /> HOLDING
           </div>
       )}
@@ -95,12 +95,12 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
           </span>
         </div>
         {player.hasBidThisRound === false && !player.isEliminated && (
-           <span className="text-[10px] bg-accent/20 text-accent px-2 py-0.5 rounded border border-accent/20 animate-pulse">
+           <span className="text-[10px] bg-accent/20 text-accent px-2 py-0.5 rounded border border-accent/20">
              BIDDING
            </span>
         )}
         {player.isEliminated && (
-            <span className="text-[10px] bg-red-950 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold animate-pulse">
+            <span className="text-[10px] bg-red-950 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold">
              ELIMINATED
            </span>
         )}
@@ -126,7 +126,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
                 {/* SHOW IMPACT */}
                 {player.roundImpact && (
                     <span className={cn(
-                        "text-sm font-bold animate-pulse",
+                        "text-sm font-bold",
                         player.roundImpact.includes('+') ? "text-emerald-400" : "text-red-400"
                     )}>
                         {player.roundImpact}

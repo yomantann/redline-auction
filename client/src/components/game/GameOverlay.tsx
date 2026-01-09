@@ -66,7 +66,7 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
       case "smug_confidence": return <Trophy size={48} className="text-purple-400" />;
       case "bad_judgment": return <ThumbsDown size={48} className="text-red-400" />;
       case "zero_bid": return <AlertTriangle size={48} className="text-yellow-200" />;
-      case "protocol_alert": return <AlertTriangle size={48} className="text-destructive animate-pulse" />;
+      case "protocol_alert": return <AlertTriangle size={48} className="text-destructive" />;
       case "ability_trigger": return <Zap size={48} className="text-blue-400" />;
       
       case "precision_strike": return <Crosshair size={48} className="text-blue-400" />;

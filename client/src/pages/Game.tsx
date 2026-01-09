@@ -340,11 +340,36 @@ export default function Game() {
     setAnimations(prev => prev.filter(a => a.id !== id));
   };
 
-  // Sync Protocols with Variant
+  // Sync Protocols with Variant - add mode-specific protocols when variant changes
   useEffect(() => {
-    if (variant === 'SOCIAL_OVERDRIVE' || variant === 'BIO_FUEL') {
+    if (variant === 'SOCIAL_OVERDRIVE') {
         setProtocolsEnabled(true);
-        // We will merge protocol lists dynamically in startCountdown
+        // Add social protocols if not already present (default ON)
+        setAllowedProtocols(prev => {
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'];
+            const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
+            // Remove bio protocols, add social protocols
+            const withoutBio = prev.filter(p => !bioProtocols.includes(p));
+            const toAdd = socialProtocols.filter(p => !withoutBio.includes(p));
+            return [...withoutBio, ...toAdd];
+        });
+    } else if (variant === 'BIO_FUEL') {
+        setProtocolsEnabled(true);
+        // Add bio protocols if not already present (default ON)
+        setAllowedProtocols(prev => {
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'];
+            const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
+            // Remove social protocols, add bio protocols
+            const withoutSocial = prev.filter(p => !socialProtocols.includes(p));
+            const toAdd = bioProtocols.filter(p => !withoutSocial.includes(p));
+            return [...withoutSocial, ...toAdd];
+        });
+    } else {
+        // Standard mode - remove mode-specific protocols
+        setAllowedProtocols(prev => {
+            const modeSpecific: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE', 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
+            return prev.filter(p => !modeSpecific.includes(p));
+        });
     }
   }, [variant]);
 
@@ -821,20 +846,22 @@ export default function Game() {
       }));
 
     } else if (phase === 'countdown') {
-       // If releasing during countdown, deduct penalty based on duration
+       // If releasing during countdown, store penalty to apply at round end
        const penalty = getPenalty();
        
-       // IMMEDIATE DEDUCTION LOGIC FOR ALL MODES
+       // DEFERRED PENALTY - Store for round end, do NOT deduct immediately
+       setPendingPenalties(prev => ({ ...prev, 'p1': (prev['p1'] || 0) + penalty }));
+       
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
             ...p, 
             isHolding: false, 
-            currentBid: 0, 
-            remainingTime: Math.max(0, p.remainingTime - penalty) // Deduct immediately
+            currentBid: 0
+            // NO remainingTime change here - will apply at round end
        } : p));
        
        toast({
            title: "EARLY RELEASE",
-           description: `Released before start! -${penalty}s penalty applied immediately.`,
+           description: `Released before start! -${penalty}s penalty will apply at round end.`,
            variant: "destructive",
            duration: 3000
        });
@@ -943,7 +970,9 @@ export default function Game() {
       setActiveProtocol(null);
     }
 
-    setCurrentTime(0);
+    // Start timer at minimum bid time (penalty value)
+    const minBidTime = getPenalty();
+    setCurrentTime(minBidTime);
     setCountdown(COUNTDOWN_SECONDS);
     setPhase('countdown');
     overLimitToastShownRef.current = false; // Reset over-limit flag
@@ -1172,8 +1201,13 @@ export default function Game() {
       }
       
       if (p.id === winnerId) {
+        // ELIMINATED players CANNOT win trophies
+        if (p.isEliminated || p.remainingTime <= 0) {
+            // No trophies for eliminated players
+            extraLogs.push(`>> ${p.name} is eliminated - no trophy awarded.`);
+        }
         // MOLE LOGIC: If mole wins, they LOSE a token (can go negative)
-        if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
+        else if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
             newTokens -= 1; // Penalty for winning as Mole
             roundImpact = "-1 Token (Mole Win)";
             extraLogs.push(`>> MOLE FAILURE: ${p.name} won and LOST a trophy!`);
@@ -1210,7 +1244,7 @@ export default function Game() {
 
           if (ab.effect === 'DISRUPT') {
               if (ab.targetId === p.id) {
-                  if (ab.ability === 'MANAGER CALL') { newTime -= 1.0; roundImpact = "-1.0s"; }
+                  if (ab.ability === 'MANAGER CALL') { newTime -= 2.0; roundImpact = "-2.0s"; }
                   if (ab.ability === 'AXE SWING') { newTime -= 2.0; roundImpact = "-2.0s"; }
                   if (ab.ability === 'CHEESE TAX') { newTime -= 1.0; roundImpact = "-1.0s"; }
               }
@@ -1411,7 +1445,7 @@ export default function Game() {
                    title = `⚠️ WARNING: ${ability.player}`;
                    desc = `${ability.ability} HIT YOU! (-TIME)`;
                    variant = "destructive";
-                   className += " bg-red-950 border-red-500 text-red-100 animate-pulse";
+                   className += " bg-red-950 border-red-500 text-red-100";
                } 
                // Case 3: Global effect hitting everyone (including me)
                else if (ability.targetName === 'ALL OPPONENTS') {
@@ -1419,7 +1453,7 @@ export default function Game() {
                    title = `⚠️ GLOBAL THREAT: ${ability.player}`;
                    desc = `${ability.ability} HIT EVERYONE!`;
                    variant = "destructive";
-                   className += " bg-orange-950 border-orange-500 text-orange-100 animate-pulse";
+                   className += " bg-orange-950 border-orange-500 text-orange-100";
                }
                // Case 4: Special Notification for Click-Click winning 2 tokens
                else if (ability.ability === 'HYPER CLICK' && ability.effect === 'TOKEN_BOOST' && activeAbilities.some(a => a.playerId === 'p1')) {
@@ -1638,14 +1672,9 @@ export default function Game() {
                             <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-purple-950/20 border border-purple-500/10">
                                 <Switch 
                                     checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                    disabled={variant === 'BIO_FUEL'} // Cannot enable social in bio mode manually if strict
+                                    disabled={variant !== 'SOCIAL_OVERDRIVE'} // Only enable in social mode
                                     onCheckedChange={(checked) => {
                                         if (checked) {
-                                             if (variant === 'BIO_FUEL') {
-                                                 setVariant('SOCIAL_OVERDRIVE');
-                                                 // Remove bio protocols
-                                                 setAllowedProtocols(prev => prev.filter(id => !['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(id)));
-                                             }
                                              setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
                                         } else {
                                              setAllowedProtocols(prev => prev.filter(id => id !== p.id));
@@ -1674,14 +1703,9 @@ export default function Game() {
                             <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-orange-950/20 border border-orange-500/10">
                                 <Switch 
                                     checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                    disabled={variant === 'SOCIAL_OVERDRIVE'} // Cannot enable bio in social mode manually if strict
+                                    disabled={variant !== 'BIO_FUEL'} // Only enable in bio mode
                                     onCheckedChange={(checked) => {
                                          if (checked) {
-                                             if (variant === 'SOCIAL_OVERDRIVE') {
-                                                 setVariant('BIO_FUEL');
-                                                 // Remove social protocols
-                                                 setAllowedProtocols(prev => prev.filter(id => !['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'].includes(id)));
-                                             }
                                              setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
                                         } else {
                                              setAllowedProtocols(prev => prev.filter(id => id !== p.id));
@@ -2004,7 +2028,7 @@ export default function Game() {
                       />
                     </div>
                  ) : (
-                    <p className="text-muted-foreground animate-pulse text-sm">All players must hold button to start</p>
+                    <p className="text-muted-foreground text-sm">All players must hold button to start</p>
                  )}
               </div>
             </div>
@@ -2073,11 +2097,11 @@ export default function Game() {
                 {showDetails && !isBlackout && currentTime <= 10 ? (
                   <TimerDisplay time={currentTime} isRunning={true} />
                 ) : (
-                  <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "animate-pulse border-destructive/20")}>
+                  <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
                      <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
                        {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
                      </span>
-                     <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : (currentTime > 10 ? "" : "animate-pulse"))}>
+                     <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : "")}>
                        {activeProtocol === 'SYSTEM_FAILURE' 
                           // System failure: mostly scrambled, 25% chance of real time (increased from 5%)
                           ? (Math.random() > 0.75 ? currentTime.toFixed(1) : `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`) 
@@ -2094,7 +2118,7 @@ export default function Game() {
                 isPressed={players.find(p => p.id === 'p1')?.isHolding}
                 disabled={!players.find(p => p.id === 'p1')?.isHolding}
                 isWaiting={false} // No waiting in bidding phase visually
-                showPulse={currentTime <= 10}
+                showPulse={false}
               />
             </div>
             
