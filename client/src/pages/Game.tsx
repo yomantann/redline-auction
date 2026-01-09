@@ -41,7 +41,7 @@ import charPopcat from '@assets/generated_images/cyberpunk_popcat.png';
 import charWinter from '@assets/generated_images/cyberpunk_winter_soldier.png';
 import charDoge from '@assets/generated_images/cyberpunk_shiba_inu_astronaut.png';
 import charPepe from '@assets/generated_images/cyberpunk_sad_green_alien_analyst.png';
-import charNyan from '@assets/generated_images/cyberpunk_neon_rainbow_cat.png';
+import charNyan from '@assets/generated_images/fast_rainbow_frog_meme_character.png';
 import charKaren from '@assets/generated_images/cyberpunk_yelling_commander.png';
 import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
 import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
@@ -181,27 +181,27 @@ interface Character {
 const CHARACTERS: Character[] = [
   { 
     id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
-    ability: { name: 'SPIRIT SHIELD', description: 'Get 1.0s refund if you lose (11s if Round 1 win).', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'VIBE GUARD', description: 'Designate a player who cannot be targeted by social dares this round.' },
-    bioAbility: { name: 'BANANA SHAKE', description: 'Mix a drink for someone else.' }
+    ability: { name: 'SPIRIT SHIELD', description: 'Limit Break: +11s if you win Round 1.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'VIBE GUARD', description: 'Shown at prepare-to-bid: Designate a player immune to social dares this round.' },
+    bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Tell others they cannot release button until you finish a sip.' }
   },
   { 
     id: 'popcat', name: 'Click-Click', title: 'The Glitch', image: charPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
-    ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win by < 1s.', effect: 'TOKEN_BOOST' },
-    socialAbility: { name: 'POP OFF', description: 'Start a "Pop" chant; last one to join drinks/penalized.' },
-    bioAbility: { name: 'QUICK SIP', description: 'Take 3 rapid sips instead of 1 normal drink.' }
+    ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
+    socialAbility: { name: 'MISCLICK', description: '25% chance: 1 player must hold bid without using hands (only they and you are notified).' },
+    bioAbility: { name: 'MOUTH POP', description: '1 random round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
     id: 'winter', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'COLD SHOULDER', description: 'Ignore all social interactions this round.' },
-    bioAbility: { name: 'BRAIN FREEZE', description: 'If you drink, everyone else must freeze for 3s.' }
+    socialAbility: { name: 'COLD SHOULDER', description: '25% chance: Ignore all social interactions (only you see this at prepare-to-bid).' },
+    bioAbility: { name: 'BRAIN FREEZE', description: '1 random round: Force opponent to win or drink (only you and target notified).' }
   },
   { 
     id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
-    ability: { name: 'SAD REVEAL', description: 'Always see 1 opponent holding status. Cannot see own time.', effect: 'PEEK' },
-    socialAbility: { name: 'FEELS BAD', description: 'Make everyone share a sad story. Best one wins 0.5s.' },
-    bioAbility: { name: 'COMFORT DRINK', description: 'Designate a drinking buddy for the round.' }
+    ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
+    socialAbility: { name: 'SAD STORY', description: '5% chance after round: 1 random player shares a sad story (shown to that player only).' },
+    bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you are notified you can change your drinking buddy.' }
   },
   { 
     id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
@@ -1095,8 +1095,11 @@ export default function Game() {
             // TIME REFUNDS
             if (ability.effect === 'TIME_REFUND') {
                 if (ability.name === 'SPIRIT SHIELD') { 
-                    if (round === 1 && p.id === winnerId) { newTime += 11.0; triggered = true; impactVal = "+11.0s"; }
-                    else if (p.id !== winnerId) { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
+                    // Limit Break only: +11s if you win Round 1
+                    if (limitBreakEnabled && round === 1 && p.id === winnerId) { 
+                        newTime += 11.0; triggered = true; impactVal = "+11.0s"; 
+                    }
+                    // No refund otherwise - removed 1s loss refund
                 }
                 if (ability.name === 'CYRO FREEZE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
                 if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 3.5; triggered = true; impactVal = "+3.5s"; }
@@ -1115,7 +1118,15 @@ export default function Game() {
             
             // TOKEN BOOSTS
             if (ability.effect === 'TOKEN_BOOST' && p.id === winnerId) {
-                if (ability.name === 'HYPER CLICK' && (p.currentBid || 0) < winnerTime + 1.0) { newTokens += 1; triggered = true; impactVal = "+1 Token"; }
+                if (ability.name === 'HYPER CLICK') { 
+                    // Check if winner won within 1.1s of 2nd place
+                    const sortedBids = participants.map(pl => pl.currentBid || 0).sort((a, b) => b - a);
+                    const secondPlaceBid = sortedBids.length > 1 ? sortedBids[1] : 0;
+                    const winMargin = (p.currentBid || 0) - secondPlaceBid;
+                    if (winMargin > 0 && winMargin <= 1.1) { 
+                        newTokens += 1; triggered = true; impactVal = "+1 Token"; 
+                    }
+                }
                 if (ability.name === 'TO THE MOON' && (p.currentBid || 0) > 30) { newTokens += 1; triggered = true; impactVal = "+1 Token"; } 
                 if (ability.name === 'DIVIDEND' && round % 3 === 0) { newTokens += 1; triggered = true; impactVal = "+1 Token"; }
             }
