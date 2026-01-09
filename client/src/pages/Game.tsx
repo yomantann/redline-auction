@@ -1089,11 +1089,10 @@ export default function Game() {
             // TIME REFUNDS
             if (ability.effect === 'TIME_REFUND') {
                 if (ability.name === 'SPIRIT SHIELD') { 
-                    // Limit Break only: +11s if you win Round 1
-                    if (limitBreakEnabled && round === 1 && p.id === winnerId) { 
+                    // +11s if you win Round 1 (Limit Break ability)
+                    if (round === 1 && p.id === winnerId) { 
                         newTime += 11.0; triggered = true; impactVal = "+11.0s"; 
                     }
-                    // No refund otherwise - removed 1s loss refund
                 }
                 if (ability.name === 'CYRO FREEZE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
                 if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 3.5; triggered = true; impactVal = "+3.5s"; }
