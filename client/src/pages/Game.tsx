@@ -47,11 +47,11 @@ import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
 import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
 import charStonks from '@assets/generated_images/cyberpunk_stonks_man.png';
 import charFloyd from '@assets/generated_images/cyberpunk_boxer_money.png';
-import charRat from '@assets/generated_images/cyberpunk_rat_with_dark_sunglasses.png';
+import charRat from '@assets/generated_images/cool_futuristic_cyberpunk_rat_character.png';
 import charBaldwin from '@assets/generated_images/cyberpunk_anointed_royal_masked_figure.png';
 import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
 import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
-import charThinker from '@assets/generated_images/roll_safe_with_unique_cyberpunk_background.png';
+import charThinker from '@assets/generated_images/roll_safe_dramatic_cyberpunk_cityscape.png';
 import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
@@ -96,19 +96,19 @@ const SOCIAL_CHARACTERS: Character[] = [
   { 
     id: 'prom_king', name: 'Prom King', title: 'The Crowned', image: charPromKing, description: 'Royalty of the moment.', color: 'text-purple-500',
     ability: { name: 'SPOTLIGHT', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' },
-    socialAbility: { name: 'CROWN LAW', description: '1 random round: Make a rule for remainder of game.' },
+    socialAbility: { name: 'PROM COURT', description: '1 random round: Make a rule for remainder of game.' },
     bioAbility: { name: 'CORONATION', description: 'Initiate a group toast. Everyone drinks.' }
   },
   {
     id: 'idol_core', name: 'Idol Core', title: 'The Star', image: charIdolCore, description: 'Stage presence and perfect timing.', color: 'text-pink-500',
-    ability: { name: 'FANCAM', description: 'See random opponent bid.', effect: 'PEEK' },
-    socialAbility: { name: 'DISPATCH', description: 'Start a rumor about another player. If they deny it, they lose 0.5s.' },
+    ability: { name: 'COUNT IT IN', description: 'When you say "count it in", next person to talk must say "5678" or drop their button.', effect: 'PEEK' },
+    socialAbility: { name: 'FANCAM', description: '10% chance: 1 random player shows hidden talent at start of round or drops button.' },
     bioAbility: { name: 'DEBUT', description: 'Take a drink to reveal a "secret" (see an opponent\'s bid).' }
   }
 ];
 
 import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
-import charMonkeyHaircut from '@assets/generated_images/primate_chef_with_unique_background.png';
+import charMonkeyHaircut from '@assets/generated_images/cool_monkey_haircut_chef_background.png';
 import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
 import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
 import charRockShush from '@assets/generated_images/cute_rock_with_shush_gesture.png';
@@ -122,13 +122,13 @@ const BIO_CHARACTERS: Character[] = [
     id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charRockShush, description: 'Solid as a rock. Literally.', color: 'text-green-600',
     ability: { name: 'IRON STOMACH', description: 'Immune to "Drink" penalties (Lore only).', effect: 'TIME_REFUND' },
     socialAbility: { name: 'PEOPLE\'S ELBOW', description: 'Challenge someone to a thumb war for 0.5s.' },
-    bioAbility: { name: 'BOTTOMLESS', description: 'Immune to one drink penalty per game.' }
+    bioAbility: { name: 'ABSORB', description: 'Take a big sip to cancel out any drinking prompt.' }
   },
   {
     id: 'danger_zone', name: 'Danger Zone', title: 'Club Queen', image: charDangerZone, description: 'Works the pole, takes your soul.', color: 'text-pink-600',
-    ability: { name: 'LAST CALL', description: 'Remove 1s from everyone.', effect: 'DISRUPT' },
+    ability: { name: 'OVERPOUR', description: 'Decide before the game starts how big 1 sip really is.', effect: 'DISRUPT' },
     socialAbility: { name: 'PRIVATE DANCE', description: 'Give a command. First to obey gets +0.5s.' },
-    bioAbility: { name: 'MYSTERY MIX', description: 'Mix a drink. Winner of next round must drink it.' }
+    bioAbility: { name: 'CHAIN REACTION', description: 'If you finish your drink, person to your left must also finish theirs.' }
   }
 ];
 
