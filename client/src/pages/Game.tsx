@@ -108,10 +108,10 @@ const SOCIAL_CHARACTERS: Character[] = [
 ];
 
 import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
-import charMonkeyHaircut from '@assets/generated_images/monkey_haircut_meme_character.png';
-import charIdolCore from '@assets/generated_images/k-pop_idol_futuristic_character.png';
-import charPromKing from '@assets/generated_images/futuristic_prom_king_character.png';
-import charRockShush from '@assets/generated_images/the_rock_shush_meme.png';
+import charMonkeyHaircut from '@assets/generated_images/cyberpunk_monkey_meme_character.png';
+import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
+import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
+import charRockShush from '@assets/generated_images/rock_with_face_shush_meme.png';
 import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
 
 // ... (Existing Characters)
@@ -119,7 +119,7 @@ import charRollSafe from '@assets/generated_images/roll_safe_black_character.png
 // NEW CHARACTERS (BIO-FUEL MODE)
 const BIO_CHARACTERS: Character[] = [
   { 
-    id: 'tank', name: 'The Rock', title: 'Iron Liver', image: charRockShush, description: 'Can you smell what he\'s cooking?', color: 'text-green-600',
+    id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charRockShush, description: 'Solid as a rock. Literally.', color: 'text-green-600',
     ability: { name: 'IRON STOMACH', description: 'Immune to "Drink" penalties (Lore only).', effect: 'TIME_REFUND' },
     socialAbility: { name: 'PEOPLE\'S ELBOW', description: 'Challenge someone to a thumb war for 0.5s.' },
     bioAbility: { name: 'BOTTOMLESS', description: 'Immune to one drink penalty per game.' }
@@ -181,7 +181,7 @@ interface Character {
 const CHARACTERS: Character[] = [
   { 
     id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
-    ability: { name: 'SPIRIT SHIELD', description: 'Get 1.0s refund if you lose the round.', effect: 'TIME_REFUND' },
+    ability: { name: 'SPIRIT SHIELD', description: 'Get 1.0s refund if you lose (11s if Round 1 win).', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Designate a player who cannot be targeted by social dares this round.' },
     bioAbility: { name: 'BANANA SHAKE', description: 'Mix a drink for someone else.' }
   },
@@ -193,25 +193,25 @@ const CHARACTERS: Character[] = [
   },
   { 
     id: 'winter', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
-    ability: { name: 'CYRO FREEZE', description: 'Refund 0.5s regardless of outcome.', effect: 'TIME_REFUND' },
+    ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: 'Ignore all social interactions this round.' },
     bioAbility: { name: 'BRAIN FREEZE', description: 'If you drink, everyone else must freeze for 3s.' }
   },
   { 
     id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
-    ability: { name: 'SAD REVEAL', description: 'See if opponents are holding.', effect: 'PEEK' },
+    ability: { name: 'SAD REVEAL', description: 'Always see 1 opponent holding status. Cannot see own time.', effect: 'PEEK' },
     socialAbility: { name: 'FEELS BAD', description: 'Make everyone share a sad story. Best one wins 0.5s.' },
     bioAbility: { name: 'COMFORT DRINK', description: 'Designate a drinking buddy for the round.' }
   },
   { 
     id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
-    ability: { name: 'RAINBOW RUN', description: 'Get 1.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
+    ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: 'Speak 2x speed for the round.' },
     bioAbility: { name: 'RAINBOW SHOT', description: 'Mix two drinks together if penalized.' }
   },
   { 
     id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, description: 'Loud and disruptive tactics.', color: 'text-red-400',
-    ability: { name: 'MANAGER CALL', description: 'Remove 1s from random opponent.', effect: 'DISRUPT' },
+    ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent.', effect: 'DISRUPT' },
     socialAbility: { name: 'COMPLAINT', description: 'Object to the last round results. Everyone votes.' },
     bioAbility: { name: 'SPILL HAZARD', description: 'Accuse someone of spilling; they drink.' }
   },
@@ -276,10 +276,10 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'TWO BUTTONS', description: 'Choose left or right. Losers drink.' }
   },
   { 
-    id: 'lethimcook', name: 'Let Him Cook', title: 'The Chef', image: charMonkeyHaircut, description: 'Trust the process. He\'s cooking.', color: 'text-amber-600',
+    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, description: 'Trust the process. He\'s cooking.', color: 'text-amber-600',
     ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'COOKING', description: 'Yell a random name. Anyone who looks drinks.' },
-    bioAbility: { name: 'SECRET SAUCE', description: 'Pass your drink to the left.' }
+    socialAbility: { name: 'MONKEY SEE', description: 'Yell a random name. Anyone who looks drinks.' },
+    bioAbility: { name: 'BANANA SPLIT', description: 'Pass your drink to the left.' }
   },
   { 
     id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, description: 'Smiling through the bear market.', color: 'text-slate-400',
@@ -1065,9 +1065,12 @@ export default function Game() {
             
             // TIME REFUNDS
             if (ability.effect === 'TIME_REFUND') {
-                if (ability.name === 'SPIRIT SHIELD' && p.id !== winnerId) { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
-                if (ability.name === 'CYRO FREEZE') { newTime += 0.5; triggered = true; impactVal = "+0.5s"; }
-                if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 1.5; triggered = true; impactVal = "+1.5s"; }
+                if (ability.name === 'SPIRIT SHIELD') { 
+                    if (round === 1 && p.id === winnerId) { newTime += 11.0; triggered = true; impactVal = "+11.0s"; }
+                    else if (p.id !== winnerId) { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
+                }
+                if (ability.name === 'CYRO FREEZE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
+                if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 3.5; triggered = true; impactVal = "+3.5s"; }
                 if (ability.name === 'PAY DAY' && p.id === winnerId) { newTime += 0.5; triggered = true; impactVal = "+0.5s"; }
                 if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) < 0.5) { newTime += 2.0; triggered = true; impactVal = "+2.0s"; }
                 if (ability.name === 'JAWLINE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
@@ -1105,7 +1108,7 @@ export default function Game() {
                          const target = validTargets[Math.floor(Math.random() * validTargets.length)];
                          targetName = target.name;
                          targetId = target.id;
-                         impactVal = "-1.0s (Target)";
+                         impactVal = "-2.0s (Target)";
                      }
                  } else if (ability.name === 'AXE SWING') {
                      // Most time remaining (excluding me)
