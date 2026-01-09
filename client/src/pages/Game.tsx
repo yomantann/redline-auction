@@ -111,7 +111,7 @@ import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale
 import charMonkeyHaircut from '@assets/generated_images/cyberpunk_monkey_meme_character.png';
 import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
 import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
-import charRockShush from '@assets/generated_images/rock_with_face_shush_meme.png';
+import charRockShush from '@assets/generated_images/cute_rock_with_shush_gesture.png';
 import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
 
 // ... (Existing Characters)
