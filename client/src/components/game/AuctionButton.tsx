@@ -17,18 +17,18 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
 
   return (
     <div className="relative group w-64 h-64 flex items-center justify-center">
-      {/* Outer Rings - Different animation for waiting */}
+      {/* Outer Rings - Different animation for waiting. EXPLICIT STATE: No animation when pressed */}
       <div className={cn(
         "absolute inset-0 rounded-full border-2 transition-all duration-500",
-        isWaiting 
-          ? "border-yellow-500/20 scale-100 opacity-80 animate-ping duration-[3s]" 
-          : "border-primary/20",
-        isPressed && !isWaiting ? "scale-90 opacity-50" : "" 
+        isPressed ? "scale-90 opacity-50 border-primary/20" : 
+        isWaiting ? "border-yellow-500/20 scale-100 opacity-80 animate-ping" : 
+        "border-primary/20"
       )} />
       <div className={cn(
         "absolute inset-4 rounded-full border transition-all duration-500",
-        isWaiting ? "border-yellow-500/40 animate-spin duration-[10s]" : "border-primary/40",
-        isPressed && !isWaiting ? "scale-95 border-primary/60" : (!isWaiting && showPulse) ? "scale-100 rotate-180" : ""
+        isPressed ? "scale-95 border-primary/60" :
+        isWaiting ? "border-yellow-500/40 animate-spin" : 
+        "border-primary/40"
       )} />
 
       {/* The Button */}
@@ -68,7 +68,7 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
         </span>
       </button>
 
-      {/* Particle Effects (Simplified with CSS) */}
+      {/* Particle Effects - Static glow when pressed, no animation */}
       <AnimatePresence>
         {isPressed && (
           <motion.div 
@@ -77,7 +77,7 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="absolute inset-0 rounded-full border border-primary/30 animate-ping" />
+            <div className="absolute inset-0 rounded-full border-2 border-primary/50" />
           </motion.div>
         )}
       </AnimatePresence>

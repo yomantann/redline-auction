@@ -1036,10 +1036,7 @@ export default function Game() {
           playerProtocols.push(`${activeProtocol} (WON)`);
       }
       
-      // Calculate Base Time (Subtract Bid)
-      if (p.currentBid !== null && p.currentBid > 0) {
-          newTime = Math.max(0, newTime - p.currentBid);
-      }
+      // NOTE: Time subtraction happens ONCE below after all effects are calculated
 
       // Check Specific Event Database Popups for this player
       if (p.id === winnerId) {
@@ -1073,7 +1070,8 @@ export default function Game() {
       }
 
       // --- ABILITY EFFECTS (Passive / Triggered on Result) ---
-      if (abilitiesEnabled && !p.isEliminated) {
+      // STRICT CHECK: Eliminated players CANNOT trigger or receive any effects
+      if (abilitiesEnabled && !p.isEliminated && p.remainingTime > 0) {
         // Find ability for this player (User or Bot)
         const character = p.isBot 
            ? CHARACTERS.find(c => c.name === p.name) 
@@ -1202,22 +1200,29 @@ export default function Game() {
         }
       }
 
+      // SUBTRACT BID TIME (only place this happens)
       if (p.currentBid !== null && p.currentBid > 0) {
-        // If THE_MOLE and this player is the mole, do NOT subtract time
-        if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
-           // Mole plays for free (time-wise) but must lose to "win" the protocol (though we aren't tracking protocol wins separately yet)
-           // User request: "mole can still bid but that time is not subtracted from their time left"
-           newTime -= 0; 
+        // Check FIRE WALL immunity first - this player is immune to protocols
+        const playerChar = p.isBot ? CHARACTERS.find(c => c.name === p.name) : selectedCharacter;
+        const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
+        
+        // If THE_MOLE and this player is the mole, do NOT subtract time (unless FIRE WALL)
+        if (activeProtocol === 'THE_MOLE' && p.id === moleTarget && !hasFireWall) {
+           // Mole plays for free (time-wise)
+           // No subtraction
         } else {
            newTime -= p.currentBid;
         }
       }
       
       if (p.id === winnerId) {
-        // ELIMINATED players CANNOT win trophies
-        if (p.isEliminated || p.remainingTime <= 0) {
-            // No trophies for eliminated players
+        // STRICT CHECK: ELIMINATED players CANNOT win trophies under ANY circumstances
+        // This check overrides all abilities and protocols
+        if (p.isEliminated || newTime <= 0 || p.remainingTime <= 0) {
+            // No trophies for eliminated players - this is absolute
             extraLogs.push(`>> ${p.name} is eliminated - no trophy awarded.`);
+            winnerId = null; // Clear winner status for eliminated player
+            winnerName = null;
         }
         // MOLE LOGIC: If mole wins, they LOSE a token (can go negative)
         else if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
@@ -1239,33 +1244,8 @@ export default function Game() {
         }
       }
 
-      // Apply disruptive effects to targets
-      newAbilities.forEach(ab => {
-          let type: AnimationType = 'TOKEN_BOOST';
-          if (ab.effect === 'TIME_REFUND') type = 'TIME_REFUND';
-          if (ab.effect === 'DISRUPT') type = 'DISRUPT';
-          if (ab.effect === 'PEEK') type = 'PEEK';
-          if (ab.effect === 'TOKEN_BOOST') type = 'TOKEN_BOOST';
-
-          // Trigger on source player (caster)
-          triggerAnimation(ab.playerId, type, ab.impactValue);
-
-          // If there is a target, trigger DAMAGE on them
-          if (ab.targetId) {
-                triggerAnimation(ab.targetId, 'DAMAGE', ab.impactValue);
-          }
-
-          if (ab.effect === 'DISRUPT') {
-              if (ab.targetId === p.id) {
-                  if (ab.ability === 'MANAGER CALL') { newTime -= 2.0; roundImpact = "-2.0s"; }
-                  if (ab.ability === 'AXE SWING') { newTime -= 2.0; roundImpact = "-2.0s"; }
-                  if (ab.ability === 'CHEESE TAX') { newTime -= 2.0; roundImpact = "-2.0s"; }
-              }
-              if (ab.targetName === 'ALL OPPONENTS' && p.id !== ab.playerId) {
-                   newTime -= 1.0; roundImpact = "-1.0s";
-              }
-          }
-      });
+      // NOTE: DISRUPT effects are applied AFTER the map loop to avoid multiple applications
+      // Animations are also triggered after the loop
       
       // Apply deferred penalties logic (or immediate in new flow)
       // Check pending penalties
@@ -1304,7 +1284,66 @@ export default function Game() {
     });
 
     setPendingPenalties({}); // Clear pending penalties after applying
-    setPlayers(updatedPlayers);
+    
+    // SECOND PASS: Apply DISRUPT effects from newAbilities to all affected players
+    // This ensures effects are applied deterministically after all abilities are collected
+    let finalPlayers = updatedPlayers.map(p => {
+        // Skip eliminated players - they cannot receive effects
+        if (p.isEliminated) return p;
+        
+        let adjustedTime = p.remainingTime;
+        let adjustedImpact = p.roundImpact || "";
+        
+        // Check FIRE WALL immunity - this player is immune to disruptions
+        const playerChar = p.isBot ? CHARACTERS.find(c => c.name === p.name) : selectedCharacter;
+        const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
+        
+        if (!hasFireWall) {
+            newAbilities.forEach(ab => {
+                if (ab.effect === 'DISRUPT') {
+                    // Check if this player is the target
+                    if (ab.targetId === p.id) {
+                        if (ab.ability === 'MANAGER CALL') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
+                        if (ab.ability === 'AXE SWING') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
+                        if (ab.ability === 'CHEESE TAX') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
+                    }
+                    // Check if this is an ALL OPPONENTS effect
+                    if (ab.targetName === 'ALL OPPONENTS' && p.id !== ab.playerId) {
+                        adjustedTime -= 1.0; 
+                        adjustedImpact = adjustedImpact ? `${adjustedImpact} -1.0s` : "-1.0s";
+                    }
+                }
+            });
+        }
+        
+        // Check for elimination after effects
+        const isNowEliminated = adjustedTime <= 0;
+        if (isNowEliminated && !p.isEliminated) {
+            playersOut.push(p.name);
+        }
+        
+        return {
+            ...p,
+            remainingTime: Math.max(0, adjustedTime),
+            roundImpact: adjustedImpact,
+            isEliminated: isNowEliminated
+        };
+    });
+    
+    // Trigger animations for all abilities
+    newAbilities.forEach(ab => {
+        let type: AnimationType = 'TOKEN_BOOST';
+        if (ab.effect === 'TIME_REFUND') type = 'TIME_REFUND';
+        if (ab.effect === 'DISRUPT') type = 'DISRUPT';
+        if (ab.effect === 'PEEK') type = 'PEEK';
+        
+        triggerAnimation(ab.playerId, type, ab.impactValue);
+        if (ab.targetId) {
+            triggerAnimation(ab.targetId, 'DAMAGE', ab.impactValue);
+        }
+    });
+    
+    setPlayers(finalPlayers);
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
     
     // --- DETERMINE OVERLAY TYPE ---
