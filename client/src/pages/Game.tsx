@@ -51,7 +51,7 @@ import charRat from '@assets/generated_images/cyberpunk_rat_sniper_rooftop.png';
 import charBaldwin from '@assets/generated_images/cyberpunk_anointed_royal_masked_figure.png';
 import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
 import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
-import charThinker from '@assets/generated_images/alien_abduction_cyberpunk_scene.png';
+import charThinker from '@assets/generated_images/roll_safe_alien_abduction_thinking.png';
 import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
@@ -149,9 +149,11 @@ interface Player {
   // Stats
   totalTimeBid: number;
   totalImpactGiven: number;
+  totalImpactReceived: number; // NEW: Track damage taken from enemy abilities
   specialEvents: string[];
   eventDatabasePopups: string[]; // NEW: Track Event DB Popups
   protocolsTriggered: string[];
+  protocolWins: string[]; // NEW: Track protocols won specifically
   totalDrinks: number;
   socialDares: number;
 }
@@ -423,19 +425,19 @@ export default function Game() {
   const [players, setPlayers] = useState<Player[]>([
     { 
         id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false,
-        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0 
+        totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0 
     },
     { 
         id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
-        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
     },
     { 
         id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
-        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
     },
     { 
         id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
-        totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+        totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
     },
   ]);
 
@@ -1277,7 +1279,7 @@ export default function Game() {
           isEliminated: newTime <= 0, // Set flag
           totalImpactGiven: p.totalImpactGiven + playerImpactGiven,
           specialEvents: playerSpecialEvents,
-          protocolsTriggered: [...new Set([...p.protocolsTriggered, ...playerProtocols])], 
+          protocolsTriggered: Array.from(new Set([...p.protocolsTriggered, ...playerProtocols])), 
           totalDrinks: p.totalDrinks + (newTime <= 0 && p.remainingTime > 0 ? 1 : 0),
           socialDares: p.socialDares + (variant === 'SOCIAL_OVERDRIVE' && activeProtocol ? 1 : 0)
       }; 
@@ -1293,6 +1295,7 @@ export default function Game() {
         
         let adjustedTime = p.remainingTime;
         let adjustedImpact = p.roundImpact || "";
+        let impactReceivedThisRound = 0;
         
         // Check FIRE WALL immunity - this player is immune to disruptions
         const playerChar = p.isBot ? CHARACTERS.find(c => c.name === p.name) : selectedCharacter;
@@ -1303,18 +1306,22 @@ export default function Game() {
                 if (ab.effect === 'DISRUPT') {
                     // Check if this player is the target
                     if (ab.targetId === p.id) {
-                        if (ab.ability === 'MANAGER CALL') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
-                        if (ab.ability === 'AXE SWING') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
-                        if (ab.ability === 'CHEESE TAX') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
+                        if (ab.ability === 'MANAGER CALL') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; impactReceivedThisRound += 2.0; }
+                        if (ab.ability === 'AXE SWING') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; impactReceivedThisRound += 2.0; }
+                        if (ab.ability === 'CHEESE TAX') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; impactReceivedThisRound += 2.0; }
                     }
                     // Check if this is an ALL OPPONENTS effect
                     if (ab.targetName === 'ALL OPPONENTS' && p.id !== ab.playerId) {
                         adjustedTime -= 1.0; 
                         adjustedImpact = adjustedImpact ? `${adjustedImpact} -1.0s` : "-1.0s";
+                        impactReceivedThisRound += 1.0;
                     }
                 }
             });
         }
+        
+        // Track protocol wins (protocols that have "(WON)" suffix)
+        const newProtocolWins = p.protocolsTriggered.filter(prot => prot.includes('(WON)'));
         
         // Check for elimination after effects
         const isNowEliminated = adjustedTime <= 0;
@@ -1326,7 +1333,9 @@ export default function Game() {
             ...p,
             remainingTime: Math.max(0, adjustedTime),
             roundImpact: adjustedImpact,
-            isEliminated: isNowEliminated
+            isEliminated: isNowEliminated,
+            totalImpactReceived: p.totalImpactReceived + impactReceivedThisRound,
+            protocolWins: Array.from(new Set([...p.protocolWins, ...newProtocolWins]))
         };
     });
     
@@ -1638,19 +1647,19 @@ export default function Game() {
      setPlayers([
         { 
             id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false,
-            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
         },
         { 
             id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
-            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
         },
         { 
             id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
-            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
         },
         { 
             id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
-            totalTimeBid: 0, totalImpactGiven: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
         },
      ]);
   };
@@ -2301,35 +2310,44 @@ export default function Game() {
                        <span className="font-bold text-lg">{p.name}</span>
                    </div>
                    
-                   <div className="grid grid-cols-2 gap-2 text-xs">
+                   <div className="grid grid-cols-3 gap-2 text-xs">
                        <div className="bg-black/20 p-2 rounded">
                            <div className="text-zinc-500">Time Left</div>
                            <div className="font-mono text-white">{formatTime(p.remainingTime)}</div>
                        </div>
-                       <div className="bg-black/20 p-2 rounded">
-                           <div className="text-zinc-500">Events</div>
-                           <div className="font-mono text-white">{p.eventDatabasePopups?.length || 0}</div>
+                       <div className="bg-emerald-950/30 p-2 rounded border border-emerald-500/20">
+                           <div className="text-emerald-400/70">Impact Given</div>
+                           <div className="font-mono text-emerald-300">+{p.totalImpactGiven?.toFixed(1) || '0.0'}s</div>
+                       </div>
+                       <div className="bg-red-950/30 p-2 rounded border border-red-500/20">
+                           <div className="text-red-400/70">Impact Taken</div>
+                           <div className="font-mono text-red-300">-{p.totalImpactReceived?.toFixed(1) || '0.0'}s</div>
+                       </div>
+                   </div>
+                   
+                   <div className="grid grid-cols-3 gap-2 text-xs mt-2">
+                       <div className="bg-purple-950/30 p-2 rounded border border-purple-500/20" title={p.eventDatabasePopups?.join(', ') || 'None'}>
+                           <div className="text-purple-400/70">Event Toasts</div>
+                           <div className="font-mono text-purple-300">{p.eventDatabasePopups?.length || 0}</div>
+                       </div>
+                       <div className="bg-destructive/10 p-2 rounded border border-destructive/20" title={p.protocolWins?.join(', ') || 'None'}>
+                           <div className="text-destructive/70">Protocol Wins</div>
+                           <div className="font-mono text-destructive">{p.protocolWins?.length || 0}</div>
+                       </div>
+                       <div className="bg-blue-950/30 p-2 rounded border border-blue-500/20" title={p.specialEvents?.join(', ') || 'None'}>
+                           <div className="text-blue-400/70">Abilities</div>
+                           <div className="font-mono text-blue-300">{p.specialEvents?.length || 0}</div>
                        </div>
                    </div>
 
-                   {/* Stats / Badges */}
-                   <div className="flex flex-wrap gap-1 mt-1">
-                       {p.specialEvents.length > 0 && (
-                           <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-400" title={p.specialEvents.join(', ')}>
-                               {p.specialEvents.length} Events
-                           </Badge>
-                       )}
-                       {p.protocolsTriggered.length > 0 && (
-                           <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive" title={p.protocolsTriggered.join(', ')}>
-                               {p.protocolsTriggered.length} Protocols
-                           </Badge>
-                       )}
-                       {variant === 'BIO_FUEL' && (
+                   {/* Additional Mode-Specific Badges */}
+                   {variant === 'BIO_FUEL' && (
+                       <div className="flex flex-wrap gap-1 mt-1">
                            <Badge variant="outline" className="text-[10px] border-orange-500/30 text-orange-400">
                                {p.totalDrinks} Drinks
                            </Badge>
-                       )}
-                   </div>
+                       </div>
+                   )}
                 </div>
               ))}
             </div>
