@@ -51,7 +51,7 @@ import charRat from '@assets/generated_images/cyberpunk_rat_sniper_rooftop.png';
 import charBaldwin from '@assets/generated_images/cyberpunk_anointed_royal_masked_figure.png';
 import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
 import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
-import charThinker from '@assets/generated_images/roll_safe_alien_abduction_thinking.png';
+import charThinker from '@assets/generated_images/roll_safe_close-up_thinking_pose.png';
 import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
@@ -1075,8 +1075,10 @@ export default function Game() {
       // STRICT CHECK: Eliminated players CANNOT trigger or receive any effects
       if (abilitiesEnabled && !p.isEliminated && p.remainingTime > 0) {
         // Find ability for this player (User or Bot)
+        // Search ALL character pools including mode-specific ones
+        const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
         const character = p.isBot 
-           ? CHARACTERS.find(c => c.name === p.name) 
+           ? allChars.find(c => c.name === p.name) 
            : selectedCharacter;
            
         if (character?.ability) {
@@ -1586,6 +1588,10 @@ export default function Game() {
     }
     
     if (round < totalRounds) {
+      // STRICT LIFECYCLE: Clear ALL overlays and animations from previous round
+      setOverlay(null);
+      setAnimations([]);
+      
       setRound(prev => prev + 1);
       setPhase('ready');
       setPlayers(prev => prev.map(p => ({ ...p, isHolding: false, currentBid: null, roundImpact: undefined }))); // Clear impact for new round
@@ -1805,8 +1811,8 @@ export default function Game() {
                   <li>Hold button to start.</li>
                   <li>Release to bid time.</li>
                   <li>Longest time wins token.</li>
-                  <li>Early release costs: {gameDuration === 'short' ? 'Speed 1s' : gameDuration === 'long' ? 'Marathon 4s' : 'Std 2s'}</li>
-                  <li>Min Bid: 0.1s. Max Bid: Remaining Time.</li>
+                  <li>Min Bid: {gameDuration === 'short' ? '1.0s' : gameDuration === 'long' ? '4.0s' : '2.0s'}</li>
+                  <li>Max Bid: Your Remaining Time.</li>
                 </ul>
               </div>
               <div className="space-y-2 flex flex-col justify-between">

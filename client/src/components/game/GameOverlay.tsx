@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck, Crosshair, Flame, Hourglass } from "lucide-react";
+import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck, Crosshair, Flame, Hourglass, X } from "lucide-react";
 
 export type OverlayType = 
   | "round_start" 
@@ -33,16 +33,6 @@ interface GameOverlayProps {
 
 export function GameOverlay({ type, message, subMessage, onComplete }: GameOverlayProps) {
   
-  useEffect(() => {
-    if (type) {
-      // Auto-dismiss after 5 seconds
-      const timer = setTimeout(() => {
-        if (onComplete) onComplete();
-      }, 5000); 
-      return () => clearTimeout(timer);
-    }
-  }, [type, onComplete]);
-
   const variants = {
     hidden: { opacity: 0, scale: 0.8, y: 50 },
     visible: { opacity: 1, scale: 1, y: 0 },
@@ -108,19 +98,33 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
     }
   };
 
+  const handleDismiss = () => {
+    if (onComplete) onComplete();
+  };
+
   return (
     <AnimatePresence>
       {type && (
         <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none p-8 pb-32">
           <motion.div 
-            key="overlay-content" // Force re-render if needed, but framer handles it
-            className={`flex flex-col items-center justify-center py-6 px-12 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[90vw] md:min-w-[400px] text-center pointer-events-auto`}
+            key="overlay-content"
+            className={`flex flex-col items-center justify-center py-6 px-12 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[90vw] md:min-w-[400px] text-center pointer-events-auto cursor-pointer relative`}
             initial="hidden"
             animate="visible"
             exit="exit"
             variants={variants}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            onClick={handleDismiss}
           >
+            {/* Dismiss Button */}
+            <button 
+              onClick={handleDismiss}
+              className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/10 transition-colors opacity-50 hover:opacity-100"
+              title="Dismiss (or click anywhere)"
+            >
+              <X size={16} />
+            </button>
+
             <motion.div 
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
@@ -149,6 +153,15 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
                 {subMessage}
               </motion.p>
             )}
+
+            <motion.p 
+              className="text-[10px] text-zinc-500 mt-3 uppercase tracking-widest"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              Click to dismiss
+            </motion.p>
           </motion.div>
         </div>
       )}
