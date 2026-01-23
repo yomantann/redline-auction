@@ -555,7 +555,10 @@ export default function Game() {
         // Calculate deltaTime based on speed (Panic Room = 2x)
         const rawDelta = (time - startTimeRef.current) / 1000;
         const multiplier = activeProtocol === 'PANIC_ROOM' ? 2 : 1;
-        const deltaTime = rawDelta * multiplier;
+        
+        // FIX: Start at minimum bid time (penalty)
+        const startOffset = getTimerStart(); 
+        const deltaTime = (rawDelta * multiplier) + startOffset;
         
         setCurrentTime(deltaTime);
 
@@ -572,8 +575,6 @@ export default function Game() {
                      if (p.id === 'p1') {
                          if (!overLimitToastShownRef.current) {
                               overLimitToastShownRef.current = true;
-                              // We use setTimeout to avoid state update conflict or rendering issues in animation frame? 
-                              // Actually direct toast call is fine usually.
                          }
                          return { 
                              ...p, 
@@ -586,7 +587,6 @@ export default function Game() {
                      }
                      return p;
                  }));
-                 // Note: endRound will be triggered in next frame because holdingPlayers check will see p1 released (isHolding: false)
             }
         }
         
@@ -597,12 +597,7 @@ export default function Game() {
                 variant: "destructive",
                 duration: 4000
             });
-            overLimitToastShownRef.current = false; // Reset? No, wait until next round.
-            // Actually, if we reset it here, it might spam. We should reset it at start of round.
-            // But since this loop runs every frame, we need to be careful.
-            // Better to just set the flag here and handle reset in startCountdown.
-            // Wait, I can't call toast inside render/animation frame efficiently if I rely on state update.
-            // Let's just trust the flag. I'll reset the flag in startCountdown.
+            overLimitToastShownRef.current = false; 
         }
 
         // Check if everyone released
@@ -790,8 +785,15 @@ export default function Game() {
      if (gameDuration === 'long') return 4.0;
      return 2.0; // standard
   };
-  
+
   const MIN_BID = 0.1;
+
+  // New Helper for Timer Start
+  const getTimerStart = () => {
+      // Per requirements: "The round timer must start at the minimum bid second, not zero."
+      // This refers to the PENALTY value (1s/2s/4s)
+      return getPenalty();
+  };
 
   const handleRelease = () => {
     if (phase === 'ready') {
@@ -967,7 +969,7 @@ export default function Game() {
     }
 
     // Start timer at minimum bid time (penalty value)
-    const minBidTime = getPenalty();
+    const minBidTime = getTimerStart();
     setCurrentTime(minBidTime);
     setCountdown(COUNTDOWN_SECONDS);
     setPhase('countdown');
@@ -1358,35 +1360,198 @@ export default function Game() {
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
     
     // --- BIO/SOCIAL ABILITY TRIGGERS (End of Round) ---
-    // Check for "Every Round" or "Random Chance" triggers for BIO/SOCIAL modes
-    if ((variant === 'BIO_FUEL' || variant === 'SOCIAL_OVERDRIVE') && !winnerId) {
-        // Trigger logic can go here for tie rounds if needed
-    }
     
-    // Iterate players to trigger their specific mode abilities
     finalPlayers.forEach(p => {
         if (p.isEliminated) return;
         
-        // Find Character Definition
+        // Find Character Definition - Search ALL pools to be safe
+        const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
         const char = p.isBot 
-            ? [...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) 
+            ? allChars.find(c => c.name === p.name) 
             : selectedCharacter;
             
         if (!char) return;
 
-        // BIO-FUEL Logic
+        let triggered = false;
+        let abilityName = "";
+        let abilityDesc = "";
+
+        // BIO-FUEL LOGIC
         if (variant === 'BIO_FUEL' && char.bioAbility) {
             const bName = char.bioAbility.name;
+            const bDesc = char.bioAbility.description;
+            const roll = Math.random();
+
             // SADMAN LOGIC: "DRINKING PARTNER" (Every Round)
             if (bName === 'DRINKING PARTNER') {
-                newAbilities.push({
-                    player: p.name, playerId: p.id, ability: bName, effect: 'BIO_TRIGGER', 
-                    impactValue: "Check Drinking Buddy"
-                });
+                triggered = true; abilityName = bName; abilityDesc = "Check your Drinking Buddy!";
+            }
+            // TANK: "ABSORB" (Passive/Reaction - maybe triggered on drink?)
+            // DANGER ZONE: "CHAIN REACTION" (On Drink Finish - simplified to 20% chance warning)
+            else if (bName === 'CHAIN REACTION' && roll < 0.2) {
+                triggered = true; abilityName = bName; abilityDesc = "If you finish, left person finishes!";
+            }
+            // IDOL CORE: "DEBUT" (On Drink - 20% chance)
+            else if (bName === 'DEBUT' && roll < 0.2) {
+                triggered = true; abilityName = bName; abilityDesc = "Take a drink to reveal a secret!";
+            }
+            // PROM KING: "CORONATION" (Group Toast - 10% chance)
+            else if (bName === 'CORONATION' && roll < 0.1) {
+                triggered = true; abilityName = bName; abilityDesc = "Initiate Group Toast!";
+            }
+            // GUARDIAN H: "LIQUID AUTHORIZATION" (End of Round - Always? Or chance? Description says "At round end")
+            else if (bName === 'LIQUID AUTHORIZATION' && roll < 0.3) {
+                 triggered = true; abilityName = bName; abilityDesc = "Tell others: No release until you sip!";
+            }
+            // CLICK-CLICK: "MOUTH POP" (1 Random Round - 10%)
+            else if (bName === 'MOUTH POP' && roll < 0.1) {
+                 triggered = true; abilityName = bName; abilityDesc = "Pop mouth! Everyone sips!";
+            }
+            // FROSTBYTE: "BRAIN FREEZE" (1 Random Round - 10%)
+            else if (bName === 'BRAIN FREEZE' && roll < 0.1) {
+                 triggered = true; abilityName = bName; abilityDesc = "Force opponent to Win or Drink!";
+            }
+            // RAINBOW DASH: "RAINBOW SHOT" (10% chance)
+            else if (bName === 'RAINBOW SHOT' && roll < 0.1) {
+                 triggered = true; abilityName = bName; abilityDesc = "Mix two drinks!";
+            }
+            // THE ACCUSER: "SPILL HAZARD" (25% chance)
+            else if (bName === 'SPILL HAZARD' && roll < 0.25) {
+                 triggered = true; abilityName = bName; abilityDesc = "Accuse someone of spilling!";
+            }
+            // LOW FLAME: "ON FIRE" (When Winner)
+            else if (bName === 'ON FIRE' && p.id === winnerId) {
+                 triggered = true; abilityName = bName; abilityDesc = "Everyone else drinks!";
+            }
+            // WANDERING EYE: "THE EX" (10% chance)
+            else if (bName === 'THE EX' && roll < 0.1) {
+                 triggered = true; abilityName = bName; abilityDesc = "Toast to an ex!";
+            }
+            // THE RIND: "SCAVENGE" (5% chance)
+            else if (bName === 'SCAVENGE' && roll < 0.05) {
+                 triggered = true; abilityName = bName; abilityDesc = "Finish someone else's drink!";
+            }
+            // THE ANOINTED: "ROYAL CUP" (1 Random Round - 5% end)
+            else if (bName === 'ROYAL CUP' && roll < 0.05) {
+                 triggered = true; abilityName = bName; abilityDesc = "Make a rule for the game!";
+            }
+            // EXECUTIVE P: "REASSIGNED" (50% chance)
+            else if (bName === 'REASSIGNED' && roll < 0.5) {
+                 triggered = true; abilityName = bName; abilityDesc = "Choose 1 player to drink!";
+            }
+            // ALPHA PRIME: "PACE SETTER" (Every 3 rounds)
+            else if (bName === 'PACE SETTER' && round % 3 === 0) {
+                 triggered = true; abilityName = bName; abilityDesc = "Start a Waterfall!";
+            }
+            // ROLL SAFE: "BIG BRAIN" (15% chance)
+            else if (bName === 'BIG BRAIN' && roll < 0.15) {
+                 triggered = true; abilityName = bName; abilityDesc = "Pass drink to the left?";
+            }
+            // HOTWIRED: "SPICY" (20% chance)
+            else if (bName === 'SPICY' && roll < 0.2) {
+                 triggered = true; abilityName = bName; abilityDesc = "Everyone drinks!";
+            }
+            // PANIC BOT: "EMERGENCY MEETING" (25% chance)
+            else if (bName === 'EMERGENCY MEETING' && roll < 0.25) {
+                 triggered = true; abilityName = bName; abilityDesc = "Gang up on someone!";
+            }
+            // PRIMATE PRIME: "GREEDY GRAB" (5% chance)
+            else if (bName === 'GREEDY GRAB' && roll < 0.05) {
+                 triggered = true; abilityName = bName; abilityDesc = "Winner burns 40s or drinks!";
+            }
+            // PAIN HIDER: "SUPPRESS" (Passive - always reminds?)
+            else if (bName === 'SUPPRESS' && roll < 0.2) {
+                 triggered = true; abilityName = bName; abilityDesc = "Don't react or drink again!";
             }
         }
         
-        // SOCIAL OVERDRIVE Logic can be expanded here
+        // SOCIAL OVERDRIVE LOGIC
+        else if (variant === 'SOCIAL_OVERDRIVE' && char.socialAbility) {
+            const sName = char.socialAbility.name;
+            const roll = Math.random();
+
+            // PROM KING: "PROM COURT" (1 Random Round - 10%)
+            if (sName === 'PROM COURT' && roll < 0.1) {
+                triggered = true; abilityName = sName; abilityDesc = "Make a rule for the game!";
+            }
+            // IDOL CORE: "FANCAM" (10% chance)
+            else if (sName === 'FANCAM' && roll < 0.1) {
+                triggered = true; abilityName = sName; abilityDesc = "Show talent or drop button!";
+            }
+            // TANK: "PEOPLE'S ELBOW" (Every round chance - 30%)
+            else if (sName === 'PEOPLE\'S ELBOW' && roll < 0.3) {
+                triggered = true; abilityName = sName; abilityDesc = "Challenge to thumb war!";
+            }
+            // DANGER ZONE: "PRIVATE DANCE" (Every round chance - 30%)
+            else if (sName === 'PRIVATE DANCE' && roll < 0.3) {
+                triggered = true; abilityName = sName; abilityDesc = "Give a command!";
+            }
+            // GUARDIAN H: "VIBE GUARD" (Start of round - maybe late trigger here for next)
+            // CLICK-CLICK: "MISCLICK" (25% chance)
+            else if (sName === 'MISCLICK' && roll < 0.25) {
+                 triggered = true; abilityName = sName; abilityDesc = "Hold without hands!";
+            }
+            // FROSTBYTE: "COLD SHOULDER" (25% chance)
+            else if (sName === 'COLD SHOULDER' && roll < 0.25) {
+                 triggered = true; abilityName = sName; abilityDesc = "Ignore social interactions!";
+            }
+            // SADMAN LOGIC: "SAD STORY" (5% chance)
+            else if (sName === 'SAD STORY' && roll < 0.05) {
+                 triggered = true; abilityName = sName; abilityDesc = "Share a sad story.";
+            }
+            // RAINBOW DASH: "SUGAR RUSH" (15% chance)
+            else if (sName === 'SUGAR RUSH' && roll < 0.15) {
+                 triggered = true; abilityName = sName; abilityDesc = "Speak 2x speed!";
+            }
+            // THE ACCUSER: "COMPLAINT" (15% chance)
+            else if (sName === 'COMPLAINT' && roll < 0.15) {
+                 triggered = true; abilityName = sName; abilityDesc = "Vote on winner's punishment!";
+            }
+            // LOW FLAME: "HOT SEAT" (25% chance)
+            else if (sName === 'HOT SEAT' && roll < 0.25) {
+                 triggered = true; abilityName = sName; abilityDesc = "Choose player to answer Truth!";
+            }
+            // WANDERING EYE: "DISTRACTION" (Start of round - maybe late reminder)
+            // THE RIND: "SNITCH" (5% chance)
+            else if (sName === 'SNITCH' && roll < 0.05) {
+                 triggered = true; abilityName = sName; abilityDesc = "Reveal someone's tell!";
+            }
+            // THE ANOINTED: "COMMAND SILENCE" (50% chance)
+            else if (sName === 'COMMAND SILENCE' && roll < 0.5) {
+                 triggered = true; abilityName = sName; abilityDesc = "Command silence!";
+            }
+            // EXECUTIVE P: "CC'D" (20% chance)
+            else if (sName === 'CC\'D' && roll < 0.2) {
+                 triggered = true; abilityName = sName; abilityDesc = "Player copies you next round!";
+            }
+            // ALPHA PRIME: "MOG" (20% chance)
+            else if (sName === 'MOG' && roll < 0.2) {
+                 triggered = true; abilityName = sName; abilityDesc = "Stare challenge!";
+            }
+            // ROLL SAFE: "TECHNICALLY" (Passive - always active)
+            else if (sName === 'TECHNICALLY' && roll < 0.1) {
+                 triggered = true; abilityName = sName; abilityDesc = "You resolve disputes!";
+            }
+            // HOTWIRED: "VIRAL MOMENT" (Random round - 10%)
+            else if (sName === 'VIRAL MOMENT' && roll < 0.1) {
+                 triggered = true; abilityName = sName; abilityDesc = "Re-enact a meme!";
+            }
+            // PANIC BOT: "SWEATING" (Passive/Reaction)
+            else if (sName === 'SWEATING' && roll < 0.2) {
+                 triggered = true; abilityName = sName; abilityDesc = "If they mimic wipe, they drink!";
+            }
+            // PRIMATE PRIME: "FRESH CUT" (10% chance)
+            else if (sName === 'FRESH CUT' && roll < 0.1) {
+                 triggered = true; abilityName = sName; abilityDesc = "Compliment everyone!";
+            }
+        }
+
+        if (triggered) {
+            newAbilities.push({
+                player: p.name, playerId: p.id, ability: abilityName, effect: variant === 'BIO_FUEL' ? 'BIO_TRIGGER' : 'SOCIAL_TRIGGER', 
+                impactValue: abilityDesc
+            });
+        }
     });
 
     setActiveAbilities(newAbilities); // Update state for other components
@@ -1948,41 +2113,44 @@ export default function Game() {
 
               <Separator className="bg-white/10" />
 
-              {/* Bottom Row: Duration */}
-              <div className="flex items-center justify-center gap-2">
-                 <button 
-                   onClick={() => setGameDuration('short')}
-                   className={cn(
-                     "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
-                     gameDuration === 'short' 
-                       ? "bg-purple-500/20 border-purple-500 text-purple-400" 
-                       : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
-                   )}
-                 >
-                   SPEED (2.5m)
-                 </button>
-                 <button 
-                   onClick={() => setGameDuration('standard')}
-                   className={cn(
-                     "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
-                     gameDuration === 'standard' 
-                       ? "bg-primary/20 border-primary text-primary" 
-                       : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
-                   )}
-                 >
-                   STANDARD (5m)
-                 </button>
-                 <button 
-                   onClick={() => setGameDuration('long')}
-                   className={cn(
-                     "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
-                     gameDuration === 'long' 
-                       ? "bg-orange-500/20 border-orange-500 text-orange-400" 
-                       : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
-                   )}
-                 >
-                   MARATHON (10m)
-                 </button>
+              {/* Bottom Row: Game Pace */}
+              <div className="flex flex-col items-center gap-2">
+                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">GAME PACE</h3>
+                 <div className="flex items-center justify-center gap-2">
+                     <button 
+                       onClick={() => setGameDuration('short')}
+                       className={cn(
+                         "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
+                         gameDuration === 'short' 
+                           ? "bg-purple-500/20 border-purple-500 text-purple-400" 
+                           : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
+                       )}
+                     >
+                       SPEED (2.5m)
+                     </button>
+                     <button 
+                       onClick={() => setGameDuration('standard')}
+                       className={cn(
+                         "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
+                         gameDuration === 'standard' 
+                           ? "bg-primary/20 border-primary text-primary" 
+                           : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
+                       )}
+                     >
+                       STANDARD (5m)
+                     </button>
+                     <button 
+                       onClick={() => setGameDuration('long')}
+                       className={cn(
+                         "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
+                         gameDuration === 'long' 
+                           ? "bg-orange-500/20 border-orange-500 text-orange-400" 
+                           : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
+                       )}
+                     >
+                       MARATHON (10m)
+                     </button>
+                 </div>
               </div>
             </div>
             
@@ -2380,7 +2548,7 @@ export default function Game() {
                    
                    <div className="grid grid-cols-3 gap-2 text-xs mt-2">
                        <div className="bg-purple-950/30 p-2 rounded border border-purple-500/20" title={p.eventDatabasePopups?.join(', ') || 'None'}>
-                           <div className="text-purple-400/70">Event Toasts</div>
+                           <div className="text-purple-400/70">Moment Flags</div>
                            <div className="font-mono text-purple-300">{p.eventDatabasePopups?.length || 0}</div>
                        </div>
                        <div className="bg-destructive/10 p-2 rounded border border-destructive/20" title={p.protocolWins?.join(', ') || 'None'}>
@@ -2462,7 +2630,7 @@ export default function Game() {
 
              <Separator orientation="vertical" className="h-4 bg-white/10" />
 
-             {/* VARIANT TOGGLE */}
+             {/* REALITY MODE TOGGLE */}
              <div className="flex items-center gap-2">
                 <Button 
                    variant="ghost" 
@@ -2531,7 +2699,7 @@ export default function Game() {
         <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
           <DialogHeader>
             <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-primary flex items-center gap-2">
-              <CircleHelp /> EVENT DATABASE
+              <CircleHelp /> MOMENT FLAGS
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
               A guide to all special victory conditions and game events.
