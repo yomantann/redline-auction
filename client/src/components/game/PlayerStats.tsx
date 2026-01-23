@@ -13,6 +13,7 @@ interface Player {
   characterIcon?: string | React.ReactNode;
   isHolding?: boolean; // Added for Peek Logic
   roundImpact?: string; // New field for limit break impact
+  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // Structured logs
 }
 
 interface PlayerStatsProps {
@@ -65,10 +66,10 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       {/* Animation Container */}
       {children}
 
-      {/* PEEK INDICATOR OVERLAY */}
+      {/* PEEK INDICATOR OVERLAY (WANDERING EYE) */}
       {showHolding && (
-          <div className="absolute -top-3 -right-3 bg-green-500 text-black text-xs font-black px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.8)] z-50 flex items-center gap-1 border-2 border-white">
-             <User size={12} /> HOLDING
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900/90 text-emerald-400 text-4xl font-black px-6 py-2 rounded-full shadow-2xl z-50 flex items-center justify-center border-2 border-emerald-500/50 animate-pulse tracking-widest">
+             ...
           </div>
       )}
 
@@ -125,15 +126,28 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
                   {getDisplayTime()}
                 </span>
                 {/* SHOW IMPACT */}
-                {player.roundImpact && (
-                    <span className={cn(
-                        "text-sm font-bold",
-                        player.roundImpact.includes('+') ? "text-emerald-400" : 
-                        player.roundImpact.includes('-') ? "text-red-400" : "text-zinc-400"
-                    )}>
-                        {player.roundImpact}
-                    </span>
-                )}
+                <div className="flex flex-col items-start justify-center gap-0.5 ml-2 min-h-[1.5rem]">
+                    {player.impactLogs && player.impactLogs.length > 0 ? (
+                        player.impactLogs.map((log, i) => (
+                            <span key={i} className={cn(
+                                "text-xs font-bold whitespace-nowrap flex items-center gap-1",
+                                log.type === 'gain' ? "text-emerald-400" : 
+                                log.type === 'loss' ? "text-red-400" : "text-zinc-400"
+                            )}>
+                                {log.value} 
+                                <span className="text-[9px] opacity-70 font-mono uppercase tracking-wider bg-black/40 px-1 rounded border border-white/5">{log.reason}</span>
+                            </span>
+                        ))
+                    ) : player.roundImpact ? (
+                         <span className={cn(
+                             "text-sm font-bold",
+                             player.roundImpact.includes('+') ? "text-emerald-400" : 
+                             player.roundImpact.includes('-') ? "text-red-400" : "text-zinc-400"
+                         )}>
+                             {player.roundImpact}
+                         </span>
+                    ) : null}
+                </div>
             </div>
           </div>
         </div>

@@ -144,7 +144,8 @@ interface Player {
   isHolding: boolean;
   personality?: BotPersonality;
   characterIcon?: string | React.ReactNode; // Can be image URL or icon
-  roundImpact?: string; // New field to show result of last round (e.g. "+1.0s")
+  roundImpact?: string; // Legacy string for backward compatibility
+  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // NEW: Structured logs
   // Stats
   totalTimeBid: number;
   totalImpactGiven: number;
@@ -1125,10 +1126,11 @@ export default function Game() {
     // A. CALCULATE INTERMEDIATE TIMES (Bids + Penalties + Standard Disruptions)
     let tempPlayersState = players.map(p => {
         // EVEN ELIMINATED PLAYERS should be processed if needed for history, but typically we return them as is.
-        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "" };
+        if (p.isEliminated) return { ...p, roundImpact: "", impactLogs: [] as { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[] };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
+        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
 
         // Bid Deduction (Only if bid exists)
         if (p.currentBid !== null && p.currentBid > 0) {
@@ -1148,6 +1150,7 @@ export default function Game() {
         if (pending > 0) {
             newTime -= pending;
             roundImpact += ` -${pending}s (Penalty)`;
+            impactLogs.push({ value: `-${pending.toFixed(1)}s`, reason: "Penalty", type: 'loss' });
         }
 
         // Apply Standard Disruptions (Manager Call, Burn It)
@@ -1159,10 +1162,11 @@ export default function Game() {
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
                 roundImpact += ` -${d.amount}s (${d.ability})`;
+                impactLogs.push({ value: `-${d.amount.toFixed(1)}s`, reason: d.ability, type: 'loss' });
             });
         }
 
-        return { ...p, remainingTime: newTime, roundImpact };
+        return { ...p, remainingTime: newTime, roundImpact, impactLogs };
     });
 
     // B. EXECUTIVE P (AXE SWING) LOGIC - After standard calcs
@@ -1222,7 +1226,6 @@ export default function Game() {
                 : selectedCharacter;
             
             if (character?.ability?.name === 'AXE SWING') {
-                 if (sourcePlayer.id === 'p1' && !playerAbilityUsed) return;
                  if (sourcePlayer.isBot && Math.random() > 0.3) return;
 
                  // Find non-eliminated opponent with MOST time (using temp times)
@@ -1235,6 +1238,9 @@ export default function Game() {
                     if (targetIdx >= 0) {
                         tempPlayersState[targetIdx].remainingTime -= 2.0;
                         tempPlayersState[targetIdx].roundImpact += " -2.0s (Axe Swing)";
+                        if (tempPlayersState[targetIdx].impactLogs) {
+                             tempPlayersState[targetIdx].impactLogs!.push({ value: "-2.0s", reason: "Axe Swing", type: 'loss' });
+                        }
                         
                         // Add to disruptEffects for animation later
                         disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: 'AXE SWING' });
@@ -1249,35 +1255,28 @@ export default function Game() {
         if (p.isEliminated) return p;
 
         let newTime = p.remainingTime;
-        let roundImpact = p.roundImpact;
+        let roundImpact = p.roundImpact || ""; // Ensure string
+        let impactLogs = [...(p.impactLogs || [])];
         let selfGain = 0;
         
         const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
 
         // Refunds
-        // Even if p.currentBid is null (dropped), passive abilities still trigger if applicable?
-        // User: "even if a player does not bid that round(drops in prepare to bid screen), their impact ability should still happen if applicable."
         if (abilitiesEnabled && playerChar?.ability?.effect === 'TIME_REFUND') {
             const ab = playerChar.ability;
             let refund = 0;
             if (ab.name === 'CYRO FREEZE') refund = 1.0;
             if (ab.name === 'PANIC MASH') refund = (Math.random() > 0.5 ? 3.0 : -3.0);
             
-            // Conditional refunds needing a bid
             if (p.currentBid !== null && p.currentBid > 0) {
                  if (ab.name === 'RAINBOW RUN' && p.currentBid > 40) refund = 3.5;
                  if (ab.name === 'ROYAL DECREE' && Math.abs(p.currentBid - 20) <= 0.1) refund = 4.0;
-                 if (ab.name === 'HIDE PAIN') {
-                     // Need winner info for Hide Pain? No, logic is "lose by > 15s". We don't have winner yet.
-                     // We can't do Hide Pain here effectively without winner.
-                     // But we can check margin against "current leader" maybe?
-                     // Or just do it in Winner Pass.
-                 }
             }
             
             if (refund !== 0) {
                 newTime += refund;
                 roundImpact += ` ${refund > 0 ? '+' : ''}${refund}s (${ab.name})`;
+                impactLogs.push({ value: `${refund > 0 ? '+' : ''}${refund.toFixed(1)}s`, reason: ab.name, type: refund > 0 ? 'gain' : 'loss' });
                 selfGain += refund;
             }
         }
@@ -1292,19 +1291,17 @@ export default function Game() {
             remainingTime: Math.max(0, newTime),
             isEliminated: isEliminatedNow,
             roundImpact: roundImpact,
+            impactLogs: impactLogs,
             selfGain: selfGain
         };
     });
 
     // 3. DETERMINE WINNER
-    // Filter participants who are NOT eliminated
-    // "Trophy must be awarded to the longest-hold player who is not eliminated"
     const validParticipants = playersState.filter(p => 
-        participants.some(orig => orig.id === p.id) && // Was a participant
-        !p.isEliminated // Survived the round cost
+        participants.some(orig => orig.id === p.id) && 
+        !p.isEliminated
     );
 
-    // Sort by Bid Time Descending
     validParticipants.sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
 
     let winnerId: string | null = null;
@@ -1313,7 +1310,6 @@ export default function Game() {
 
     if (validParticipants.length > 0) {
         const potentialWinner = validParticipants[0];
-        // Check Tie
         const isTie = validParticipants.some(p => p.id !== potentialWinner.id && Math.abs((p.currentBid || 0) - (potentialWinner.currentBid || 0)) < 0.05);
         
         if (!isTie) {
@@ -1325,32 +1321,23 @@ export default function Game() {
              setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
         }
     } else {
-        // No valid winner (Everyone eliminated or no bids)
-        // "No No-Winner banner... if The longest holder is eliminated... Trophy goes to the next longest valid hold"
-        // We already handled "next longest valid hold" by filtering !isEliminated.
-        // So if validParticipants is empty, it truly means everyone died or nobody bid.
         if (participants.length > 0) {
-             // People bid, but everyone died.
              setOverlay({ type: "protocol_alert", message: "TOTAL WIPEOUT", subMessage: "All participants eliminated." });
         }
     }
 
     // 4. MOLE PROTOCOL EXCEPTION
-    // "If a player runs out of time while being longest hold in Mole: They lose 1 trophy"
-    // We need to find the "Raw" longest holder (ignoring elimination)
     if (activeProtocol === 'THE_MOLE' && participants.length > 0) {
-        // Sort ORIGINAL participants by bid
         const rawSorted = [...participants].sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
         const rawWinner = rawSorted[0];
         const rawWinnerState = playersState.find(p => p.id === rawWinner.id);
         
         if (rawWinnerState?.isEliminated && rawWinner.id === moleTarget) {
-            // Mole held longest but died -> Penalty
-            // We apply this penalty to playersState
             const moleIdx = playersState.findIndex(p => p.id === rawWinner.id);
             if (moleIdx >= 0) {
                 playersState[moleIdx].tokens -= 1;
-                playersState[moleIdx].roundImpact += " -1 Token (Mole Suicide)";
+                playersState[moleIdx].roundImpact = (playersState[moleIdx].roundImpact || "") + " -1 Token (Mole Suicide)";
+                playersState[moleIdx].impactLogs!.push({ value: "-1 Token", reason: "Mole Suicide", type: 'loss' });
                 setRoundLog(prev => [`>> MOLE FAILURE: ${rawWinner.name} held too long and LOST a trophy!`, ...prev]);
             }
         }
@@ -1358,24 +1345,21 @@ export default function Game() {
 
     // 5. APPLY WINNER REWARDS & CONDITIONAL ABILITIES
     const extraLogs: string[] = [];
-    const newAbilities: any[] = []; // Re-construct for animation trigger
+    const newAbilities: any[] = []; 
 
-    // Add Disruption animations
     disruptEffects.forEach(d => {
         newAbilities.push({ playerId: d.source, ability: d.ability, effect: 'DISRUPT', targetId: d.targetId, impactValue: `-${d.amount}s` });
     });
 
-    // Update Players with Winner Rewards
     const finalPlayers = playersState.map(p => {
-        // Skip eliminated (already handled)
         if (p.isEliminated && p.remainingTime <= 0) return p; 
 
         let newTokens = p.tokens;
-        let newTime = p.remainingTime; // Current valid time
-        let impact = p.roundImpact;
+        let newTime = p.remainingTime;
+        let impact = p.roundImpact || "";
+        let impactLogs = [...(p.impactLogs || [])];
 
         if (p.id === winnerId) {
-             // AWARD TOKENS
              let tokensToAdd = 1;
              if (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') {
                 tokensToAdd = 2;
@@ -1383,8 +1367,6 @@ export default function Game() {
             }
             newTokens += tokensToAdd;
 
-            // CHEF'S SPECIAL & LIMIT BREAK REFUNDS (Only if not eliminated, which we checked)
-            // "No limit break or ability may restore eligibility" -> We are winner, so we are eligible.
              if (abilitiesEnabled) {
                 const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
                 const ab = playerChar?.ability;
@@ -1404,10 +1386,10 @@ export default function Game() {
                     if (refund > 0) {
                         newTime += refund;
                         impact += ` +${refund}s (${ab.name})`;
+                        impactLogs.push({ value: `+${refund.toFixed(1)}s`, reason: ab.name, type: 'gain' });
                         newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TIME_REFUND', impactValue: `+${refund}s` });
                     }
                     
-                    // TOKEN BOOSTS
                     if (ab.effect === 'TOKEN_BOOST') {
                          if (ab.name === 'HYPER CLICK') {
                              const sortedBids = validParticipants.map(vp => vp.currentBid || 0);
@@ -1415,17 +1397,20 @@ export default function Game() {
                              if ((p.currentBid || 0) - secondPlace <= 1.1) {
                                  newTokens += 1;
                                  impact += " +1 Token (Hyper Click)";
+                                 impactLogs.push({ value: "+1 Token", reason: "Hyper Click", type: 'gain' });
                                  newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                              }
                          }
                          if (ab.name === 'TO THE MOON' && (p.currentBid || 0) > 30) {
                              newTokens += 1;
                              impact += " +1 Token (Moon)";
+                             impactLogs.push({ value: "+1 Token", reason: "To The Moon", type: 'gain' });
                              newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                          }
                          if (ab.name === 'DIVIDEND' && round % 3 === 0) {
                              newTokens += 1;
                              impact += " +1 Token (Dividend)";
+                             impactLogs.push({ value: "+1 Token", reason: "Dividend", type: 'gain' });
                              newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                          }
                     }
@@ -1433,39 +1418,24 @@ export default function Game() {
              }
         }
         
-        // MOLE WIN PENALTY (If Mole won but survived - rare but possible if time bank is huge)
         if (activeProtocol === 'THE_MOLE' && p.id === moleTarget && p.id === winnerId) {
-             newTokens -= 2; // Remove the 1 awarded + 1 penalty = net -1 change relative to expectation?
-             // Logic: "They lose 1 trophy"
-             // If I won, I got +1. So I should end up with -1 from start. So -2 total adjustment?
-             // Or just set to -1?
-             // Let's standardise: Mole Winning = -1 Token change.
-             // I added +1 above. So -2 makes it -1.
-             // Wait, if I am Mole and I win, do I get the +1 for winning? Usually no.
-             // "If Mole wins... They lose 1 trophy"
-             // So I should negate the +1 and subtract 1.
-             newTokens -= 2; // Correct.
+             newTokens -= 2; 
              impact += " -1 Token (Mole Win)";
+             impactLogs.push({ value: "-1 Token", reason: "Mole Win", type: 'loss' });
              extraLogs.push(`>> MOLE FAILURE: ${p.name} won and LOST a trophy!`);
         }
         
-        // CHEESE TAX (Loser steals from Winner)
         if (abilitiesEnabled && p.id !== winnerId && winnerId && !p.isEliminated) {
              const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
              if (playerChar?.ability?.name === 'CHEESE TAX') {
                  newTime += 2.0;
                  impact += " +2.0s (Cheese Tax)";
+                 impactLogs.push({ value: "+2.0s", reason: "Cheese Tax", type: 'gain' });
                  newAbilities.push({ playerId: p.id, ability: 'CHEESE TAX', effect: 'DISRUPT', targetId: winnerId, impactValue: "Steal 2s" });
-                 // We need to damage the winner too!
-                 // This is tricky because we are inside the map.
-                 // We can't easily modify the winner's entry from here if we already processed it or will process it.
-                 // But we can do a post-pass or mutate a lookup.
-                 // For simplicity, let's assume we handle "Winner Damage" in a separate small pass or mutable update.
-                 // Actually, let's just push a "Delayed Effect" to apply to winner.
              }
         }
 
-        return { ...p, tokens: newTokens, remainingTime: newTime, roundImpact: impact };
+        return { ...p, tokens: newTokens, remainingTime: newTime, roundImpact: impact, impactLogs: impactLogs };
     });
 
     // 6. APPLY CHEESE TAX DAMAGE TO WINNER (Post-Processing)
@@ -1474,14 +1444,14 @@ export default function Game() {
              if (p.id !== winnerId && !p.isEliminated) {
                  const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
                  if (playerChar?.ability?.name === 'CHEESE TAX') {
-                     // Find winner and subtract 2s
                      const w = finalPlayers.find(fp => fp.id === winnerId);
                      if (w) {
                          w.remainingTime = Math.max(0, w.remainingTime - 2.0);
-                         w.roundImpact += " -2.0s (Cheese Tax)";
-                         // Check if winner died from tax?
+                         w.roundImpact = (w.roundImpact || "") + " -2.0s (Cheese Tax)";
+                         if (w.impactLogs) w.impactLogs.push({ value: "-2.0s", reason: "Cheese Tax", type: 'loss' });
+                         
                          if (w.remainingTime <= 0) {
-                             w.isEliminated = true; // Late elimination
+                             w.isEliminated = true; 
                              extraLogs.push(`>> ${w.name} eliminated by Cheese Tax!`);
                          }
                      }
@@ -1867,8 +1837,8 @@ export default function Game() {
                    show = true;
                    title = `⚠️ WARNING: ${ability.player}`;
                    desc = `${ability.ability} HIT YOU! (-TIME)`;
-                   variant = "destructive";
-                   className += " bg-red-950 border-red-500 text-red-100";
+                   // variant = "destructive"; // User requested non-destructive style for "Reality Mode" (assumed to be this)
+                   className += " bg-blue-950 border-blue-500 text-blue-100";
                } 
                // Case 3: Global effect hitting everyone (including me)
                else if (ability.targetName === 'ALL OPPONENTS') {
@@ -2498,8 +2468,9 @@ export default function Game() {
                     let isVisible = true;
                     if (p.id !== 'p1') {
                          if (scrambledPlayers.includes(p.id)) isVisible = false;
-                         // If we are in "Wandering Eye" mode (implied by existence of peekTargetId for 'bf' check, or just non-empty scrambledPlayers)
-                         // logic above handles it.
+                         // Wandering Eye Logic: Only visible if I AM HOLDING
+                         const amIHolding = players.find(me => me.id === 'p1')?.isHolding;
+                         if (!amIHolding) isVisible = false;
                     }
 
                     return (
@@ -2521,7 +2492,7 @@ export default function Game() {
           <div className="flex flex-col items-center justify-center h-[450px]"> 
              <div className="h-[100px] flex flex-col items-center justify-center space-y-2"> 
               <h2 className="text-3xl font-display text-destructive">PREPARE TO BID</h2>
-              <p className="text-muted-foreground">Release now to abandon auction (-0.1s)</p>
+              <p className="text-muted-foreground">Release now to abandon auction (-{getTimerStart().toFixed(1)}s)</p>
             </div>
             
             <div className="h-[280px] flex items-center justify-center relative"> 
