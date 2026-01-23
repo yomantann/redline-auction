@@ -128,7 +128,8 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
                 {player.roundImpact && (
                     <span className={cn(
                         "text-sm font-bold",
-                        player.roundImpact.includes('+') ? "text-emerald-400" : "text-red-400"
+                        player.roundImpact.includes('+') ? "text-emerald-400" : 
+                        player.roundImpact.includes('-') ? "text-red-400" : "text-zinc-400"
                     )}>
                         {player.roundImpact}
                     </span>

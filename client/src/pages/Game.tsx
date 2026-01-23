@@ -1092,7 +1092,7 @@ export default function Game() {
                          disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
                      }
                  } else if (ab.name === 'BURN IT') {
-                     // Hit EVERYONE (except Roll Safe)
+                     // Hit EVERYONE (except Roll Safe) - Hotwired: Remove 1s from everyone else
                      players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId).forEach(target => {
                          disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, ability: ab.name });
                      });
@@ -1105,33 +1105,26 @@ export default function Game() {
 
     // A. CALCULATE INTERMEDIATE TIMES (Bids + Penalties + Standard Disruptions)
     let tempPlayersState = players.map(p => {
+        // EVEN ELIMINATED PLAYERS should be processed if needed for history, but typically we return them as is.
         if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "" };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
 
-        // Bid Deduction
+        // Bid Deduction (Only if bid exists)
         if (p.currentBid !== null && p.currentBid > 0) {
              const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
-             
-             // FIRE WALL CHECK (Low Flame)
              const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
              
-             // Check Protocol Immunity via Fire Wall
-             if (hasFireWall && activeProtocol && activeProtocol !== 'THE_MOLE') {
-                  // If a protocol hits them, Fire Wall protects?
-                  // Protocols usually impact game state or are overlays.
-                  // If it's a PENALTY protocol like Check Minimum Bid...
-             }
-
+             // MOLE Exception
              if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
-                 // Mole Exception (Free)
+                 // Free
              } else {
                  newTime -= p.currentBid;
              }
         }
 
-        // Pending Penalties
+        // Pending Penalties (Applied regardless of bid)
         const pending = pendingPenalties[p.id] || 0;
         if (pending > 0) {
             newTime -= pending;
@@ -1139,10 +1132,12 @@ export default function Game() {
         }
 
         // Apply Standard Disruptions (Manager Call, Burn It)
+        // Fire Wall BLOCKS PROTOCOLS & DISRUPTIONS
+        // "Fire Wall: Immune to ALL protocols and disruptions" -> So yes, disruptions blocked.
         const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
         const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
 
-        if (!hasFireWall && p.id !== rollSafeId) { // Roll Safe Immunity + Fire Wall Immunity
+        if (!hasFireWall && p.id !== rollSafeId) { 
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
@@ -1156,6 +1151,54 @@ export default function Game() {
     });
 
     // B. EXECUTIVE P (AXE SWING) LOGIC - After standard calcs
+    // "Remove 2s from non-eliminated opponent with most time."
+    // Consistent check: Roll Safe is immune. Low Flame (Fire Wall) is immune if disruption.
+    // User said: "Hotwired (Burn It) needs to remove 1s from everyone... Low Flame is NOT exception (Low Flame only blocks Protocols)."
+    // Re-reading User: "Please review low flame to make sure they are not stopping any abilities only protocols for themself."
+    // OKAY: Fire Wall should NOT block Character Abilities (Disruptions), only Protocols.
+    
+    // CORRECTION FOR STEP A (Hotwired/Manager Call):
+    // Fire Wall should NOT block these if they are character abilities.
+    // But existing code checked `!hasFireWall` for disruptions. Removing that check.
+    
+    // Let's re-run the logic for STEP A with this correction.
+    
+    tempPlayersState = players.map(p => {
+        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "" };
+
+        let newTime = p.remainingTime;
+        let roundImpact = "";
+
+        // Bid Deduction
+        if (p.currentBid !== null && p.currentBid > 0) {
+             if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
+                 // Free
+             } else {
+                 newTime -= p.currentBid;
+             }
+        }
+
+        // Pending Penalties
+        const pending = pendingPenalties[p.id] || 0;
+        if (pending > 0) {
+            newTime -= pending;
+            roundImpact += ` -${pending}s (Penalty)`;
+        }
+
+        // Apply Standard Disruptions (Manager Call, Burn It)
+        // Fire Wall does NOT block character abilities per user request.
+        // Roll Safe IS immune.
+        if (p.id !== rollSafeId) { 
+             const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
+             myDisrupts.forEach(d => {
+                newTime -= d.amount;
+                roundImpact += ` -${d.amount}s (${d.ability})`;
+            });
+        }
+
+        return { ...p, remainingTime: newTime, roundImpact };
+    });
+
     if (abilitiesEnabled) {
          players.forEach(sourcePlayer => {
             if (sourcePlayer.isEliminated) return;
@@ -1197,14 +1240,25 @@ export default function Game() {
         const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
 
         // Refunds
+        // Even if p.currentBid is null (dropped), passive abilities still trigger if applicable?
+        // User: "even if a player does not bid that round(drops in prepare to bid screen), their impact ability should still happen if applicable."
         if (abilitiesEnabled && playerChar?.ability?.effect === 'TIME_REFUND') {
             const ab = playerChar.ability;
             let refund = 0;
             if (ab.name === 'CYRO FREEZE') refund = 1.0;
-            // JAWLINE is handled in countdown/release (penalty = 0), NOT here as refund.
-            // "Thus they should not be refunded time if they actually bid" -> Correct, removed JAWLINE here.
-            
             if (ab.name === 'PANIC MASH') refund = (Math.random() > 0.5 ? 3.0 : -3.0);
+            
+            // Conditional refunds needing a bid
+            if (p.currentBid !== null && p.currentBid > 0) {
+                 if (ab.name === 'RAINBOW RUN' && p.currentBid > 40) refund = 3.5;
+                 if (ab.name === 'ROYAL DECREE' && Math.abs(p.currentBid - 20) <= 0.1) refund = 4.0;
+                 if (ab.name === 'HIDE PAIN') {
+                     // Need winner info for Hide Pain? No, logic is "lose by > 15s". We don't have winner yet.
+                     // We can't do Hide Pain here effectively without winner.
+                     // But we can check margin against "current leader" maybe?
+                     // Or just do it in Winner Pass.
+                 }
+            }
             
             if (refund !== 0) {
                 newTime += refund;
