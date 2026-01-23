@@ -51,7 +51,7 @@ import charRat from '@assets/generated_images/cyberpunk_rat_sniper_rooftop.png';
 import charBaldwin from '@assets/generated_images/cyberpunk_anointed_royal_masked_figure.png';
 import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
 import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
-import charThinker from '@assets/generated_images/roll_safe_close-up_thinking_pose.png';
+import charThinker from '@assets/generated_images/roll_safe_medium_shot.png';
 import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
@@ -1357,6 +1357,40 @@ export default function Game() {
     setPlayers(finalPlayers);
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
     
+    // --- BIO/SOCIAL ABILITY TRIGGERS (End of Round) ---
+    // Check for "Every Round" or "Random Chance" triggers for BIO/SOCIAL modes
+    if ((variant === 'BIO_FUEL' || variant === 'SOCIAL_OVERDRIVE') && !winnerId) {
+        // Trigger logic can go here for tie rounds if needed
+    }
+    
+    // Iterate players to trigger their specific mode abilities
+    finalPlayers.forEach(p => {
+        if (p.isEliminated) return;
+        
+        // Find Character Definition
+        const char = p.isBot 
+            ? [...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) 
+            : selectedCharacter;
+            
+        if (!char) return;
+
+        // BIO-FUEL Logic
+        if (variant === 'BIO_FUEL' && char.bioAbility) {
+            const bName = char.bioAbility.name;
+            // SADMAN LOGIC: "DRINKING PARTNER" (Every Round)
+            if (bName === 'DRINKING PARTNER') {
+                newAbilities.push({
+                    player: p.name, playerId: p.id, ability: bName, effect: 'BIO_TRIGGER', 
+                    impactValue: "Check Drinking Buddy"
+                });
+            }
+        }
+        
+        // SOCIAL OVERDRIVE Logic can be expanded here
+    });
+
+    setActiveAbilities(newAbilities); // Update state for other components
+
     // --- DETERMINE OVERLAY TYPE ---
     let overlayType: OverlayType = null;
     let overlayMsg = "";
@@ -1477,16 +1511,17 @@ export default function Game() {
     });
 
     // Notify all activated abilities
-    if (activeAbilities.length > 0) {
+    // Use newAbilities (local) for immediate trigger, update activeAbilities state above
+    if (newAbilities.length > 0) {
         setTimeout(() => {
-            activeAbilities.forEach((ability) => {
+            newAbilities.forEach((ability) => {
                let show = false;
                let title = `${ability.player}: LIMIT BREAK`;
                let desc = `${ability.ability} ACTIVATED`;
-               let variant = "default"; // blue/normal
+               let variant: "default" | "destructive" | null = "default"; // blue/normal
                let className = "text-xl py-6 px-8 border-2 shadow-xl"; // Default larger styles
 
-               // Case 1: I cast it
+               // Case 1: I cast it OR I am the target (Consistent Popups)
                if (ability.playerId === 'p1') {
                    show = true;
                    if (ability.targetName) {
@@ -1498,6 +1533,9 @@ export default function Game() {
                    } else if (ability.effect === 'TOKEN_BOOST') {
                         desc += " (+TOKENS)";
                         className += " bg-yellow-950 border-yellow-500 text-yellow-100";
+                   } else if (ability.effect === 'BIO_TRIGGER') {
+                        title = `${ability.player}: BIO-FUEL EVENT`;
+                        className += " bg-orange-950 border-orange-500 text-orange-100";
                    } else {
                         className += " bg-blue-950 border-blue-500 text-blue-100";
                    }
@@ -1519,22 +1557,31 @@ export default function Game() {
                    className += " bg-orange-950 border-orange-500 text-orange-100";
                }
                // Case 4: Special Notification for Click-Click winning 2 tokens
-               else if (ability.ability === 'HYPER CLICK' && ability.effect === 'TOKEN_BOOST' && activeAbilities.some(a => a.playerId === 'p1')) {
-                   // If I am p1 and I see someone else triggered this? No, ability.playerId is the caster.
-                   // If *someone else* got a token boost, maybe we want to know?
-                   // User asked: "Click won and got 2 tokens, but I want that to either show more clearly or have some sort of dialogue to notify the others."
+               else if (ability.ability === 'HYPER CLICK' && ability.effect === 'TOKEN_BOOST' && newAbilities.some(a => a.playerId === 'p1')) {
                    show = true;
                    title = `${ability.player} BONUS!`;
                    desc = "HYPER CLICK AWARDED +1 TOKEN!";
                    className += " bg-purple-950 border-purple-500 text-purple-100";
                }
+               // Case 5: BIO Trigger for others (Maybe show generic?)
+               else if (ability.effect === 'BIO_TRIGGER' && ability.targetId === 'p1') {
+                   show = true;
+                   title = `${ability.player}: BIO EVENT`;
+                   className += " bg-orange-950 border-orange-500 text-orange-100";
+               }
 
                if (show) {
+                   setOverlay({
+                       type: 'ability_trigger',
+                       message: title,
+                       subMessage: desc
+                   });
+                   // Also toast for history
                    toast({
                      title: title,
                      description: desc,
                      className: className,
-                     duration: 12000, // Double duration (was 6000)
+                     duration: 12000, 
                    });
                }
             });
