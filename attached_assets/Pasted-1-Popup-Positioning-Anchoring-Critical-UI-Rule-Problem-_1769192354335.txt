@@ -1,0 +1,154 @@
+1. Popup Positioning & Anchoring (Critical UI Rule)
+
+
+Problem to fix:
+
+Protocol and Reality Mode popups are appearing offset (top/right) and can overlap the bid button.
+
+
+
+Required behavior:
+
+All interactive popups (Protocols, Reality Mode effects, Moment Flags, driver-specific effects):
+
+Must be horizontally centered
+
+Must be vertically anchored relative to the primary action button
+
+
+
+Anchoring rules:
+
+During active bidding:
+
+Popup is centered directly below the Bid / Hold button
+
+After a round is complete:
+
+Popup is centered directly below the “Next Round” button
+
+Popups must never overlap:
+
+Bid / Hold button
+
+Next Round button
+
+Time bank display
+
+
+
+Implementation note:
+
+Popups should be positioned relative to the button container, not absolute screen coordinates.
+
+2. Driver Abilities Must Trigger Independently of Bidding
+
+
+Problem to fix:
+
+Some driver abilities do not trigger if the player does not place a bid.
+
+
+
+Required behavior:
+
+Driver abilities:
+
+Must trigger based on their defined condition
+
+Must not require the player to bid unless explicitly stated
+
+Ability triggers must be evaluated:
+
+Even if the player:
+
+Did not bid
+
+Was inactive during the round
+
+Was impacted by protocols or Reality Mode effects
+
+
+
+Specific fixes:
+
+Executive P:
+
+Ability must only target players not eliminated before or during that round
+
+Currently failing this constraint
+
+Hotwired:
+
+Ability is not triggering at all — ensure trigger logic is executed every round
+
+Wandering Eye:
+
+Random “who is holding” logic must:
+
+Select exactly one random player
+
+Display holding animation only on that player’s card
+
+Not reveal others
+
+3. Multiple Impacts on One Player (Visual Clarity Rule)
+
+
+Problem to fix:
+
+When multiple impacts affect one player, visuals are unclear or overwritten.
+
+
+
+Required behavior:
+
+If a player receives multiple impacts in the same round:
+
+Each impact must be represented on the player card
+
+Impacts must:
+
+Stack vertically or in a row
+
+Use distinct, consistent colors based on impact type
+
+Time loss
+
+Time gain
+
+Forced action
+
+Trophy impact
+
+No impact should visually replace or hide another unless explicitly designed to override
+
+4. Prepare to Bid Countdown Must Be Game Pace–Aware
+
+
+Problem to fix:
+
+Prepare-to-bid screen incorrectly shows -0.1s.
+
+
+
+Required behavior:
+
+The prepare-to-bid countdown:
+
+Must be fully dynamic
+
+Must reflect the Game Pace–specific minimum betting delay
+
+Example:
+
+Marathon with 4s minimum → countdown starts at 4.0
+
+Faster Game Pace → shorter countdown
+
+Countdown must:
+
+Never show negative values
+
+End exactly when bidding becomes available
+

@@ -1080,9 +1080,27 @@ export default function Game() {
             
             if (character?.ability?.effect === 'DISRUPT') {
                 const ab = character.ability;
-                // LOGIC MOVED FROM INSIDE MAP LOOP TO HERE FOR GLOBAL CONTEXT
-                if (sourcePlayer.id === 'p1' && !playerAbilityUsed) return; // Player must activate ability
-                if (sourcePlayer.isBot && Math.random() > 0.3) return; // Bots have 30% chance to use ability
+                
+                // DRIVER LOGIC: Must trigger consistently regardless of bidding/dropping
+                const isDriver = !sourcePlayer.isBot;
+                
+                // Executive P & Hotwired & Manager Call should trigger every round
+                // Bots usually have random chance, but for these specific powerful drivers, we might want consistency 
+                // or at least higher chance. User said: "Hotwired ... is not triggering at all".
+                // Let's force trigger for specific abilities if source is bot, or always if player.
+                
+                let shouldTrigger = false;
+                if (isDriver) shouldTrigger = true; // Player always triggers passive/active automatically
+                else {
+                    // Bot Logic
+                    if (ab.name === 'AXE SWING' || ab.name === 'BURN IT' || ab.name === 'MANAGER CALL') {
+                        shouldTrigger = true; // ALWAYS trigger for these powerful passives
+                    } else {
+                        shouldTrigger = Math.random() > 0.3; // 70% chance for others
+                    }
+                }
+
+                if (!shouldTrigger) return;
 
                  if (ab.name === 'MANAGER CALL') {
                      // Hit 1 RANDOM opponent (except Roll Safe)
@@ -1092,7 +1110,8 @@ export default function Game() {
                          disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
                      }
                  } else if (ab.name === 'BURN IT') {
-                     // Hit EVERYONE (except Roll Safe) - Hotwired: Remove 1s from everyone else
+                     // Hit EVERYONE (except Roll Safe)
+                     // Hotwired: Remove 1s from everyone else
                      players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId).forEach(target => {
                          disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, ability: ab.name });
                      });
@@ -1132,19 +1151,15 @@ export default function Game() {
         }
 
         // Apply Standard Disruptions (Manager Call, Burn It)
-        // Fire Wall BLOCKS PROTOCOLS & DISRUPTIONS
-        // "Fire Wall: Immune to ALL protocols and disruptions" -> So yes, disruptions blocked.
-        const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
-        const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
-
-        if (!hasFireWall && p.id !== rollSafeId) { 
+        // Fire Wall BLOCKS PROTOCOLS but NOT DISRUPTIONS (Abilities) per user request.
+        // Roll Safe BLOCKS ALL.
+        
+        if (p.id !== rollSafeId) { 
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
                 roundImpact += ` -${d.amount}s (${d.ability})`;
             });
-        } else if (hasFireWall && disruptEffects.some(d => d.targetId === p.id)) {
-             roundImpact += " (Fire Wall Block)";
         }
 
         return { ...p, remainingTime: newTime, roundImpact };
@@ -2473,12 +2488,26 @@ export default function Game() {
             
             <div className="h-[50px] flex flex-col items-center justify-start gap-2">
                 <div className="flex gap-2">
-                  {players.map(p => (
+                  {players.map(p => {
+                    // Visibilty Logic for Holding Dots
+                    // 1. P1 always visible
+                    // 2. If scrambled, show as not holding (or special state?) - User said "Display holding animation ONLY on that player"
+                    // 3. If peekTargetId is active, and p is that target, show.
+                    // 4. Default: Show all.
+                    
+                    let isVisible = true;
+                    if (p.id !== 'p1') {
+                         if (scrambledPlayers.includes(p.id)) isVisible = false;
+                         // If we are in "Wandering Eye" mode (implied by existence of peekTargetId for 'bf' check, or just non-empty scrambledPlayers)
+                         // logic above handles it.
+                    }
+
+                    return (
                     <div key={p.id} className={cn(
                       "w-3 h-3 rounded-full transition-colors duration-300",
-                      p.isHolding ? "bg-primary shadow-[0_0_10px_var(--color-primary)]" : "bg-zinc-800"
+                      (p.isHolding && isVisible) ? "bg-primary shadow-[0_0_10px_var(--color-primary)]" : "bg-zinc-800"
                     )} title={p.name} />
-                  ))}
+                  )})}
                 </div>
                 <p className="text-xs text-zinc-500 uppercase tracking-widest">
                   {players.filter(p => p.isHolding).length} / {players.length} READY
@@ -2503,12 +2532,20 @@ export default function Game() {
                   {countdown}
                </div>
 
-               <div className="z-10">
+               <div className="z-10 relative">
                  <AuctionButton 
                     onPress={() => {}} 
                     onRelease={handleRelease} 
                     isPressed={players.find(p => p.id === 'p1')?.isHolding}
                     disabled={!players.find(p => p.id === 'p1')?.isHolding} 
+                  />
+                  {/* Inline Overlay for Countdown Phase */}
+                  <GameOverlay 
+                    type={overlay?.type || null} 
+                    message={overlay?.message} 
+                    subMessage={overlay?.subMessage} 
+                    onComplete={() => setOverlay(null)} 
+                    inline={true}
                   />
                </div>
             </div>
@@ -2541,15 +2578,25 @@ export default function Game() {
                 )}
              </div>
             
-            <div className="h-[280px] flex items-center justify-center">
-              <AuctionButton 
-                onPress={() => {}} 
-                onRelease={handleRelease} 
-                isPressed={players.find(p => p.id === 'p1')?.isHolding}
-                disabled={!players.find(p => p.id === 'p1')?.isHolding}
-                isWaiting={false} // No waiting in bidding phase visually
-                showPulse={false}
-              />
+            <div className="h-[280px] flex items-center justify-center relative">
+               <div className="relative">
+                  <AuctionButton 
+                    onPress={() => {}} 
+                    onRelease={handleRelease} 
+                    isPressed={players.find(p => p.id === 'p1')?.isHolding}
+                    disabled={!players.find(p => p.id === 'p1')?.isHolding}
+                    isWaiting={false} // No waiting in bidding phase visually
+                    showPulse={false}
+                  />
+                  {/* Inline Overlay for Bidding Phase */}
+                  <GameOverlay 
+                    type={overlay?.type || null} 
+                    message={overlay?.message} 
+                    subMessage={overlay?.subMessage} 
+                    onComplete={() => setOverlay(null)} 
+                    inline={true}
+                  />
+              </div>
             </div>
             
              <div className="h-[50px] flex flex-col items-center justify-start">
@@ -2563,8 +2610,13 @@ export default function Game() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center justify-center space-y-8 mt-10 max-w-md mx-auto h-[450px]"
+            className="flex flex-col items-center justify-center space-y-8 mt-10 max-w-md mx-auto h-[450px] relative"
           >
+            {/* Inline Overlay for Round End Phase - Positioned centrally/top or relative to content? 
+                User said "below Next Round button". But typically popups are alerts.
+                If I put it relative to the container, it might overlap.
+                Let's put it below the button. */}
+                
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-display text-muted-foreground">ROUND {round} RESULTS</h2>
               {roundWinner ? (
@@ -2635,6 +2687,14 @@ export default function Game() {
             <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
               NEXT ROUND
             </Button>
+            {/* Inline Overlay for Round End Phase */}
+             <GameOverlay 
+               type={overlay?.type || null} 
+               message={overlay?.message} 
+               subMessage={overlay?.subMessage} 
+               onComplete={() => setOverlay(null)} 
+               inline={true}
+             />
           </motion.div>
         );
 
@@ -2705,12 +2765,6 @@ export default function Game() {
 
   return (
     <GameLayout>
-      <GameOverlay 
-        type={overlay?.type || null} 
-        message={overlay?.message} 
-        subMessage={overlay?.subMessage} 
-        onComplete={() => setOverlay(null)} 
-      />
 
       {/* Header Info */}
       <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">

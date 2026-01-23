@@ -29,12 +29,13 @@ interface GameOverlayProps {
   message?: string;
   subMessage?: string;
   onComplete?: () => void;
+  inline?: boolean;
 }
 
-export function GameOverlay({ type, message, subMessage, onComplete }: GameOverlayProps) {
+export function GameOverlay({ type, message, subMessage, onComplete, inline = false }: GameOverlayProps) {
   
   const variants = {
-    hidden: { opacity: 0, scale: 0.8, y: 50 },
+    hidden: { opacity: 0, scale: 0.8, y: inline ? 10 : 50 },
     visible: { opacity: 1, scale: 1, y: 0 },
     exit: { opacity: 0, scale: 1.1, filter: "blur(10px)" }
   };
@@ -105,10 +106,10 @@ export function GameOverlay({ type, message, subMessage, onComplete }: GameOverl
   return (
     <AnimatePresence>
       {type && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
+        <div className={inline ? "absolute left-1/2 -translate-x-1/2 top-full mt-4 z-50 flex items-center justify-center pointer-events-none w-max" : "fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4"}>
           <motion.div 
             key="overlay-content"
-            className={`flex flex-col items-center justify-center py-6 px-12 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[300px] md:min-w-[400px] text-center pointer-events-auto cursor-pointer relative mt-64`}
+            className={`flex flex-col items-center justify-center py-6 px-12 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[300px] md:min-w-[400px] text-center pointer-events-auto cursor-pointer relative ${inline ? "" : "mt-64"}`}
             initial="hidden"
             animate="visible"
             exit="exit"
