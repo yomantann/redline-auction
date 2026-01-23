@@ -308,6 +308,7 @@ export default function Game() {
   const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
   const [readyHoldTime, setReadyHoldTime] = useState(0);
   const [moleTarget, setMoleTarget] = useState<string | null>(null);
+  const [peekTargetId, setPeekTargetId] = useState<string | null>(null); // New state for Sadman/Pepe peek
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
   const [showProtocolSelect, setShowProtocolSelect] = useState(false);
   const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
@@ -967,6 +968,52 @@ export default function Game() {
       setActiveProtocol(null);
     }
 
+    // --- ABILITY TRIGGERS: PREPARE_TO_BID ---
+    // Handle triggers that happen right before countdown starts
+    const selectedChar = selectedCharacter;
+    if (selectedChar) {
+        // GUARDIAN H: VIBE GUARD (Social)
+        if (selectedChar.id === 'harambe' && variant === 'SOCIAL_OVERDRIVE') {
+             // Override existing overlay if any (Protocol alert takes precedence usually, but character ability is critical)
+             // Using timeout to queue it if protocol popup exists, or just show it if no protocol
+             setTimeout(() => {
+                 setOverlay({ type: "protocol_alert", message: "VIBE GUARD ACTIVE", subMessage: "Designate a player immune to social dares this round." });
+             }, 100); 
+        }
+        
+        // WINTER: COLD SHOULDER (Social)
+        if (selectedChar.id === 'winter' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.25) {
+             setTimeout(() => {
+                 setOverlay({ type: "protocol_alert", message: "COLD SHOULDER", subMessage: "Ignore all social interactions this round." });
+             }, 100);
+        }
+
+        // WANDERING EYE: DISTRACTION (Social)
+        if (selectedChar.id === 'bf' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.35) {
+             setTimeout(() => {
+                 setOverlay({ type: "protocol_alert", message: "DISTRACTION OPPORTUNITY", subMessage: "Point at something! Anyone who looks must drop buzzer." });
+             }, 100);
+        }
+
+        // GIGACHAD: MOG (Social)
+        if (selectedChar.id === 'gigachad' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.20) {
+             setTimeout(() => {
+                 setOverlay({ type: "protocol_alert", message: "MOG CHECK", subMessage: "Stare challenge! Loser drops button." });
+             }, 100);
+        }
+        
+        // SADMAN: SAD REVEAL (Passive - PEEK Selection)
+        if (selectedChar.id === 'pepe') {
+             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
+             if (opponents.length > 0) {
+                 const target = opponents[Math.floor(Math.random() * opponents.length)];
+                 setPeekTargetId(target.id);
+             }
+        } else {
+             setPeekTargetId(null);
+        }
+    }
+
     // Start timer at minimum bid time (penalty value)
     const minBidTime = getTimerStart();
     setCurrentTime(minBidTime);
@@ -1355,8 +1402,8 @@ export default function Game() {
             else if (bName === 'CORONATION' && roll < 0.1) {
                 triggered = true; abilityName = bName; abilityDesc = "Initiate Group Toast!";
             }
-            // GUARDIAN H: "LIQUID AUTHORIZATION" (End of Round - Always? Or chance? Description says "At round end")
-            else if (bName === 'LIQUID AUTHORIZATION' && roll < 0.3) {
+            // GUARDIAN H: "LIQUID AUTHORIZATION" (End of Round - Always Active)
+            else if (bName === 'LIQUID AUTHORIZATION') {
                  triggered = true; abilityName = bName; abilityDesc = "Tell others: No release until you sip!";
             }
             // CLICK-CLICK: "MOUTH POP" (1 Random Round - 10%)
@@ -1684,11 +1731,16 @@ export default function Game() {
                    desc = "HYPER CLICK AWARDED +1 TOKEN!";
                    className += " bg-purple-950 border-purple-500 text-purple-100";
                }
-               // Case 5: BIO Trigger for others (Maybe show generic?)
-               else if (ability.effect === 'BIO_TRIGGER' && ability.targetId === 'p1') {
+               // Case 5: BIO/SOCIAL Trigger for others (Visible Event)
+               else if (ability.effect === 'BIO_TRIGGER' || ability.effect === 'SOCIAL_TRIGGER') {
                    show = true;
-                   title = `${ability.player}: BIO EVENT`;
-                   className += " bg-orange-950 border-orange-500 text-orange-100";
+                   title = `${ability.player}: ${ability.effect === 'BIO_TRIGGER' ? 'BIO' : 'SOCIAL'} EVENT`;
+                   // Specific coloring for visibility
+                   if (ability.effect === 'BIO_TRIGGER') {
+                       className += " bg-orange-950 border-orange-500 text-orange-100";
+                   } else {
+                       className += " bg-purple-950 border-purple-500 text-purple-100";
+                   }
                }
 
                if (show) {
@@ -2854,9 +2906,9 @@ export default function Game() {
                 // Show time if: Easy Mode OR Game Over OR Player Eliminated
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
-                peekActive={peekActive}
+                peekActive={selectedCharacter?.id === 'pepe' && peekTargetId === p.id}
                 isDoubleTokens={isDoubleTokens}
-                isSystemFailure={activeProtocol === 'SYSTEM_FAILURE'}
+                isSystemFailure={activeProtocol === 'SYSTEM_FAILURE' || (p.id === 'p1' && selectedCharacter?.id === 'pepe')}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
