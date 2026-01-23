@@ -1,0 +1,96 @@
+Scope: Full audit and correction of elimination logic. Be strict. Elimination is determined after all protocol effects are applied, but once determined it cannot be reversed.
+
+
+
+1. Order of Operations (Critical)
+
+
+For every bid and round resolution, logic must run in this exact order:
+
+Apply all Protocol effects that modify time bank, bid cost, penalties, or protections
+
+Recalculate the player’s remaining time bank
+
+Determine elimination based on the updated time bank
+
+Lock elimination state (cannot be undone by limit breaks or other effects)
+
+
+
+Limit breaks and abilities cannot override elimination once step 3 is reached.
+
+2. Eliminated Player State
+
+
+If a player is eliminated after protocol calculations:
+
+Their bet button becomes disabled
+
+They cannot bid or ready up
+
+The round continues without waiting for them
+
+No limit break or ability may restore eligibility in that round
+
+3. Trophy Eligibility After Elimination
+
+
+A player eliminated in a round:
+
+Cannot win the trophy, even if they held longest earlier
+
+This includes eliminations caused by protocol-modified time loss
+
+Trophy must be awarded to the longest-hold player who is not eliminated
+
+4. No-Winner Banner Rules
+
+
+The No Winner state should occur only if all players are eliminated.
+
+
+
+If:
+
+The longest holder is eliminated
+
+At least one non-eliminated player exists
+
+→ Trophy goes to the next longest valid hold
+
+
+
+No No-Winner banner in this case.
+
+5. Time Bank Overhold Behavior
+
+
+Holding longer than available time bank:
+
+Does not remove a trophy by default
+
+Elimination is already handled by time bank reaching zero
+
+
+
+Exception – Mole Protocol Only
+
+If a player runs out of time while being longest hold in Mole:
+
+They lose 1 trophy
+
+Trophy goes to the next longest non-eliminated player
+
+6. Single Player Elimination Flow
+
+
+In single-player mode:
+
+If the main player is eliminated:
+
+Skip all remaining bot-only actions
+
+Immediately resolve the game using current state
+
+Do not simulate rounds the player did not participate in
+

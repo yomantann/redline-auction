@@ -6,7 +6,6 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
-import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -1031,7 +1030,8 @@ export default function Game() {
       let newTime = p.remainingTime;
       let newTokens = p.tokens;
       let roundImpact = ""; // Store impact string for UI
-      let playerImpactGiven = 0; // Track impact given by this player
+      let playerSelfGain = 0; // NEW: Track time refunded/gained by self
+      let playerDamageDealt = 0; // NEW: Track damage dealt to others
       let playerSpecialEvents: string[] = [...p.specialEvents];
       let playerEventPopups: string[] = [...(p.eventDatabasePopups || [])]; // Track Popups
       let playerProtocols: string[] = [...p.protocolsTriggered, ...triggeredProtocols.filter(() => Math.random() > 0.5)]; 
@@ -1089,34 +1089,41 @@ export default function Game() {
             let targetName = "";
             let targetId = "";
             let impactVal = "";
+            let selfGainAmount = 0; // Temp var for this specific ability
             
             // TIME REFUNDS
             if (ability.effect === 'TIME_REFUND') {
                 if (ability.name === 'SPIRIT SHIELD') { 
                     // +11s if you win Round 1 (Limit Break ability)
                     if (round === 1 && p.id === winnerId) { 
-                        newTime += 11.0; triggered = true; impactVal = "+11.0s"; 
+                        selfGainAmount = 11.0; triggered = true; impactVal = "+11.0s"; 
                     }
                 }
-                if (ability.name === 'CYRO FREEZE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
-                if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { newTime += 3.5; triggered = true; impactVal = "+3.5s"; }
-                if (ability.name === 'PAY DAY' && p.id === winnerId) { newTime += 0.5; triggered = true; impactVal = "+0.5s"; }
-                if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) <= 0.1) { newTime += 4.0; triggered = true; impactVal = "+4.0s"; }
-                if (ability.name === 'JAWLINE') { newTime += 1.0; triggered = true; impactVal = "+1.0s"; }
+                if (ability.name === 'CYRO FREEZE') { selfGainAmount = 1.0; triggered = true; impactVal = "+1.0s"; }
+                if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { selfGainAmount = 3.5; triggered = true; impactVal = "+3.5s"; }
+                if (ability.name === 'PAY DAY' && p.id === winnerId) { selfGainAmount = 0.5; triggered = true; impactVal = "+0.5s"; }
+                if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) <= 0.1) { selfGainAmount = 4.0; triggered = true; impactVal = "+4.0s"; }
+                if (ability.name === 'JAWLINE') { selfGainAmount = 1.0; triggered = true; impactVal = "+1.0s"; }
                 if (ability.name === 'PANIC MASH') { 
                     const gain = Math.random() > 0.5;
-                    newTime += (gain ? 3.0 : -3.0); 
+                    selfGainAmount = (gain ? 3.0 : -3.0); 
                     triggered = true; 
                     impactVal = gain ? "+3.0s" : "-3.0s";
                 }
-                if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 15) { newTime += 3.0; triggered = true; impactVal = "+3.0s"; }
+                if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 15) { selfGainAmount = 3.0; triggered = true; impactVal = "+3.0s"; }
                 // CHEF'S SPECIAL: Only triggers if you win by > 10s over second place
                 if (ability.name === 'CHEF\'S SPECIAL' && p.id === winnerId) { 
                     const sortedBids = players.filter(pl => pl.id !== winnerId && !pl.isEliminated).map(pl => pl.currentBid || 0).sort((a, b) => b - a);
                     const secondPlaceBid = sortedBids[0] || 0;
                     if (winnerTime - secondPlaceBid > 10) { 
-                        newTime += 4.0; triggered = true; impactVal = "+4.0s"; 
+                        selfGainAmount = 4.0; triggered = true; impactVal = "+4.0s"; 
                     }
+                }
+
+                // Apply Self Gain
+                if (triggered || selfGainAmount !== 0) {
+                    newTime += selfGainAmount;
+                    if (selfGainAmount > 0) playerSelfGain += selfGainAmount;
                 }
             }
             
@@ -1144,6 +1151,7 @@ export default function Game() {
                  // "BURN IT": Remove 1s from everyone else
                  
                  // We need to identify WHO was impacted to notify the caster.
+                 let damageAmount = 0;
                  
                  if (ability.name === 'MANAGER CALL') {
                      // Find random opponent (not me, not eliminated)
@@ -1153,6 +1161,7 @@ export default function Game() {
                          targetName = target.name;
                          targetId = target.id;
                          impactVal = "-2.0s (Target)";
+                         damageAmount = 2.0;
                      }
                  } else if (ability.name === 'AXE SWING') {
                      // Most time remaining (excluding me, excluding eliminated)
@@ -1162,6 +1171,7 @@ export default function Game() {
                         targetName = target.name;
                         targetId = target.id;
                         impactVal = "-2.0s (Target)";
+                        damageAmount = 2.0;
                      }
                  } else if (ability.name === 'CHEESE TAX') {
                      // Triggers when you LOSE - steal 2s from winner
@@ -1170,21 +1180,20 @@ export default function Game() {
                          targetId = winnerId;
                          impactVal = "-2.0s (Steal)";
                          newTime += 2.0; // Gain the stolen time
+                         playerSelfGain += 2.0; // Count as self gain too
+                         damageAmount = 2.0;
                      }
                  } else if (ability.name === 'BURN IT') {
                      targetName = "ALL OPPONENTS";
                      impactVal = "-1.0s (All)";
+                     // Calculate total damage
+                     const opponentCount = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated).length;
+                     damageAmount = opponentCount * 1.0;
                  }
                  
                  if (targetName) {
                      triggered = true; 
-                     // Add to stats
-                     if (impactVal.includes('-')) {
-                         // Negative impact on others = positive impact score? Or just raw seconds moved.
-                         // Let's count "impact" as absolute seconds changed for others.
-                         const seconds = parseFloat(impactVal.replace(/[^0-9.]/g, '')) || 0;
-                         playerImpactGiven += seconds;
-                     }
+                     playerDamageDealt += damageAmount;
                  }
              }
     
@@ -1281,8 +1290,10 @@ export default function Game() {
           tokens: newTokens, 
           roundImpact: roundImpact,
           isEliminated: newTime <= 0, // Set flag
-          totalImpactGiven: p.totalImpactGiven + playerImpactGiven,
+          totalImpactGiven: p.totalImpactGiven + playerSelfGain, // Updated Meaning: Self Gain
+          totalImpactReceived: p.totalImpactReceived + playerDamageDealt, // Updated Meaning: Damage Dealt
           specialEvents: playerSpecialEvents,
+          eventDatabasePopups: playerEventPopups, // Persist event flags
           protocolsTriggered: Array.from(new Set([...p.protocolsTriggered, ...playerProtocols])), 
           totalDrinks: p.totalDrinks + (newTime <= 0 && p.remainingTime > 0 ? 1 : 0),
           socialDares: p.socialDares + (variant === 'SOCIAL_OVERDRIVE' && activeProtocol ? 1 : 0)
@@ -1299,7 +1310,6 @@ export default function Game() {
         
         let adjustedTime = p.remainingTime;
         let adjustedImpact = p.roundImpact || "";
-        let impactReceivedThisRound = 0;
         
         // Check FIRE WALL immunity - this player is immune to disruptions
         const playerChar = p.isBot ? CHARACTERS.find(c => c.name === p.name) : selectedCharacter;
@@ -1310,15 +1320,14 @@ export default function Game() {
                 if (ab.effect === 'DISRUPT') {
                     // Check if this player is the target
                     if (ab.targetId === p.id) {
-                        if (ab.ability === 'MANAGER CALL') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; impactReceivedThisRound += 2.0; }
-                        if (ab.ability === 'AXE SWING') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; impactReceivedThisRound += 2.0; }
-                        if (ab.ability === 'CHEESE TAX') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; impactReceivedThisRound += 2.0; }
+                        if (ab.ability === 'MANAGER CALL') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
+                        if (ab.ability === 'AXE SWING') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
+                        if (ab.ability === 'CHEESE TAX') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
                     }
                     // Check if this is an ALL OPPONENTS effect
                     if (ab.targetName === 'ALL OPPONENTS' && p.id !== ab.playerId) {
                         adjustedTime -= 1.0; 
                         adjustedImpact = adjustedImpact ? `${adjustedImpact} -1.0s` : "-1.0s";
-                        impactReceivedThisRound += 1.0;
                     }
                 }
             });
@@ -1338,7 +1347,6 @@ export default function Game() {
             remainingTime: Math.max(0, adjustedTime),
             roundImpact: adjustedImpact,
             isEliminated: isNowEliminated,
-            totalImpactReceived: p.totalImpactReceived + impactReceivedThisRound,
             protocolWins: Array.from(new Set([...p.protocolWins, ...newProtocolWins]))
         };
     });
@@ -2226,6 +2234,7 @@ export default function Game() {
             <div className="text-center mb-8">
               <h2 className="text-4xl font-display font-bold text-white mb-2">CHOOSE YOUR DRIVER</h2>
               <p className="text-muted-foreground">Select your persona for the auction.</p>
+              <p className="text-xs text-zinc-500 mt-1">Each time bid subtracts from your time bank.</p>
               {variant !== 'STANDARD' && (
                   <Badge variant="outline" className={cn("mt-2 border-white/10", getVariantColor())}>
                       {getVariantIcon()} {variant.replace('_', ' ')} MODE ACTIVE
@@ -2504,23 +2513,6 @@ export default function Game() {
             <h1 className="text-5xl font-display font-bold text-white">GAME OVER</h1>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
-              <div className="col-span-1 md:col-span-3 bg-primary/10 border border-primary/50 p-6 rounded-lg text-center flex items-center justify-between px-12">
-                <div>
-                    <h3 className="text-primary font-display tracking-widest text-lg mb-1">WINNER</h3>
-                    <p className="text-5xl font-bold text-white">{winner.name}</p>
-                </div>
-                <div className="flex gap-12 text-xl">
-                  <div className="text-center">
-                      <div className="text-4xl mb-1">🏆 {winner.tokens}</div>
-                      <div className="text-xs text-zinc-400 uppercase tracking-widest">Tokens</div>
-                  </div>
-                  <div className="text-center">
-                      <div className="text-4xl font-mono mb-1">{formatTime(winner.remainingTime)}</div>
-                      <div className="text-xs text-zinc-400 uppercase tracking-widest">Remaining</div>
-                  </div>
-                </div>
-              </div>
-
               {sortedPlayers.map((p, i) => (
                 <div key={p.id} className={cn("p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden", p.id === loser.id ? "border-destructive/50 bg-destructive/5" : "border-white/10")}>
                    {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
@@ -2555,20 +2547,11 @@ export default function Game() {
                            <div className="text-destructive/70">Protocol Wins</div>
                            <div className="font-mono text-destructive">{p.protocolWins?.length || 0}</div>
                        </div>
-                       <div className="bg-blue-950/30 p-2 rounded border border-blue-500/20" title={p.specialEvents?.join(', ') || 'None'}>
-                           <div className="text-blue-400/70">Abilities</div>
-                           <div className="font-mono text-blue-300">{p.specialEvents?.length || 0}</div>
+                       <div className="bg-yellow-950/30 p-2 rounded border border-yellow-500/20">
+                           <div className="text-yellow-400/70">Trophies</div>
+                           <div className="font-mono text-yellow-300">{p.tokens}</div>
                        </div>
                    </div>
-
-                   {/* Additional Mode-Specific Badges */}
-                   {variant === 'BIO_FUEL' && (
-                       <div className="flex flex-wrap gap-1 mt-1">
-                           <Badge variant="outline" className="text-[10px] border-orange-500/30 text-orange-400">
-                               {p.totalDrinks} Drinks
-                           </Badge>
-                       </div>
-                   )}
                 </div>
               ))}
             </div>
@@ -2583,7 +2566,6 @@ export default function Game() {
 
   return (
     <GameLayout>
-      <MusicPlayer />
       <GameOverlay 
         type={overlay?.type || null} 
         message={overlay?.message} 
