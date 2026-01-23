@@ -1037,14 +1037,17 @@ export default function Game() {
              if (opponents.length > 0) {
                  // Reveal ONE person randomly
                  const target = opponents[Math.floor(Math.random() * opponents.length)];
-                 setPeekTargetId(target.id); // Re-use peekTargetId to show "HOLDING" for this person
+                 setPeekTargetId(target.id); 
 
-                 // SCRAMBLE EVERYONE ELSE
+                 // SCRAMBLE EVERYONE ELSE (Opponents time bank scrambled for viewer)
                  const others = opponents.filter(o => o.id !== target.id).map(o => o.id);
                  setScrambledPlayers(others);
              }
         } else {
-             setScrambledPlayers([]);
+             // For non-BF characters, ensure scrambled is empty unless system failure
+             if (activeProtocol !== 'SYSTEM_FAILURE') {
+                setScrambledPlayers([]);
+             }
         }
     }
 
@@ -1126,7 +1129,7 @@ export default function Game() {
     // A. CALCULATE INTERMEDIATE TIMES (Bids + Penalties + Standard Disruptions)
     let tempPlayersState = players.map(p => {
         // EVEN ELIMINATED PLAYERS should be processed if needed for history, but typically we return them as is.
-        if (p.isEliminated) return { ...p, roundImpact: "", impactLogs: [] as { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[] };
+        if (p.isEliminated) return { ...p, roundImpact: "", impactLogs: undefined };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
@@ -1231,7 +1234,9 @@ export default function Game() {
                  // Find non-eliminated opponent with MOST time (using temp times)
                  const validTargets = tempPlayersState.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.remainingTime > 0 && pl.id !== rollSafeId);
                  if (validTargets.length > 0) {
-                    const target = validTargets.reduce((prev, current) => (prev.remainingTime > current.remainingTime) ? prev : current);
+                    // Sort descending by remainingTime to ensure we get the absolute max
+                    validTargets.sort((a, b) => b.remainingTime - a.remainingTime);
+                    const target = validTargets[0];
                     
                     // Apply directly to tempPlayersState
                     const targetIdx = tempPlayersState.findIndex(t => t.id === target.id);
@@ -1938,9 +1943,17 @@ export default function Game() {
       
       setRound(prev => prev + 1);
       setPhase('ready');
-      setPlayers(prev => prev.map(p => ({ ...p, isHolding: false, currentBid: null, roundImpact: undefined }))); // Clear impact for new round
+      setPlayers(prev => prev.map(p => ({ 
+          ...p, 
+          isHolding: false, 
+          currentBid: null, 
+          roundImpact: undefined,
+          impactLogs: undefined // Clear logs for next round
+      }))); 
       setReadyHoldTime(0);
       setPlayerAbilityUsed(false); // Reset ability usage
+      setPeekTargetId(null); // Clear PEEK target
+      setScrambledPlayers([]); // Clear Scrambled players
     }
   };
 
