@@ -24,12 +24,13 @@ interface PlayerStatsProps {
   peekActive?: boolean; // New prop for PEEK ability
   isDoubleTokens?: boolean;
   isSystemFailure?: boolean; // New prop for System Failure scramble
+  isScrambled?: boolean; // New prop for Wandering Eye scramble
   children?: React.ReactNode; // Slot for animations
   onClick?: () => void;
   hideDetails?: boolean; // New prop to hide extra details
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, children, onClick, hideDetails }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, isScrambled, children, onClick, hideDetails }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -39,10 +40,10 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // Note: player.isHolding must be passed from parent or extended in Player interface
   const showHolding = peekActive && !isCurrentPlayer && player.isHolding;
 
-  // SCRAMBLE LOGIC FOR SYSTEM FAILURE
-  // If system failure is active, we scramble the time display every render
+  // SCRAMBLE LOGIC FOR SYSTEM FAILURE / WANDERING EYE
+  // If system failure is active OR this player is scrambled for the viewer, we scramble the time display every render
   const getDisplayTime = () => {
-      if (isSystemFailure) {
+      if (isSystemFailure || isScrambled) {
           return `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`;
       }
       return showTime && remainingTime !== undefined ? format(remainingTime) : "??:??.?";

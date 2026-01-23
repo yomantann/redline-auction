@@ -309,6 +309,8 @@ export default function Game() {
   const [readyHoldTime, setReadyHoldTime] = useState(0);
   const [moleTarget, setMoleTarget] = useState<string | null>(null);
   const [peekTargetId, setPeekTargetId] = useState<string | null>(null); // New state for Sadman/Pepe peek
+  const [scrambledPlayers, setScrambledPlayers] = useState<string[]>([]); // New state for Wandering Eye scramble
+  const [frostbyteAbilityUsed, setFrostbyteAbilityUsed] = useState(false); // Track Frostbyte single use
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
   const [showProtocolSelect, setShowProtocolSelect] = useState(false);
   const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
@@ -845,10 +847,32 @@ export default function Game() {
 
     } else if (phase === 'countdown') {
        // If releasing during countdown, store penalty to apply at round end
-       const penalty = getPenalty();
+       let penalty = getPenalty();
+       
+       // ALPHA PRIME (Gigachad) EXCEPTION: "JAWLINE"
+       // "Can drop during countdown without penalty"
+       if (selectedCharacter?.ability?.name === 'JAWLINE') {
+           penalty = 0;
+           toast({
+               title: "JAWLINE ACTIVATED",
+               description: "No penalty for early drop!",
+               className: "bg-zinc-800 border-zinc-500 text-zinc-100",
+               duration: 2000
+           });
+       } else {
+           // Normal Penalty Toast
+           toast({
+               title: "EARLY RELEASE",
+               description: `Released before start! -${penalty}s penalty will apply at round end.`,
+               variant: "destructive",
+               duration: 3000
+           });
+       }
        
        // DEFERRED PENALTY - Store for round end, do NOT deduct immediately
-       setPendingPenalties(prev => ({ ...prev, 'p1': (prev['p1'] || 0) + penalty }));
+       if (penalty > 0) {
+            setPendingPenalties(prev => ({ ...prev, 'p1': (prev['p1'] || 0) + penalty }));
+       }
        
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
             ...p, 
@@ -856,13 +880,6 @@ export default function Game() {
             currentBid: 0
             // NO remainingTime change here - will apply at round end
        } : p));
-       
-       toast({
-           title: "EARLY RELEASE",
-           description: `Released before start! -${penalty}s penalty will apply at round end.`,
-           variant: "destructive",
-           duration: 3000
-       });
     }
   };
 
@@ -1012,6 +1029,22 @@ export default function Game() {
         } else {
              setPeekTargetId(null);
         }
+
+        // WANDERING EYE: SNEAK PEEK (Passive - See 1 holding, scramble everyone else)
+        if (selectedChar.id === 'bf') {
+             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
+             if (opponents.length > 0) {
+                 // Reveal ONE person randomly
+                 const target = opponents[Math.floor(Math.random() * opponents.length)];
+                 setPeekTargetId(target.id); // Re-use peekTargetId to show "HOLDING" for this person
+
+                 // SCRAMBLE EVERYONE ELSE
+                 const others = opponents.filter(o => o.id !== target.id).map(o => o.id);
+                 setScrambledPlayers(others);
+             }
+        } else {
+             setScrambledPlayers([]);
+        }
     }
 
     // Start timer at minimum bid time (penalty value)
@@ -1030,10 +1063,10 @@ export default function Game() {
     const participants = players.filter(p => p.currentBid !== null && p.currentBid > 0);
     
     // 2. CALCULATE PRELIMINARY TIME & ELIMINATION (Pre-Winner)
-    // We must determine who is eliminated BEFORE picking a winner.
     
-    // First, collect all DISRUPT/ATTACK effects to apply them correctly
-    // We need to know who is attacking whom before calculating final times
+    // First, identify Roll Safe (Thinker) if present - immune to all abilities
+    const rollSafeId = players.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'thinker') || (!p.isBot && selectedCharacter?.id === 'thinker'))?.id;
+
     const disruptEffects: { targetId: string, amount: number, source: string, ability: string }[] = [];
     let playersOut: string[] = [];
     
@@ -1052,78 +1085,126 @@ export default function Game() {
                 if (sourcePlayer.isBot && Math.random() > 0.3) return; // Bots have 30% chance to use ability
 
                  if (ab.name === 'MANAGER CALL') {
-                     const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated);
+                     // Hit 1 RANDOM opponent (except Roll Safe)
+                     const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId);
                      if (validTargets.length > 0) {
                          const target = validTargets[Math.floor(Math.random() * validTargets.length)];
                          disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
                      }
-                 } else if (ab.name === 'AXE SWING') {
-                     const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.remainingTime > 0);
-                     if (validTargets.length > 0) {
-                        const target = validTargets.reduce((prev, current) => (prev.remainingTime > current.remainingTime) ? prev : current);
-                        disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
-                     }
                  } else if (ab.name === 'BURN IT') {
-                     players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated).forEach(target => {
+                     // Hit EVERYONE (except Roll Safe)
+                     players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId).forEach(target => {
                          disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, ability: ab.name });
                      });
                  }
-                 // CHEESE TAX is handled AFTER winner is determined (Conditional Disrupt)
+                 // EXECUTIVE P (AXE SWING) is handled LATER after calculation
+                 // CHEESE TAX is handled AFTER winner is determined
             }
         });
     }
 
-    // Now calculate preliminary status
-    let playersState = players.map(p => {
-        // SKIP ALREADY ELIMINATED PLAYERS
-        if (p.isEliminated) return { ...p, tempTime: 0, isEliminated: true, roundImpact: "" };
+    // A. CALCULATE INTERMEDIATE TIMES (Bids + Penalties + Standard Disruptions)
+    let tempPlayersState = players.map(p => {
+        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "" };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
-        let selfGain = 0;
-        
-        // A. SUBTRACT BID
+
+        // Bid Deduction
         if (p.currentBid !== null && p.currentBid > 0) {
-            // Check FIRE WALL immunity
-            const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
-            const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
-            
-            // MOLE PROTOCOL EXCEPTION: Mole plays for free unless Fire Wall (which ironically makes them pay? No, Fire Wall usually blocks bad things. Let's assume Fire Wall doesn't force payment)
-            // Actually existing logic said: if THE_MOLE and isMole and !hasFireWall -> play for free.
-            if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
-                 // Mole plays for free
-            } else {
+             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+             
+             // FIRE WALL CHECK (Low Flame)
+             const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
+             
+             // Check Protocol Immunity via Fire Wall
+             if (hasFireWall && activeProtocol && activeProtocol !== 'THE_MOLE') {
+                  // If a protocol hits them, Fire Wall protects?
+                  // Protocols usually impact game state or are overlays.
+                  // If it's a PENALTY protocol like Check Minimum Bid...
+             }
+
+             if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
+                 // Mole Exception (Free)
+             } else {
                  newTime -= p.currentBid;
-            }
+             }
         }
 
-        // B. APPLY PENDING PENALTIES (Protocol / Early Release)
+        // Pending Penalties
         const pending = pendingPenalties[p.id] || 0;
         if (pending > 0) {
             newTime -= pending;
             roundImpact += ` -${pending}s (Penalty)`;
         }
-        
-        // C. APPLY DISRUPTIONS (Incoming Damage)
-        // Check FIRE WALL immunity
+
+        // Apply Standard Disruptions (Manager Call, Burn It)
         const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
         const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
-        
-        if (!hasFireWall) {
-            const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
-            myDisrupts.forEach(d => {
+
+        if (!hasFireWall && p.id !== rollSafeId) { // Roll Safe Immunity + Fire Wall Immunity
+             const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
+             myDisrupts.forEach(d => {
                 newTime -= d.amount;
                 roundImpact += ` -${d.amount}s (${d.ability})`;
             });
+        } else if (hasFireWall && disruptEffects.some(d => d.targetId === p.id)) {
+             roundImpact += " (Fire Wall Block)";
         }
 
-        // D. APPLY UNCONDITIONAL REFUNDS (Passive Abilities)
+        return { ...p, remainingTime: newTime, roundImpact };
+    });
+
+    // B. EXECUTIVE P (AXE SWING) LOGIC - After standard calcs
+    if (abilitiesEnabled) {
+         players.forEach(sourcePlayer => {
+            if (sourcePlayer.isEliminated) return;
+            const character = sourcePlayer.isBot 
+                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
+                : selectedCharacter;
+            
+            if (character?.ability?.name === 'AXE SWING') {
+                 if (sourcePlayer.id === 'p1' && !playerAbilityUsed) return;
+                 if (sourcePlayer.isBot && Math.random() > 0.3) return;
+
+                 // Find non-eliminated opponent with MOST time (using temp times)
+                 const validTargets = tempPlayersState.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.remainingTime > 0 && pl.id !== rollSafeId);
+                 if (validTargets.length > 0) {
+                    const target = validTargets.reduce((prev, current) => (prev.remainingTime > current.remainingTime) ? prev : current);
+                    
+                    // Apply directly to tempPlayersState
+                    const targetIdx = tempPlayersState.findIndex(t => t.id === target.id);
+                    if (targetIdx >= 0) {
+                        tempPlayersState[targetIdx].remainingTime -= 2.0;
+                        tempPlayersState[targetIdx].roundImpact += " -2.0s (Axe Swing)";
+                        
+                        // Add to disruptEffects for animation later
+                        disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: 'AXE SWING' });
+                    }
+                 }
+            }
+         });
+    }
+
+    // C. FINAL PASS: Refunds + Elimination Check
+    let playersState = tempPlayersState.map(p => {
+        if (p.isEliminated) return p;
+
+        let newTime = p.remainingTime;
+        let roundImpact = p.roundImpact;
+        let selfGain = 0;
+        
+        const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+
+        // Refunds
         if (abilitiesEnabled && playerChar?.ability?.effect === 'TIME_REFUND') {
             const ab = playerChar.ability;
             let refund = 0;
             if (ab.name === 'CYRO FREEZE') refund = 1.0;
-            if (ab.name === 'JAWLINE') refund = 1.0;
-            if (ab.name === 'PANIC MASH') refund = (Math.random() > 0.5 ? 3.0 : -3.0); // Can be negative refund (penalty)
+            // JAWLINE is handled in countdown/release (penalty = 0), NOT here as refund.
+            // "Thus they should not be refunded time if they actually bid" -> Correct, removed JAWLINE here.
+            
+            if (ab.name === 'PANIC MASH') refund = (Math.random() > 0.5 ? 3.0 : -3.0);
             
             if (refund !== 0) {
                 newTime += refund;
@@ -1132,17 +1213,14 @@ export default function Game() {
             }
         }
 
-        // CHECK ELIMINATION (CRITICAL STEP)
-        // "Eliminated Player State... cannot win the trophy... No limit break or ability may restore eligibility in that round"
         const isEliminatedNow = newTime <= 0;
         if (isEliminatedNow && !p.isEliminated) {
              playersOut.push(p.name);
         }
-        
+
         return {
             ...p,
-            remainingTime: Math.max(0, newTime), // Visual clamp, but status is what matters
-            tempTime: newTime, // Keep raw value for internal logic if needed
+            remainingTime: Math.max(0, newTime),
             isEliminated: isEliminatedNow,
             roundImpact: roundImpact,
             selfGain: selfGain
@@ -1411,8 +1489,15 @@ export default function Game() {
                  triggered = true; abilityName = bName; abilityDesc = "Pop mouth! Everyone sips!";
             }
             // FROSTBYTE: "BRAIN FREEZE" (1 Random Round - 10%)
-            else if (bName === 'BRAIN FREEZE' && roll < 0.1) {
-                 triggered = true; abilityName = bName; abilityDesc = "Force opponent to Win or Drink!";
+            else if (bName === 'BRAIN FREEZE') {
+                 // Logic: Only 1 round per game
+                 if (!frostbyteAbilityUsed && roll < 0.1) {
+                     setFrostbyteAbilityUsed(true);
+                     // Show ONLY to Driver (p1) or if p1 is target (but here p1 is driver in this check)
+                     if (p.id === 'p1') {
+                         triggered = true; abilityName = bName; abilityDesc = "Force opponent to Win or Drink!";
+                     }
+                 }
             }
             // RAINBOW DASH: "RAINBOW SHOT" (10% chance)
             else if (bName === 'RAINBOW SHOT' && roll < 0.1) {
@@ -2909,6 +2994,7 @@ export default function Game() {
                 peekActive={selectedCharacter?.id === 'pepe' && peekTargetId === p.id}
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={activeProtocol === 'SYSTEM_FAILURE' || (p.id === 'p1' && selectedCharacter?.id === 'pepe')}
+                isScrambled={scrambledPlayers.includes(p.id)}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
