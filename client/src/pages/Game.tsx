@@ -979,394 +979,342 @@ export default function Game() {
   const endRound = (finalTime: number) => {
     setPhase('round_end');
     
-    // Filter participants (those who held past countdown)
+    // 1. IDENTIFY PARTICIPANTS (Those who held past countdown)
     const participants = players.filter(p => p.currentBid !== null && p.currentBid > 0);
     
-    // Sort by bid time descending
-    participants.sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    // 2. CALCULATE PRELIMINARY TIME & ELIMINATION (Pre-Winner)
+    // We must determine who is eliminated BEFORE picking a winner.
     
-    let winnerId: string | null = null;
-    let winnerName: string | null = null;
-    let winnerTime = 0;
-    
-    // Determine winner
-    if (participants.length > 0) {
-      const potentialWinner = participants[0];
-      // Check for tie
-      const isTie = participants.some(p => p.id !== potentialWinner.id && Math.abs((p.currentBid || 0) - (potentialWinner.currentBid || 0)) < 0.05);
-      
-      if (!isTie) {
-        winnerId = potentialWinner.id;
-        winnerName = potentialWinner.name;
-        winnerTime = potentialWinner.currentBid || 0;
-      } else {
-        // Tie Logic
-        setOverlay({
-            type: "protocol_alert",
-            message: "DEADLOCK SYNC",
-            subMessage: "Exact Time Match! No Winner."
-        });
-        setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
-        
-        // Add to Event Database tracker for involved players
-        // We'll add it to everyone for simplicity or just the tied players. Let's add to everyone to track global events.
-        // Actually, request says "when an event from the event database happens to a player".
-        // Tie is global.
-      }
-    }
-
-    // Update stats logic here (tokens, time subtraction)
+    // First, collect all DISRUPT/ATTACK effects to apply them correctly
+    // We need to know who is attacking whom before calculating final times
+    const disruptEffects: { targetId: string, amount: number, source: string, ability: string }[] = [];
     let playersOut: string[] = [];
     
-    // Track abilities triggered this round for notifications
-    const newAbilities: { player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[] = [];
-    const triggeredProtocols: string[] = activeProtocol ? [activeProtocol] : [];
-    const extraLogs: string[] = [];
-
-    const updatedPlayers = players.map(p => {
-      // SKIP ELIMINATED PLAYERS FROM CHANGES
-      if (p.isEliminated) return p;
-
-      let newTime = p.remainingTime;
-      let newTokens = p.tokens;
-      let roundImpact = ""; // Store impact string for UI
-      let playerSelfGain = 0; // NEW: Track time refunded/gained by self
-      let playerDamageDealt = 0; // NEW: Track damage dealt to others
-      let playerSpecialEvents: string[] = [...p.specialEvents];
-      let playerEventPopups: string[] = [...(p.eventDatabasePopups || [])]; // Track Popups
-      let playerProtocols: string[] = [...p.protocolsTriggered, ...triggeredProtocols.filter(() => Math.random() > 0.5)]; 
-      
-      if (activeProtocol && p.id === winnerId) {
-          playerProtocols.push(`${activeProtocol} (WON)`);
-      }
-      
-      // NOTE: Time subtraction happens ONCE below after all effects are calculated
-
-      // Check Specific Event Database Popups for this player
-      if (p.id === winnerId) {
-           // WINNING CONDITIONS
-           if (round === 1) playerEventPopups.push("SMUG CONFIDENCE");
-           if (winnerTime < 20.0) playerEventPopups.push("EASY W");
-           if (Number.isInteger(winnerTime)) playerEventPopups.push("PRECISION STRIKE");
-           if (winnerTime > 60.0) playerEventPopups.push("OVERKILL");
-           if (newTime < 10.0) playerEventPopups.push("CLUTCH PLAY");
-           
-           // Margin check needs second place
-           if (participants.length > 1) {
-               const margin = winnerTime - (participants[1].currentBid || 0);
-               if (margin > 15.0) playerEventPopups.push("FAKE CALM");
-               if (margin < 5.0) playerEventPopups.push("GENIUS MOVE");
-           }
-           
-           // Least tokens check
-           const minTokens = Math.min(...players.map(pl => pl.tokens));
-           if (p.tokens === minTokens && p.tokens < Math.max(...players.map(pl => pl.tokens))) {
-               playerEventPopups.push("COMEBACK HOPE");
-           }
-      }
-      
-      if (!winnerId && participants.length > 1 && participants[0].currentBid === participants[1].currentBid) {
-           playerEventPopups.push("DEADLOCK SYNC");
-      }
-      
-      if (participants.length === 0) {
-           playerEventPopups.push("AFK");
-      }
-
-      // --- ABILITY EFFECTS (Passive / Triggered on Result) ---
-      // STRICT CHECK: Eliminated players CANNOT trigger or receive any effects
-      if (abilitiesEnabled && !p.isEliminated && p.remainingTime > 0) {
-        // Find ability for this player (User or Bot)
-        // Search ALL character pools including mode-specific ones
-        const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
-        const character = p.isBot 
-           ? allChars.find(c => c.name === p.name) 
-           : selectedCharacter;
-           
-        if (character?.ability) {
-            const ability = character.ability;
-            let triggered = false;
-            let targetName = "";
-            let targetId = "";
-            let impactVal = "";
-            let selfGainAmount = 0; // Temp var for this specific ability
+    if (abilitiesEnabled) {
+        players.forEach(sourcePlayer => {
+            if (sourcePlayer.isEliminated || sourcePlayer.remainingTime <= 0) return; // Eliminated players cannot attack
             
-            // TIME REFUNDS
-            if (ability.effect === 'TIME_REFUND') {
-                if (ability.name === 'SPIRIT SHIELD') { 
-                    // +11s if you win Round 1 (Limit Break ability)
-                    if (round === 1 && p.id === winnerId) { 
-                        selfGainAmount = 11.0; triggered = true; impactVal = "+11.0s"; 
-                    }
-                }
-                if (ability.name === 'CYRO FREEZE') { selfGainAmount = 1.0; triggered = true; impactVal = "+1.0s"; }
-                if (ability.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) { selfGainAmount = 3.5; triggered = true; impactVal = "+3.5s"; }
-                if (ability.name === 'PAY DAY' && p.id === winnerId) { selfGainAmount = 0.5; triggered = true; impactVal = "+0.5s"; }
-                if (ability.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) <= 0.1) { selfGainAmount = 4.0; triggered = true; impactVal = "+4.0s"; }
-                if (ability.name === 'JAWLINE') { selfGainAmount = 1.0; triggered = true; impactVal = "+1.0s"; }
-                if (ability.name === 'PANIC MASH') { 
-                    const gain = Math.random() > 0.5;
-                    selfGainAmount = (gain ? 3.0 : -3.0); 
-                    triggered = true; 
-                    impactVal = gain ? "+3.0s" : "-3.0s";
-                }
-                if (ability.name === 'HIDE PAIN' && p.id !== winnerId && winnerTime - (p.currentBid||0) > 15) { selfGainAmount = 3.0; triggered = true; impactVal = "+3.0s"; }
-                // CHEF'S SPECIAL: Only triggers if you win by > 10s over second place
-                if (ability.name === 'CHEF\'S SPECIAL' && p.id === winnerId) { 
-                    const sortedBids = players.filter(pl => pl.id !== winnerId && !pl.isEliminated).map(pl => pl.currentBid || 0).sort((a, b) => b - a);
-                    const secondPlaceBid = sortedBids[0] || 0;
-                    if (winnerTime - secondPlaceBid > 10) { 
-                        selfGainAmount = 4.0; triggered = true; impactVal = "+4.0s"; 
-                    }
-                }
+            const character = sourcePlayer.isBot 
+                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
+                : selectedCharacter;
+            
+            if (character?.ability?.effect === 'DISRUPT') {
+                const ab = character.ability;
+                // LOGIC MOVED FROM INSIDE MAP LOOP TO HERE FOR GLOBAL CONTEXT
+                if (sourcePlayer.id === 'p1' && !playerAbilityUsed) return; // Player must activate ability
+                if (sourcePlayer.isBot && Math.random() > 0.3) return; // Bots have 30% chance to use ability
 
-                // Apply Self Gain
-                if (triggered || selfGainAmount !== 0) {
-                    newTime += selfGainAmount;
-                    if (selfGainAmount > 0) playerSelfGain += selfGainAmount;
-                }
-            }
-            
-            // TOKEN BOOSTS
-            if (ability.effect === 'TOKEN_BOOST' && p.id === winnerId) {
-                if (ability.name === 'HYPER CLICK') { 
-                    // Check if winner won within 1.1s of 2nd place
-                    const sortedBids = participants.map(pl => pl.currentBid || 0).sort((a, b) => b - a);
-                    const secondPlaceBid = sortedBids.length > 1 ? sortedBids[1] : 0;
-                    const winMargin = (p.currentBid || 0) - secondPlaceBid;
-                    if (winMargin > 0 && winMargin <= 1.1) { 
-                        newTokens += 1; triggered = true; impactVal = "+1 Token"; 
-                    }
-                }
-                if (ability.name === 'TO THE MOON' && (p.currentBid || 0) > 30) { newTokens += 1; triggered = true; impactVal = "+1 Token"; } 
-                if (ability.name === 'DIVIDEND' && round % 3 === 0) { newTokens += 1; triggered = true; impactVal = "+1 Token"; }
-            }
-            
-            // DISRUPT (Applied to enemies logic would go here, simplified as refund to self for now or handled in separate loop)
-             if (ability.effect === 'DISRUPT' && playerAbilityUsed && p.id === 'p1') {
-                 // DISRUPT logic:
-                 // "MANAGER CALL": Remove 1s from random opponent
-                 // "CHEESE TAX": Steal 2s from winner if you lose
-                 // "AXE SWING": Remove 2s from opponent with most time
-                 // "BURN IT": Remove 1s from everyone else
-                 
-                 // We need to identify WHO was impacted to notify the caster.
-                 let damageAmount = 0;
-                 
-                 if (ability.name === 'MANAGER CALL') {
-                     // Find random opponent (not me, not eliminated)
-                     const validTargets = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated);
+                 if (ab.name === 'MANAGER CALL') {
+                     const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated);
                      if (validTargets.length > 0) {
                          const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-                         targetName = target.name;
-                         targetId = target.id;
-                         impactVal = "-2.0s (Target)";
-                         damageAmount = 2.0;
+                         disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
                      }
-                 } else if (ability.name === 'AXE SWING') {
-                     // Most time remaining (excluding me, excluding eliminated)
-                     const validTargets = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated && pl.remainingTime > 0);
+                 } else if (ab.name === 'AXE SWING') {
+                     const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.remainingTime > 0);
                      if (validTargets.length > 0) {
                         const target = validTargets.reduce((prev, current) => (prev.remainingTime > current.remainingTime) ? prev : current);
-                        targetName = target.name;
-                        targetId = target.id;
-                        impactVal = "-2.0s (Target)";
-                        damageAmount = 2.0;
+                        disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
                      }
-                 } else if (ability.name === 'CHEESE TAX') {
-                     // Triggers when you LOSE - steal 2s from winner
-                     if (winnerId && winnerId !== 'p1' && p.id !== winnerId) {
-                         targetName = winnerName || "Winner";
-                         targetId = winnerId;
-                         impactVal = "-2.0s (Steal)";
-                         newTime += 2.0; // Gain the stolen time
-                         playerSelfGain += 2.0; // Count as self gain too
-                         damageAmount = 2.0;
-                     }
-                 } else if (ability.name === 'BURN IT') {
-                     targetName = "ALL OPPONENTS";
-                     impactVal = "-1.0s (All)";
-                     // Calculate total damage
-                     const opponentCount = players.filter(pl => pl.id !== 'p1' && !pl.isEliminated).length;
-                     damageAmount = opponentCount * 1.0;
+                 } else if (ab.name === 'BURN IT') {
+                     players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated).forEach(target => {
+                         disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, ability: ab.name });
+                     });
                  }
-                 
-                 if (targetName) {
-                     triggered = true; 
-                     playerDamageDealt += damageAmount;
-                 }
-             }
-    
-             if (triggered) {
-                 playerSpecialEvents.push(ability.name);
-                 newAbilities.push({ 
-                     player: p.name, 
-                     playerId: p.id,
-                     ability: ability.name, 
-                     effect: ability.effect, 
-                     targetName,
-                     targetId,
-                     impactValue: impactVal
-                 });
-                 if (impactVal && !targetName) {
-                     roundImpact = impactVal;
-                 }
-             }
-        }
-      }
-
-      // SUBTRACT BID TIME (only place this happens)
-      if (p.currentBid !== null && p.currentBid > 0) {
-        // Check FIRE WALL immunity first - this player is immune to protocols
-        const playerChar = p.isBot ? CHARACTERS.find(c => c.name === p.name) : selectedCharacter;
-        const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
-        
-        // If THE_MOLE and this player is the mole, do NOT subtract time (unless FIRE WALL)
-        if (activeProtocol === 'THE_MOLE' && p.id === moleTarget && !hasFireWall) {
-           // Mole plays for free (time-wise)
-           // No subtraction
-        } else {
-           newTime -= p.currentBid;
-        }
-      }
-      
-      if (p.id === winnerId) {
-        // STRICT CHECK: ELIMINATED players CANNOT win trophies under ANY circumstances
-        // This check overrides all abilities and protocols
-        if (p.isEliminated || newTime <= 0 || p.remainingTime <= 0) {
-            // No trophies for eliminated players - this is absolute
-            extraLogs.push(`>> ${p.name} is eliminated - no trophy awarded.`);
-            winnerId = null; // Clear winner status for eliminated player
-            winnerName = null;
-        }
-        // MOLE LOGIC: If mole wins, they LOSE a token (can go negative)
-        else if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
-            newTokens -= 1; // Penalty for winning as Mole
-            roundImpact = "-1 Token (Mole Win)";
-            extraLogs.push(`>> MOLE FAILURE: ${p.name} won and LOST a trophy!`);
-        } else {
-            let tokensToAdd = 1;
-            if (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') {
-                tokensToAdd = 2;
-                extraLogs.push(`>> HIGH STAKES: ${p.name} won ${tokensToAdd} trophies!`);
-            } else {
-                 // Check ability token boosts
-                 if (newAbilities.some(a => a.playerId === p.id && a.effect === 'TOKEN_BOOST')) {
-                     // Log already handled below
-                 }
+                 // CHEESE TAX is handled AFTER winner is determined (Conditional Disrupt)
             }
-            newTokens += tokensToAdd;
+        });
+    }
+
+    // Now calculate preliminary status
+    let playersState = players.map(p => {
+        // SKIP ALREADY ELIMINATED PLAYERS
+        if (p.isEliminated) return { ...p, tempTime: 0, isEliminated: true, roundImpact: "" };
+
+        let newTime = p.remainingTime;
+        let roundImpact = "";
+        let selfGain = 0;
+        
+        // A. SUBTRACT BID
+        if (p.currentBid !== null && p.currentBid > 0) {
+            // Check FIRE WALL immunity
+            const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+            const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
+            
+            // MOLE PROTOCOL EXCEPTION: Mole plays for free unless Fire Wall (which ironically makes them pay? No, Fire Wall usually blocks bad things. Let's assume Fire Wall doesn't force payment)
+            // Actually existing logic said: if THE_MOLE and isMole and !hasFireWall -> play for free.
+            if (activeProtocol === 'THE_MOLE' && p.id === moleTarget) {
+                 // Mole plays for free
+            } else {
+                 newTime -= p.currentBid;
+            }
         }
-      }
 
-      // NOTE: DISRUPT effects are applied AFTER the map loop to avoid multiple applications
-      // Animations are also triggered after the loop
-      
-      // Apply deferred penalties logic (or immediate in new flow)
-      // Check pending penalties
-      const pending = pendingPenalties[p.id];
-      if (pending) {
-          newTime -= pending;
-          roundImpact = roundImpact ? `${roundImpact} -${pending}s (Penalty)` : `-${pending}s (Penalty)`;
-          extraLogs.push(`>> PENALTY: ${p.name} released early (-${pending}s)`);
-      }
-      
-      // CHECK FOR ELIMINATION
-      // "When someone finished with exactly 0 seconds time left, or the holding penalty will eliminate them in the next round, they should just not be allowed to play the remainder of rounds and are not penalized."
-      
-      if (newTime <= 0) {
-          newTime = 0;
-          if (!p.isEliminated) {
-             // Eliminate them NOW
-             playersOut.push(p.name);
-             // Don't add to event popup here if we want to avoid double notification, 
-             // but logic below might rely on playersOut
-          }
-      }
-
-      return { 
-          ...p, 
-          remainingTime: Math.max(0, newTime), 
-          tokens: newTokens, 
-          roundImpact: roundImpact,
-          isEliminated: newTime <= 0, // Set flag
-          totalImpactGiven: p.totalImpactGiven + playerSelfGain, // Updated Meaning: Self Gain
-          totalImpactReceived: p.totalImpactReceived + playerDamageDealt, // Updated Meaning: Damage Dealt
-          specialEvents: playerSpecialEvents,
-          eventDatabasePopups: playerEventPopups, // Persist event flags
-          protocolsTriggered: Array.from(new Set([...p.protocolsTriggered, ...playerProtocols])), 
-          totalDrinks: p.totalDrinks + (newTime <= 0 && p.remainingTime > 0 ? 1 : 0),
-          socialDares: p.socialDares + (variant === 'SOCIAL_OVERDRIVE' && activeProtocol ? 1 : 0)
-      }; 
-    });
-
-    setPendingPenalties({}); // Clear pending penalties after applying
-    
-    // SECOND PASS: Apply DISRUPT effects from newAbilities to all affected players
-    // This ensures effects are applied deterministically after all abilities are collected
-    let finalPlayers = updatedPlayers.map(p => {
-        // Skip eliminated players - they cannot receive effects
-        if (p.isEliminated) return p;
+        // B. APPLY PENDING PENALTIES (Protocol / Early Release)
+        const pending = pendingPenalties[p.id] || 0;
+        if (pending > 0) {
+            newTime -= pending;
+            roundImpact += ` -${pending}s (Penalty)`;
+        }
         
-        let adjustedTime = p.remainingTime;
-        let adjustedImpact = p.roundImpact || "";
-        
-        // Check FIRE WALL immunity - this player is immune to disruptions
-        const playerChar = p.isBot ? CHARACTERS.find(c => c.name === p.name) : selectedCharacter;
+        // C. APPLY DISRUPTIONS (Incoming Damage)
+        // Check FIRE WALL immunity
+        const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
         const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
         
         if (!hasFireWall) {
-            newAbilities.forEach(ab => {
-                if (ab.effect === 'DISRUPT') {
-                    // Check if this player is the target
-                    if (ab.targetId === p.id) {
-                        if (ab.ability === 'MANAGER CALL') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
-                        if (ab.ability === 'AXE SWING') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
-                        if (ab.ability === 'CHEESE TAX') { adjustedTime -= 2.0; adjustedImpact = "-2.0s"; }
-                    }
-                    // Check if this is an ALL OPPONENTS effect
-                    if (ab.targetName === 'ALL OPPONENTS' && p.id !== ab.playerId) {
-                        adjustedTime -= 1.0; 
-                        adjustedImpact = adjustedImpact ? `${adjustedImpact} -1.0s` : "-1.0s";
-                    }
-                }
+            const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
+            myDisrupts.forEach(d => {
+                newTime -= d.amount;
+                roundImpact += ` -${d.amount}s (${d.ability})`;
             });
         }
-        
-        // Track protocol wins (protocols that have "(WON)" suffix)
-        const newProtocolWins = p.protocolsTriggered.filter(prot => prot.includes('(WON)'));
-        
-        // Check for elimination after effects
-        const isNowEliminated = adjustedTime <= 0;
-        if (isNowEliminated && !p.isEliminated) {
-            playersOut.push(p.name);
+
+        // D. APPLY UNCONDITIONAL REFUNDS (Passive Abilities)
+        if (abilitiesEnabled && playerChar?.ability?.effect === 'TIME_REFUND') {
+            const ab = playerChar.ability;
+            let refund = 0;
+            if (ab.name === 'CYRO FREEZE') refund = 1.0;
+            if (ab.name === 'JAWLINE') refund = 1.0;
+            if (ab.name === 'PANIC MASH') refund = (Math.random() > 0.5 ? 3.0 : -3.0); // Can be negative refund (penalty)
+            
+            if (refund !== 0) {
+                newTime += refund;
+                roundImpact += ` ${refund > 0 ? '+' : ''}${refund}s (${ab.name})`;
+                selfGain += refund;
+            }
+        }
+
+        // CHECK ELIMINATION (CRITICAL STEP)
+        // "Eliminated Player State... cannot win the trophy... No limit break or ability may restore eligibility in that round"
+        const isEliminatedNow = newTime <= 0;
+        if (isEliminatedNow && !p.isEliminated) {
+             playersOut.push(p.name);
         }
         
         return {
             ...p,
-            remainingTime: Math.max(0, adjustedTime),
-            roundImpact: adjustedImpact,
-            isEliminated: isNowEliminated,
-            protocolWins: Array.from(new Set([...p.protocolWins, ...newProtocolWins]))
+            remainingTime: Math.max(0, newTime), // Visual clamp, but status is what matters
+            tempTime: newTime, // Keep raw value for internal logic if needed
+            isEliminated: isEliminatedNow,
+            roundImpact: roundImpact,
+            selfGain: selfGain
         };
     });
-    
-    // Trigger animations for all abilities
-    newAbilities.forEach(ab => {
-        let type: AnimationType = 'TOKEN_BOOST';
-        if (ab.effect === 'TIME_REFUND') type = 'TIME_REFUND';
-        if (ab.effect === 'DISRUPT') type = 'DISRUPT';
-        if (ab.effect === 'PEEK') type = 'PEEK';
+
+    // 3. DETERMINE WINNER
+    // Filter participants who are NOT eliminated
+    // "Trophy must be awarded to the longest-hold player who is not eliminated"
+    const validParticipants = playersState.filter(p => 
+        participants.some(orig => orig.id === p.id) && // Was a participant
+        !p.isEliminated // Survived the round cost
+    );
+
+    // Sort by Bid Time Descending
+    validParticipants.sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+
+    let winnerId: string | null = null;
+    let winnerName: string | null = null;
+    let winnerTime = 0;
+
+    if (validParticipants.length > 0) {
+        const potentialWinner = validParticipants[0];
+        // Check Tie
+        const isTie = validParticipants.some(p => p.id !== potentialWinner.id && Math.abs((p.currentBid || 0) - (potentialWinner.currentBid || 0)) < 0.05);
         
-        triggerAnimation(ab.playerId, type, ab.impactValue);
-        if (ab.targetId) {
-            triggerAnimation(ab.targetId, 'DAMAGE', ab.impactValue);
+        if (!isTie) {
+            winnerId = potentialWinner.id;
+            winnerName = potentialWinner.name;
+            winnerTime = potentialWinner.currentBid || 0;
+        } else {
+             setOverlay({ type: "protocol_alert", message: "DEADLOCK SYNC", subMessage: "Exact Time Match! No Winner." });
+             setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
         }
+    } else {
+        // No valid winner (Everyone eliminated or no bids)
+        // "No No-Winner banner... if The longest holder is eliminated... Trophy goes to the next longest valid hold"
+        // We already handled "next longest valid hold" by filtering !isEliminated.
+        // So if validParticipants is empty, it truly means everyone died or nobody bid.
+        if (participants.length > 0) {
+             // People bid, but everyone died.
+             setOverlay({ type: "protocol_alert", message: "TOTAL WIPEOUT", subMessage: "All participants eliminated." });
+        }
+    }
+
+    // 4. MOLE PROTOCOL EXCEPTION
+    // "If a player runs out of time while being longest hold in Mole: They lose 1 trophy"
+    // We need to find the "Raw" longest holder (ignoring elimination)
+    if (activeProtocol === 'THE_MOLE' && participants.length > 0) {
+        // Sort ORIGINAL participants by bid
+        const rawSorted = [...participants].sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+        const rawWinner = rawSorted[0];
+        const rawWinnerState = playersState.find(p => p.id === rawWinner.id);
+        
+        if (rawWinnerState?.isEliminated && rawWinner.id === moleTarget) {
+            // Mole held longest but died -> Penalty
+            // We apply this penalty to playersState
+            const moleIdx = playersState.findIndex(p => p.id === rawWinner.id);
+            if (moleIdx >= 0) {
+                playersState[moleIdx].tokens -= 1;
+                playersState[moleIdx].roundImpact += " -1 Token (Mole Suicide)";
+                setRoundLog(prev => [`>> MOLE FAILURE: ${rawWinner.name} held too long and LOST a trophy!`, ...prev]);
+            }
+        }
+    }
+
+    // 5. APPLY WINNER REWARDS & CONDITIONAL ABILITIES
+    const extraLogs: string[] = [];
+    const newAbilities: any[] = []; // Re-construct for animation trigger
+
+    // Add Disruption animations
+    disruptEffects.forEach(d => {
+        newAbilities.push({ playerId: d.source, ability: d.ability, effect: 'DISRUPT', targetId: d.targetId, impactValue: `-${d.amount}s` });
     });
-    
+
+    // Update Players with Winner Rewards
+    const finalPlayers = playersState.map(p => {
+        // Skip eliminated (already handled)
+        if (p.isEliminated && p.remainingTime <= 0) return p; 
+
+        let newTokens = p.tokens;
+        let newTime = p.remainingTime; // Current valid time
+        let impact = p.roundImpact;
+
+        if (p.id === winnerId) {
+             // AWARD TOKENS
+             let tokensToAdd = 1;
+             if (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') {
+                tokensToAdd = 2;
+                extraLogs.push(`>> HIGH STAKES: ${p.name} won ${tokensToAdd} trophies!`);
+            }
+            newTokens += tokensToAdd;
+
+            // CHEF'S SPECIAL & LIMIT BREAK REFUNDS (Only if not eliminated, which we checked)
+            // "No limit break or ability may restore eligibility" -> We are winner, so we are eligible.
+             if (abilitiesEnabled) {
+                const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+                const ab = playerChar?.ability;
+                
+                if (ab) {
+                    let refund = 0;
+                    if (ab.name === 'SPIRIT SHIELD' && round === 1) refund = 11.0;
+                    if (ab.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) refund = 3.5;
+                    if (ab.name === 'PAY DAY') refund = 0.5;
+                    if (ab.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) <= 0.1) refund = 4.0;
+                    if (ab.name === 'CHEF\'S SPECIAL') {
+                         const sortedBids = validParticipants.filter(vp => vp.id !== winnerId).map(vp => vp.currentBid || 0);
+                         const secondPlace = sortedBids[0] || 0;
+                         if (winnerTime - secondPlace > 10) refund = 4.0;
+                    }
+
+                    if (refund > 0) {
+                        newTime += refund;
+                        impact += ` +${refund}s (${ab.name})`;
+                        newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TIME_REFUND', impactValue: `+${refund}s` });
+                    }
+                    
+                    // TOKEN BOOSTS
+                    if (ab.effect === 'TOKEN_BOOST') {
+                         if (ab.name === 'HYPER CLICK') {
+                             const sortedBids = validParticipants.map(vp => vp.currentBid || 0);
+                             const secondPlace = sortedBids.length > 1 ? sortedBids[1] : 0;
+                             if ((p.currentBid || 0) - secondPlace <= 1.1) {
+                                 newTokens += 1;
+                                 impact += " +1 Token (Hyper Click)";
+                                 newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
+                             }
+                         }
+                         if (ab.name === 'TO THE MOON' && (p.currentBid || 0) > 30) {
+                             newTokens += 1;
+                             impact += " +1 Token (Moon)";
+                             newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
+                         }
+                         if (ab.name === 'DIVIDEND' && round % 3 === 0) {
+                             newTokens += 1;
+                             impact += " +1 Token (Dividend)";
+                             newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
+                         }
+                    }
+                }
+             }
+        }
+        
+        // MOLE WIN PENALTY (If Mole won but survived - rare but possible if time bank is huge)
+        if (activeProtocol === 'THE_MOLE' && p.id === moleTarget && p.id === winnerId) {
+             newTokens -= 2; // Remove the 1 awarded + 1 penalty = net -1 change relative to expectation?
+             // Logic: "They lose 1 trophy"
+             // If I won, I got +1. So I should end up with -1 from start. So -2 total adjustment?
+             // Or just set to -1?
+             // Let's standardise: Mole Winning = -1 Token change.
+             // I added +1 above. So -2 makes it -1.
+             // Wait, if I am Mole and I win, do I get the +1 for winning? Usually no.
+             // "If Mole wins... They lose 1 trophy"
+             // So I should negate the +1 and subtract 1.
+             newTokens -= 2; // Correct.
+             impact += " -1 Token (Mole Win)";
+             extraLogs.push(`>> MOLE FAILURE: ${p.name} won and LOST a trophy!`);
+        }
+        
+        // CHEESE TAX (Loser steals from Winner)
+        if (abilitiesEnabled && p.id !== winnerId && winnerId && !p.isEliminated) {
+             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+             if (playerChar?.ability?.name === 'CHEESE TAX') {
+                 newTime += 2.0;
+                 impact += " +2.0s (Cheese Tax)";
+                 newAbilities.push({ playerId: p.id, ability: 'CHEESE TAX', effect: 'DISRUPT', targetId: winnerId, impactValue: "Steal 2s" });
+                 // We need to damage the winner too!
+                 // This is tricky because we are inside the map.
+                 // We can't easily modify the winner's entry from here if we already processed it or will process it.
+                 // But we can do a post-pass or mutate a lookup.
+                 // For simplicity, let's assume we handle "Winner Damage" in a separate small pass or mutable update.
+                 // Actually, let's just push a "Delayed Effect" to apply to winner.
+             }
+        }
+
+        return { ...p, tokens: newTokens, remainingTime: newTime, roundImpact: impact };
+    });
+
+    // 6. APPLY CHEESE TAX DAMAGE TO WINNER (Post-Processing)
+    if (winnerId) {
+        finalPlayers.forEach(p => {
+             if (p.id !== winnerId && !p.isEliminated) {
+                 const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+                 if (playerChar?.ability?.name === 'CHEESE TAX') {
+                     // Find winner and subtract 2s
+                     const w = finalPlayers.find(fp => fp.id === winnerId);
+                     if (w) {
+                         w.remainingTime = Math.max(0, w.remainingTime - 2.0);
+                         w.roundImpact += " -2.0s (Cheese Tax)";
+                         // Check if winner died from tax?
+                         if (w.remainingTime <= 0) {
+                             w.isEliminated = true; // Late elimination
+                             extraLogs.push(`>> ${w.name} eliminated by Cheese Tax!`);
+                         }
+                     }
+                 }
+             }
+        });
+    }
+
+    setPendingPenalties({}); 
     setPlayers(finalPlayers);
+    const updatedPlayers = finalPlayers;
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
     
+    // Trigger Animations
+    newAbilities.forEach(ab => {
+         triggerAnimation(ab.playerId, ab.effect === 'TIME_REFUND' ? 'TIME_REFUND' : 'TOKEN_BOOST', ab.impactValue);
+         if (ab.targetId) triggerAnimation(ab.targetId, 'DAMAGE', ab.impactValue);
+    });
+    
+    // SINGLE PLAYER ELIMINATION CHECK
+    // "If the main player is eliminated... Immediately resolve the game"
+    const p1 = finalPlayers.find(p => p.id === 'p1');
+    if (p1?.isEliminated) {
+         setPhase('game_end'); // Skip round_end summary, go straight to game over
+         return; // Stop here
+    }
+
     // --- BIO/SOCIAL ABILITY TRIGGERS (End of Round) ---
     
     finalPlayers.forEach(p => {
