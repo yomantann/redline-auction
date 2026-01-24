@@ -1549,11 +1549,9 @@ export default function Game() {
             if (bName === 'DRINKING PARTNER') {
                 triggered = true; abilityName = bName; abilityDesc = "Check your Drinking Buddy!";
             }
-            // TANK: "ABSORB" (Passive/Reaction - maybe triggered on drink?)
-            // DANGER ZONE: "CHAIN REACTION" (On Drink Finish - simplified to 20% chance warning)
-            else if (bName === 'CHAIN REACTION' && roll < 0.2) {
-                triggered = true; abilityName = bName; abilityDesc = "If you finish, left person finishes!";
-            }
+            // TANK: "ABSORB" (Passive/Reaction) - NO POPUP
+            // DANGER ZONE: "CHAIN REACTION" (On Drink Finish) - NO POPUP
+            
             // IDOL CORE: "DEBUT" (On Drink - 20% chance)
             else if (bName === 'DEBUT' && roll < 0.2) {
                 triggered = true; abilityName = bName; abilityDesc = "Take a drink to reveal a secret!";
@@ -1629,10 +1627,9 @@ export default function Game() {
             else if (bName === 'GREEDY GRAB' && roll < 0.05) {
                  triggered = true; abilityName = bName; abilityDesc = "Winner burns 40s or drinks!";
             }
-            // PAIN HIDER: "SUPPRESS" (Passive - always reminds?)
-            else if (bName === 'SUPPRESS' && roll < 0.2) {
-                 triggered = true; abilityName = bName; abilityDesc = "Don't react or drink again!";
-            }
+            // PAIN HIDER: "SUPPRESS" - NO POPUP
+            // TANK: "IRON STOMACH" - NO POPUP
+            // DANGER ZONE: "OVERPOUR" - NO POPUP
         }
         
         // SOCIAL OVERDRIVE LOGIC
@@ -1698,18 +1695,16 @@ export default function Game() {
             else if (sName === 'MOG' && roll < 0.2) {
                  triggered = true; abilityName = sName; abilityDesc = "Stare challenge!";
             }
-            // ROLL SAFE: "TECHNICALLY" (Passive - always active)
-            else if (sName === 'TECHNICALLY' && roll < 0.1) {
-                 triggered = true; abilityName = sName; abilityDesc = "You resolve disputes!";
-            }
+            // ROLL SAFE: "TECHNICALLY" - NO POPUP
+            
             // HOTWIRED: "VIRAL MOMENT" (Random round - 10%)
             else if (sName === 'VIRAL MOMENT' && roll < 0.1) {
                  triggered = true; abilityName = sName; abilityDesc = "Re-enact a meme!";
             }
-            // PANIC BOT: "SWEATING" (Passive/Reaction)
-            else if (sName === 'SWEATING' && roll < 0.2) {
-                 triggered = true; abilityName = sName; abilityDesc = "If they mimic wipe, they drink!";
-            }
+            // PANIC BOT: "SWEATING" - NO POPUP (Description updated, but silent trigger)
+            // "For sweating on panic bot, please take out the they drink verbiage since this is social game type not drinking."
+            // "For ... sweating ... no popup trigger is necessary at any point."
+            
             // PRIMATE PRIME: "FRESH CUT" (10% chance)
             else if (sName === 'FRESH CUT' && roll < 0.1) {
                  triggered = true; abilityName = sName; abilityDesc = "Compliment everyone! You look great today.";
@@ -1932,12 +1927,20 @@ export default function Game() {
                    }
                    
                    // Toast shows for EVERYTHING (History & Context)
-                   toast({
-                     title: title,
-                     description: desc,
-                     className: className,
-                     duration: 12000, 
-                   });
+                   // EXCEPTION: Don't show toast for events that already got a huge popup? 
+                   // User said: "the mode events does not need to show bottom right because redundant"
+                   // So if isMajorEvent is true, and it is a mode event (bio/social), SKIP toast.
+                   
+                   const isModeEvent = popupType === 'bio_event' || popupType === 'social_event';
+                   
+                   if (!isModeEvent) {
+                       toast({
+                         title: title,
+                         description: desc,
+                         className: className,
+                         duration: 12000, 
+                       });
+                   }
                }
             });
         }, 500); 
@@ -2537,6 +2540,27 @@ export default function Game() {
                          // Wandering Eye Logic: Only visible if I AM HOLDING
                          const amIHolding = players.find(me => me.id === 'p1')?.isHolding;
                          if (!amIHolding) isVisible = false;
+                    }
+
+                    // PEEK TARGET LOGIC: If this player is the peek target, they are ALWAYS visible
+                    // But if they are scrambled, we might want to show them differently?
+                    // "Sadman ... green dots on 1 random player ... liked when it said holding"
+                    // So if peekTargetId === p.id, we force visible, but render text instead of dot.
+                    const isPeekTarget = peekTargetId === p.id;
+                    
+                    // Force visible if peek target
+                    if (isPeekTarget) isVisible = true;
+
+                    if (isPeekTarget) {
+                        return (
+                             <div key={p.id} className="h-3 flex items-center justify-center">
+                                 {p.isHolding ? (
+                                     <span className="text-[10px] font-bold text-emerald-400 animate-pulse tracking-wider">HOLDING</span>
+                                 ) : (
+                                     <span className="text-[10px] font-bold text-zinc-600 tracking-wider">WAITING</span>
+                                 )}
+                             </div>
+                        );
                     }
 
                     return (
