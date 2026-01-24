@@ -228,7 +228,7 @@ const CHARACTERS: Character[] = [
   },
   { 
     id: 'fine', name: 'Low Flame', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
-    ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols and disruptions.', effect: 'TIME_REFUND' },
+    ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: '25% chance: Choose a player to answer a truth (shown to driver after round).' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks (shown to all after your winning round).' }
   },
@@ -410,6 +410,15 @@ export default function Game() {
         });
     }
   }, [variant]);
+
+  // Low Flame Immunity Popup Check
+  useEffect(() => {
+    if (activeProtocol && activeProtocol !== 'THE_MOLE' && selectedCharacter?.id === 'fine') {
+        // Only show if not already showing a protocol alert
+        // Actually, just show it as a unique "immune" badge or overlay
+        addOverlay("ability_trigger", "FIRE WALL ACTIVE", "Immune to active protocol effects!", 3000);
+    }
+  }, [activeProtocol, selectedCharacter?.id]);
 
   const toggleDifficulty = () => {
       setDifficulty(prev => prev === 'COMPETITIVE' ? 'CASUAL' : 'COMPETITIVE');
@@ -1272,8 +1281,8 @@ export default function Game() {
                 : selectedCharacter;
             
             if (character?.ability?.name === 'AXE SWING') {
-                 if (sourcePlayer.isBot && Math.random() > 0.3) return;
-
+                 // Removed random check for bots to ensure consistency as requested
+                 
                  // Find non-eliminated opponent with MOST time (using temp times)
                  const validTargets = tempPlayersState.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.remainingTime > 0 && pl.id !== rollSafeId);
                  if (validTargets.length > 0) {
@@ -1496,7 +1505,10 @@ export default function Game() {
                  const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
                  if (playerChar?.ability?.name === 'CHEESE TAX') {
                      const w = finalPlayers.find(fp => fp.id === winnerId);
-                     if (w) {
+                     // Roll Safe Immunity Check
+                     const rollSafeId = finalPlayers.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'thinker') || (!p.isBot && selectedCharacter?.id === 'thinker'))?.id;
+                     
+                     if (w && w.id !== rollSafeId) {
                          w.remainingTime = Math.max(0, w.remainingTime - 2.0);
                          w.roundImpact = (w.roundImpact || "") + " -2.0s (Cheese Tax)";
                          if (w.impactLogs) w.impactLogs.push({ value: "-2.0s", reason: "Cheese Tax", type: 'loss' });
@@ -1903,6 +1915,9 @@ export default function Game() {
                else if (ability.effect === 'BIO_TRIGGER' || ability.effect === 'SOCIAL_TRIGGER') {
                    show = true;
                    title = `${ability.player}: ${ability.effect === 'BIO_TRIGGER' ? 'BIO' : 'SOCIAL'} EVENT`;
+                   // CRITICAL: Use the impactValue (description) as the main text
+                   desc = ability.impactValue || `${ability.ability} ACTIVATED`;
+                   
                    // Specific coloring for visibility
                    if (ability.effect === 'BIO_TRIGGER') {
                        className += " bg-orange-950 border-orange-500 text-orange-100";
@@ -1938,19 +1953,9 @@ export default function Game() {
                    
                    // Toast shows for EVERYTHING (History & Context)
                    // EXCEPTION: Don't show toast for events that already got a huge popup? 
-                   // User said: "the mode events does not need to show bottom right because redundant"
-                   // So if isMajorEvent is true, and it is a mode event (bio/social), SKIP toast.
+                   // User said: "Lets get rid of the bottom right toast popup all together"
                    
-                   const isModeEvent = popupType === 'bio_event' || popupType === 'social_event';
-                   
-                   if (!isModeEvent) {
-                       toast({
-                         title: title || "ALERT",
-                         description: desc,
-                         className: "bg-cyan-950 border-cyan-500 text-cyan-100",
-                         duration: 12000, 
-                       });
-                   }
+                   // TOAST REMOVED AS REQUESTED
                }
             });
         }, 500); 
