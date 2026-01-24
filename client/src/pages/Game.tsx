@@ -961,6 +961,7 @@ export default function Game() {
       
       let msg = "PROTOCOL INITIATED";
       let sub = "Unknown Effect";
+      let showPopup = true;
       
       // Helper to get random player name(s)
       const getRandomPlayer = () => players[Math.floor(Math.random() * players.length)].name;
@@ -997,10 +998,10 @@ export default function Game() {
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         
         // ... SOCIAL PROTOCOLS ...
-        // Some show up at end of round
-        case 'TRUTH_DARE': msg = "PROTOCOL PENDING"; sub = "TRUTH OR DARE (End of Round)"; break;
-        case 'SWITCH_SEATS': msg = "PROTOCOL PENDING"; sub = "SEAT SWAP (End of Round)"; break;
-        case 'GROUP_SELFIE': msg = "PROTOCOL PENDING"; sub = "GROUP SELFIE (End of Round)"; break;
+        // Some show up at end of round - HIDDEN START OF ROUND per user request
+        case 'TRUTH_DARE': showPopup = false; break;
+        case 'SWITCH_SEATS': showPopup = false; break;
+        case 'GROUP_SELFIE': showPopup = false; break;
         case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
         
         // ... BIO PROTOCOLS ...
@@ -1014,7 +1015,6 @@ export default function Game() {
       }
       
       // Filter out popups that shouldn't be seen by the player
-      let showPopup = true;
       const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'NOISE_CANCEL', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE'];
 
       if (newProtocol && targetProtocols.includes(newProtocol)) {
@@ -1537,9 +1537,23 @@ export default function Game() {
     
     // SINGLE PLAYER ELIMINATION CHECK
     // "If the main player is eliminated... Immediately resolve the game"
+    // SIMULATE REMAINING ROUNDS so bots get trophies
     const p1 = finalPlayers.find(p => p.id === 'p1');
     if (p1?.isEliminated) {
+         let currentR = round + 1;
+         const remainingBots = finalPlayers.filter(p => !p.isEliminated && p.id !== 'p1');
+         
+         if (remainingBots.length > 0) {
+             // Simulate remaining rounds simply by awarding tokens
+             while (currentR <= totalRounds) {
+                 const randomWinner = remainingBots[Math.floor(Math.random() * remainingBots.length)];
+                 randomWinner.tokens += 1;
+                 currentR++;
+             }
+         }
+         
          setPhase('game_end'); // Skip round_end summary, go straight to game over
+         setOverlay({ type: "game_over", message: "GAME OVER" });
          return; // Stop here
     }
 
@@ -1559,6 +1573,7 @@ export default function Game() {
         let triggered = false;
         let abilityName = "";
         let abilityDesc = "";
+        let specificTargetId: string | undefined = undefined;
 
         // BIO-FUEL LOGIC
         if (variant === 'BIO_FUEL' && char.bioAbility) {
@@ -1568,7 +1583,9 @@ export default function Game() {
 
             // SADMAN LOGIC: "DRINKING PARTNER" (Every Round)
             if (bName === 'DRINKING PARTNER') {
-                triggered = true; abilityName = bName; abilityDesc = "Check your Drinking Buddy!";
+                if (p.id === 'p1') {
+                    triggered = true; abilityName = bName; abilityDesc = "Sadman Logic: Drinking Partner: \"You can change your drinking partner\"";
+                }
             }
             // TANK: "ABSORB" (Passive/Reaction) - NO POPUP
             // DANGER ZONE: "CHAIN REACTION" (On Drink Finish) - NO POPUP
@@ -1584,7 +1601,7 @@ export default function Game() {
             // GUARDIAN H: "LIQUID AUTHORIZATION" (End of Round - Always Active)
             // Removed pop() here as it is handled by newAbilities + generic popup
             else if (bName === 'LIQUID AUTHORIZATION') {
-                 triggered = true; abilityName = bName; abilityDesc = "Tell others: You cannot release your button next round until Guardian finishes their sip.";
+                 triggered = true; abilityName = bName; abilityDesc = "Guardian H: Liquid Authorization: \"You cannot release your button next round until guardian finishes their sip\"";
             }
             // CLICK-CLICK: "MOUTH POP" (1 Random Round - 10%)
             else if (bName === 'MOUTH POP' && roll < 0.1) {
@@ -1619,7 +1636,12 @@ export default function Game() {
             }
             // THE RIND: "SCAVENGE" (5% chance)
             else if (bName === 'SCAVENGE' && roll < 0.05) {
-                 triggered = true; abilityName = bName; abilityDesc = "Finish someone else's drink!";
+                 const targets = finalPlayers.filter(fp => fp.id !== p.id && !fp.isEliminated);
+                 if (targets.length > 0) {
+                     const t = targets[Math.floor(Math.random() * targets.length)];
+                     specificTargetId = t.id;
+                     triggered = true; abilityName = bName; abilityDesc = "The Rind: Scavenge: \"You must finish someone elses drink\"";
+                 }
             }
             // THE ANOINTED: "ROYAL CUP" (1 Random Round - 5% end)
             else if (bName === 'ROYAL CUP' && roll < 0.05) {
@@ -1631,7 +1653,7 @@ export default function Game() {
             }
             // ALPHA PRIME: "PACE SETTER" (Every 3 rounds)
             else if (bName === 'PACE SETTER' && round % 3 === 0) {
-                 triggered = true; abilityName = bName; abilityDesc = "Start a Waterfall!";
+                 triggered = true; abilityName = bName; abilityDesc = "Alpha Prime: Pace Setter: \"Start a Waterfall!\"";
             }
             // ROLL SAFE: "BIG BRAIN" (15% chance)
             else if (bName === 'BIG BRAIN' && roll < 0.15) {
@@ -1736,7 +1758,8 @@ export default function Game() {
         if (triggered) {
             newAbilities.push({
                 player: p.name, playerId: p.id, ability: abilityName, effect: variant === 'BIO_FUEL' ? 'BIO_TRIGGER' : 'SOCIAL_TRIGGER', 
-                impactValue: abilityDesc
+                impactValue: abilityDesc,
+                targetId: specificTargetId
             });
         }
     });
