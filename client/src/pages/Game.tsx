@@ -84,7 +84,7 @@ type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'ready' | 
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
-type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'VIBE_CHECK' | 'HUM_TUNE';
+    type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'GROUP_SELFIE' | 'HUM_TUNE';
 type BioProtocol = 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND';
 
 // Extended Protocol Type
@@ -384,7 +384,7 @@ export default function Game() {
         setProtocolsEnabled(true);
         // Add social protocols if not already present (default ON)
         setAllowedProtocols(prev => {
-            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'VIBE_CHECK', 'HUM_TUNE'];
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'];
             const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
             // Remove bio protocols, add social protocols
             const withoutBio = prev.filter(p => !bioProtocols.includes(p));
@@ -395,7 +395,7 @@ export default function Game() {
         setProtocolsEnabled(true);
         // Add bio protocols if not already present (default ON)
         setAllowedProtocols(prev => {
-            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'VIBE_CHECK', 'HUM_TUNE'];
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'];
             const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
             // Remove social protocols, add bio protocols
             const withoutSocial = prev.filter(p => !socialProtocols.includes(p));
@@ -990,7 +990,7 @@ export default function Game() {
         // Some show up at end of round
         case 'TRUTH_DARE': msg = "PROTOCOL PENDING"; sub = "TRUTH OR DARE (End of Round)"; break;
         case 'SWITCH_SEATS': msg = "PROTOCOL PENDING"; sub = "SEAT SWAP (End of Round)"; break;
-        case 'VIBE_CHECK': msg = "VIBE CHECK"; sub = "Strike a pose on 3! Last one loses."; break;
+        case 'GROUP_SELFIE': msg = "PROTOCOL PENDING"; sub = "GROUP SELFIE (End of Round)"; break;
         case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
         
         // ... BIO PROTOCOLS ...
@@ -1415,7 +1415,7 @@ export default function Game() {
                 // Helper for random player
                 const randPlayer = () => players[Math.floor(Math.random() * players.length)].name;
 
-                if (name === 'LIQUID AUTHORIZATION') pop("bio_event", "LIQUID AUTHORIZATION", "Tell others: You cannot release your button next round until Guardian finishes their sip.", 500);
+                if (name === 'LIQUID AUTHORIZATION') {} // Handled by newAbilities trigger logic below
                 if (name === 'RAINBOW SHOT' && Math.random() < 0.10) pop("bio_event", "RAINBOW SHOT", `${randPlayer()} must mix two drinks!`, 1000);
                 if (name === 'SPILL HAZARD' && Math.random() < 0.25) pop("bio_event", "SPILL HAZARD", "Accuse someone of spilling! They must drink.", 1000);
                 if (name === 'ON FIRE' && p.id === winnerId) pop("bio_event", "ON FIRE", "You won! Everyone else drinks.", 500);
@@ -1625,6 +1625,7 @@ export default function Game() {
                 triggered = true; abilityName = bName; abilityDesc = "Initiate Group Toast!";
             }
             // GUARDIAN H: "LIQUID AUTHORIZATION" (End of Round - Always Active)
+            // Removed pop() here as it is handled by newAbilities + generic popup
             else if (bName === 'LIQUID AUTHORIZATION') {
                  triggered = true; abilityName = bName; abilityDesc = "Tell others: You cannot release your button next round until Guardian finishes their sip.";
             }
@@ -1974,19 +1975,36 @@ export default function Game() {
                    else if (ability.effect === 'SOCIAL_TRIGGER') popupType = "social_event";
                    
                    // CRITICAL CHANGE: Only show LARGE overlay for:
-                   // 1. Reality Mode Events (Bio/Social)
+                   // 1. Reality Mode Events (Bio/Social) - BUT ONLY IF IT TARGETS ME OR IS GLOBAL
                    // 2. Global Threats (hitting everyone)
                    // 3. "Major" abilities (like The Mole, or special win conditions if desired)
-                   // STANDARD PASSIVES (Time Refunds / Token Boosts / Single Target Disrupts) DO NOT get a large overlay.
                    
-                   const isMajorEvent = 
-                       popupType === 'bio_event' || 
-                       popupType === 'social_event' || 
-                       ability.targetName === 'ALL OPPONENTS' || 
-                       ability.ability === 'HYPER CLICK' || // Optional exception
-                       ability.ability === 'MOLE WIN';
+                   const isMe = ability.playerId === 'p1';
+                   const isGlobal = ability.targetName === 'ALL OPPONENTS' || ability.targetId === 'ALL' || ability.ability === 'MOLE WIN';
+                   
+                   // New Logic: If Bio/Social, check visibility rules
+                   let showLargePopup = false;
+                   
+                   if (ability.effect === 'BIO_TRIGGER' || ability.effect === 'SOCIAL_TRIGGER') {
+                       // Show if:
+                       // 1. I triggered it (isMe)
+                       // 2. It is a known global event (e.g. LIQUID AUTHORIZATION, ON FIRE, SPICY, etc.)
+                       // 3. Or if I am the explicit target (not implemented fully in this mockup structure, usually implicit)
+                       
+                       const globalBioEvents = ['LIQUID AUTHORIZATION', 'ON FIRE', 'SPICY', 'PACE SETTER', 'MOUTH POP', 'RAINBOW SHOT', 'SPILL HAZARD', 'ROYAL CUP', 'EMERGENCY MEETING'];
+                       const globalSocialEvents = ['COMPLAINT', 'VIRAL MOMENT', 'FRESH CUT', 'PROM COURT', 'COMMAND SILENCE'];
+                       
+                       if (isMe) showLargePopup = true;
+                       else if (globalBioEvents.includes(ability.ability) || globalSocialEvents.includes(ability.ability)) showLargePopup = true;
+                       else showLargePopup = false; // Private event for someone else
+                   } else {
+                       // Standard abilities
+                       if (isGlobal) showLargePopup = true;
+                       if (ability.ability === 'HYPER CLICK' && isMe) showLargePopup = true;
+                       if (ability.ability === 'MOLE WIN') showLargePopup = true;
+                   }
 
-                   if (isMajorEvent) {
+                   if (showLargePopup) {
                        addOverlay(popupType, title, desc, 0);
                    }
                    
@@ -3074,7 +3092,7 @@ export default function Game() {
             {[
                 { name: "TRUTH DARE", desc: "Winner asks a Truth, Loser does a Dare.", type: "Social" },
                 { name: "SWITCH SEATS", desc: "Players must physically swap seats before next round.", type: "Physical" },
-                { name: "VIBE CHECK", desc: "Everyone must strike a pose on 3. Last one ready loses.", type: "Social" },
+                { name: "GROUP SELFIE", desc: "Everyone must pose for a photo. Last one ready loses 1s.", type: "Social" },
                 { name: "HUM TUNE", desc: "You must hum a song while bidding. If you stop, you forfeit.", type: "Social" },
             ].map((p, i) => (
               <div key={`social-${i}`} className="bg-purple-500/5 p-4 rounded border border-purple-500/20 hover:border-purple-500/50 transition-colors">
