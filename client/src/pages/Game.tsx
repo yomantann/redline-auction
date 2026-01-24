@@ -1564,7 +1564,7 @@ export default function Game() {
             }
             // GUARDIAN H: "LIQUID AUTHORIZATION" (End of Round - Always Active)
             else if (bName === 'LIQUID AUTHORIZATION') {
-                 triggered = true; abilityName = bName; abilityDesc = "Tell others: No release until you sip!";
+                 triggered = true; abilityName = bName; abilityDesc = "Tell others: You cannot release your button next round until Guardian finishes their sip.";
             }
             // CLICK-CLICK: "MOUTH POP" (1 Random Round - 10%)
             else if (bName === 'MOUTH POP' && roll < 0.1) {
@@ -1712,7 +1712,7 @@ export default function Game() {
             }
             // PRIMATE PRIME: "FRESH CUT" (10% chance)
             else if (sName === 'FRESH CUT' && roll < 0.1) {
-                 triggered = true; abilityName = sName; abilityDesc = "Compliment everyone!";
+                 triggered = true; abilityName = sName; abilityDesc = "Compliment everyone! You look great today.";
             }
         }
 
@@ -1908,14 +1908,30 @@ export default function Game() {
                }
 
                if (show) {
-                   // Stack Ability Popup
+                   // Stack Ability Popup - Logic Revised for Clarity & Reduced Clutter
+                   
                    let popupType: OverlayType = "ability_trigger";
                    if (ability.effect === 'BIO_TRIGGER') popupType = "bio_event";
                    else if (ability.effect === 'SOCIAL_TRIGGER') popupType = "social_event";
                    
-                   addOverlay(popupType, title, desc, 0);
+                   // CRITICAL CHANGE: Only show LARGE overlay for:
+                   // 1. Reality Mode Events (Bio/Social)
+                   // 2. Global Threats (hitting everyone)
+                   // 3. "Major" abilities (like The Mole, or special win conditions if desired)
+                   // STANDARD PASSIVES (Time Refunds / Token Boosts / Single Target Disrupts) DO NOT get a large overlay.
                    
-                   // Also toast for history
+                   const isMajorEvent = 
+                       popupType === 'bio_event' || 
+                       popupType === 'social_event' || 
+                       ability.targetName === 'ALL OPPONENTS' || 
+                       ability.ability === 'HYPER CLICK' || // Optional exception
+                       ability.ability === 'MOLE WIN';
+
+                   if (isMajorEvent) {
+                       addOverlay(popupType, title, desc, 0);
+                   }
+                   
+                   // Toast shows for EVERYTHING (History & Context)
                    toast({
                      title: title,
                      description: desc,
