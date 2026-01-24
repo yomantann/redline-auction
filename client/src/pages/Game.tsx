@@ -1831,13 +1831,10 @@ export default function Game() {
     }
 
     // BIO-FUEL Logic: Add drink prompt if applicable
-    if (variant === 'BIO_FUEL' && (overlayType === 'time_out' || winnerId)) {
+    if (variant === 'BIO_FUEL' && (overlayType === 'time_out')) {
         if (overlayType === 'time_out') {
              // Stack Bio Event for time out
              addOverlay("bio_event", "ELIMINATED! CONSUME BIO-FUEL.", "", 0);
-        } else if (winnerId) {
-             // Stack Bio Event for win
-             addOverlay("bio_event", "OTHERS MUST REFUEL.", "", 0);
         }
     }
 
@@ -1912,7 +1909,11 @@ export default function Game() {
 
                if (show) {
                    // Stack Ability Popup
-                   addOverlay("ability_trigger", title, desc, 0);
+                   let popupType: OverlayType = "ability_trigger";
+                   if (ability.effect === 'BIO_TRIGGER') popupType = "bio_event";
+                   else if (ability.effect === 'SOCIAL_TRIGGER') popupType = "social_event";
+                   
+                   addOverlay(popupType, title, desc, 0);
                    
                    // Also toast for history
                    toast({
