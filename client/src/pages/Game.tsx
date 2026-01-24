@@ -1395,64 +1395,8 @@ export default function Game() {
     const extraLogs: string[] = [];
     const newAbilities: any[] = []; 
 
-    // Handle Post-Round Triggers for Social/Bio Modes
-    if (variant === 'SOCIAL_OVERDRIVE' || variant === 'BIO_FUEL') {
-        const triggerPlayer = (p: any) => {
-            const char = p.isBot 
-                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) 
-                : selectedCharacter;
-            
-            if (!char) return;
+    // Handle Post-Round Triggers for Social/Bio Modes - REMOVED DUPLICATE BLOCK
 
-            // Helper to add delayed overlay
-            const pop = (type: OverlayType, title: string, desc: string, delay: number) => {
-                 setTimeout(() => addOverlay(type, title, desc, 0), delay);
-            };
-
-            // BIO ABILITIES
-            if (variant === 'BIO_FUEL' && char.bioAbility) {
-                const name = char.bioAbility.name;
-                // Helper for random player
-                const randPlayer = () => players[Math.floor(Math.random() * players.length)].name;
-
-                if (name === 'LIQUID AUTHORIZATION') {} // Handled by newAbilities trigger logic below
-                if (name === 'RAINBOW SHOT' && Math.random() < 0.10) pop("bio_event", "RAINBOW SHOT", `${randPlayer()} must mix two drinks!`, 1000);
-                if (name === 'SPILL HAZARD' && Math.random() < 0.25) pop("bio_event", "SPILL HAZARD", "Accuse someone of spilling! They must drink.", 1000);
-                if (name === 'ON FIRE' && p.id === winnerId) pop("bio_event", "ON FIRE", "You won! Everyone else drinks.", 500);
-                if (name === 'THE EX' && Math.random() < 0.10) pop("bio_event", "THE EX", "Toast to an ex! (We won't ask details)", 1000);
-                if (name === 'SCAVENGE' && Math.random() < 0.05) pop("bio_event", "SCAVENGE", "Finish someone else's drink!", 1000);
-                if (name === 'ROYAL CUP' && round === totalRounds - 1) pop("bio_event", "ROYAL CUP", "Make a rule for the remainder of the game.", 500);
-                if (name === 'REASSIGNED' && Math.random() < 0.50) pop("bio_event", "REASSIGNED", "Choose 1 player to take a drink.", 1000);
-                if (name === 'PACE SETTER' && round % 3 === 0) pop("bio_event", "PACE SETTER", "WATERFALL! Start drinking, others follow.", 500);
-                if (name === 'BIG BRAIN' && Math.random() < 0.15) pop("bio_event", "BIG BRAIN", "Option: Have everyone pass drink to the left.", 1000);
-                if (name === 'SPICY' && Math.random() < 0.20) pop("bio_event", "SPICY", "Everyone drinks!", 1000);
-                if (name === 'EMERGENCY MEETING' && Math.random() < 0.25) pop("bio_event", "EMERGENCY MEETING", "Point at person to gang up on next round!", 1000);
-                if (name === 'GREEDY GRAB' && Math.random() < 0.05) pop("bio_event", "GREEDY GRAB", "Previous winner must burn 40s next round or finish drink!", 1000);
-                if (name === 'MOUTH POP' && Math.random() < 0.15) pop("bio_event", "MOUTH POP", "Everyone sips when Click-Click opens/closes mouth!", 1000);
-                if (name === 'BRAIN FREEZE' && Math.random() < 0.15) pop("bio_event", "BRAIN FREEZE", "Force opponent to win next round or drink!", 1000);
-                if (name === 'DRINKING PARTNER') pop("bio_event", "DRINKING PARTNER", "Choose a drinking partner for next round.", 500);
-            }
-
-            // SOCIAL ABILITIES
-            if (variant === 'SOCIAL_OVERDRIVE' && char.socialAbility) {
-                const name = char.socialAbility.name;
-                if (name === 'SAD STORY' && Math.random() < 0.05) pop("social_event", "SAD STORY", "Share a sad story with the group.", 1000);
-                if (name === 'COMPLAINT' && Math.random() < 0.15) pop("social_event", "COMPLAINT", "Everyone votes on winner's punishment!", 1000);
-                if (name === 'HOT SEAT' && Math.random() < 0.25) pop("social_event", "HOT SEAT", "Choose a player to answer a TRUTH.", 1000);
-                if (name === 'SNITCH' && Math.random() < 0.05) pop("social_event", "SNITCH", "Reveal someone's tell!", 1000);
-                if (name === 'CC\'D' && Math.random() < 0.20) pop("social_event", "CC'D", "Choose a player to copy your actions next round.", 1000);
-                if (name === 'VIRAL MOMENT' && Math.random() < 0.15) pop("social_event", "VIRAL MOMENT", "Re-enact a meme! Best performance wins.", 1000);
-                if (name === 'FRESH CUT' && Math.random() < 0.10) pop("social_event", "FRESH CUT", "Compliment everyone in the lobby.", 1000);
-                if (name === 'PROM COURT' && Math.random() < 0.15) pop("social_event", "PROM COURT", "Make a rule for remainder of game.", 1000);
-            }
-        };
-
-        // Check Trigger for Driver (P1)
-        triggerPlayer(players.find(p => p.id === 'p1'));
-        
-        // Also check triggers for bots if they are in game
-        players.filter(p => p.isBot).forEach(bot => triggerPlayer(bot));
-    }
 
     disruptEffects.forEach(d => {
         newAbilities.push({ playerId: d.source, ability: d.ability, effect: 'DISRUPT', targetId: d.targetId, impactValue: `-${d.amount}s` });
@@ -1974,37 +1918,21 @@ export default function Game() {
                    if (ability.effect === 'BIO_TRIGGER') popupType = "bio_event";
                    else if (ability.effect === 'SOCIAL_TRIGGER') popupType = "social_event";
                    
-                   // CRITICAL CHANGE: Only show LARGE overlay for:
-                   // 1. Reality Mode Events (Bio/Social) - BUT ONLY IF IT TARGETS ME OR IS GLOBAL
+                   // CRITICAL CHANGE: Reverted to original simpler logic as requested
+                   // Only show LARGE overlay for:
+                   // 1. Reality Mode Events (Bio/Social)
                    // 2. Global Threats (hitting everyone)
                    // 3. "Major" abilities (like The Mole, or special win conditions if desired)
+                   // STANDARD PASSIVES (Time Refunds / Token Boosts / Single Target Disrupts) DO NOT get a large overlay.
                    
-                   const isMe = ability.playerId === 'p1';
-                   const isGlobal = ability.targetName === 'ALL OPPONENTS' || ability.targetId === 'ALL' || ability.ability === 'MOLE WIN';
-                   
-                   // New Logic: If Bio/Social, check visibility rules
-                   let showLargePopup = false;
-                   
-                   if (ability.effect === 'BIO_TRIGGER' || ability.effect === 'SOCIAL_TRIGGER') {
-                       // Show if:
-                       // 1. I triggered it (isMe)
-                       // 2. It is a known global event (e.g. LIQUID AUTHORIZATION, ON FIRE, SPICY, etc.)
-                       // 3. Or if I am the explicit target (not implemented fully in this mockup structure, usually implicit)
-                       
-                       const globalBioEvents = ['LIQUID AUTHORIZATION', 'ON FIRE', 'SPICY', 'PACE SETTER', 'MOUTH POP', 'RAINBOW SHOT', 'SPILL HAZARD', 'ROYAL CUP', 'EMERGENCY MEETING'];
-                       const globalSocialEvents = ['COMPLAINT', 'VIRAL MOMENT', 'FRESH CUT', 'PROM COURT', 'COMMAND SILENCE'];
-                       
-                       if (isMe) showLargePopup = true;
-                       else if (globalBioEvents.includes(ability.ability) || globalSocialEvents.includes(ability.ability)) showLargePopup = true;
-                       else showLargePopup = false; // Private event for someone else
-                   } else {
-                       // Standard abilities
-                       if (isGlobal) showLargePopup = true;
-                       if (ability.ability === 'HYPER CLICK' && isMe) showLargePopup = true;
-                       if (ability.ability === 'MOLE WIN') showLargePopup = true;
-                   }
+                   const isMajorEvent = 
+                       popupType === 'bio_event' || 
+                       popupType === 'social_event' || 
+                       ability.targetName === 'ALL OPPONENTS' || 
+                       ability.ability === 'HYPER CLICK' || // Optional exception
+                       ability.ability === 'MOLE WIN';
 
-                   if (showLargePopup) {
+                   if (isMajorEvent) {
                        addOverlay(popupType, title, desc, 0);
                    }
                    
