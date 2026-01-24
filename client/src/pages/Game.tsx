@@ -411,14 +411,6 @@ export default function Game() {
     }
   }, [variant]);
 
-  // Low Flame Immunity Popup Check
-  useEffect(() => {
-    if (activeProtocol && activeProtocol !== 'THE_MOLE' && selectedCharacter?.id === 'fine') {
-        // Only show if not already showing a protocol alert
-        // Actually, just show it as a unique "immune" badge or overlay
-        addOverlay("ability_trigger", "FIRE WALL ACTIVE", "Immune to active protocol effects!", 3000);
-    }
-  }, [activeProtocol, selectedCharacter?.id]);
 
   const toggleDifficulty = () => {
       setDifficulty(prev => prev === 'COMPETITIVE' ? 'CASUAL' : 'COMPETITIVE');
@@ -821,6 +813,15 @@ export default function Game() {
           }
       }
   }, [phase, round]);
+
+  // Low Flame Immunity Popup Check
+  useEffect(() => {
+    if (activeProtocol && activeProtocol !== 'THE_MOLE' && selectedCharacter?.id === 'fine') {
+        // Only show if not already showing a protocol alert
+        // Actually, just show it as a unique "immune" badge or overlay
+        addOverlay("ability_trigger", "FIRE WALL ACTIVE", "Immune to active protocol effects!", 3000);
+    }
+  }, [activeProtocol, selectedCharacter?.id]);
 
 
   // User Interactions
