@@ -2705,10 +2705,8 @@ export default function Game() {
             </Button>
             {/* Inline Overlay for Round End Phase */}
              <GameOverlay 
-               type={overlay?.type || null} 
-               message={overlay?.message} 
-               subMessage={overlay?.subMessage} 
-               onComplete={() => setOverlay(null)} 
+               overlays={overlays}
+               onDismiss={removeOverlay}
                inline={true}
              />
           </motion.div>
