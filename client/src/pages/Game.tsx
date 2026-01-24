@@ -84,7 +84,7 @@ type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'ready' | 
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
-type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'GROUP_SELFIE' | 'HUM_TUNE';
+type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'VIBE_CHECK' | 'HUM_TUNE';
 type BioProtocol = 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND';
 
 // Extended Protocol Type
@@ -384,7 +384,7 @@ export default function Game() {
         setProtocolsEnabled(true);
         // Add social protocols if not already present (default ON)
         setAllowedProtocols(prev => {
-            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'];
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'VIBE_CHECK', 'HUM_TUNE'];
             const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
             // Remove bio protocols, add social protocols
             const withoutBio = prev.filter(p => !bioProtocols.includes(p));
@@ -395,7 +395,7 @@ export default function Game() {
         setProtocolsEnabled(true);
         // Add bio protocols if not already present (default ON)
         setAllowedProtocols(prev => {
-            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'];
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'VIBE_CHECK', 'HUM_TUNE'];
             const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
             // Remove social protocols, add bio protocols
             const withoutSocial = prev.filter(p => !socialProtocols.includes(p));
@@ -636,7 +636,7 @@ export default function Game() {
              toast({
                 title: "OVER-LIMIT ELIMINATION",
                 description: "You held longer than your remaining time! Eliminated & Lost Trophy.",
-                variant: "destructive",
+                className: "bg-cyan-950 border-cyan-500 text-cyan-100",
                 duration: 4000
             });
             overLimitToastShownRef.current = false; 
@@ -990,7 +990,7 @@ export default function Game() {
         // Some show up at end of round
         case 'TRUTH_DARE': msg = "PROTOCOL PENDING"; sub = "TRUTH OR DARE (End of Round)"; break;
         case 'SWITCH_SEATS': msg = "PROTOCOL PENDING"; sub = "SEAT SWAP (End of Round)"; break;
-        case 'GROUP_SELFIE': msg = "PROTOCOL PENDING"; sub = "GROUP SELFIE (End of Round)"; break;
+        case 'VIBE_CHECK': msg = "VIBE CHECK"; sub = "Strike a pose on 3! Last one loses."; break;
         case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
         
         // ... BIO PROTOCOLS ...
@@ -1430,7 +1430,7 @@ export default function Game() {
                 if (name === 'GREEDY GRAB' && Math.random() < 0.05) pop("bio_event", "GREEDY GRAB", "Previous winner must burn 40s next round or finish drink!", 1000);
                 if (name === 'MOUTH POP' && Math.random() < 0.15) pop("bio_event", "MOUTH POP", "Everyone sips when Click-Click opens/closes mouth!", 1000);
                 if (name === 'BRAIN FREEZE' && Math.random() < 0.15) pop("bio_event", "BRAIN FREEZE", "Force opponent to win next round or drink!", 1000);
-                if (name === 'DRINKING PARTNER') pop("bio_event", "DRINKING PARTNER", "You can change your drinking buddy now.", 500);
+                if (name === 'DRINKING PARTNER') pop("bio_event", "DRINKING PARTNER", "Choose a drinking partner for next round.", 500);
             }
 
             // SOCIAL ABILITIES
@@ -1999,9 +1999,9 @@ export default function Game() {
                    
                    if (!isModeEvent) {
                        toast({
-                         title: title,
+                         title: title || "ALERT",
                          description: desc,
-                         className: className,
+                         className: "bg-cyan-950 border-cyan-500 text-cyan-100",
                          duration: 12000, 
                        });
                    }
@@ -3074,7 +3074,7 @@ export default function Game() {
             {[
                 { name: "TRUTH DARE", desc: "Winner asks a Truth, Loser does a Dare.", type: "Social" },
                 { name: "SWITCH SEATS", desc: "Players must physically swap seats before next round.", type: "Physical" },
-                { name: "GROUP SELFIE", desc: "Everyone must pose for a photo. Last one ready loses 1s.", type: "Social" },
+                { name: "VIBE CHECK", desc: "Everyone must strike a pose on 3. Last one ready loses.", type: "Social" },
                 { name: "HUM TUNE", desc: "You must hum a song while bidding. If you stop, you forfeit.", type: "Social" },
             ].map((p, i) => (
               <div key={`social-${i}`} className="bg-purple-500/5 p-4 rounded border border-purple-500/20 hover:border-purple-500/50 transition-colors">
@@ -3176,7 +3176,15 @@ export default function Game() {
                         <div className="bg-black/30 p-3 rounded">
                             <div className="text-[10px] text-zinc-500 uppercase">Time Left</div>
                             <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== 'p1' && "blur-sm select-none")}>
-                                {selectedPlayerStats?.remainingTime ? formatTime(selectedPlayerStats.remainingTime) : "00:00.0"}
+                                {(() => {
+                                    const isSelfSadman = selectedPlayerStats?.id === 'p1' && selectedCharacter?.id === 'pepe';
+                                    const isScrambledOpponent = selectedCharacter?.id === 'bf' && selectedPlayerStats?.id !== 'p1' && selectedPlayerStats?.id !== peekTargetId;
+                                    
+                                    if (isSelfSadman || isScrambledOpponent) {
+                                        return `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`;
+                                    }
+                                    return selectedPlayerStats?.remainingTime ? formatTime(selectedPlayerStats.remainingTime) : "00:00.0";
+                                })()}
                             </div>
                         </div>
                         <div className="bg-black/30 p-3 rounded">
@@ -3218,10 +3226,10 @@ export default function Game() {
                 // Show time if: Easy Mode OR Game Over OR Player Eliminated
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
-                peekActive={selectedCharacter?.id === 'pepe' && peekTargetId === p.id}
+                peekActive={(selectedCharacter?.id === 'pepe' || selectedCharacter?.id === 'bf') && peekTargetId === p.id}
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={activeProtocol === 'SYSTEM_FAILURE' || (p.id === 'p1' && selectedCharacter?.id === 'pepe')}
-                isScrambled={scrambledPlayers.includes(p.id)}
+                isScrambled={(p.id !== 'p1' && selectedCharacter?.id === 'bf' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
