@@ -68,8 +68,8 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
 
       {/* PEEK INDICATOR OVERLAY (WANDERING EYE) */}
       {showHolding && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900/90 text-emerald-400 text-4xl font-black px-6 py-2 rounded-full shadow-2xl z-50 flex items-center justify-center border-2 border-emerald-500/50 animate-pulse tracking-widest">
-             ...
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900/90 text-emerald-400 text-lg font-black px-6 py-2 rounded-full shadow-2xl z-50 flex items-center justify-center border-2 border-emerald-500/50 animate-pulse tracking-widest whitespace-nowrap">
+             HOLDING
           </div>
       )}
 

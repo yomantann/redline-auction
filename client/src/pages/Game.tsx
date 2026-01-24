@@ -277,7 +277,7 @@ const CHARACTERS: Character[] = [
   { 
     id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drink.' },
+    socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drop button.' },
     bioAbility: { name: 'EMERGENCY MEETING', description: '25% chance: Everyone points at person to gang up on next round for drinking.' }
   },
   { 
@@ -1154,6 +1154,7 @@ export default function Game() {
                  } else if (ab.name === 'BURN IT') {
                      // Hit EVERYONE (except Roll Safe)
                      // Hotwired: Remove 1s from everyone else
+                     // FORCE HIT: Ignore immunity unless explicitly Roll Safe
                      players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId).forEach(target => {
                          disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, ability: ab.name });
                      });
@@ -1228,6 +1229,7 @@ export default function Game() {
 
         let newTime = p.remainingTime;
         let roundImpact = "";
+        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
 
         // Bid Deduction
         if (p.currentBid !== null && p.currentBid > 0) {
@@ -1252,7 +1254,10 @@ export default function Game() {
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
+                // Add to round impact for display
                 roundImpact += ` -${d.amount}s (${d.ability})`;
+                // Add detailed log
+                impactLogs.push({ value: `-${d.amount.toFixed(1)}s`, reason: d.ability, type: 'loss' });
             });
         }
 
@@ -1389,6 +1394,65 @@ export default function Game() {
     // 5. APPLY WINNER REWARDS & CONDITIONAL ABILITIES
     const extraLogs: string[] = [];
     const newAbilities: any[] = []; 
+
+    // Handle Post-Round Triggers for Social/Bio Modes
+    if (variant === 'SOCIAL_OVERDRIVE' || variant === 'BIO_FUEL') {
+        const triggerPlayer = (p: any) => {
+            const char = p.isBot 
+                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) 
+                : selectedCharacter;
+            
+            if (!char) return;
+
+            // Helper to add delayed overlay
+            const pop = (type: OverlayType, title: string, desc: string, delay: number) => {
+                 setTimeout(() => addOverlay(type, title, desc, 0), delay);
+            };
+
+            // BIO ABILITIES
+            if (variant === 'BIO_FUEL' && char.bioAbility) {
+                const name = char.bioAbility.name;
+                // Helper for random player
+                const randPlayer = () => players[Math.floor(Math.random() * players.length)].name;
+
+                if (name === 'LIQUID AUTHORIZATION') pop("bio_event", "LIQUID AUTHORIZATION", "Tell others: You cannot release your button next round until Guardian finishes their sip.", 500);
+                if (name === 'RAINBOW SHOT' && Math.random() < 0.10) pop("bio_event", "RAINBOW SHOT", `${randPlayer()} must mix two drinks!`, 1000);
+                if (name === 'SPILL HAZARD' && Math.random() < 0.25) pop("bio_event", "SPILL HAZARD", "Accuse someone of spilling! They must drink.", 1000);
+                if (name === 'ON FIRE' && p.id === winnerId) pop("bio_event", "ON FIRE", "You won! Everyone else drinks.", 500);
+                if (name === 'THE EX' && Math.random() < 0.10) pop("bio_event", "THE EX", "Toast to an ex! (We won't ask details)", 1000);
+                if (name === 'SCAVENGE' && Math.random() < 0.05) pop("bio_event", "SCAVENGE", "Finish someone else's drink!", 1000);
+                if (name === 'ROYAL CUP' && round === totalRounds - 1) pop("bio_event", "ROYAL CUP", "Make a rule for the remainder of the game.", 500);
+                if (name === 'REASSIGNED' && Math.random() < 0.50) pop("bio_event", "REASSIGNED", "Choose 1 player to take a drink.", 1000);
+                if (name === 'PACE SETTER' && round % 3 === 0) pop("bio_event", "PACE SETTER", "WATERFALL! Start drinking, others follow.", 500);
+                if (name === 'BIG BRAIN' && Math.random() < 0.15) pop("bio_event", "BIG BRAIN", "Option: Have everyone pass drink to the left.", 1000);
+                if (name === 'SPICY' && Math.random() < 0.20) pop("bio_event", "SPICY", "Everyone drinks!", 1000);
+                if (name === 'EMERGENCY MEETING' && Math.random() < 0.25) pop("bio_event", "EMERGENCY MEETING", "Point at person to gang up on next round!", 1000);
+                if (name === 'GREEDY GRAB' && Math.random() < 0.05) pop("bio_event", "GREEDY GRAB", "Previous winner must burn 40s next round or finish drink!", 1000);
+                if (name === 'MOUTH POP' && Math.random() < 0.15) pop("bio_event", "MOUTH POP", "Everyone sips when Click-Click opens/closes mouth!", 1000);
+                if (name === 'BRAIN FREEZE' && Math.random() < 0.15) pop("bio_event", "BRAIN FREEZE", "Force opponent to win next round or drink!", 1000);
+                if (name === 'DRINKING PARTNER') pop("bio_event", "DRINKING PARTNER", "You can change your drinking buddy now.", 500);
+            }
+
+            // SOCIAL ABILITIES
+            if (variant === 'SOCIAL_OVERDRIVE' && char.socialAbility) {
+                const name = char.socialAbility.name;
+                if (name === 'SAD STORY' && Math.random() < 0.05) pop("social_event", "SAD STORY", "Share a sad story with the group.", 1000);
+                if (name === 'COMPLAINT' && Math.random() < 0.15) pop("social_event", "COMPLAINT", "Everyone votes on winner's punishment!", 1000);
+                if (name === 'HOT SEAT' && Math.random() < 0.25) pop("social_event", "HOT SEAT", "Choose a player to answer a TRUTH.", 1000);
+                if (name === 'SNITCH' && Math.random() < 0.05) pop("social_event", "SNITCH", "Reveal someone's tell!", 1000);
+                if (name === 'CC\'D' && Math.random() < 0.20) pop("social_event", "CC'D", "Choose a player to copy your actions next round.", 1000);
+                if (name === 'VIRAL MOMENT' && Math.random() < 0.15) pop("social_event", "VIRAL MOMENT", "Re-enact a meme! Best performance wins.", 1000);
+                if (name === 'FRESH CUT' && Math.random() < 0.10) pop("social_event", "FRESH CUT", "Compliment everyone in the lobby.", 1000);
+                if (name === 'PROM COURT' && Math.random() < 0.15) pop("social_event", "PROM COURT", "Make a rule for remainder of game.", 1000);
+            }
+        };
+
+        // Check Trigger for Driver (P1)
+        triggerPlayer(players.find(p => p.id === 'p1'));
+        
+        // Also check triggers for bots if they are in game
+        players.filter(p => p.isBot).forEach(bot => triggerPlayer(bot));
+    }
 
     disruptEffects.forEach(d => {
         newAbilities.push({ playerId: d.source, ability: d.ability, effect: 'DISRUPT', targetId: d.targetId, impactValue: `-${d.amount}s` });
