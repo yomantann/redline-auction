@@ -6,6 +6,15 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
+
+// Define OverlayItem interface locally to match GameOverlay
+interface OverlayItem {
+  id: string;
+  type: OverlayType;
+  message?: string;
+  subMessage?: string;
+  duration?: number;
+}
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -327,6 +336,36 @@ export default function Game() {
   
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<Player | null>(null);
 
+  // New Overlays State (Array for stacking)
+  const [overlays, setOverlays] = useState<OverlayItem[]>([]);
+  
+  // Helper to add overlay
+  const addOverlay = (type: OverlayType, message: string, subMessage?: string, duration: number = 0) => {
+      const id = Math.random().toString(36).substring(7);
+      setOverlays(prev => [...prev, { id, type, message, subMessage, duration }]);
+      
+      // Auto dismiss if desired (0 = manual dismiss)
+      if (duration > 0) {
+          setTimeout(() => {
+              setOverlays(prev => prev.filter(o => o.id !== id));
+          }, duration);
+      }
+  };
+
+  const removeOverlay = (id: string) => {
+      setOverlays(prev => prev.filter(o => o.id !== id));
+  };
+  
+  // Compatibility shim for existing code that uses setOverlay({ ... })
+  // We'll replace usages of setOverlay with addOverlay or clearOverlays
+  const setOverlay = (data: { type: OverlayType, message?: string, subMessage?: string } | null) => {
+      if (data === null) {
+          setOverlays([]); // Clear all
+      } else {
+          addOverlay(data.type, data.message || "", data.subMessage);
+      }
+  };
+
   // Animation State
   const [animations, setAnimations] = useState<{ id: string; playerId: string; type: AnimationType; value?: string }[]>([]);
 
@@ -422,7 +461,7 @@ export default function Game() {
   const isDoubleTokens = activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM';
 
   // Overlay State
-  const [overlay, setOverlay] = useState<{ type: OverlayType; message?: string; subMessage?: string } | null>(null);
+  // REMOVED: Replaced by overlays array above
   
   // Players State
   const [players, setPlayers] = useState<Player[]>([
@@ -978,9 +1017,9 @@ export default function Game() {
       }
 
       if (showPopup) {
-         setOverlay({ type: "protocol_alert", message: msg, subMessage: sub });
+         addOverlay("protocol_alert", msg, sub);
       } else {
-         setOverlay({ type: "protocol_alert", message: "SECRET PROTOCOL", subMessage: "A hidden protocol is active..." });
+         addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
       }
     } else {
       setActiveProtocol(null);
@@ -992,32 +1031,31 @@ export default function Game() {
     if (selectedChar) {
         // GUARDIAN H: VIBE GUARD (Social)
         if (selectedChar.id === 'harambe' && variant === 'SOCIAL_OVERDRIVE') {
-             // Override existing overlay if any (Protocol alert takes precedence usually, but character ability is critical)
-             // Using timeout to queue it if protocol popup exists, or just show it if no protocol
+             // Stack event instead of override
              setTimeout(() => {
-                 setOverlay({ type: "protocol_alert", message: "VIBE GUARD ACTIVE", subMessage: "Designate a player immune to social dares this round." });
+                 addOverlay("social_event", "VIBE GUARD ACTIVE", "Designate a player immune to social dares this round.", 0);
              }, 100); 
         }
         
         // WINTER: COLD SHOULDER (Social)
         if (selectedChar.id === 'winter' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.25) {
              setTimeout(() => {
-                 setOverlay({ type: "protocol_alert", message: "COLD SHOULDER", subMessage: "Ignore all social interactions this round." });
-             }, 100);
+                 addOverlay("social_event", "COLD SHOULDER", "Ignore all social interactions this round.", 0);
+             }, 200);
         }
 
         // WANDERING EYE: DISTRACTION (Social)
         if (selectedChar.id === 'bf' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.35) {
              setTimeout(() => {
-                 setOverlay({ type: "protocol_alert", message: "DISTRACTION OPPORTUNITY", subMessage: "Point at something! Anyone who looks must drop buzzer." });
-             }, 100);
+                 addOverlay("social_event", "DISTRACTION OPPORTUNITY", "Point at something! Anyone who looks must drop buzzer.", 0);
+             }, 300);
         }
 
         // GIGACHAD: MOG (Social)
         if (selectedChar.id === 'gigachad' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.20) {
              setTimeout(() => {
-                 setOverlay({ type: "protocol_alert", message: "MOG CHECK", subMessage: "Stare challenge! Loser drops button." });
-             }, 100);
+                 addOverlay("social_event", "MOG CHECK", "Stare challenge! Loser drops button.", 0);
+             }, 400);
         }
         
         // SADMAN: SAD REVEAL (Passive - PEEK Selection)
@@ -1795,17 +1833,17 @@ export default function Game() {
     // BIO-FUEL Logic: Add drink prompt if applicable
     if (variant === 'BIO_FUEL' && (overlayType === 'time_out' || winnerId)) {
         if (overlayType === 'time_out') {
-             overlaySub = "ELIMINATED! CONSUME BIO-FUEL.";
+             // Stack Bio Event for time out
+             addOverlay("bio_event", "ELIMINATED! CONSUME BIO-FUEL.", "", 0);
         } else if (winnerId) {
-             overlaySub = "OTHERS MUST REFUEL.";
+             // Stack Bio Event for win
+             addOverlay("bio_event", "OTHERS MUST REFUEL.", "", 0);
         }
     }
 
-    setOverlay({ 
-      type: overlayType, 
-      message: overlayMsg, 
-      subMessage: overlaySub 
-    });
+    if (overlayType) {
+        addOverlay(overlayType, overlayMsg, overlaySub, 0);
+    }
 
     // Notify all activated abilities
     // Use newAbilities (local) for immediate trigger, update activeAbilities state above
@@ -1873,11 +1911,9 @@ export default function Game() {
                }
 
                if (show) {
-                   setOverlay({
-                       type: 'ability_trigger',
-                       message: title,
-                       subMessage: desc
-                   });
+                   // Stack Ability Popup
+                   addOverlay("ability_trigger", title, desc, 0);
+                   
                    // Also toast for history
                    toast({
                      title: title,
@@ -2525,10 +2561,8 @@ export default function Game() {
                   />
                   {/* Inline Overlay for Countdown Phase */}
                   <GameOverlay 
-                    type={overlay?.type || null} 
-                    message={overlay?.message} 
-                    subMessage={overlay?.subMessage} 
-                    onComplete={() => setOverlay(null)} 
+                    overlays={overlays}
+                    onDismiss={removeOverlay}
                     inline={true}
                   />
                </div>
@@ -2574,10 +2608,8 @@ export default function Game() {
                   />
                   {/* Inline Overlay for Bidding Phase */}
                   <GameOverlay 
-                    type={overlay?.type || null} 
-                    message={overlay?.message} 
-                    subMessage={overlay?.subMessage} 
-                    onComplete={() => setOverlay(null)} 
+                    overlays={overlays}
+                    onDismiss={removeOverlay}
                     inline={true}
                   />
               </div>

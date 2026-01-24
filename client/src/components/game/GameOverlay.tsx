@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck, Crosshair, Flame, Hourglass, X } from "lucide-react";
+import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck, Crosshair, Flame, Hourglass, X, PartyPopper, Martini } from "lucide-react";
 
 export type OverlayType = 
   | "round_start" 
@@ -22,25 +22,27 @@ export type OverlayType =
   | "precision_strike"
   | "overkill"
   | "clutch_play"
+  | "social_event" // New
+  | "bio_event"    // New
   | null;
 
-interface GameOverlayProps {
+interface OverlayItem {
+  id: string;
   type: OverlayType;
   message?: string;
   subMessage?: string;
-  onComplete?: () => void;
+  duration?: number;
+}
+
+interface GameOverlayProps {
+  overlays: OverlayItem[];
+  onDismiss: (id: string) => void;
   inline?: boolean;
 }
 
-export function GameOverlay({ type, message, subMessage, onComplete, inline = false }: GameOverlayProps) {
+export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlayProps) {
   
-  const variants = {
-    hidden: { opacity: 0, scale: 0.8, y: inline ? 10 : 50 },
-    visible: { opacity: 1, scale: 1, y: 0 },
-    exit: { opacity: 0, scale: 1.1, filter: "blur(10px)" }
-  };
-
-  const getIcon = () => {
+  const getIcon = (type: OverlayType) => {
     switch (type) {
       case "round_start": return <Play size={48} className="text-primary" />;
       case "round_win": return <Trophy size={48} className="text-primary" />;
@@ -64,11 +66,14 @@ export function GameOverlay({ type, message, subMessage, onComplete, inline = fa
       case "overkill": return <Flame size={48} className="text-red-500" />;
       case "clutch_play": return <Hourglass size={48} className="text-yellow-400" />;
       
+      case "social_event": return <PartyPopper size={48} className="text-purple-400" />;
+      case "bio_event": return <Martini size={48} className="text-orange-400" />;
+
       default: return null;
     }
   };
 
-  const getColor = () => {
+  const getColor = (type: OverlayType) => {
     switch (type) {
       case "round_start": 
       case "round_win": 
@@ -92,6 +97,9 @@ export function GameOverlay({ type, message, subMessage, onComplete, inline = fa
       case "precision_strike": return "text-blue-400 border-blue-500/20 bg-black/80";
       case "overkill": return "text-red-500 border-red-500/20 bg-black/80";
       case "clutch_play": return "text-yellow-400 border-yellow-500/20 bg-black/80";
+
+      case "social_event": return "text-purple-400 border-purple-500/20 bg-black/90";
+      case "bio_event": return "text-orange-400 border-orange-500/20 bg-black/90";
       
       case "round_draw": 
       default: 
@@ -99,73 +107,52 @@ export function GameOverlay({ type, message, subMessage, onComplete, inline = fa
     }
   };
 
-  const handleDismiss = () => {
-    if (onComplete) onComplete();
-  };
-
   return (
-    <AnimatePresence>
-      {type && (
-        <div className={inline ? "absolute left-1/2 -translate-x-1/2 top-full mt-4 z-50 flex items-center justify-center pointer-events-none w-max" : "fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4"}>
+    <div className={inline ? "absolute left-1/2 -translate-x-1/2 top-full mt-4 z-50 flex flex-col items-center justify-start pointer-events-none w-max gap-2" : "fixed inset-0 z-50 flex flex-col items-center justify-center pointer-events-none p-4 gap-4"}>
+      <AnimatePresence>
+        {overlays.map((item) => (
           <motion.div 
-            key="overlay-content"
-            className={`flex flex-col items-center justify-center py-6 px-12 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor()} min-w-[300px] md:min-w-[400px] text-center pointer-events-auto cursor-pointer relative ${inline ? "" : "mt-64"}`}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={variants}
+            key={item.id}
+            className={`flex flex-col items-center justify-center py-6 px-12 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor(item.type)} min-w-[300px] md:min-w-[400px] text-center pointer-events-auto cursor-pointer relative`}
+            initial={{ opacity: 0, scale: 0.8, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -20, filter: "blur(10px)" }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            onClick={handleDismiss}
+            onClick={() => onDismiss(item.id)}
+            layout // Enable layout animation for smooth stacking
           >
             {/* Dismiss Button */}
             <button 
-              onClick={handleDismiss}
+              onClick={(e) => {
+                  e.stopPropagation();
+                  onDismiss(item.id);
+              }}
               className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/10 transition-colors opacity-50 hover:opacity-100"
-              title="Dismiss (or click anywhere)"
+              title="Dismiss"
             >
               <X size={16} />
             </button>
 
-            <motion.div 
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", delay: 0.1 }}
-              className="mb-2"
-            >
-              {getIcon()}
-            </motion.div>
+            <div className="mb-2">
+              {getIcon(item.type)}
+            </div>
             
-            <motion.h2 
-              className="text-2xl font-display font-bold mb-1 uppercase tracking-widest text-glow"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-            >
-              {message}
-            </motion.h2>
+            <h2 className="text-2xl font-display font-bold mb-1 uppercase tracking-widest text-glow">
+              {item.message}
+            </h2>
             
-            {subMessage && (
-              <motion.p 
-                className="text-sm font-mono opacity-80"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                {subMessage}
-              </motion.p>
+            {item.subMessage && (
+              <p className="text-sm font-mono opacity-80 max-w-[300px] whitespace-pre-wrap">
+                {item.subMessage}
+              </p>
             )}
 
-            <motion.p 
-              className="text-[10px] text-zinc-500 mt-3 uppercase tracking-widest"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-            >
+            <p className="text-[10px] text-zinc-500 mt-3 uppercase tracking-widest opacity-50">
               Click to dismiss
-            </motion.p>
+            </p>
           </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+        ))}
+      </AnimatePresence>
+    </div>
   );
 }
