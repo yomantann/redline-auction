@@ -265,7 +265,7 @@ const CHARACTERS: Character[] = [
   },
   { 
     id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
-    ability: { name: 'SMART PLAY', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
+    ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules all game.' },
     bioAbility: { name: 'BIG BRAIN', description: '15% chance at end of round: Option to have everyone pass drink to the left.' }
   },
@@ -328,7 +328,8 @@ export default function Game() {
         'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
         'OPEN_HAND', 'NOISE_CANCEL', 'MUTE_PROTOCOL', 
         'PRIVATE_CHANNEL', 'NO_LOOK', 
-        'THE_MOLE', 'PANIC_ROOM'
+        'THE_MOLE', 'PANIC_ROOM',
+        'UNDERDOG_VICTORY', 'TIME_TAX'
   ]);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
   const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
@@ -1009,7 +1010,7 @@ export default function Game() {
         
         // ... BIO PROTOCOLS ...
         case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone take a sip!"; break;
-        case 'BOTTOMS_UP': msg = "SYSTEM FLUSH"; sub = "Loser of this round finishes drink!"; break;
+        case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser of this round finishes drink!"; break;
         case 'PARTNER_DRINK': 
             const [b1, b2] = getTwoRandomPlayers();
             msg = "LINKED SYSTEMS"; sub = `${b1} & ${b2} are drinking buddies this round!`; 
@@ -1935,22 +1936,25 @@ export default function Game() {
         }, 1500);
     }
 
-    // CALCULATED MOMENT CHECK
-    if (winnerId === 'p1') {
-        // Check if remaining time - current bid is within 1s
-        // We use 'participants' to get the raw state at start of round, but we need currentBid
-        // The winnerPlayer object from participants has remainingTime at START of round.
-        const winnerP = participants.find(p => p.id === 'p1');
-        if (winnerP && winnerP.currentBid) {
-             const timeLeftAfterBid = winnerP.remainingTime - winnerP.currentBid;
-             // Must be calculated BEFORE abilities (refunds). 
-             // Logic: We are checking pure bid vs pure time bank.
-             if (timeLeftAfterBid <= 1.0 && timeLeftAfterBid >= 0) {
-                 overlayType = "calculated";
-                 overlayMsg = "CALCULATED";
-                 overlaySub = `Precision Bet! (${timeLeftAfterBid.toFixed(1)}s left)`;
-             }
-        }
+    // LAST ONE STANDING MOMENT CHECK
+    // Win final round AND at least one player eliminated in that round
+    if (winnerId === 'p1' && round === totalRounds) {
+         if (playersOut.length > 0) {
+             overlayType = "clutch_play"; // Reuse clutch_play color/icon or add new one? User didn't specify color.
+             // Wait, overlayType "clutch_play" is yellow hourglass. "CALCULATED" was blue zap. 
+             // "LAST ONE STANDING" sounds like a clutch/survival moment.
+             // Let's use "clutch_play" (Yellow) or reuse the "ability_trigger" (Blue)?
+             // The old "calculated" used overlayType="calculated" which wasn't in definition list but was handled?
+             // Ah, previous edit I missed adding "calculated" to GameOverlay types in the Read result, 
+             // but I saw it in the edit block I sent.
+             // Actually, I should probably add "last_one_standing" to GameOverlay.tsx if I want a specific icon.
+             // For now, let's reuse "clutch_play" which fits "Last One Standing".
+             
+             // Or better, let's stick to the BLUE theme of Calculated since I'm replacing it.
+             overlayType = "genius_move"; // Blue Badge Check
+             overlayMsg = "LAST ONE STANDING";
+             overlaySub = `Survivor Victory! (${playersOut.length} eliminated)`;
+         }
     }
 
     // BIO-FUEL Logic: Add drink prompt if applicable
@@ -1982,15 +1986,24 @@ export default function Game() {
                    if (ability.targetName) {
                        desc += ` on ${ability.targetName}`;
                    }
-                   if (ability.effect === 'TIME_REFUND') {
+                   
+                   // SELF-TRIGGER REALITY MODE FORMAT FIX
+                   if (ability.effect === 'BIO_TRIGGER' || ability.effect === 'SOCIAL_TRIGGER') {
+                        // For SELF, we want same format: "Driver: Ability Name" | "Description"
+                        title = `${ability.player}: ${ability.ability}`;
+                        desc = `"${ability.impactValue}"`; // Use the flavor text
+                        
+                        if (ability.effect === 'BIO_TRIGGER') {
+                            className += " bg-orange-950 border-orange-500 text-orange-100";
+                        } else {
+                            className += " bg-purple-950 border-purple-500 text-purple-100";
+                        }
+                   } else if (ability.effect === 'TIME_REFUND') {
                         desc += " (+TIME)";
                         className += " bg-emerald-950 border-emerald-500 text-emerald-100";
                    } else if (ability.effect === 'TOKEN_BOOST') {
                         desc += " (+TOKENS)";
                         className += " bg-yellow-950 border-yellow-500 text-yellow-100";
-                   } else if (ability.effect === 'BIO_TRIGGER') {
-                        title = `${ability.player}: BIO-FUEL EVENT`;
-                        className += " bg-orange-950 border-orange-500 text-orange-100";
                    } else {
                         className += " bg-blue-950 border-blue-500 text-blue-100";
                    }
@@ -2300,8 +2313,8 @@ export default function Game() {
                         </div>
                         {[
                             { id: 'HYDRATE', label: 'HYDRATE', desc: 'Bio-Fuel', type: 'bio' },
-                            { id: 'BOTTOMS_UP', label: 'SYSTEM FLUSH', desc: 'Bio-Fuel', type: 'bio' },
-                            { id: 'PARTNER_DRINK', label: 'PARTNER_DRINK', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'BOTTOMS_UP', label: 'BOTTOMS UP', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'PARTNER_DRINK', label: 'LINKED SYSTEMS', desc: 'Bio-Fuel', type: 'bio' },
                             { id: 'WATER_ROUND', label: 'WATER_ROUND', desc: 'Bio-Fuel', type: 'bio' },
                         ].map((p) => (
                             <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-orange-950/20 border border-orange-500/10">
@@ -3067,7 +3080,7 @@ export default function Game() {
               { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
               { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
               { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
-              { title: "CALCULATED", desc: "Win with < 2s remaining in bank (before abilities).", color: "text-blue-400 border-blue-500/20" },
+              { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-blue-400 border-blue-500/20" },
               { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-400 border-blue-500/20" },
               { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
               { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-yellow-400 border-yellow-500/20" },
@@ -3150,7 +3163,7 @@ export default function Game() {
             {[
                 { name: "HYDRATE", desc: "Everyone takes a sip.", type: "Bio" },
                 { name: "BOTTOMS UP", desc: "Winner must finish their drink.", type: "Bio" },
-                { name: "PARTNER DRINK", desc: "Pick a partner. When you drink, they drink.", type: "Bio" },
+                { name: "LINKED SYSTEMS", desc: "Pick a partner. When you drink, they drink.", type: "Bio" },
                 { name: "WATER ROUND", desc: "Winner gives a glass of water to someone.", type: "Bio" },
             ].map((p, i) => (
               <div key={`bio-${i}`} className="bg-orange-500/5 p-4 rounded border border-orange-500/20 hover:border-orange-500/50 transition-colors">
