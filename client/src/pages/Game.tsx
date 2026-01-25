@@ -327,7 +327,7 @@ export default function Game() {
   const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
         'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
         'OPEN_HAND', 'NOISE_CANCEL', 'MUTE_PROTOCOL', 
-        'PRIVATE_CHANNEL', 'NO_LOOK', 'LOCK_ON', 
+        'PRIVATE_CHANNEL', 'NO_LOOK', 
         'THE_MOLE', 'PANIC_ROOM'
   ]);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
@@ -1030,7 +1030,13 @@ export default function Game() {
       }
 
       if (showPopup) {
-         addOverlay("protocol_alert", msg, sub);
+         if (['TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE', 'LOCK_ON'].includes(activeProtocol || '')) {
+             addOverlay("social_event", msg, sub);
+         } else if (['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(activeProtocol || '')) {
+             addOverlay("bio_event", msg, sub);
+         } else {
+             addOverlay("protocol_alert", msg, sub);
+         }
       } else {
          addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
       }
@@ -2232,7 +2238,6 @@ export default function Game() {
                             { id: 'MUTE_PROTOCOL', label: 'SILENCE ENFORCED', desc: 'Silence required' },
                             { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
                             { id: 'NO_LOOK', label: 'BLIND BIDDING', desc: 'Cannot look at screen' },
-                            { id: 'LOCK_ON', label: 'LOCK ON', desc: 'Eye contact required' },
                             { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
                             { id: 'PANIC_ROOM', label: 'PANIC_ROOM', desc: '2x Speed' },
                             { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token' },
@@ -2295,7 +2300,7 @@ export default function Game() {
                         </div>
                         {[
                             { id: 'HYDRATE', label: 'HYDRATE', desc: 'Bio-Fuel', type: 'bio' },
-                            { id: 'BOTTOMS_UP', label: 'BOTTOMS_UP', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'BOTTOMS_UP', label: 'SYSTEM FLUSH', desc: 'Bio-Fuel', type: 'bio' },
                             { id: 'PARTNER_DRINK', label: 'PARTNER_DRINK', desc: 'Bio-Fuel', type: 'bio' },
                             { id: 'WATER_ROUND', label: 'WATER_ROUND', desc: 'Bio-Fuel', type: 'bio' },
                         ].map((p) => (
@@ -3062,6 +3067,7 @@ export default function Game() {
               { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
               { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
               { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
+              { title: "CALCULATED", desc: "Win with < 2s remaining in bank (before abilities).", color: "text-blue-400 border-blue-500/20" },
               { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-400 border-blue-500/20" },
               { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
               { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-yellow-400 border-yellow-500/20" },
@@ -3112,7 +3118,6 @@ export default function Game() {
               { name: "MUTE PROTOCOL", desc: "Complete silence enforced. Speaking is shunned.", type: "Social" },
               { name: "PRIVATE CHANNEL", desc: "Two players selected to discuss strategy privately.", type: "Social" },
               { name: "NO LOOK", desc: "Players cannot look at screens until they release button.", type: "Physical" },
-              { name: "LOCK ON", desc: "Two players must maintain eye contact entire round.", type: "Social" },
               { name: "THE MOLE", desc: "Selected player must LOSE. Their bid time is NOT subtracted.", type: "Hidden Role" },
               { name: "PANIC ROOM", desc: "Game speed 2x. Winner gets Double Tokens.", type: "Game State" },
             ].map((p, i) => (
