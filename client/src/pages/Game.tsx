@@ -93,6 +93,7 @@ type ProtocolType =
   | 'OPEN_HAND' | 'NOISE_CANCEL' | 'MUTE_PROTOCOL' 
   | 'PRIVATE_CHANNEL' | 'NO_LOOK' | 'LOCK_ON' 
   | 'THE_MOLE' | 'PANIC_ROOM' 
+  | 'UNDERDOG_VICTORY' | 'TIME_TAX'
   | SocialProtocol
   | BioProtocol
   | null;
@@ -942,7 +943,7 @@ export default function Game() {
       let protocolPool = [...allowedProtocols];
       
       if (variant === 'SOCIAL_OVERDRIVE') {
-          protocolPool = [...protocolPool, 'TRUTH_DARE', 'SWITCH_SEATS', 'GROUP_SELFIE', 'HUM_TUNE'];
+          protocolPool = [...protocolPool, 'TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
       }
       if (variant === 'BIO_FUEL') {
           protocolPool = [...protocolPool, 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
@@ -985,6 +986,7 @@ export default function Game() {
             break;
         case 'NO_LOOK': msg = "BLIND BIDDING"; sub = "Do not look at screens until drop!"; break;
         case 'LOCK_ON':
+            // Moved to Social only pool logic, but if triggered here fallback
             const [l1, l2] = getTwoRandomPlayers();
             msg = "LOCK ON"; sub = `${l1} & ${l2} must maintain eye contact!`;
             break;
@@ -996,12 +998,13 @@ export default function Game() {
           sub = target === 'YOU' ? "YOU are the Mole! Lose secretly." : "A Mole is active..."; 
           break;
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
+        case 'UNDERDOG_VICTORY': showPopup = false; break; // Secret
+        case 'TIME_TAX': showPopup = false; break; // Secret
         
         // ... SOCIAL PROTOCOLS ...
         // Some show up at end of round - HIDDEN START OF ROUND per user request
         case 'TRUTH_DARE': showPopup = false; break;
         case 'SWITCH_SEATS': showPopup = false; break;
-        case 'GROUP_SELFIE': showPopup = false; break;
         case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
         
         // ... BIO PROTOCOLS ...
@@ -1015,7 +1018,7 @@ export default function Game() {
       }
       
       // Filter out popups that shouldn't be seen by the player
-      const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'NOISE_CANCEL', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE'];
+      const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'NOISE_CANCEL', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE', 'UNDERDOG_VICTORY', 'TIME_TAX'];
 
       if (newProtocol && targetProtocols.includes(newProtocol)) {
          showPopup = false;
@@ -1821,6 +1824,7 @@ export default function Game() {
                overlayMsg = "PRECISION STRIKE";
                overlaySub = "Exact second bid!";
            }
+           // New Event: Calculated (Handled below, but check priority)
            // New Event 2: Overkill (More tokens than time needed?)
            else if (winnerBid > 60) {
                overlayType = "overkill";
@@ -1868,6 +1872,79 @@ export default function Game() {
         overlayType = "protocol_alert";
         overlayMsg = msg;
         overlaySub = sub;
+    }
+
+    // SECRET PROTOCOL REVEALS (Underdog / Time Tax)
+    if (activeProtocol === 'UNDERDOG_VICTORY') {
+        // Find lowest bidder > min bid and not eliminated
+        const minBid = MIN_BID;
+        const eligible = finalPlayers.filter(p => !p.isEliminated && (p.currentBid || 0) >= minBid);
+        eligible.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0)); // Ascending
+        
+        if (eligible.length > 0) {
+            const underdog = eligible[0];
+            // Award Token
+            const idx = finalPlayers.findIndex(p => p.id === underdog.id);
+            if (idx !== -1) {
+                finalPlayers[idx].tokens += 1;
+                finalPlayers[idx].roundImpact = (finalPlayers[idx].roundImpact || "") + " +1 Token (Underdog)";
+                if (finalPlayers[idx].impactLogs) finalPlayers[idx].impactLogs!.push({ value: "+1 Token", reason: "Underdog Victory", type: 'gain' });
+                
+                extraLogs.push(`>> SECRET REVEALED: UNDERDOG VICTORY! ${underdog.name} wins a trophy for lowest bid!`);
+                
+                // Show Overlay
+                setTimeout(() => {
+                    addOverlay("protocol_alert", "SECRET REVEALED", `UNDERDOG VICTORY: ${underdog.name} (+1 Token)`);
+                }, 1500); // Delay slightly so main winner shows first
+            }
+        } else {
+             extraLogs.push(`>> SECRET REVEALED: UNDERDOG VICTORY (No eligible winner)`);
+             setTimeout(() => {
+                addOverlay("protocol_alert", "SECRET REVEALED", "UNDERDOG VICTORY: No eligible winner.");
+            }, 1500);
+        }
+    }
+
+    if (activeProtocol === 'TIME_TAX') {
+        // Deduct 10s from everyone not eliminated
+        let hitList: string[] = [];
+        finalPlayers.forEach(p => {
+            if (!p.isEliminated && p.remainingTime > 0) {
+                p.remainingTime = Math.max(0, p.remainingTime - 10.0);
+                p.roundImpact = (p.roundImpact || "") + " -10.0s (Time Tax)";
+                if (p.impactLogs) p.impactLogs.push({ value: "-10.0s", reason: "Time Tax", type: 'loss' });
+                hitList.push(p.name);
+                
+                // Check if eliminated by tax
+                if (p.remainingTime <= 0) {
+                    p.isEliminated = true;
+                    extraLogs.push(`>> ${p.name} eliminated by Time Tax!`);
+                }
+            }
+        });
+        
+        extraLogs.push(`>> SECRET REVEALED: TIME TAX! -10s to all survivors.`);
+        setTimeout(() => {
+            addOverlay("protocol_alert", "SECRET REVEALED", "TIME TAX: -10s to all survivors!");
+        }, 1500);
+    }
+
+    // CALCULATED MOMENT CHECK
+    if (winnerId === 'p1') {
+        // Check if remaining time - current bid is within 1s
+        // We use 'participants' to get the raw state at start of round, but we need currentBid
+        // The winnerPlayer object from participants has remainingTime at START of round.
+        const winnerP = participants.find(p => p.id === 'p1');
+        if (winnerP && winnerP.currentBid) {
+             const timeLeftAfterBid = winnerP.remainingTime - winnerP.currentBid;
+             // Must be calculated BEFORE abilities (refunds). 
+             // Logic: We are checking pure bid vs pure time bank.
+             if (timeLeftAfterBid <= 1.0 && timeLeftAfterBid >= 0) {
+                 overlayType = "calculated";
+                 overlayMsg = "CALCULATED";
+                 overlaySub = `Precision Bet! (${timeLeftAfterBid.toFixed(1)}s left)`;
+             }
+        }
     }
 
     // BIO-FUEL Logic: Add drink prompt if applicable
@@ -1938,9 +2015,10 @@ export default function Game() {
                // Case 5: BIO/SOCIAL Trigger for others (Visible Event)
                else if (ability.effect === 'BIO_TRIGGER' || ability.effect === 'SOCIAL_TRIGGER') {
                    show = true;
-                   title = `${ability.player}: ${ability.effect === 'BIO_TRIGGER' ? 'BIO' : 'SOCIAL'} EVENT`;
+                   title = `${ability.player}: ${ability.ability}`; // Strict Format: Driver: Ability Name
                    // CRITICAL: Use the impactValue (description) as the main text
-                   desc = ability.impactValue || `${ability.ability} ACTIVATED`;
+                   // Strict Format: "Description"
+                   desc = `"${ability.impactValue}"`;
                    
                    // Specific coloring for visibility
                    if (ability.effect === 'BIO_TRIGGER') {
@@ -2157,6 +2235,8 @@ export default function Game() {
                             { id: 'LOCK_ON', label: 'LOCK ON', desc: 'Eye contact required' },
                             { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
                             { id: 'PANIC_ROOM', label: 'PANIC_ROOM', desc: '2x Speed' },
+                            { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token' },
+                            { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone' },
                         ].map((p) => (
                             <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-zinc-900/50 border border-white/5">
                                 <Switch 
@@ -2185,8 +2265,8 @@ export default function Game() {
                         {[
                             { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Social', type: 'social' },
                             { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Social', type: 'social' },
-                            { id: 'GROUP_SELFIE', label: 'GROUP_SELFIE', desc: 'Social', type: 'social' },
                             { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Social', type: 'social' },
+                            { id: 'LOCK_ON', label: 'LOCK_ON', desc: 'Eye contact required', type: 'social' },
                         ].map((p) => (
                             <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-purple-950/20 border border-purple-500/10">
                                 <Switch 
