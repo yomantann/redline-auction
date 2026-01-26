@@ -937,8 +937,10 @@ export default function Game() {
 
   // Start Round Logic
   const startCountdown = () => {
-    // Check for Protocol Trigger 
-    if (protocolsEnabled && Math.random() > 0.65) {
+    // Check for Protocol Trigger (pace-dependent)
+    // SPEED (short): 50% | STANDARD (medium): 40% | MARATHON (long): 30%
+    const protocolTriggerChance = gameDuration === 'short' ? 0.5 : gameDuration === 'long' ? 0.3 : 0.4;
+    if (protocolsEnabled && Math.random() < protocolTriggerChance) {
       
       // Build Protocol Pool
       // Build two pools:
@@ -2340,15 +2342,6 @@ export default function Game() {
                                 ]
                               },
                               {
-                                id: 'standard_twists',
-                                title: 'SYSTEM TWISTS',
-                                subtitle: 'System behavior',
-                                items: [
-                                  { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
-                                  { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD glitches & scramble' },
-                                ]
-                              },
-                              {
                                 id: 'standard_secret',
                                 title: 'SECRET PROTOCOLS',
                                 subtitle: 'Secret for some players',
@@ -2744,6 +2737,15 @@ export default function Game() {
 
             {(() => {
               const allDrivers = [...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])];
+              const picked = new Set<string>();
+              const assignOnce = (list: Character[], predicate: (c: Character) => boolean) =>
+                list.filter((c) => {
+                  if (picked.has(c.id)) return false;
+                  if (!predicate(c)) return false;
+                  picked.add(c.id);
+                  return true;
+                });
+
               const categories = [
                 {
                   id: 'steady_hands',
@@ -2843,22 +2845,48 @@ export default function Game() {
 
                   {/* CATEGORY TILES */}
                   {categories.map((cat) => {
-                    const drivers = allDrivers.filter(cat.filter);
+                    const drivers = assignOnce(allDrivers, cat.filter);
                     return (
                       <div key={cat.id} className={`col-span-1 flex flex-col rounded-xl border ${cat.className} bg-black/40 overflow-hidden`} data-testid={`tile-driver-category-${cat.id}`}>
-                        <details className="w-full">
-                          <summary className="cursor-pointer select-none p-4 flex flex-col gap-1">
+                        <details className="w-full group">
+                          <summary className="cursor-pointer select-none p-4 flex flex-col gap-1" data-testid={`summary-driver-category-${cat.id}`}>
                             <div className={`text-sm font-bold tracking-widest ${cat.headerText}`}>{cat.title}</div>
                             <div className="text-xs text-zinc-500">{cat.subtitle} • {drivers.length} drivers</div>
                             <div className="mt-2 text-[10px] text-zinc-600">Tap to expand</div>
                           </summary>
-                          <div className="p-3 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {drivers.map(renderDriverCard)}
-                          </div>
                         </details>
                       </div>
                     );
                   })}
+
+                  {/* EXPANSION ROWS (renders after the tiles, not inside them) */}
+                  <div className="col-span-2 md:col-span-5 space-y-3" data-testid="row-driver-expansions">
+                    {(() => {
+                      const allDrivers2 = [...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])];
+                      const picked2 = new Set<string>();
+                      const assignOnce2 = (list: Character[], predicate: (c: Character) => boolean) =>
+                        list.filter((c) => {
+                          if (picked2.has(c.id)) return false;
+                          if (!predicate(c)) return false;
+                          picked2.add(c.id);
+                          return true;
+                        });
+
+                      // Keep same category order for expansions
+                      const cats = categories;
+                      const items = cats.map((cat) => ({
+                        cat,
+                        drivers: assignOnce2(allDrivers2, cat.filter)
+                      }));
+
+                      return items.map(({ cat, drivers }) => (
+                        <div
+                          key={`expand-${cat.id}`}
+                          className="hidden group-has-[details[open]]:block"
+                        />
+                      ));
+                    })()}
+                  </div>
                 </div>
               );
             })()}
@@ -3443,6 +3471,9 @@ export default function Game() {
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
               When PROTOCOLS are enabled, random events may trigger at the start of a round.
+              <span className="block mt-2 text-xs text-zinc-500" data-testid="text-protocol-db-trigger-rates">
+                Trigger rates by game pace: SPEED 50% • STANDARD 40% • MARATHON 30% (per round, when Protocols are enabled).
+              </span>
             </DialogDescription>
           </DialogHeader>
           
@@ -3494,19 +3525,12 @@ export default function Game() {
                     ]
                   },
                   {
-                    id: 'db_standard_twists',
-                    title: 'SYSTEM TWISTS',
-                    subtitle: 'Hidden roles & secret events',
-                    items: [
-                      { name: "THE MOLE", desc: "Selected player must LOSE. Their bid time is NOT subtracted.", type: "Hidden Role" },
-                      { name: "PRIVATE CHANNEL", desc: "Two players selected to discuss strategy privately.", type: "Social" },
-                    ]
-                  },
-                  {
                     id: 'db_standard_secret',
                     title: 'SECRET PROTOCOLS',
-                    subtitle: 'Secret for a player',
+                    subtitle: 'Secret for some players',
                     items: [
+                      { name: "THE MOLE", desc: "One player is secretly assigned as a traitor role. The table may not know who it is.", type: "Hidden Role" },
+                      { name: "PRIVATE CHANNEL", desc: "Two players are selected to privately coordinate strategy.", type: "Social" },
                       { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins token (kept secret until reveal).", type: "Secret" },
                       { name: "TIME TAX", desc: "-10s to everyone (can be kept secret until reveal).", type: "Secret" },
                     ]
