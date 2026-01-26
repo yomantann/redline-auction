@@ -2284,193 +2284,109 @@ export default function Game() {
             <Dialog open={showProtocolSelect} onOpenChange={setShowProtocolSelect}>
                 <DialogContent className="bg-zinc-950 border-white/10 max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle className={cn("font-display tracking-widest", protocolsEnabled ? getVariantColor() : "text-destructive")}>PROTOCOL CONFIGURATION</DialogTitle>
+                        <DialogTitle className="text-destructive font-display tracking-widest">PROTOCOL CONFIGURATION</DialogTitle>
                         <DialogDescription>
                             Select allowed protocols for this session.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <details className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden" open>
-                        <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold tracking-widest text-zinc-300">STANDARD PROTOCOLS</span>
-                            <span className="text-[10px] uppercase tracking-widest text-zinc-500">Tap to collapse</span>
-                          </div>
-                          <span className="text-[10px] text-zinc-500">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','GROUP_SELFIE','HUM_TUNE','LOCK_ON','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as string)).length} selected</span>
-                        </summary>
-
-                        <div className="px-4 pb-4 space-y-4">
-                          {/* Standard sub-categories */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <div className="text-[10px] uppercase tracking-widest text-zinc-500 border-b border-white/10 pb-1">VISUAL / HUD</div>
-                              {[{
-                                id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers'
-                              },{
-                                id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD Glitches & Scramble'
-                              }].map((p) => (
-                                <div key={p.id} className="flex items-start gap-3 p-3 rounded bg-zinc-900/40 border border-white/5">
-                                  <Switch
-                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                    onCheckedChange={(checked) => {
-                                      setAllowedProtocols(prev => checked ? [...prev, p.id as ProtocolType] : prev.filter(id => id !== p.id));
-                                    }}
-                                    data-testid={`switch-protocol-${p.id}`}
-                                  />
-                                  <div className="space-y-1">
-                                    <h4 className="text-sm font-bold text-zinc-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
-                                    <p className="text-xs text-zinc-500" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="space-y-2">
-                              <div className="text-[10px] uppercase tracking-widest text-zinc-500 border-b border-white/10 pb-1">ECONOMY / PRESSURE</div>
-                              {[{
-                                id: 'DOUBLE_STAKES', label: 'HIGH STAKES', desc: 'Double tokens for winner'
-                              },{
-                                id: 'PANIC_ROOM', label: 'PANIC ROOM', desc: '2x Speed'
-                              },{
-                                id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone'
-                              },{
-                                id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token'
-                              }].map((p) => (
-                                <div key={p.id} className="flex items-start gap-3 p-3 rounded bg-zinc-900/40 border border-white/5">
-                                  <Switch
-                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                    onCheckedChange={(checked) => {
-                                      setAllowedProtocols(prev => checked ? [...prev, p.id as ProtocolType] : prev.filter(id => id !== p.id));
-                                    }}
-                                    data-testid={`switch-protocol-${p.id}`}
-                                  />
-                                  <div className="space-y-1">
-                                    <h4 className="text-sm font-bold text-zinc-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
-                                    <p className="text-xs text-zinc-500" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="space-y-2">
-                              <div className="text-[10px] uppercase tracking-widest text-zinc-500 border-b border-white/10 pb-1">SOCIAL / COMMS</div>
-                              {[{
-                                id: 'OPEN_HAND', label: 'OPEN HAND', desc: 'Player forced to reveal plan'
-                              },{
-                                id: 'NOISE_CANCEL', label: 'NOISE CANCEL', desc: 'Player forced to make noise'
-                              },{
-                                id: 'MUTE_PROTOCOL', label: 'SILENCE ENFORCED', desc: 'Silence required'
-                              },{
-                                id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat'
-                              },{
-                                id: 'NO_LOOK', label: 'BLIND BIDDING', desc: 'Cannot look at screen'
-                              }].map((p) => (
-                                <div key={p.id} className="flex items-start gap-3 p-3 rounded bg-zinc-900/40 border border-white/5">
-                                  <Switch
-                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                    onCheckedChange={(checked) => {
-                                      setAllowedProtocols(prev => checked ? [...prev, p.id as ProtocolType] : prev.filter(id => id !== p.id));
-                                    }}
-                                    data-testid={`switch-protocol-${p.id}`}
-                                  />
-                                  <div className="space-y-1">
-                                    <h4 className="text-sm font-bold text-zinc-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
-                                    <p className="text-xs text-zinc-500" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="space-y-2">
-                              <div className="text-[10px] uppercase tracking-widest text-zinc-500 border-b border-white/10 pb-1">HIDDEN / ROLEPLAY</div>
-                              {[{
-                                id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment'
-                              }].map((p) => (
-                                <div key={p.id} className="flex items-start gap-3 p-3 rounded bg-zinc-900/40 border border-white/5">
-                                  <Switch
-                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                    onCheckedChange={(checked) => {
-                                      setAllowedProtocols(prev => checked ? [...prev, p.id as ProtocolType] : prev.filter(id => id !== p.id));
-                                    }}
-                                    data-testid={`switch-protocol-${p.id}`}
-                                  />
-                                  <div className="space-y-1">
-                                    <h4 className="text-sm font-bold text-zinc-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
-                                    <p className="text-xs text-zinc-500" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                        {/* SYSTEM PROTOCOLS */}
+                        <div className="md:col-span-2 mt-4 mb-2">
+                             <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-white/10 pb-1">SYSTEM PROTOCOLS</h4>
                         </div>
-                      </details>
-
-                      <details className="rounded-xl border border-purple-500/20 bg-purple-950/20 overflow-hidden">
-                        <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <PartyPopper size={14} className="text-purple-300" />
-                            <span className="text-xs font-bold tracking-widest text-purple-200">SOCIAL OVERDRIVE</span>
-                          </div>
-                          <span className="text-[10px] text-purple-300/70">{allowedProtocols.filter(p => ['TRUTH_DARE','SWITCH_SEATS','GROUP_SELFIE','HUM_TUNE','LOCK_ON'].includes(p as string)).length} selected</span>
-                        </summary>
-                        <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {[
-                            { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Social' },
-                            { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Social' },
-                            { id: 'GROUP_SELFIE', label: 'GROUP SELFIE', desc: 'Social' },
-                            { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Social' },
-                            { id: 'LOCK_ON', label: 'LOCK_ON', desc: 'Eye contact required' },
-                          ].map((p) => (
-                            <div key={p.id} className="flex items-start gap-3 p-3 rounded bg-purple-950/20 border border-purple-500/10">
-                              <Switch
-                                checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                disabled={variant !== 'SOCIAL_OVERDRIVE'}
-                                onCheckedChange={(checked) => {
-                                  setAllowedProtocols(prev => checked ? [...prev, p.id as ProtocolType] : prev.filter(id => id !== p.id));
-                                }}
-                                data-testid={`switch-protocol-${p.id}`}
-                              />
-                              <div className="space-y-1">
-                                <h4 className="text-sm font-bold text-purple-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
-                                <p className="text-xs text-purple-400" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
-                              </div>
+                        {[
+                            { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
+                            { id: 'DOUBLE_STAKES', label: 'HIGH STAKES', desc: 'Double tokens for winner' },
+                            { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD Glitches & Scramble' },
+                            { id: 'OPEN_HAND', label: 'OPEN HAND', desc: 'Player forced to reveal plan' },
+                            { id: 'NOISE_CANCEL', label: 'NOISE CANCEL', desc: 'Player forced to make noise' },
+                            { id: 'MUTE_PROTOCOL', label: 'SILENCE ENFORCED', desc: 'Silence required' },
+                            { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
+                            { id: 'NO_LOOK', label: 'BLIND BIDDING', desc: 'Cannot look at screen' },
+                            { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
+                            { id: 'PANIC_ROOM', label: 'PANIC_ROOM', desc: '2x Speed' },
+                            { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token' },
+                            { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone' },
+                        ].map((p) => (
+                            <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-zinc-900/50 border border-white/5">
+                                <Switch 
+                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                    onCheckedChange={(checked) => {
+                                        setAllowedProtocols(prev => 
+                                            checked 
+                                            ? [...prev, p.id as ProtocolType]
+                                            : prev.filter(id => id !== p.id)
+                                        );
+                                    }}
+                                />
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-bold text-zinc-200">{p.label}</h4>
+                                    <p className="text-xs text-zinc-500">{p.desc}</p>
+                                </div>
                             </div>
-                          ))}
-                        </div>
-                      </details>
+                        ))}
 
-                      <details className="rounded-xl border border-orange-500/20 bg-orange-950/20 overflow-hidden">
-                        <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Martini size={14} className="text-orange-300" />
-                            <span className="text-xs font-bold tracking-widest text-orange-200">BIO-FUEL</span>
-                          </div>
-                          <span className="text-[10px] text-orange-300/70">{allowedProtocols.filter(p => ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as string)).length} selected</span>
-                        </summary>
-                        <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {[
-                            { id: 'HYDRATE', label: 'HYDRATE', desc: 'Bio-Fuel' },
-                            { id: 'BOTTOMS_UP', label: 'BOTTOMS UP', desc: 'Bio-Fuel' },
-                            { id: 'PARTNER_DRINK', label: 'LINKED SYSTEMS', desc: 'Bio-Fuel' },
-                            { id: 'WATER_ROUND', label: 'WATER ROUND', desc: 'Bio-Fuel' },
-                          ].map((p) => (
-                            <div key={p.id} className="flex items-start gap-3 p-3 rounded bg-orange-950/20 border border-orange-500/10">
-                              <Switch
-                                checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                disabled={variant !== 'BIO_FUEL'}
-                                onCheckedChange={(checked) => {
-                                  setAllowedProtocols(prev => checked ? [...prev, p.id as ProtocolType] : prev.filter(id => id !== p.id));
-                                }}
-                                data-testid={`switch-protocol-${p.id}`}
-                              />
-                              <div className="space-y-1">
-                                <h4 className="text-sm font-bold text-orange-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
-                                <p className="text-xs text-orange-400" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
-                              </div>
-                            </div>
-                          ))}
+                        {/* SOCIAL PROTOCOLS */}
+                        <div className="md:col-span-2 mt-4 mb-2">
+                             <h4 className="text-xs font-bold text-purple-400 uppercase tracking-widest border-b border-purple-500/20 pb-1 flex items-center gap-2">
+                                <PartyPopper size={12}/> SOCIAL OVERDRIVE
+                             </h4>
                         </div>
-                      </details>
+                        {[
+                            { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Social', type: 'social' },
+                            { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Social', type: 'social' },
+                            { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Social', type: 'social' },
+                            { id: 'LOCK_ON', label: 'LOCK_ON', desc: 'Eye contact required', type: 'social' },
+                        ].map((p) => (
+                            <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-purple-950/20 border border-purple-500/10">
+                                <Switch 
+                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                    disabled={variant !== 'SOCIAL_OVERDRIVE'} // Only enable in social mode
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                             setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                        } else {
+                                             setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                        }
+                                    }}
+                                />
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-bold text-purple-200">{p.label}</h4>
+                                    <p className="text-xs text-purple-400">{p.desc}</p>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* BIO PROTOCOLS */}
+                        <div className="md:col-span-2 mt-4 mb-2">
+                             <h4 className="text-xs font-bold text-orange-400 uppercase tracking-widest border-b border-orange-500/20 pb-1 flex items-center gap-2">
+                                <Martini size={12}/> BIO-FUEL
+                             </h4>
+                        </div>
+                        {[
+                            { id: 'HYDRATE', label: 'HYDRATE', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'BOTTOMS_UP', label: 'BOTTOMS UP', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'PARTNER_DRINK', label: 'LINKED SYSTEMS', desc: 'Bio-Fuel', type: 'bio' },
+                            { id: 'WATER_ROUND', label: 'WATER_ROUND', desc: 'Bio-Fuel', type: 'bio' },
+                        ].map((p) => (
+                            <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-orange-950/20 border border-orange-500/10">
+                                <Switch 
+                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                    disabled={variant !== 'BIO_FUEL'} // Only enable in bio mode
+                                    onCheckedChange={(checked) => {
+                                         if (checked) {
+                                             setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                        } else {
+                                             setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                        }
+                                    }}
+                                />
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-bold text-orange-200">{p.label}</h4>
+                                    <p className="text-xs text-orange-400">{p.desc}</p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                     <DialogFooter>
                         <div className="text-xs text-zinc-500 w-full text-left pt-2">
@@ -2541,10 +2457,8 @@ export default function Game() {
                         onCheckedChange={setProtocolsEnabled} 
                         className="data-[state=checked]:bg-destructive"
                     />
-                    <Label htmlFor="protocols-intro" className={cn("text-sm cursor-pointer text-zinc-400 flex items-center gap-1", protocolsEnabled && getVariantColor())}>
-                        <span className={cn(protocolsEnabled ? getVariantColor() : "text-muted-foreground")}>
-                          {protocolsEnabled ? getVariantIcon() : <AlertTriangle size={14} />}
-                        </span>
+                    <Label htmlFor="protocols-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
+                        <AlertTriangle size={14} className={protocolsEnabled ? "text-destructive" : "text-muted-foreground"}/>
                         Protocols
                     </Label>
                   </div>
@@ -2746,94 +2660,34 @@ export default function Game() {
                 {
                   id: 'steady_hands',
                   title: 'STEADY HANDS',
-                  subtitle: 'Timing & composure',
+                  subtitle: 'Timing & refunds',
                   className: 'border-emerald-500/20 hover:border-emerald-500/50',
                   headerText: 'text-emerald-300',
+                  filter: (c: Character) => c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE'
                 },
                 {
                   id: 'high_rollers',
                   title: 'HIGH ROLLERS',
-                  subtitle: 'Big swings & trophies',
+                  subtitle: 'Tokens & big swings',
                   className: 'border-yellow-500/20 hover:border-yellow-500/50',
                   headerText: 'text-yellow-300',
+                  filter: (c: Character) => c.ability?.effect === 'TOKEN_BOOST' || (c.ability?.effect === 'TIME_REFUND' && (c.ability?.name === 'RAINBOW RUN' || c.ability?.name === 'ROYAL DECREE'))
                 },
                 {
                   id: 'saboteurs',
                   title: 'SABOTEURS',
-                  subtitle: 'Chaos & disruption',
+                  subtitle: 'Disrupt & steal',
                   className: 'border-red-500/20 hover:border-red-500/50',
                   headerText: 'text-red-300',
+                  filter: (c: Character) => c.ability?.effect === 'DISRUPT'
                 },
                 {
                   id: 'mind_games',
                   title: 'MIND GAMES',
-                  subtitle: 'Reads & mind tricks',
+                  subtitle: 'Intel & immunity',
                   className: 'border-sky-500/20 hover:border-sky-500/50',
                   headerText: 'text-sky-300',
-                },
-              ];
-
-              const getCount = (id: string) => {
-                const effect = id === 'saboteurs' ? 'DISRUPT' : id === 'mind_games' ? 'PEEK' : id === 'high_rollers' ? 'TOKEN_BOOST' : 'TIME_REFUND';
-                const pool = allDrivers.filter(d => (d.ability?.effect || 'TIME_REFUND') === effect);
-                return pool.length;
-              };
-
-              const [expandedId, setExpandedId] = [null as any, (() => {}) as any];
-
-              // NOTE: expanded roster rendering is below the category row
-              // (kept state-free to avoid hook issues)
-
-              const placeholderExpandedId = null;
-
-              // Category row + expanded roster
-
-              const renderCategoryRow = () => (
-                <div className="col-span-2 md:col-span-5 grid grid-cols-2 md:grid-cols-5 gap-4" data-testid="row-driver-categories">
-                  <div className="hidden md:block" />
-                  {categories.map((cat) => (
-                    <div key={cat.id} className={cn("rounded-xl border bg-black/40 p-4 text-left transition-colors", cat.className)}>
-                      <div className={cn("text-sm font-bold tracking-widest", cat.headerText)}>{cat.title}</div>
-                      <div className="mt-1 text-xs text-zinc-500">{cat.subtitle} • {getCount(cat.id)} drivers</div>
-                      <div className="mt-2 text-[10px] text-zinc-600">(Expand UI temporarily disabled)</div>
-                    </div>
-                  ))}
-                </div>
-              );
-
-              return (
-                <>
-                  {renderCategoryRow()}
-                </>
-              );
-            })()}
-                {
-                  id: 'steady_hands',
-                  title: 'STEADY HANDS',
-                  subtitle: 'Timing & composure',
-                  className: 'border-emerald-500/20 hover:border-emerald-500/50',
-                  headerText: 'text-emerald-300',
-                },
-                {
-                  id: 'high_rollers',
-                  title: 'HIGH ROLLERS',
-                  subtitle: 'Big swings & trophies',
-                  className: 'border-yellow-500/20 hover:border-yellow-500/50',
-                  headerText: 'text-yellow-300',
-                },
-                {
-                  id: 'saboteurs',
-                  title: 'SABOTEURS',
-                  subtitle: 'Chaos & disruption',
-                  className: 'border-red-500/20 hover:border-red-500/50',
-                  headerText: 'text-red-300',
-                },
-                {
-                  id: 'mind_games',
-                  title: 'MIND GAMES',
-                  subtitle: 'Reads & mind tricks',
-                  className: 'border-sky-500/20 hover:border-sky-500/50',
-                  headerText: 'text-sky-300',
+                  filter: (c: Character) => c.ability?.effect === 'PEEK' || c.ability?.name === 'FIRE WALL' || c.ability?.name === 'CALCULATED'
                 },
               ];
 
@@ -2844,7 +2698,7 @@ export default function Game() {
                   whileTap={{ scale: 0.97 }}
                   onClick={() => selectCharacter(char)}
                   data-testid={`card-driver-${char.id}`}
-                  className="flex flex-col items-center p-3 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden"
+                  className="flex flex-col items-center p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden"
                 >
                   <div className={cn("w-24 h-24 rounded-full mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10", char.color)}>
                      <img src={char.image} alt={char.name} className="w-full h-full object-cover" />
@@ -2899,82 +2753,24 @@ export default function Game() {
                     <p className="text-xs text-zinc-500 mt-1">Roll the dice</p>
                   </motion.button>
 
-                  {(() => {
-                    // Assign each driver to EXACTLY one category.
-                    const pickCategoryId = (c: Character): 'steady_hands' | 'high_rollers' | 'saboteurs' | 'mind_games' => {
-                      const effect = c.ability?.effect;
-                      if (effect === 'DISRUPT') return 'saboteurs';
-                      if (effect === 'PEEK') return 'mind_games';
-                      if (effect === 'TOKEN_BOOST') return 'high_rollers';
-                      return 'steady_hands';
-                    };
-
-                    const byCategory: Record<string, Character[]> = {
-                      steady_hands: [],
-                      high_rollers: [],
-                      saboteurs: [],
-                      mind_games: [],
-                    };
-
-                    allDrivers.forEach((d) => {
-                      const id = pickCategoryId(d);
-                      byCategory[id].push(d);
-                    });
-
-
+                  {/* CATEGORY TILES */}
+                  {categories.map((cat) => {
+                    const drivers = allDrivers.filter(cat.filter);
                     return (
-                      <>
-                        {/* Category row */}
-                        <div className="col-span-2 md:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="row-driver-categories">
-                          {categories.map((cat) => {
-                            const isOpen = expandedId === cat.id;
-                            const count = byCategory[cat.id]?.length || 0;
-                            return (
-                              <button
-                                key={cat.id}
-                                type="button"
-                                onClick={() => setExpandedId(isOpen ? null : (cat.id as any))}
-                                className={cn(
-                                  "rounded-xl border bg-black/40 p-4 text-left transition-colors",
-                                  cat.className,
-                                  isOpen ? "bg-white/[0.04]" : "hover:bg-white/[0.03]"
-                                )}
-                                data-testid={`button-driver-category-${cat.id}`}
-                              >
-                                <div className={cn("text-sm font-bold tracking-widest", cat.headerText)}>{cat.title}</div>
-                                <div className="mt-1 text-xs text-zinc-500">{cat.subtitle} • {count} drivers</div>
-                                <div className="mt-2 text-[10px] text-zinc-600">{isOpen ? "Tap to collapse" : "Tap to expand"}</div>
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Expanded roster lives UNDER the Random tile */}
-                        {expandedId && (
-                          <div className="col-span-2 md:col-span-5 rounded-2xl border border-white/10 bg-black/30 overflow-hidden" data-testid="panel-driver-category-expanded">
-                            <div className="absolute inset-0 pointer-events-none opacity-[0.35]" style={{ backgroundImage: "radial-gradient(circle at 20% 0%, rgba(255,255,255,0.08), transparent 55%), radial-gradient(circle at 80% 100%, rgba(255,255,255,0.06), transparent 55%)" }} />
-                            <div className="px-4 py-3 flex items-center justify-between border-b border-white/10">
-                              <div className="flex flex-col">
-                                <div className="text-xs font-bold tracking-widest text-zinc-200">{categories.find(c => c.id === expandedId)?.title}</div>
-                                <div className="text-[10px] uppercase tracking-widest text-zinc-500">Roster</div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setExpandedId(null)}
-                                className="text-xs text-zinc-500 hover:text-zinc-200"
-                                data-testid="button-driver-category-close"
-                              >
-                                Close
-                              </button>
-                            </div>
-                            <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                              {byCategory[expandedId].map(renderDriverCard)}
-                            </div>
+                      <div key={cat.id} className={`col-span-1 flex flex-col rounded-xl border ${cat.className} bg-black/40 overflow-hidden`} data-testid={`tile-driver-category-${cat.id}`}>
+                        <details className="w-full">
+                          <summary className="cursor-pointer select-none p-4 flex flex-col gap-1">
+                            <div className={`text-sm font-bold tracking-widest ${cat.headerText}`}>{cat.title}</div>
+                            <div className="text-xs text-zinc-500">{cat.subtitle} • {drivers.length} drivers</div>
+                            <div className="mt-2 text-[10px] text-zinc-600">Tap to expand</div>
+                          </summary>
+                          <div className="p-3 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {drivers.map(renderDriverCard)}
                           </div>
-                        )}
-                      </>
+                        </details>
+                      </div>
                     );
-                  })()}
+                  })}
                 </div>
               );
             })()}
@@ -3353,16 +3149,8 @@ export default function Game() {
                   onCheckedChange={setProtocolsEnabled} 
                   className="data-[state=checked]:bg-destructive scale-75 origin-right"
                 />
-                <Label
-                  htmlFor="protocols"
-                  className={cn(
-                    "text-sm cursor-pointer flex items-center gap-1",
-                    protocolsEnabled ? getVariantColor() : "text-zinc-400"
-                  )}
-                >
-                  <span className={cn(protocolsEnabled ? getVariantColor() : "text-zinc-500")}>
-                    {protocolsEnabled ? getVariantIcon() : <AlertTriangle size={12} />}
-                  </span>
+                <Label htmlFor="protocols" className={cn("text-sm cursor-pointer flex items-center gap-1", protocolsEnabled ? "text-destructive" : "text-zinc-400")}>
+                  <AlertTriangle size={12}/>
                   Protocols
                 </Label>
                 <button onClick={() => setShowProtocolGuide(true)} className="text-zinc-500 hover:text-white transition-colors ml-1" title="Protocol Database">
@@ -3543,164 +3331,66 @@ export default function Game() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             {variant === 'BIO_FUEL' && (
-              <div className="bg-orange-950/30 border border-orange-500/30 p-3 rounded mb-2 flex items-center gap-3 text-orange-200 text-sm">
-                <AlertTriangle className="shrink-0 text-orange-500" size={18} />
-                <p><strong>DISCLAIMER:</strong> Bio-Fuel mode is intended for adults (21+). Please play responsibly.</p>
-              </div>
+                <div className="col-span-1 md:col-span-2 bg-orange-950/30 border border-orange-500/30 p-3 rounded mb-2 flex items-center gap-3 text-orange-200 text-sm">
+                    <AlertTriangle className="shrink-0 text-orange-500" size={18} />
+                    <p><strong>DISCLAIMER:</strong> Bio-Fuel mode is intended for adults (21+). Please play responsibly.</p>
+                </div>
             )}
-
-            <details className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden" open>
-              <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                <span className="text-xs font-bold tracking-widest text-zinc-200">STANDARD PROTOCOLS</span>
-                <span className="text-[10px] uppercase tracking-widest text-zinc-500">Visual / Economy / Social / Hidden</span>
-              </summary>
-              <div className="p-4 pt-2 space-y-3">
-                <details className="rounded-lg border border-white/10 bg-black/30">
-                  <summary className="cursor-pointer select-none px-3 py-2 flex items-center justify-between text-xs font-bold tracking-widest text-zinc-300">
-                    VISUAL / HUD
-                    <span className="text-[10px] text-zinc-500">2</span>
-                  </summary>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 pt-2">
-                    {[{
-                      name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual"
-                    },{
-                      name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual"
-                    }].map((p, i) => (
-                      <div key={`std-visual-${i}`} className="bg-white/5 p-4 rounded border border-white/5 hover:border-white/20 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-white text-sm">{p.name}</h4>
-                          <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
-                        </div>
-                        <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-
-                <details className="rounded-lg border border-white/10 bg-black/30">
-                  <summary className="cursor-pointer select-none px-3 py-2 flex items-center justify-between text-xs font-bold tracking-widest text-zinc-300">
-                    ECONOMY / PRESSURE
-                    <span className="text-[10px] text-zinc-500">4</span>
-                  </summary>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 pt-2">
-                    {[{
-                      name: "HIGH STAKES", desc: "Winner receives DOUBLE tokens for this round.", type: "Economy"
-                    },{
-                      name: "PANIC ROOM", desc: "Game speed 2x. Winner gets Double Tokens.", type: "Game State"
-                    },{
-                      name: "TIME TAX", desc: "-10s to all survivors.", type: "Economy"
-                    },{
-                      name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins a token.", type: "Economy"
-                    }].map((p, i) => (
-                      <div key={`std-econ-${i}`} className="bg-white/5 p-4 rounded border border-white/5 hover:border-white/20 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-white text-sm">{p.name}</h4>
-                          <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
-                        </div>
-                        <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-
-                <details className="rounded-lg border border-white/10 bg-black/30">
-                  <summary className="cursor-pointer select-none px-3 py-2 flex items-center justify-between text-xs font-bold tracking-widest text-zinc-300">
-                    SOCIAL / COMMS
-                    <span className="text-[10px] text-zinc-500">5</span>
-                  </summary>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 pt-2">
-                    {[{
-                      name: "OPEN HAND", desc: "One player must publicly state they will not bid (Bluffing allowed).", type: "Social"
-                    },{
-                      name: "NOISE CANCEL", desc: "Selected player must make continuous noise for first 15s.", type: "Social"
-                    },{
-                      name: "MUTE PROTOCOL", desc: "Complete silence enforced. Speaking is shunned.", type: "Social"
-                    },{
-                      name: "PRIVATE CHANNEL", desc: "Two players selected to discuss strategy privately.", type: "Social"
-                    },{
-                      name: "NO LOOK", desc: "Players cannot look at screens until they release button.", type: "Physical"
-                    }].map((p, i) => (
-                      <div key={`std-social-${i}`} className="bg-white/5 p-4 rounded border border-white/5 hover:border-white/20 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-white text-sm">{p.name}</h4>
-                          <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
-                        </div>
-                        <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-
-                <details className="rounded-lg border border-white/10 bg-black/30">
-                  <summary className="cursor-pointer select-none px-3 py-2 flex items-center justify-between text-xs font-bold tracking-widest text-zinc-300">
-                    HIDDEN / ROLEPLAY
-                    <span className="text-[10px] text-zinc-500">1</span>
-                  </summary>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 pt-2">
-                    {[{
-                      name: "THE MOLE", desc: "Selected player must LOSE. Their bid time is NOT subtracted.", type: "Hidden Role"
-                    }].map((p, i) => (
-                      <div key={`std-hidden-${i}`} className="bg-white/5 p-4 rounded border border-white/5 hover:border-white/20 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-white text-sm">{p.name}</h4>
-                          <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
-                        </div>
-                        <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </details>
+            <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-white mt-4 border-b border-white/10 pb-2">STANDARD PROTOCOLS</h3>
+            {[
+              { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
+              { name: "HIGH STAKES", desc: "Winner receives DOUBLE tokens for this round.", type: "Economy" },
+              { name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual" },
+              { name: "OPEN HAND", desc: "One player must publicly state they will not bid (Bluffing allowed).", type: "Social" },
+              { name: "NOISE CANCEL", desc: "Selected player must make continuous noise for first 15s.", type: "Social" },
+              { name: "MUTE PROTOCOL", desc: "Complete silence enforced. Speaking is shunned.", type: "Social" },
+              { name: "PRIVATE CHANNEL", desc: "Two players selected to discuss strategy privately.", type: "Social" },
+              { name: "NO LOOK", desc: "Players cannot look at screens until they release button.", type: "Physical" },
+              { name: "THE MOLE", desc: "Selected player must LOSE. Their bid time is NOT subtracted.", type: "Hidden Role" },
+              { name: "PANIC ROOM", desc: "Game speed 2x. Winner gets Double Tokens.", type: "Game State" },
+            ].map((p, i) => (
+              <div key={i} className="bg-white/5 p-4 rounded border border-white/5 hover:border-destructive/50 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-bold text-white text-sm">{p.name}</h4>
+                  <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
               </div>
-            </details>
+            ))}
 
-            <details className="rounded-xl border border-purple-500/20 bg-purple-950/20 overflow-hidden">
-              <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                <span className="text-xs font-bold tracking-widest text-purple-200 flex items-center gap-2"><PartyPopper size={16}/> SOCIAL OVERDRIVE</span>
-                <span className="text-[10px] uppercase tracking-widest text-purple-300/60">4 protocols</span>
-              </summary>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-2">
-                {[
-                  { name: "TRUTH DARE", desc: "Winner asks a Truth, Loser does a Dare.", type: "Social" },
-                  { name: "SWITCH SEATS", desc: "Players must physically swap seats before next round.", type: "Physical" },
-                  { name: "GROUP SELFIE", desc: "Everyone must pose for a photo. Last one ready loses 1s.", type: "Social" },
-                  { name: "HUM TUNE", desc: "You must hum a song while bidding. If you stop, you forfeit.", type: "Social" },
-                  { name: "LOCK ON", desc: "Maintain eye contact while bidding.", type: "Social" },
-                ].map((p, i) => (
-                  <div key={`social-${i}`} className="bg-purple-500/5 p-4 rounded border border-purple-500/20 hover:border-purple-500/50 transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-bold text-purple-200 text-sm">{p.name}</h4>
-                      <Badge variant="outline" className="text-[10px] py-0 h-5 border-purple-500/20 text-purple-400">{p.type}</Badge>
-                    </div>
-                    <p className="text-xs text-purple-300/70 leading-relaxed">{p.desc}</p>
-                  </div>
-                ))}
+            <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-purple-400 mt-4 border-b border-purple-500/30 pb-2 flex items-center gap-2"><PartyPopper size={18}/> SOCIAL OVERDRIVE</h3>
+            {[
+                { name: "TRUTH DARE", desc: "Winner asks a Truth, Loser does a Dare.", type: "Social" },
+                { name: "SWITCH SEATS", desc: "Players must physically swap seats before next round.", type: "Physical" },
+                { name: "GROUP SELFIE", desc: "Everyone must pose for a photo. Last one ready loses 1s.", type: "Social" },
+                { name: "HUM TUNE", desc: "You must hum a song while bidding. If you stop, you forfeit.", type: "Social" },
+            ].map((p, i) => (
+              <div key={`social-${i}`} className="bg-purple-500/5 p-4 rounded border border-purple-500/20 hover:border-purple-500/50 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-bold text-purple-200 text-sm">{p.name}</h4>
+                  <Badge variant="outline" className="text-[10px] py-0 h-5 border-purple-500/20 text-purple-400">{p.type}</Badge>
+                </div>
+                <p className="text-xs text-purple-300/70 leading-relaxed">{p.desc}</p>
               </div>
-            </details>
+            ))}
 
-            <details className="rounded-xl border border-orange-500/20 bg-orange-950/20 overflow-hidden">
-              <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                <span className="text-xs font-bold tracking-widest text-orange-200 flex items-center gap-2"><Martini size={16}/> BIO-FUEL</span>
-                <span className="text-[10px] uppercase tracking-widest text-orange-300/60">4 protocols</span>
-              </summary>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-2">
-                {[
-                  { name: "HYDRATE", desc: "Everyone takes a sip.", type: "Bio" },
-                  { name: "BOTTOMS UP", desc: "Winner must finish their drink.", type: "Bio" },
-                  { name: "LINKED SYSTEMS", desc: "Pick a partner. When you drink, they drink.", type: "Bio" },
-                  { name: "WATER ROUND", desc: "Winner gives a glass of water to someone.", type: "Bio" },
-                ].map((p, i) => (
-                  <div key={`bio-${i}`} className="bg-orange-500/5 p-4 rounded border border-orange-500/20 hover:border-orange-500/50 transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-bold text-orange-200 text-sm">{p.name}</h4>
-                      <Badge variant="outline" className="text-[10px] py-0 h-5 border-orange-500/20 text-orange-400">{p.type}</Badge>
-                    </div>
-                    <p className="text-xs text-orange-300/70 leading-relaxed">{p.desc}</p>
-                  </div>
-                ))}
+            <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-orange-400 mt-4 border-b border-orange-500/30 pb-2 flex items-center gap-2"><Martini size={18}/> BIO-FUEL</h3>
+            {[
+                { name: "HYDRATE", desc: "Everyone takes a sip.", type: "Bio" },
+                { name: "BOTTOMS UP", desc: "Winner must finish their drink.", type: "Bio" },
+                { name: "LINKED SYSTEMS", desc: "Pick a partner. When you drink, they drink.", type: "Bio" },
+                { name: "WATER ROUND", desc: "Winner gives a glass of water to someone.", type: "Bio" },
+            ].map((p, i) => (
+              <div key={`bio-${i}`} className="bg-orange-500/5 p-4 rounded border border-orange-500/20 hover:border-orange-500/50 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-bold text-orange-200 text-sm">{p.name}</h4>
+                  <Badge variant="outline" className="text-[10px] py-0 h-5 border-orange-500/20 text-orange-400">{p.type}</Badge>
+                </div>
+                <p className="text-xs text-orange-300/70 leading-relaxed">{p.desc}</p>
               </div>
-            </details>
+            ))}
           </div>
           
           <DialogFooter className="mt-6">
