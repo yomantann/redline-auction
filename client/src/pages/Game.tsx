@@ -65,6 +65,13 @@ import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
 import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
 
+import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
+import charMonkeyHaircut from '@assets/generated_images/cool_monkey_haircut_chef_background.png';
+import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
+import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
+import charRockShush from '@assets/generated_images/cute_rock_with_shush_gesture.png';
+import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
+
 // Social Mode Images
 import socialHarambe from '@assets/generated_images/social_harambe.png';
 import socialPopcat from '@assets/generated_images/social_popcat.png';
@@ -149,38 +156,29 @@ type ProtocolType =
 // NEW CHARACTERS (SOCIAL MODE)
 const SOCIAL_CHARACTERS: Character[] = [
   { 
-    id: 'prom_king', name: 'Prom King', title: 'The Crowned', image: charPromKing, imageSocial: socialPromKing, imageBio: bioPromKing, description: 'Royalty of the moment.', color: 'text-purple-500',
+    id: 'prom_king', name: 'Prom King', title: 'The Crowned', image: charPromKing, imageSocial: charPromKing, imageBio: bioPromKing, description: 'Royalty of the moment.', color: 'text-purple-500',
     ability: { name: 'SPOTLIGHT', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'PROM COURT', description: '1 random round: Make a rule for remainder of game.' },
     bioAbility: { name: 'CORONATION', description: 'Initiate a group toast. Everyone drinks.' }
   },
   {
-    id: 'idol_core', name: 'Idol Core', title: 'The Star', image: charIdolCore, imageSocial: socialIdolCore, imageBio: bioIdolCore, description: 'Stage presence and perfect timing.', color: 'text-pink-500',
+    id: 'idol_core', name: 'Idol Core', title: 'The Star', image: charIdolCore, imageSocial: charIdolCore, imageBio: bioIdolCore, description: 'Stage presence and perfect timing.', color: 'text-pink-500',
     ability: { name: 'COUNT IT IN', description: 'When you say "count it in", next person to talk must say "5678" or drop their button.', effect: 'PEEK' },
     socialAbility: { name: 'FANCAM', description: '10% chance: 1 random player shows hidden talent at start of round or drops button.' },
     bioAbility: { name: 'DEBUT', description: 'Take a drink to reveal a "secret" (see an opponent\'s bid).' }
   }
 ];
 
-import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
-import charMonkeyHaircut from '@assets/generated_images/cool_monkey_haircut_chef_background.png';
-import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
-import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
-import charRockShush from '@assets/generated_images/cute_rock_with_shush_gesture.png';
-import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
-
-// ... (Existing Characters)
-
 // NEW CHARACTERS (BIO-FUEL MODE)
 const BIO_CHARACTERS: Character[] = [
   { 
-    id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charRockShush, imageSocial: socialTank, imageBio: bioTank, description: 'Solid as a rock. Literally.', color: 'text-green-600',
+    id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charRockShush, imageSocial: socialTank, imageBio: charRockShush, description: 'Solid as a rock. Literally.', color: 'text-green-600',
     ability: { name: 'IRON STOMACH', description: 'Immune to "Drink" penalties (Lore only).', effect: 'TIME_REFUND' },
     socialAbility: { name: 'PEOPLE\'S ELBOW', description: 'Challenge someone to a thumb war for 0.5s.' },
     bioAbility: { name: 'ABSORB', description: 'Take a big sip to cancel out any drinking prompt.' }
   },
   {
-    id: 'danger_zone', name: 'Danger Zone', title: 'Club Queen', image: charDangerZone, imageSocial: socialDangerZone, imageBio: bioDangerZone, description: 'Works the pole, takes your soul.', color: 'text-pink-600',
+    id: 'danger_zone', name: 'Danger Zone', title: 'Club Queen', image: charDangerZone, imageSocial: socialDangerZone, imageBio: charDangerZone, description: 'Works the pole, takes your soul.', color: 'text-pink-600',
     ability: { name: 'OVERPOUR', description: 'Decide before the game starts how big 1 sip really is.', effect: 'DISRUPT' },
     socialAbility: { name: 'PRIVATE DANCE', description: 'Give a command. First to obey gets +0.5s.' },
     bioAbility: { name: 'CHAIN REACTION', description: 'If you finish your drink, person to your left must also finish theirs.' }
