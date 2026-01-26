@@ -2405,7 +2405,7 @@ export default function Game() {
                         : 'bg-black/40 text-zinc-300 border-white/10 hover:bg-white/10'
                     )}
                   >
-                    <Smile size={12} /> CASUAL
+                    <span role="img" aria-label="casual" className="text-emerald-300">:)</span> CASUAL
                   </Button>
                 </div>
                 
