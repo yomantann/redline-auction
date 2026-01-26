@@ -2317,7 +2317,7 @@ export default function Game() {
                                 subtitle: 'Economy modifiers',
                                 items: [
                                   { id: 'DOUBLE_STAKES', label: 'HIGH STAKES', desc: 'Double tokens for winner' },
-                                  { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token' },
+                                  { id: 'PANIC_ROOM', label: 'PANIC ROOM', desc: '2x Speed (also doubles win tokens)' },
                                 ]
                               },
                               {
@@ -2327,18 +2327,25 @@ export default function Game() {
                                 items: [
                                   { id: 'OPEN_HAND', label: 'OPEN HAND', desc: 'Player forced to reveal plan' },
                                   { id: 'MUTE_PROTOCOL', label: 'SILENCE ENFORCED', desc: 'Silence required' },
-                                  { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
                                   { id: 'NO_LOOK', label: 'BLIND BIDDING', desc: 'Cannot look at screen' },
                                 ]
                               },
                               {
                                 id: 'standard_twists',
                                 title: 'SYSTEM TWISTS',
-                                subtitle: 'Speed, hidden roles, taxes',
+                                subtitle: 'Hidden roles & secret events',
                                 items: [
                                   { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
-                                  { id: 'PANIC_ROOM', label: 'PANIC ROOM', desc: '2x Speed' },
-                                  { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone' },
+                                  { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
+                                ]
+                              },
+                              {
+                                id: 'standard_secret',
+                                title: 'SECRET PROTOCOLS',
+                                subtitle: 'Secret for a player',
+                                items: [
+                                  { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token (secret until end)' },
+                                  { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone (can be secret until end)' },
                                 ]
                               }
                             ].map((cat) => (
@@ -2646,7 +2653,7 @@ export default function Game() {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-              <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 max-w-xs">
+              <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-red-500 text-white hover:bg-red-600 flex-1 max-w-xs" data-testid="button-banner-single-player">
                  SINGLE PLAYER
               </Button>
               <Button size="lg" variant="outline" onClick={() => setPhase('multiplayer_lobby')} className="text-xl px-12 py-6 border-white/20 hover:bg-white/10 flex-1 max-w-xs">
@@ -3442,7 +3449,7 @@ export default function Game() {
                   <AlertTriangle size={14} className="text-zinc-400" />
                   <div className="text-sm font-bold text-zinc-100 tracking-widest">STANDARD PROTOCOLS</div>
                 </div>
-                <div className="text-[10px] uppercase tracking-widest text-zinc-500">12 protocols</div>
+                <div className="text-[10px] uppercase tracking-widest text-zinc-500">11 protocols</div>
               </summary>
 
               <div className="px-4 pb-4 space-y-3">
@@ -3462,7 +3469,7 @@ export default function Game() {
                     subtitle: 'Economy modifiers',
                     items: [
                       { name: "HIGH STAKES", desc: "Winner receives DOUBLE tokens for this round.", type: "Economy" },
-                      { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins token.", type: "Economy" },
+                      { name: "PANIC ROOM", desc: "Game speed 2x (also doubles win tokens).", type: "Game State" },
                     ]
                   },
                   {
@@ -3472,18 +3479,25 @@ export default function Game() {
                     items: [
                       { name: "OPEN HAND", desc: "One player must publicly state they will not bid (Bluffing allowed).", type: "Social" },
                       { name: "MUTE PROTOCOL", desc: "Complete silence enforced. Speaking is shunned.", type: "Social" },
-                      { name: "PRIVATE CHANNEL", desc: "Two players selected to discuss strategy privately.", type: "Social" },
                       { name: "NO LOOK", desc: "Players cannot look at screens until they release button.", type: "Physical" },
                     ]
                   },
                   {
                     id: 'db_standard_twists',
                     title: 'SYSTEM TWISTS',
-                    subtitle: 'Speed, hidden roles, taxes',
+                    subtitle: 'Hidden roles & secret events',
                     items: [
                       { name: "THE MOLE", desc: "Selected player must LOSE. Their bid time is NOT subtracted.", type: "Hidden Role" },
-                      { name: "PANIC ROOM", desc: "Game speed 2x.", type: "Game State" },
-                      { name: "TIME TAX", desc: "-10s to everyone.", type: "Game State" },
+                      { name: "PRIVATE CHANNEL", desc: "Two players selected to discuss strategy privately.", type: "Social" },
+                    ]
+                  },
+                  {
+                    id: 'db_standard_secret',
+                    title: 'SECRET PROTOCOLS',
+                    subtitle: 'Secret for a player',
+                    items: [
+                      { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins token (kept secret until reveal).", type: "Secret" },
+                      { name: "TIME TAX", desc: "-10s to everyone (can be kept secret until reveal).", type: "Secret" },
                     ]
                   }
                 ].map((cat) => (
@@ -3523,9 +3537,9 @@ export default function Game() {
                 {[
                   { name: "TRUTH DARE", desc: "Winner asks a Truth, Loser does a Dare.", type: "Social" },
                   { name: "SWITCH SEATS", desc: "Players must physically swap seats before next round.", type: "Physical" },
-                  { name: "GROUP SELFIE", desc: "Everyone must pose for a photo. Last one ready loses 1s.", type: "Social" },
                   { name: "HUM TUNE", desc: "You must hum a song while bidding. If you stop, you forfeit.", type: "Social" },
                   { name: "LOCK ON", desc: "Maintain eye contact while bidding.", type: "Social" },
+                  { name: "NOISE CANCEL", desc: "One player must make noise for 15s.", type: "Social" },
                 ].map((p, i) => (
                   <div key={`social-${i}`} className="bg-purple-500/5 p-4 rounded border border-purple-500/20 hover:border-purple-500/50 transition-colors" data-testid={`card-protocol-db-social-${i}`}>
                     <div className="flex justify-between items-start mb-2">

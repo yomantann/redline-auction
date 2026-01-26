@@ -64,7 +64,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "smug_confidence": return <Trophy size={48} className="text-purple-400" />;
       case "bad_judgment": return <ThumbsDown size={48} className="text-red-400" />;
       case "zero_bid": return <AlertTriangle size={48} className="text-yellow-200" />;
-      case "protocol_alert": return <AlertTriangle size={48} className="text-zinc-200" />;
+      case "protocol_alert": return <AlertTriangle size={48} className="text-red-400" />;
       case "ability_trigger": return <Zap size={48} className="text-blue-400" />;
       
       case "precision_strike": return <Crosshair size={48} className="text-blue-400" />;
@@ -97,7 +97,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "time_out": 
       case "eliminated":
       case "protocol_alert":
-        return "text-zinc-200 border-white/15 bg-black/80";
+        return "text-red-400 border-red-500/20 bg-black/80";
       case "ability_trigger": return "text-blue-400 border-blue-500/20 bg-black/80";
       case "comeback_hope": return "text-emerald-400 border-emerald-500/20 bg-black/80";
       case "smug_confidence": return "text-purple-400 border-purple-500/20 bg-black/80";
