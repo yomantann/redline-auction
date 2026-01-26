@@ -2742,20 +2742,20 @@ export default function Game() {
 
               const categories = [
                 {
-                  id: 'steady_hands',
-                  title: 'STEADY HANDS',
+                  id: 'diamond_hands',
+                  title: 'DIAMOND HANDS',
                   subtitle: 'Timing & refunds',
                   className: 'border-emerald-500/20 hover:border-emerald-500/50',
                   headerText: 'text-emerald-300',
-                  filter: (c: Character) => (c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE')
+                  filter: (c: Character) => (c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE') && !['RAINBOW RUN','CHEF\'S SPECIAL'].includes(c.ability?.name || '')
                 },
                 {
-                  id: 'token_tycoons',
-                  title: 'TOKEN TYCOONS',
-                  subtitle: 'Tokens, tempo & big swings',
+                  id: 'risk_takers',
+                  title: 'RISK TAKERS',
+                  subtitle: 'High variance, high reward',
                   className: 'border-yellow-500/20 hover:border-yellow-500/50',
                   headerText: 'text-yellow-300',
-                  filter: (c: Character) => (c.ability?.effect === 'TOKEN_BOOST') || (c.ability?.effect === 'TIME_REFUND')
+                  filter: (c: Character) => (c.ability?.effect === 'TOKEN_BOOST') || ['RAINBOW RUN','CHEF\'S SPECIAL'].includes(c.ability?.name || '')
                 },
                 {
                   id: 'saboteurs',
@@ -2768,10 +2768,10 @@ export default function Game() {
                 {
                   id: 'mind_games',
                   title: 'MIND GAMES',
-                  subtitle: 'Intel & immunity',
+                  subtitle: 'Intel, immunity & misdirection',
                   className: 'border-sky-500/20 hover:border-sky-500/50',
                   headerText: 'text-sky-300',
-                  filter: (c: Character) => c.ability?.effect === 'PEEK' || c.ability?.name === 'FIRE WALL' || c.ability?.name === 'CALCULATED'
+                  filter: (c: Character) => c.ability?.effect === 'PEEK' || c.ability?.name === 'FIRE WALL' || c.ability?.name === 'CALCULATED' || c.id === 'prom_king'
                 },
               ];
 
