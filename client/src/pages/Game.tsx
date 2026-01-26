@@ -2371,7 +2371,6 @@ export default function Game() {
                   <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1">
                     <li>Most tokens wins game.</li>
                     <li>Tiebreaker: Remaining Time.</li>
-                    <li>{gameDuration === 'short' ? 'Protocol Chance: 50%' : gameDuration === 'long' ? 'Protocol Chance: 25%' : 'Protocol Chance: 35%'}</li>
                   </ul>
                 </div>
               </div>
@@ -2380,15 +2379,34 @@ export default function Game() {
             <div className="flex flex-col gap-4 bg-black/40 p-4 rounded-xl border border-white/10 w-full max-w-lg">
               {/* Top Row: Modes */}
               <div className="flex flex-wrap items-center justify-center gap-4">
+                {/* GAME DIFFICULTY (Matches top banner) */}
                 <div className="flex items-center gap-2">
-                  <Switch 
-                    id="show-details-intro" 
-                    checked={showDetails} 
-                    onCheckedChange={(checked) => setDifficulty(checked ? 'CASUAL' : 'COMPETITIVE')} 
-                  />
-                  <Label htmlFor="show-details-intro" className="text-sm cursor-pointer text-zinc-400">
-                    Easy Mode
-                  </Label>
+                  <Button 
+                    variant={difficulty === 'COMPETITIVE' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDifficulty('COMPETITIVE')}
+                    className={cn(
+                      'h-8 px-3 text-xs font-mono flex items-center gap-2 border',
+                      difficulty === 'COMPETITIVE' 
+                        ? 'bg-destructive text-white border-destructive/80' 
+                        : 'bg-black/40 text-zinc-300 border-white/10 hover:bg-white/10'
+                    )}
+                  >
+                    <Skull size={12} /> COMPETITIVE
+                  </Button>
+                  <Button 
+                    variant={difficulty === 'CASUAL' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDifficulty('CASUAL')}
+                    className={cn(
+                      'h-8 px-3 text-xs font-mono flex items-center gap-2 border',
+                      difficulty === 'CASUAL' 
+                        ? 'bg-emerald-500 text-black border-emerald-500' 
+                        : 'bg-black/40 text-zinc-300 border-white/10 hover:bg-white/10'
+                    )}
+                  >
+                    <Smile size={12} /> CASUAL
+                  </Button>
                 </div>
                 
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
