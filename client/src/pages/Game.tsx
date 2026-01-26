@@ -941,24 +941,33 @@ export default function Game() {
     if (protocolsEnabled && Math.random() > 0.65) {
       
       // Build Protocol Pool
-      let protocolPool = [...allowedProtocols];
-      
-      if (variant === 'SOCIAL_OVERDRIVE') {
-          protocolPool = [...protocolPool, 'TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
-      }
-      if (variant === 'BIO_FUEL') {
-          protocolPool = [...protocolPool, 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
-      }
-      
-      // Filter out nulls
-      protocolPool = protocolPool.filter(p => p !== null);
+      // Build two pools:
+      // - Standard (selected Standard protocols)
+      // - Mode-specific (selected Social/Bio protocols for the active variant)
+      const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','PRIVATE_CHANNEL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX'];
+      const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
+      const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
 
-      if (protocolPool.length === 0) return;
+      const standardPool: ProtocolType[] = (allowedProtocols || []).filter(p => STANDARD_SET.includes(p as any));
+      const modePool: ProtocolType[] = (variant === 'SOCIAL_OVERDRIVE')
+        ? (allowedProtocols || []).filter(p => SOCIAL_SET.includes(p as any))
+        : (variant === 'BIO_FUEL')
+          ? (allowedProtocols || []).filter(p => BIO_SET.includes(p as any))
+          : [];
 
-      // Equal Chance Logic (Unweighted)
-      const finalPool = protocolPool;
+      const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
 
-      const newProtocol = finalPool[Math.floor(Math.random() * finalPool.length)];
+      const hasStandard = standardPool.length > 0;
+      const hasMode = modePool.length > 0;
+
+      if (!hasStandard && !hasMode) return;
+
+      // Equally likely between Standard and Mode pools (when both exist)
+      const chosenPool = (hasStandard && hasMode)
+        ? (Math.random() < 0.5 ? 'standard' : 'mode')
+        : (hasStandard ? 'standard' : 'mode');
+
+      const newProtocol = chosenPool === 'standard' ? pick(standardPool) : pick(modePool);
       setActiveProtocol(newProtocol);
       
       let msg = "PROTOCOL INITIATED";
@@ -1031,9 +1040,9 @@ export default function Game() {
       }
 
       if (showPopup) {
-         if (['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'].includes(activeProtocol || '')) {
+         if (['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'].includes(newProtocol || '')) {
              addOverlay("social_event", msg, sub);
-         } else if (['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(activeProtocol || '')) {
+         } else if (['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(newProtocol || '')) {
              addOverlay("bio_event", msg, sub);
          } else {
              addOverlay("protocol_alert", msg, sub);
@@ -2290,13 +2299,13 @@ export default function Game() {
                     </DialogHeader>
                     <div className="space-y-3 py-4">
                         {/* STANDARD */}
-                        <details className="rounded-lg border border-white/10 bg-zinc-950/40 overflow-hidden" data-testid="section-protocol-config-standard">
+                        <details className="rounded-lg border border-red-500/20 bg-red-950/15 overflow-hidden" data-testid="section-protocol-config-standard">
                           <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <AlertTriangle size={14} className="text-zinc-400" />
-                              <div className="text-sm font-bold text-zinc-100 tracking-widest">STANDARD PROTOCOLS</div>
+                              <AlertTriangle size={14} className="text-red-400" />
+                              <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-zinc-500">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
                           </summary>
 
                           <div className="px-4 pb-4 space-y-3">
@@ -2333,33 +2342,35 @@ export default function Game() {
                               {
                                 id: 'standard_twists',
                                 title: 'SYSTEM TWISTS',
-                                subtitle: 'Hidden roles & secret events',
+                                subtitle: 'System behavior',
                                 items: [
-                                  { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
-                                  { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
+                                  { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
+                                  { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD glitches & scramble' },
                                 ]
                               },
                               {
                                 id: 'standard_secret',
                                 title: 'SECRET PROTOCOLS',
-                                subtitle: 'Secret for a player',
+                                subtitle: 'Secret for some players',
                                 items: [
+                                  { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
+                                  { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
                                   { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token (secret until end)' },
                                   { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone (can be secret until end)' },
                                 ]
                               }
                             ].map((cat) => (
-                              <details key={cat.id} className="rounded-lg border border-white/10 bg-black/30" data-testid={`section-protocol-config-${cat.id}`}> 
+                              <details key={cat.id} className="rounded-lg border border-red-500/15 bg-black/30" data-testid={`section-protocol-config-${cat.id}`}> 
                                 <summary className="cursor-pointer select-none px-3 py-2 flex items-center justify-between">
                                   <div>
-                                    <div className="text-xs font-bold text-zinc-200 tracking-widest">{cat.title}</div>
+                                    <div className="text-xs font-bold text-red-100 tracking-widest">{cat.title}</div>
                                     <div className="text-[11px] text-zinc-500">{cat.subtitle}</div>
                                   </div>
                                   <div className="text-[10px] uppercase tracking-widest text-zinc-600">{cat.items.filter(i => allowedProtocols.includes(i.id as ProtocolType)).length}/{cat.items.length}</div>
                                 </summary>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 pt-0">
                                   {cat.items.map((p) => (
-                                    <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-zinc-900/50 border border-white/5" data-testid={`row-protocol-config-${p.id}`}> 
+                                    <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-red-950/15 border border-red-500/10" data-testid={`row-protocol-config-${p.id}`}> 
                                       <Switch 
                                         checked={allowedProtocols.includes(p.id as ProtocolType)}
                                         onCheckedChange={(checked) => {
@@ -2368,8 +2379,8 @@ export default function Game() {
                                         data-testid={`switch-protocol-${p.id}`}
                                       />
                                       <div className="space-y-1">
-                                        <h4 className="text-sm font-bold text-zinc-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
-                                        <p className="text-xs text-zinc-500" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
+                                        <h4 className="text-sm font-bold text-red-100" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
+                                        <p className="text-xs text-red-300/70" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
                                       </div>
                                     </div>
                                   ))}
@@ -2653,7 +2664,7 @@ export default function Game() {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-              <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 max-w-xs">
+              <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 max-w-xs" data-testid="button-banner-single-player">
                  SINGLE PLAYER
               </Button>
               <Button size="lg" variant="outline" onClick={() => setPhase('multiplayer_lobby')} className="text-xl px-12 py-6 border-white/20 hover:bg-white/10 flex-1 max-w-xs">
@@ -3443,13 +3454,13 @@ export default function Game() {
               </div>
             )}
 
-            <details className="rounded-lg border border-white/10 bg-zinc-950/40 overflow-hidden" data-testid="section-protocol-db-standard">
+            <details className="rounded-lg border border-red-500/20 bg-red-950/15 overflow-hidden" data-testid="section-protocol-db-standard">
               <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle size={14} className="text-zinc-400" />
-                  <div className="text-sm font-bold text-zinc-100 tracking-widest">STANDARD PROTOCOLS</div>
+                  <AlertTriangle size={14} className="text-red-400" />
+                  <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                 </div>
-                <div className="text-[10px] uppercase tracking-widest text-zinc-500">11 protocols</div>
+                <div className="text-[10px] uppercase tracking-widest text-red-300/70">11 protocols</div>
               </summary>
 
               <div className="px-4 pb-4 space-y-3">
@@ -3501,22 +3512,22 @@ export default function Game() {
                     ]
                   }
                 ].map((cat) => (
-                  <details key={cat.id} className="rounded-lg border border-white/10 bg-black/30" data-testid={`section-protocol-db-${cat.id}`}>
+                  <details key={cat.id} className="rounded-lg border border-red-500/15 bg-black/30" data-testid={`section-protocol-db-${cat.id}`}>
                     <summary className="cursor-pointer select-none px-3 py-2 flex items-center justify-between">
                       <div>
-                        <div className="text-xs font-bold text-zinc-200 tracking-widest">{cat.title}</div>
+                        <div className="text-xs font-bold text-red-100 tracking-widest">{cat.title}</div>
                         <div className="text-[11px] text-zinc-500">{cat.subtitle}</div>
                       </div>
                       <div className="text-[10px] uppercase tracking-widest text-zinc-600">{cat.items.length}</div>
                     </summary>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 pt-0">
                       {cat.items.map((p, i) => (
-                        <div key={i} className="bg-white/5 p-4 rounded border border-white/5 hover:border-white/15 transition-colors" data-testid={`card-protocol-db-${cat.id}-${i}`}>
+                        <div key={i} className="bg-red-950/15 p-4 rounded border border-red-500/10 hover:border-red-500/25 transition-colors" data-testid={`card-protocol-db-${cat.id}-${i}`}>
                           <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-bold text-white text-sm">{p.name}</h4>
-                            <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
+                            <h4 className="font-bold text-red-100 text-sm">{p.name}</h4>
+                            <Badge variant="outline" className="text-[10px] py-0 h-5 border-red-500/20 text-red-300/70">{p.type}</Badge>
                           </div>
-                          <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+                          <p className="text-xs text-red-200/70 leading-relaxed">{p.desc}</p>
                         </div>
                       ))}
                     </div>
