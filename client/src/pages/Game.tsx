@@ -2737,14 +2737,6 @@ export default function Game() {
 
             {(() => {
               const allDrivers = [...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])];
-              const picked = new Set<string>();
-              const assignOnce = (list: Character[], predicate: (c: Character) => boolean) =>
-                list.filter((c) => {
-                  if (picked.has(c.id)) return false;
-                  if (!predicate(c)) return false;
-                  picked.add(c.id);
-                  return true;
-                });
 
               const categories = [
                 {
@@ -2753,15 +2745,15 @@ export default function Game() {
                   subtitle: 'Timing & refunds',
                   className: 'border-emerald-500/20 hover:border-emerald-500/50',
                   headerText: 'text-emerald-300',
-                  filter: (c: Character) => c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE'
+                  filter: (c: Character) => (c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE')
                 },
                 {
-                  id: 'high_rollers',
-                  title: 'HIGH ROLLERS',
-                  subtitle: 'Tokens & big swings',
+                  id: 'risk_engine',
+                  title: 'RISK ENGINE',
+                  subtitle: 'Tokens, tempo & big swings',
                   className: 'border-yellow-500/20 hover:border-yellow-500/50',
                   headerText: 'text-yellow-300',
-                  filter: (c: Character) => c.ability?.effect === 'TOKEN_BOOST' || (c.ability?.effect === 'TIME_REFUND' && (c.ability?.name === 'RAINBOW RUN' || c.ability?.name === 'ROYAL DECREE'))
+                  filter: (c: Character) => (c.ability?.effect === 'TOKEN_BOOST') || (c.ability?.effect === 'TIME_REFUND')
                 },
                 {
                   id: 'saboteurs',
@@ -2826,6 +2818,26 @@ export default function Game() {
                 </motion.button>
               );
 
+              const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
+
+              const pools = (() => {
+                const picked = new Set<string>();
+                const assignOnce = (predicate: (c: Character) => boolean) =>
+                  allDrivers.filter((c) => {
+                    if (picked.has(c.id)) return false;
+                    if (!predicate(c)) return false;
+                    picked.add(c.id);
+                    return true;
+                  });
+
+                return categories.map((cat) => ({
+                  cat,
+                  drivers: assignOnce(cat.filter)
+                }));
+              })();
+
+              const active = pools.find((p) => p.cat.id === expandedCategoryId) || null;
+
               return (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   {/* RANDOM BUTTON */}
@@ -2844,48 +2856,43 @@ export default function Game() {
                   </motion.button>
 
                   {/* CATEGORY TILES */}
-                  {categories.map((cat) => {
-                    const drivers = assignOnce(allDrivers, cat.filter);
+                  {pools.map(({ cat, drivers }) => {
+                    const isOpen = expandedCategoryId === cat.id;
                     return (
-                      <div key={cat.id} className={`col-span-1 flex flex-col rounded-xl border ${cat.className} bg-black/40 overflow-hidden`} data-testid={`tile-driver-category-${cat.id}`}>
-                        <details className="w-full group">
-                          <summary className="cursor-pointer select-none p-4 flex flex-col gap-1" data-testid={`summary-driver-category-${cat.id}`}>
-                            <div className={`text-sm font-bold tracking-widest ${cat.headerText}`}>{cat.title}</div>
-                            <div className="text-xs text-zinc-500">{cat.subtitle} • {drivers.length} drivers</div>
-                            <div className="mt-2 text-[10px] text-zinc-600">Tap to expand</div>
-                          </summary>
-                        </details>
-                      </div>
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setExpandedCategoryId((prev) => (prev === cat.id ? null : cat.id))}
+                        className={cn(
+                          `col-span-1 flex flex-col rounded-xl border ${cat.className} bg-black/40 overflow-hidden text-left`,
+                          isOpen ? 'ring-1 ring-white/10' : ''
+                        )}
+                        data-testid={`tile-driver-category-${cat.id}`}
+                      >
+                        <div className="p-4 flex flex-col gap-1">
+                          <div className={cn('text-sm font-bold tracking-widest', cat.headerText)} data-testid={`text-driver-category-title-${cat.id}`}>{cat.title}</div>
+                          <div className="text-xs text-zinc-500" data-testid={`text-driver-category-subtitle-${cat.id}`}>{cat.subtitle} • {drivers.length} drivers</div>
+                          <div className="mt-2 text-[10px] text-zinc-600" data-testid={`text-driver-category-hint-${cat.id}`}>{isOpen ? 'Tap to collapse' : 'Tap to expand'}</div>
+                        </div>
+                      </button>
                     );
                   })}
 
-                  {/* EXPANSION ROWS (renders after the tiles, not inside them) */}
-                  <div className="col-span-2 md:col-span-5 space-y-3" data-testid="row-driver-expansions">
-                    {(() => {
-                      const allDrivers2 = [...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])];
-                      const picked2 = new Set<string>();
-                      const assignOnce2 = (list: Character[], predicate: (c: Character) => boolean) =>
-                        list.filter((c) => {
-                          if (picked2.has(c.id)) return false;
-                          if (!predicate(c)) return false;
-                          picked2.add(c.id);
-                          return true;
-                        });
-
-                      // Keep same category order for expansions
-                      const cats = categories;
-                      const items = cats.map((cat) => ({
-                        cat,
-                        drivers: assignOnce2(allDrivers2, cat.filter)
-                      }));
-
-                      return items.map(({ cat, drivers }) => (
-                        <div
-                          key={`expand-${cat.id}`}
-                          className="hidden group-has-[details[open]]:block"
-                        />
-                      ));
-                    })()}
+                  {/* EXPANDED GRID ROW (below tiles) */}
+                  <div className="col-span-2 md:col-span-5" data-testid="row-driver-expanded">
+                    {active && (
+                      <div className="rounded-xl border border-white/10 bg-black/35 p-3">
+                        <div className="flex items-center justify-between px-1 pb-2">
+                          <div className={cn('text-xs font-bold tracking-widest uppercase', active.cat.headerText)} data-testid="text-driver-expanded-title">
+                            {active.cat.title}
+                          </div>
+                          <div className="text-[10px] uppercase tracking-widest text-zinc-500" data-testid="text-driver-expanded-count">{active.drivers.length} drivers</div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3" data-testid="grid-driver-expanded">
+                          {active.drivers.map(renderDriverCard)}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
