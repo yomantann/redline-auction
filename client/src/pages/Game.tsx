@@ -1965,8 +1965,53 @@ export default function Game() {
         }
     }
 
+    // --- Moment Flags can stack (2+ in same round) ---
+    let momentCount = 0;
+
+    const isMomentOverlay = (t: OverlayType) => {
+      return t === 'time_out' || t === 'smug_confidence' || t === 'fake_calm' || t === 'genius_move' || t === 'easy_w' || t === 'comeback_hope' || t === 'precision_strike' || t === 'overkill' || t === 'clutch_play';
+    };
+
     if (overlayType) {
         addOverlay(overlayType, overlayMsg, overlaySub, 0);
+        if (isMomentOverlay(overlayType)) momentCount += 1;
+    }
+
+    // LATE PANIC: if winner started the round with the lowest bank (approx)
+    if (winnerId === 'p1' && participants.length > 0) {
+      const winner = participants[0];
+      const winnerBid = winner.currentBid || 0;
+      const winnerStartApprox = winner.remainingTime + winnerBid;
+      const minStartApprox = Math.min(...finalPlayers.map(p => (p.remainingTime + (p.currentBid || 0))));
+      if (winnerStartApprox <= minStartApprox + 0.0001) {
+        addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0);
+        momentCount += 1;
+      }
+    }
+
+    // Hidden 67: ANY driver who bids within ±0.1 of 67s (does not need to win)
+    finalPlayers.forEach(p => {
+      const bid = p.currentBid || 0;
+      if (bid > 0 && Math.abs(bid - 67) <= 0.1) {
+        addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±0.1).`, 0);
+        momentCount += 1;
+      }
+    });
+
+    // Hidden Deja Bid: winner wins 2 rounds in a row with bid within ±0.2 of previous win
+    const prevWinBid = roundLog.find(l => l.startsWith('>> WIN BID: '))?.split('>> WIN BID: ')[1];
+    if (winnerId === 'p1' && prevWinBid && participants.length > 0) {
+      const winnerBid = participants[0].currentBid || 0;
+      const prev = parseFloat(prevWinBid);
+      if (!Number.isNaN(prev) && Math.abs(winnerBid - prev) <= 0.2) {
+        addOverlay('hidden_deja_bid', 'DEJA BID', 'Back-to-back wins with nearly identical bids.', 0);
+        momentCount += 1;
+      }
+    }
+
+    // Patch Notes Pending: 3+ flags in same round (shows after the other flags)
+    if (momentCount >= 3) {
+      addOverlay('hidden_patch_notes', 'PATCH NOTES PENDING', 'Triggered 3+ moment flags in one round.', 0);
     }
 
     // Notify all activated abilities
@@ -2601,36 +2646,59 @@ export default function Game() {
                   </Badge>
               )}
             </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-               {/* RANDOM BUTTON */}
-               <motion.button
-                  whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.1)" }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={selectRandomCharacter}
-                  className="flex flex-col items-center p-4 rounded-xl border border-dashed border-white/20 bg-white/5 hover:border-primary/50 transition-colors group text-center justify-center min-h-[200px]"
-                >
-                  <div className="w-20 h-20 rounded-full bg-white/10 mb-3 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-colors">
-                     <CircleHelp size={32} className="text-zinc-500 group-hover:text-primary transition-colors" />
-                  </div>
-                  <h3 className="font-display font-bold text-lg text-white group-hover:text-primary transition-colors">RANDOM</h3>
-                  <p className="text-xs text-zinc-500 mt-1">Roll the dice</p>
-                </motion.button>
 
-              {[...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])].map((char) => (
+            {(() => {
+              const allDrivers = [...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])];
+              const categories = [
+                {
+                  id: 'time_refund',
+                  title: 'TIME REFUND',
+                  subtitle: 'Survive longer',
+                  className: 'border-emerald-500/20 hover:border-emerald-500/50',
+                  headerText: 'text-emerald-300',
+                  filter: (c: Character) => c.ability?.effect === 'TIME_REFUND'
+                },
+                {
+                  id: 'token_boost',
+                  title: 'TOKEN BOOST',
+                  subtitle: 'Snowball trophies',
+                  className: 'border-yellow-500/20 hover:border-yellow-500/50',
+                  headerText: 'text-yellow-300',
+                  filter: (c: Character) => c.ability?.effect === 'TOKEN_BOOST'
+                },
+                {
+                  id: 'disrupt',
+                  title: 'DISRUPT',
+                  subtitle: 'Steal time',
+                  className: 'border-red-500/20 hover:border-red-500/50',
+                  headerText: 'text-red-300',
+                  filter: (c: Character) => c.ability?.effect === 'DISRUPT'
+                },
+                {
+                  id: 'intel',
+                  title: 'INTEL / PEEK',
+                  subtitle: 'Read the room',
+                  className: 'border-sky-500/20 hover:border-sky-500/50',
+                  headerText: 'text-sky-300',
+                  filter: (c: Character) => c.ability?.effect === 'PEEK'
+                },
+              ];
+
+              const renderDriverCard = (char: Character) => (
                 <motion.button
                   key={char.id}
-                  whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.05)" }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.03, backgroundColor: "rgba(255,255,255,0.05)" }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => selectCharacter(char)}
+                  data-testid={`card-driver-${char.id}`}
                   className="flex flex-col items-center p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden"
                 >
                   <div className={cn("w-24 h-24 rounded-full mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10", char.color)}>
                      <img src={char.image} alt={char.name} className="w-full h-full object-cover" />
                   </div>
-                  <h3 className="font-bold text-white mb-1">{char.name}</h3>
-                  <p className="text-xs text-primary/80 uppercase tracking-wider mb-2 font-display">{char.title}</p>
-                  <p className="text-xs text-zinc-500 leading-tight line-clamp-2">{char.description}</p>
+                  <h3 className="font-bold text-white mb-1" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
+                  <p className="text-xs text-primary/80 uppercase tracking-wider mb-2 font-display" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
+                  <p className="text-xs text-zinc-500 leading-tight line-clamp-2" data-testid={`text-driver-desc-${char.id}`}>{char.description}</p>
                   
                   {abilitiesEnabled && char.ability && (
                     <div className="mt-3 pt-3 border-t border-white/5 w-full">
@@ -2659,8 +2727,46 @@ export default function Game() {
                     </div>
                   )}
                 </motion.button>
-              ))}
-            </div>
+              );
+
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {/* RANDOM BUTTON */}
+                  <motion.button
+                    whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.1)" }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={selectRandomCharacter}
+                    data-testid="button-random-driver"
+                    className="flex flex-col items-center p-4 rounded-xl border border-dashed border-white/20 bg-white/5 hover:border-primary/50 transition-colors group text-center justify-center min-h-[200px]"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-white/10 mb-3 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-colors">
+                       <CircleHelp size={32} className="text-zinc-500 group-hover:text-primary transition-colors" />
+                    </div>
+                    <h3 className="font-display font-bold text-lg text-white group-hover:text-primary transition-colors">RANDOM</h3>
+                    <p className="text-xs text-zinc-500 mt-1">Roll the dice</p>
+                  </motion.button>
+
+                  {/* CATEGORY TILES */}
+                  {categories.map((cat) => {
+                    const drivers = allDrivers.filter(cat.filter);
+                    return (
+                      <div key={cat.id} className={`col-span-1 flex flex-col rounded-xl border ${cat.className} bg-black/40 overflow-hidden`} data-testid={`tile-driver-category-${cat.id}`}>
+                        <details className="w-full">
+                          <summary className="cursor-pointer select-none p-4 flex flex-col gap-1">
+                            <div className={`text-sm font-bold tracking-widest ${cat.headerText}`}>{cat.title}</div>
+                            <div className="text-xs text-zinc-500">{cat.subtitle} • {drivers.length} drivers</div>
+                            <div className="mt-2 text-[10px] text-zinc-600">Tap to expand</div>
+                          </summary>
+                          <div className="p-3 pt-0 grid grid-cols-1 gap-3">
+                            {drivers.map(renderDriverCard)}
+                          </div>
+                        </details>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </motion.div>
         );
 
@@ -3187,9 +3293,12 @@ export default function Game() {
               </summary>
               <div className="p-4 pt-3 space-y-3">
                 <p className="text-xs text-zinc-500 italic">Easter egg moments. Unlock by playing.</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[0,1,2,3].map((i) => (
-                    <div key={i} className="h-14 rounded border border-white/10 bg-white/5" />
+                    <div key={i} className="h-14 rounded border border-white/10 bg-white/5 flex items-center justify-between px-3">
+                      <div className="h-2 w-24 rounded bg-white/10" />
+                      <div className="h-2 w-10 rounded bg-white/10" />
+                    </div>
                   ))}
                 </div>
               </div>
