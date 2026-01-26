@@ -2284,109 +2284,166 @@ export default function Game() {
             <Dialog open={showProtocolSelect} onOpenChange={setShowProtocolSelect}>
                 <DialogContent className="bg-zinc-950 border-white/10 max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle className="text-destructive font-display tracking-widest">PROTOCOL CONFIGURATION</DialogTitle>
+                        <DialogTitle className="text-zinc-100 font-display tracking-widest">PROTOCOL CONFIGURATION</DialogTitle>
                         <DialogDescription>
                             Select allowed protocols for this session.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                        {/* SYSTEM PROTOCOLS */}
-                        <div className="md:col-span-2 mt-4 mb-2">
-                             <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-white/10 pb-1">SYSTEM PROTOCOLS</h4>
-                        </div>
-                        {[
-                            { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
-                            { id: 'DOUBLE_STAKES', label: 'HIGH STAKES', desc: 'Double tokens for winner' },
-                            { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD Glitches & Scramble' },
-                            { id: 'OPEN_HAND', label: 'OPEN HAND', desc: 'Player forced to reveal plan' },
-                            { id: 'NOISE_CANCEL', label: 'NOISE CANCEL', desc: 'Player forced to make noise' },
-                            { id: 'MUTE_PROTOCOL', label: 'SILENCE ENFORCED', desc: 'Silence required' },
-                            { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
-                            { id: 'NO_LOOK', label: 'BLIND BIDDING', desc: 'Cannot look at screen' },
-                            { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
-                            { id: 'PANIC_ROOM', label: 'PANIC_ROOM', desc: '2x Speed' },
-                            { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token' },
-                            { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone' },
-                        ].map((p) => (
-                            <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-zinc-900/50 border border-white/5">
-                                <Switch 
-                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                    onCheckedChange={(checked) => {
-                                        setAllowedProtocols(prev => 
-                                            checked 
-                                            ? [...prev, p.id as ProtocolType]
-                                            : prev.filter(id => id !== p.id)
-                                        );
-                                    }}
-                                />
-                                <div className="space-y-1">
-                                    <h4 className="text-sm font-bold text-zinc-200">{p.label}</h4>
-                                    <p className="text-xs text-zinc-500">{p.desc}</p>
-                                </div>
+                    <div className="space-y-3 py-4">
+                        {/* STANDARD */}
+                        <details className="rounded-lg border border-white/10 bg-zinc-950/40 overflow-hidden" data-testid="section-protocol-config-standard">
+                          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle size={14} className="text-zinc-400" />
+                              <div className="text-sm font-bold text-zinc-100 tracking-widest">STANDARD PROTOCOLS</div>
                             </div>
-                        ))}
+                            <div className="text-[10px] uppercase tracking-widest text-zinc-500">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','GROUP_SELFIE','HUM_TUNE','LOCK_ON','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
+                          </summary>
 
-                        {/* SOCIAL PROTOCOLS */}
-                        <div className="md:col-span-2 mt-4 mb-2">
-                             <h4 className="text-xs font-bold text-purple-400 uppercase tracking-widest border-b border-purple-500/20 pb-1 flex items-center gap-2">
-                                <PartyPopper size={12}/> SOCIAL OVERDRIVE
-                             </h4>
-                        </div>
-                        {[
-                            { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Social', type: 'social' },
-                            { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Social', type: 'social' },
-                            { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Social', type: 'social' },
-                            { id: 'LOCK_ON', label: 'LOCK_ON', desc: 'Eye contact required', type: 'social' },
-                        ].map((p) => (
-                            <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-purple-950/20 border border-purple-500/10">
-                                <Switch 
-                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                    disabled={variant !== 'SOCIAL_OVERDRIVE'} // Only enable in social mode
-                                    onCheckedChange={(checked) => {
-                                        if (checked) {
-                                             setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
-                                        } else {
-                                             setAllowedProtocols(prev => prev.filter(id => id !== p.id));
-                                        }
-                                    }}
-                                />
-                                <div className="space-y-1">
-                                    <h4 className="text-sm font-bold text-purple-200">{p.label}</h4>
-                                    <p className="text-xs text-purple-400">{p.desc}</p>
+                          <div className="px-4 pb-4 space-y-3">
+                            {/* Standard sub-categories */}
+                            {[
+                              {
+                                id: 'standard_hud',
+                                title: 'HUD & SIGNAL',
+                                subtitle: 'Visibility, noise, scramble',
+                                items: [
+                                  { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
+                                  { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD glitches & scramble' },
+                                ]
+                              },
+                              {
+                                id: 'standard_stakes',
+                                title: 'STAKES & PAYOUTS',
+                                subtitle: 'Economy modifiers',
+                                items: [
+                                  { id: 'DOUBLE_STAKES', label: 'HIGH STAKES', desc: 'Double tokens for winner' },
+                                  { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token' },
+                                ]
+                              },
+                              {
+                                id: 'standard_social',
+                                title: 'TABLE RULES',
+                                subtitle: 'Social & physical constraints',
+                                items: [
+                                  { id: 'OPEN_HAND', label: 'OPEN HAND', desc: 'Player forced to reveal plan' },
+                                  { id: 'NOISE_CANCEL', label: 'NOISE CANCEL', desc: 'Player forced to make noise' },
+                                  { id: 'MUTE_PROTOCOL', label: 'SILENCE ENFORCED', desc: 'Silence required' },
+                                  { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
+                                  { id: 'NO_LOOK', label: 'BLIND BIDDING', desc: 'Cannot look at screen' },
+                                ]
+                              },
+                              {
+                                id: 'standard_twists',
+                                title: 'SYSTEM TWISTS',
+                                subtitle: 'Speed, hidden roles, taxes',
+                                items: [
+                                  { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
+                                  { id: 'PANIC_ROOM', label: 'PANIC ROOM', desc: '2x Speed' },
+                                  { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone' },
+                                ]
+                              }
+                            ].map((cat) => (
+                              <details key={cat.id} className="rounded-lg border border-white/10 bg-black/30" data-testid={`section-protocol-config-${cat.id}`}> 
+                                <summary className="cursor-pointer select-none px-3 py-2 flex items-center justify-between">
+                                  <div>
+                                    <div className="text-xs font-bold text-zinc-200 tracking-widest">{cat.title}</div>
+                                    <div className="text-[11px] text-zinc-500">{cat.subtitle}</div>
+                                  </div>
+                                  <div className="text-[10px] uppercase tracking-widest text-zinc-600">{cat.items.filter(i => allowedProtocols.includes(i.id as ProtocolType)).length}/{cat.items.length}</div>
+                                </summary>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 pt-0">
+                                  {cat.items.map((p) => (
+                                    <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-zinc-900/50 border border-white/5" data-testid={`row-protocol-config-${p.id}`}> 
+                                      <Switch 
+                                        checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                        onCheckedChange={(checked) => {
+                                          setAllowedProtocols(prev => checked ? [...prev, p.id as ProtocolType] : prev.filter(id => id !== p.id));
+                                        }}
+                                        data-testid={`switch-protocol-${p.id}`}
+                                      />
+                                      <div className="space-y-1">
+                                        <h4 className="text-sm font-bold text-zinc-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
+                                        <p className="text-xs text-zinc-500" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
-                            </div>
-                        ))}
+                              </details>
+                            ))}
+                          </div>
+                        </details>
 
-                        {/* BIO PROTOCOLS */}
-                        <div className="md:col-span-2 mt-4 mb-2">
-                             <h4 className="text-xs font-bold text-orange-400 uppercase tracking-widest border-b border-orange-500/20 pb-1 flex items-center gap-2">
-                                <Martini size={12}/> BIO-FUEL
-                             </h4>
-                        </div>
-                        {[
-                            { id: 'HYDRATE', label: 'HYDRATE', desc: 'Bio-Fuel', type: 'bio' },
-                            { id: 'BOTTOMS_UP', label: 'BOTTOMS UP', desc: 'Bio-Fuel', type: 'bio' },
-                            { id: 'PARTNER_DRINK', label: 'LINKED SYSTEMS', desc: 'Bio-Fuel', type: 'bio' },
-                            { id: 'WATER_ROUND', label: 'WATER_ROUND', desc: 'Bio-Fuel', type: 'bio' },
-                        ].map((p) => (
-                            <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-orange-950/20 border border-orange-500/10">
+                        {/* SOCIAL */}
+                        <details className="rounded-lg border border-purple-500/20 bg-purple-950/15 overflow-hidden" data-testid="section-protocol-config-social">
+                          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <PartyPopper size={14} className="text-purple-400" />
+                              <div className="text-sm font-bold text-purple-200 tracking-widest">SOCIAL OVERDRIVE</div>
+                            </div>
+                            <div className="text-[10px] uppercase tracking-widest text-purple-400/70">{allowedProtocols.filter(p => ['TRUTH_DARE','SWITCH_SEATS','GROUP_SELFIE','HUM_TUNE','LOCK_ON'].includes(p as any)).length} selected</div>
+                          </summary>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
+                            {[
+                              { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Truth or Dare', type: 'social' },
+                              { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Seat swap before next round', type: 'social' },
+                              { id: 'GROUP_SELFIE', label: 'GROUP_SELFIE', desc: 'Everyone poses for a photo', type: 'social' },
+                              { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Hum while bidding', type: 'social' },
+                              { id: 'LOCK_ON', label: 'LOCK_ON', desc: 'Eye contact required', type: 'social' },
+                            ].map((p) => (
+                              <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-purple-950/20 border border-purple-500/10" data-testid={`row-protocol-config-${p.id}`}> 
                                 <Switch 
-                                    checked={allowedProtocols.includes(p.id as ProtocolType)}
-                                    disabled={variant !== 'BIO_FUEL'} // Only enable in bio mode
-                                    onCheckedChange={(checked) => {
-                                         if (checked) {
-                                             setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
-                                        } else {
-                                             setAllowedProtocols(prev => prev.filter(id => id !== p.id));
-                                        }
-                                    }}
+                                  checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                  disabled={variant !== 'SOCIAL_OVERDRIVE'}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                    else setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                  }}
+                                  data-testid={`switch-protocol-${p.id}`}
                                 />
                                 <div className="space-y-1">
-                                    <h4 className="text-sm font-bold text-orange-200">{p.label}</h4>
-                                    <p className="text-xs text-orange-400">{p.desc}</p>
+                                  <h4 className="text-sm font-bold text-purple-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
+                                  <p className="text-xs text-purple-400" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
                                 </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+
+                        {/* BIO-FUEL */}
+                        <details className="rounded-lg border border-orange-500/20 bg-orange-950/15 overflow-hidden" data-testid="section-protocol-config-bio">
+                          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Martini size={14} className="text-orange-400" />
+                              <div className="text-sm font-bold text-orange-200 tracking-widest">BIO-FUEL</div>
                             </div>
-                        ))}
+                            <div className="text-[10px] uppercase tracking-widest text-orange-400/70">{allowedProtocols.filter(p => ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
+                          </summary>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
+                            {[
+                              { id: 'HYDRATE', label: 'HYDRATE', desc: 'Everyone takes a sip', type: 'bio' },
+                              { id: 'BOTTOMS_UP', label: 'BOTTOMS UP', desc: 'Winner finishes their drink', type: 'bio' },
+                              { id: 'PARTNER_DRINK', label: 'LINKED SYSTEMS', desc: 'Pick a partner: when you drink, they drink', type: 'bio' },
+                              { id: 'WATER_ROUND', label: 'WATER_ROUND', desc: 'Winner gives a glass of water', type: 'bio' },
+                            ].map((p) => (
+                              <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-orange-950/20 border border-orange-500/10" data-testid={`row-protocol-config-${p.id}`}> 
+                                <Switch 
+                                  checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                  disabled={variant !== 'BIO_FUEL'}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                    else setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                  }}
+                                  data-testid={`switch-protocol-${p.id}`}
+                                />
+                                <div className="space-y-1">
+                                  <h4 className="text-sm font-bold text-orange-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
+                                  <p className="text-xs text-orange-400" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
                     </div>
                     <DialogFooter>
                         <div className="text-xs text-zinc-500 w-full text-left pt-2">
@@ -2455,11 +2512,26 @@ export default function Game() {
                         id="protocols-intro" 
                         checked={protocolsEnabled} 
                         onCheckedChange={setProtocolsEnabled} 
-                        className="data-[state=checked]:bg-destructive"
+                        className={cn(
+                          "data-[state=checked]:bg-zinc-200",
+                          variant === 'SOCIAL_OVERDRIVE' && "data-[state=checked]:bg-purple-500",
+                          variant === 'BIO_FUEL' && "data-[state=checked]:bg-orange-500"
+                        )}
                     />
                     <Label htmlFor="protocols-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
-                        <AlertTriangle size={14} className={protocolsEnabled ? "text-destructive" : "text-muted-foreground"}/>
-                        Protocols
+                        {variant === 'SOCIAL_OVERDRIVE' ? (
+                          <PartyPopper size={14} className={protocolsEnabled ? "text-purple-400" : "text-muted-foreground"} />
+                        ) : variant === 'BIO_FUEL' ? (
+                          <Martini size={14} className={protocolsEnabled ? "text-orange-400" : "text-muted-foreground"} />
+                        ) : (
+                          <AlertTriangle size={14} className={protocolsEnabled ? "text-zinc-200" : "text-muted-foreground"} />
+                        )}
+                        <span className={cn(
+                          "transition-colors",
+                          protocolsEnabled ? "text-zinc-100" : "text-zinc-400",
+                          variant === 'SOCIAL_OVERDRIVE' && protocolsEnabled && "text-purple-200",
+                          variant === 'BIO_FUEL' && protocolsEnabled && "text-orange-200"
+                        )}>Protocols</span>
                     </Label>
                   </div>
                   <Button
@@ -3147,10 +3219,30 @@ export default function Game() {
                   id="protocols" 
                   checked={protocolsEnabled} 
                   onCheckedChange={setProtocolsEnabled} 
-                  className="data-[state=checked]:bg-destructive scale-75 origin-right"
+                  className={cn(
+                    "scale-75 origin-right",
+                    "data-[state=checked]:bg-zinc-200",
+                    variant === 'SOCIAL_OVERDRIVE' && "data-[state=checked]:bg-purple-500",
+                    variant === 'BIO_FUEL' && "data-[state=checked]:bg-orange-500"
+                  )}
+                  data-testid="switch-protocols"
                 />
-                <Label htmlFor="protocols" className={cn("text-sm cursor-pointer flex items-center gap-1", protocolsEnabled ? "text-destructive" : "text-zinc-400")}>
-                  <AlertTriangle size={12}/>
+                <Label
+                  htmlFor="protocols"
+                  className={cn(
+                    "text-sm cursor-pointer flex items-center gap-1",
+                    protocolsEnabled ? "text-zinc-100" : "text-zinc-400",
+                    variant === 'SOCIAL_OVERDRIVE' && protocolsEnabled && "text-purple-200",
+                    variant === 'BIO_FUEL' && protocolsEnabled && "text-orange-200"
+                  )}
+                >
+                  {variant === 'SOCIAL_OVERDRIVE' ? (
+                    <PartyPopper size={12} className={protocolsEnabled ? "text-purple-400" : "text-zinc-500"} />
+                  ) : variant === 'BIO_FUEL' ? (
+                    <Martini size={12} className={protocolsEnabled ? "text-orange-400" : "text-zinc-500"} />
+                  ) : (
+                    <AlertTriangle size={12} className={protocolsEnabled ? "text-zinc-200" : "text-zinc-500"} />
+                  )}
                   Protocols
                 </Label>
                 <button onClick={() => setShowProtocolGuide(true)} className="text-zinc-500 hover:text-white transition-colors ml-1" title="Protocol Database">
@@ -3323,74 +3415,157 @@ export default function Game() {
       <Dialog open={showProtocolGuide} onOpenChange={setShowProtocolGuide}>
         <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
           <DialogHeader>
-            <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-destructive flex items-center gap-2">
-              <AlertTriangle /> PROTOCOL DATABASE
+            <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-zinc-100 flex items-center gap-2">
+              {variant === 'SOCIAL_OVERDRIVE' ? (
+                <PartyPopper className="text-purple-400" />
+              ) : variant === 'BIO_FUEL' ? (
+                <Martini className="text-orange-400" />
+              ) : (
+                <AlertTriangle className="text-zinc-300" />
+              )}
+              PROTOCOL DATABASE
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
               When PROTOCOLS are enabled, random events may trigger at the start of a round.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div className="space-y-3 mt-4">
             {variant === 'BIO_FUEL' && (
-                <div className="col-span-1 md:col-span-2 bg-orange-950/30 border border-orange-500/30 p-3 rounded mb-2 flex items-center gap-3 text-orange-200 text-sm">
-                    <AlertTriangle className="shrink-0 text-orange-500" size={18} />
-                    <p><strong>DISCLAIMER:</strong> Bio-Fuel mode is intended for adults (21+). Please play responsibly.</p>
-                </div>
+              <div className="rounded-lg border border-orange-500/30 bg-orange-950/30 p-3 flex items-center gap-3 text-orange-200 text-sm" data-testid="callout-bio-disclaimer">
+                <Martini className="shrink-0 text-orange-500" size={18} />
+                <p><strong>DISCLAIMER:</strong> Bio-Fuel mode is intended for adults (21+). Please play responsibly.</p>
+              </div>
             )}
-            <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-white mt-4 border-b border-white/10 pb-2">STANDARD PROTOCOLS</h3>
-            {[
-              { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
-              { name: "HIGH STAKES", desc: "Winner receives DOUBLE tokens for this round.", type: "Economy" },
-              { name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual" },
-              { name: "OPEN HAND", desc: "One player must publicly state they will not bid (Bluffing allowed).", type: "Social" },
-              { name: "NOISE CANCEL", desc: "Selected player must make continuous noise for first 15s.", type: "Social" },
-              { name: "MUTE PROTOCOL", desc: "Complete silence enforced. Speaking is shunned.", type: "Social" },
-              { name: "PRIVATE CHANNEL", desc: "Two players selected to discuss strategy privately.", type: "Social" },
-              { name: "NO LOOK", desc: "Players cannot look at screens until they release button.", type: "Physical" },
-              { name: "THE MOLE", desc: "Selected player must LOSE. Their bid time is NOT subtracted.", type: "Hidden Role" },
-              { name: "PANIC ROOM", desc: "Game speed 2x. Winner gets Double Tokens.", type: "Game State" },
-            ].map((p, i) => (
-              <div key={i} className="bg-white/5 p-4 rounded border border-white/5 hover:border-destructive/50 transition-colors">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-bold text-white text-sm">{p.name}</h4>
-                  <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
-                </div>
-                <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
-              </div>
-            ))}
 
-            <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-purple-400 mt-4 border-b border-purple-500/30 pb-2 flex items-center gap-2"><PartyPopper size={18}/> SOCIAL OVERDRIVE</h3>
-            {[
-                { name: "TRUTH DARE", desc: "Winner asks a Truth, Loser does a Dare.", type: "Social" },
-                { name: "SWITCH SEATS", desc: "Players must physically swap seats before next round.", type: "Physical" },
-                { name: "GROUP SELFIE", desc: "Everyone must pose for a photo. Last one ready loses 1s.", type: "Social" },
-                { name: "HUM TUNE", desc: "You must hum a song while bidding. If you stop, you forfeit.", type: "Social" },
-            ].map((p, i) => (
-              <div key={`social-${i}`} className="bg-purple-500/5 p-4 rounded border border-purple-500/20 hover:border-purple-500/50 transition-colors">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-bold text-purple-200 text-sm">{p.name}</h4>
-                  <Badge variant="outline" className="text-[10px] py-0 h-5 border-purple-500/20 text-purple-400">{p.type}</Badge>
+            <details className="rounded-lg border border-white/10 bg-zinc-950/40 overflow-hidden" data-testid="section-protocol-db-standard">
+              <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={14} className="text-zinc-400" />
+                  <div className="text-sm font-bold text-zinc-100 tracking-widest">STANDARD PROTOCOLS</div>
                 </div>
-                <p className="text-xs text-purple-300/70 leading-relaxed">{p.desc}</p>
-              </div>
-            ))}
+                <div className="text-[10px] uppercase tracking-widest text-zinc-500">12 protocols</div>
+              </summary>
 
-            <h3 className="col-span-1 md:col-span-2 text-lg font-bold text-orange-400 mt-4 border-b border-orange-500/30 pb-2 flex items-center gap-2"><Martini size={18}/> BIO-FUEL</h3>
-            {[
-                { name: "HYDRATE", desc: "Everyone takes a sip.", type: "Bio" },
-                { name: "BOTTOMS UP", desc: "Winner must finish their drink.", type: "Bio" },
-                { name: "LINKED SYSTEMS", desc: "Pick a partner. When you drink, they drink.", type: "Bio" },
-                { name: "WATER ROUND", desc: "Winner gives a glass of water to someone.", type: "Bio" },
-            ].map((p, i) => (
-              <div key={`bio-${i}`} className="bg-orange-500/5 p-4 rounded border border-orange-500/20 hover:border-orange-500/50 transition-colors">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-bold text-orange-200 text-sm">{p.name}</h4>
-                  <Badge variant="outline" className="text-[10px] py-0 h-5 border-orange-500/20 text-orange-400">{p.type}</Badge>
-                </div>
-                <p className="text-xs text-orange-300/70 leading-relaxed">{p.desc}</p>
+              <div className="px-4 pb-4 space-y-3">
+                {[ 
+                  {
+                    id: 'db_standard_hud',
+                    title: 'HUD & SIGNAL',
+                    subtitle: 'Visibility, noise, scramble',
+                    items: [
+                      { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
+                      { name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual" },
+                    ]
+                  },
+                  {
+                    id: 'db_standard_stakes',
+                    title: 'STAKES & PAYOUTS',
+                    subtitle: 'Economy modifiers',
+                    items: [
+                      { name: "HIGH STAKES", desc: "Winner receives DOUBLE tokens for this round.", type: "Economy" },
+                      { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins token.", type: "Economy" },
+                    ]
+                  },
+                  {
+                    id: 'db_standard_rules',
+                    title: 'TABLE RULES',
+                    subtitle: 'Social & physical constraints',
+                    items: [
+                      { name: "OPEN HAND", desc: "One player must publicly state they will not bid (Bluffing allowed).", type: "Social" },
+                      { name: "NOISE CANCEL", desc: "Selected player must make continuous noise for first 15s.", type: "Social" },
+                      { name: "MUTE PROTOCOL", desc: "Complete silence enforced. Speaking is shunned.", type: "Social" },
+                      { name: "PRIVATE CHANNEL", desc: "Two players selected to discuss strategy privately.", type: "Social" },
+                      { name: "NO LOOK", desc: "Players cannot look at screens until they release button.", type: "Physical" },
+                    ]
+                  },
+                  {
+                    id: 'db_standard_twists',
+                    title: 'SYSTEM TWISTS',
+                    subtitle: 'Speed, hidden roles, taxes',
+                    items: [
+                      { name: "THE MOLE", desc: "Selected player must LOSE. Their bid time is NOT subtracted.", type: "Hidden Role" },
+                      { name: "PANIC ROOM", desc: "Game speed 2x.", type: "Game State" },
+                      { name: "TIME TAX", desc: "-10s to everyone.", type: "Game State" },
+                    ]
+                  }
+                ].map((cat) => (
+                  <details key={cat.id} className="rounded-lg border border-white/10 bg-black/30" data-testid={`section-protocol-db-${cat.id}`}>
+                    <summary className="cursor-pointer select-none px-3 py-2 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-zinc-200 tracking-widest">{cat.title}</div>
+                        <div className="text-[11px] text-zinc-500">{cat.subtitle}</div>
+                      </div>
+                      <div className="text-[10px] uppercase tracking-widest text-zinc-600">{cat.items.length}</div>
+                    </summary>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 pt-0">
+                      {cat.items.map((p, i) => (
+                        <div key={i} className="bg-white/5 p-4 rounded border border-white/5 hover:border-white/15 transition-colors" data-testid={`card-protocol-db-${cat.id}-${i}`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-bold text-white text-sm">{p.name}</h4>
+                            <Badge variant="outline" className="text-[10px] py-0 h-5 border-white/10 text-zinc-500">{p.type}</Badge>
+                          </div>
+                          <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                ))}
               </div>
-            ))}
+            </details>
+
+            <details className="rounded-lg border border-purple-500/20 bg-purple-950/15 overflow-hidden" data-testid="section-protocol-db-social">
+              <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <PartyPopper size={14} className="text-purple-400" />
+                  <div className="text-sm font-bold text-purple-200 tracking-widest">SOCIAL OVERDRIVE</div>
+                </div>
+                <div className="text-[10px] uppercase tracking-widest text-purple-400/70">5 protocols</div>
+              </summary>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
+                {[
+                  { name: "TRUTH DARE", desc: "Winner asks a Truth, Loser does a Dare.", type: "Social" },
+                  { name: "SWITCH SEATS", desc: "Players must physically swap seats before next round.", type: "Physical" },
+                  { name: "GROUP SELFIE", desc: "Everyone must pose for a photo. Last one ready loses 1s.", type: "Social" },
+                  { name: "HUM TUNE", desc: "You must hum a song while bidding. If you stop, you forfeit.", type: "Social" },
+                  { name: "LOCK ON", desc: "Maintain eye contact while bidding.", type: "Social" },
+                ].map((p, i) => (
+                  <div key={`social-${i}`} className="bg-purple-500/5 p-4 rounded border border-purple-500/20 hover:border-purple-500/50 transition-colors" data-testid={`card-protocol-db-social-${i}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-bold text-purple-200 text-sm">{p.name}</h4>
+                      <Badge variant="outline" className="text-[10px] py-0 h-5 border-purple-500/20 text-purple-400">{p.type}</Badge>
+                    </div>
+                    <p className="text-xs text-purple-300/70 leading-relaxed">{p.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+
+            <details className="rounded-lg border border-orange-500/20 bg-orange-950/15 overflow-hidden" data-testid="section-protocol-db-bio">
+              <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Martini size={14} className="text-orange-400" />
+                  <div className="text-sm font-bold text-orange-200 tracking-widest">BIO-FUEL</div>
+                </div>
+                <div className="text-[10px] uppercase tracking-widest text-orange-400/70">4 protocols</div>
+              </summary>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
+                {[
+                  { name: "HYDRATE", desc: "Everyone takes a sip.", type: "Bio" },
+                  { name: "BOTTOMS UP", desc: "Winner must finish their drink.", type: "Bio" },
+                  { name: "LINKED SYSTEMS", desc: "Pick a partner. When you drink, they drink.", type: "Bio" },
+                  { name: "WATER ROUND", desc: "Winner gives a glass of water to someone.", type: "Bio" },
+                ].map((p, i) => (
+                  <div key={`bio-${i}`} className="bg-orange-500/5 p-4 rounded border border-orange-500/20 hover:border-orange-500/50 transition-colors" data-testid={`card-protocol-db-bio-${i}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-bold text-orange-200 text-sm">{p.name}</h4>
+                      <Badge variant="outline" className="text-[10px] py-0 h-5 border-orange-500/20 text-orange-400">{p.type}</Badge>
+                    </div>
+                    <p className="text-xs text-orange-300/70 leading-relaxed">{p.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
           
           <DialogFooter className="mt-6">
