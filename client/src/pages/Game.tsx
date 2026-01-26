@@ -65,6 +65,52 @@ import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
 import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
 
+// Social Mode Images
+import socialHarambe from '@assets/generated_images/social_harambe.png';
+import socialPopcat from '@assets/generated_images/social_popcat.png';
+import socialWinter from '@assets/generated_images/social_winter.png';
+import socialPepe from '@assets/generated_images/social_pepe.png';
+import socialNyan from '@assets/generated_images/social_nyan.png';
+import socialKaren from '@assets/generated_images/social_karen.png';
+import socialFine from '@assets/generated_images/social_fine.png';
+import socialBf from '@assets/generated_images/social_bf.png';
+import socialRat from '@assets/generated_images/social_rat.png';
+import socialBaldwin from '@assets/generated_images/social_baldwin.png';
+import socialSigma from '@assets/generated_images/social_sigma.png';
+import socialGigachad from '@assets/generated_images/social_gigachad.png';
+import socialThinker from '@assets/generated_images/social_thinker.png';
+import socialDisaster from '@assets/generated_images/social_disaster.png';
+import socialButtons from '@assets/generated_images/social_buttons.png';
+import socialPrimate from '@assets/generated_images/social_primate.png';
+import socialHarold from '@assets/generated_images/social_harold.png';
+import socialPromKing from '@assets/generated_images/social_prom_king.png';
+import socialIdolCore from '@assets/generated_images/social_idol_core.png';
+import socialTank from '@assets/generated_images/social_tank.png';
+import socialDangerZone from '@assets/generated_images/social_danger_zone.png';
+
+// Bio Mode Images
+import bioHarambe from '@assets/generated_images/bio_harambe.png';
+import bioPopcat from '@assets/generated_images/bio_popcat.png';
+import bioWinter from '@assets/generated_images/bio_winter.png';
+import bioPepe from '@assets/generated_images/bio_pepe.png';
+import bioNyan from '@assets/generated_images/bio_nyan.png';
+import bioKaren from '@assets/generated_images/bio_karen.png';
+import bioFine from '@assets/generated_images/bio_fine.png';
+import bioBf from '@assets/generated_images/bio_bf.png';
+import bioRat from '@assets/generated_images/bio_rat.png';
+import bioBaldwin from '@assets/generated_images/bio_baldwin.png';
+import bioSigma from '@assets/generated_images/bio_sigma.png';
+import bioGigachad from '@assets/generated_images/bio_gigachad.png';
+import bioThinker from '@assets/generated_images/bio_thinker.png';
+import bioDisaster from '@assets/generated_images/bio_disaster.png';
+import bioButtons from '@assets/generated_images/bio_buttons.png';
+import bioPrimate from '@assets/generated_images/bio_primate.png';
+import bioHarold from '@assets/generated_images/bio_harold.png';
+import bioPromKing from '@assets/generated_images/bio_prom_king.png';
+import bioIdolCore from '@assets/generated_images/bio_idol_core.png';
+import bioTank from '@assets/generated_images/bio_tank.png';
+import bioDangerZone from '@assets/generated_images/bio_danger_zone.png';
+
 
 import { AbilityAnimation, AnimationType } from "@/components/game/AbilityAnimation";
 import logoFuturistic from '@assets/generated_images/redline_auction_futuristic_logo_red_neon.png';
@@ -103,13 +149,13 @@ type ProtocolType =
 // NEW CHARACTERS (SOCIAL MODE)
 const SOCIAL_CHARACTERS: Character[] = [
   { 
-    id: 'prom_king', name: 'Prom King', title: 'The Crowned', image: charPromKing, description: 'Royalty of the moment.', color: 'text-purple-500',
+    id: 'prom_king', name: 'Prom King', title: 'The Crowned', image: charPromKing, imageSocial: socialPromKing, imageBio: bioPromKing, description: 'Royalty of the moment.', color: 'text-purple-500',
     ability: { name: 'SPOTLIGHT', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'PROM COURT', description: '1 random round: Make a rule for remainder of game.' },
     bioAbility: { name: 'CORONATION', description: 'Initiate a group toast. Everyone drinks.' }
   },
   {
-    id: 'idol_core', name: 'Idol Core', title: 'The Star', image: charIdolCore, description: 'Stage presence and perfect timing.', color: 'text-pink-500',
+    id: 'idol_core', name: 'Idol Core', title: 'The Star', image: charIdolCore, imageSocial: socialIdolCore, imageBio: bioIdolCore, description: 'Stage presence and perfect timing.', color: 'text-pink-500',
     ability: { name: 'COUNT IT IN', description: 'When you say "count it in", next person to talk must say "5678" or drop their button.', effect: 'PEEK' },
     socialAbility: { name: 'FANCAM', description: '10% chance: 1 random player shows hidden talent at start of round or drops button.' },
     bioAbility: { name: 'DEBUT', description: 'Take a drink to reveal a "secret" (see an opponent\'s bid).' }
@@ -128,13 +174,13 @@ import charRollSafe from '@assets/generated_images/roll_safe_black_character.png
 // NEW CHARACTERS (BIO-FUEL MODE)
 const BIO_CHARACTERS: Character[] = [
   { 
-    id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charRockShush, description: 'Solid as a rock. Literally.', color: 'text-green-600',
+    id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charRockShush, imageSocial: socialTank, imageBio: bioTank, description: 'Solid as a rock. Literally.', color: 'text-green-600',
     ability: { name: 'IRON STOMACH', description: 'Immune to "Drink" penalties (Lore only).', effect: 'TIME_REFUND' },
     socialAbility: { name: 'PEOPLE\'S ELBOW', description: 'Challenge someone to a thumb war for 0.5s.' },
     bioAbility: { name: 'ABSORB', description: 'Take a big sip to cancel out any drinking prompt.' }
   },
   {
-    id: 'danger_zone', name: 'Danger Zone', title: 'Club Queen', image: charDangerZone, description: 'Works the pole, takes your soul.', color: 'text-pink-600',
+    id: 'danger_zone', name: 'Danger Zone', title: 'Club Queen', image: charDangerZone, imageSocial: socialDangerZone, imageBio: bioDangerZone, description: 'Works the pole, takes your soul.', color: 'text-pink-600',
     ability: { name: 'OVERPOUR', description: 'Decide before the game starts how big 1 sip really is.', effect: 'DISRUPT' },
     socialAbility: { name: 'PRIVATE DANCE', description: 'Give a command. First to obey gets +0.5s.' },
     bioAbility: { name: 'CHAIN REACTION', description: 'If you finish your drink, person to your left must also finish theirs.' }
@@ -173,6 +219,8 @@ interface Character {
   name: string;
   title: string;
   image: string; // Changed from icon to image
+  imageSocial?: string; // New: Social Mode Image
+  imageBio?: string;    // New: Bio-Fuel Mode Image
   description: string;
   color: string;
   ability?: {
@@ -192,103 +240,103 @@ interface Character {
 
 const CHARACTERS: Character[] = [
   { 
-    id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialHarambe, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
     ability: { name: 'SPIRIT SHIELD', description: 'Limit Break: +11s if you win Round 1.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Shown at prepare-to-bid: Designate a player immune to social dares this round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Tell others they cannot release button until you finish a sip.' }
   },
   { 
-    id: 'popcat', name: 'Click-Click', title: 'The Glitch', image: charPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
+    id: 'popcat', name: 'Click-Click', title: 'The Glitch', image: charPopcat, imageSocial: socialPopcat, imageBio: bioPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
     ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'MISCLICK', description: '25% chance: 1 player must hold bid without using hands (only they and you are notified).' },
     bioAbility: { name: 'MOUTH POP', description: '1 random round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
-    id: 'winter', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'winter', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialWinter, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: '25% chance: Ignore all social interactions (only you see this at prepare-to-bid).' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 random round: Force opponent to win or drink (only you and target notified).' }
   },
   { 
-    id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, imageSocial: socialPepe, imageBio: bioPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'SAD STORY', description: '5% chance after round: 1 random player shares a sad story (shown to that player only).' },
     bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you are notified you can change your drinking buddy.' }
   },
   { 
-    id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, imageSocial: socialNyan, imageBio: bioNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: '15% chance: 1 random opponent must speak 2x speed (shown at start of round).' },
     bioAbility: { name: 'RAINBOW SHOT', description: '10% chance: 1 random player mixes two drinks (shown at end of round).' }
   },
   { 
-    id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, description: 'Loud and disruptive tactics.', color: 'text-red-400',
+    id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialKaren, imageBio: bioKaren, description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
     socialAbility: { name: 'COMPLAINT', description: '15% chance: Everyone votes on winner\'s punishment (shown to all at end of round).' },
     bioAbility: { name: 'SPILL HAZARD', description: '25% chance: Accuse someone of spilling; they drink (shown to driver post-round).' }
   },
   { 
-    id: 'fine', name: 'Low Flame', title: 'The Survivor', image: charFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    id: 'fine', name: 'Low Flame', title: 'The Survivor', image: charFine, imageSocial: socialFine, imageBio: bioFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
     ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: '25% chance: Choose a player to answer a truth (shown to driver after round).' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks (shown to all after your winning round).' }
   },
   { 
-    id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
+    id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, imageSocial: socialBf, imageBio: bioBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
     ability: { name: 'SNEAK PEEK', description: 'See 1 random player holding. All other banks scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'DISTRACTION', description: '35% chance at start: Point at something; anyone who looks must drop buzzer (shown to driver).' },
     bioAbility: { name: 'THE EX', description: '10% chance: 1 random player toasts to an ex (shown to them at end of round).' }
   },
   { 
-    id: 'rat', name: 'The Rind', title: 'The Time Thief', image: charRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'rat', name: 'The Rind', title: 'The Time Thief', image: charRat, imageSocial: socialRat, imageBio: bioRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: '5% chance: 1 random player must reveal someone\'s tell (shown to them after round).' },
     bioAbility: { name: 'SCAVENGE', description: '5% chance: 1 random player finishes someone else\'s drink (shown to them after round).' }
   },
   { 
-    id: 'baldwin', name: 'The Anointed', title: 'The Royal', image: charBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
+    id: 'baldwin', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin, imageBio: bioBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 4s refund if you bid within 0.1s of exactly 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: '50% chance: Everyone is commanded silence at start of round.' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round at end: Make a rule for remainder of game.' }
   },
   { 
-    id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, imageSocial: socialSigma, imageBio: bioSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
     ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
     socialAbility: { name: 'CC\'D', description: '20% chance: 1 random player must copy your actions next round (both notified at end).' },
     bioAbility: { name: 'REASSIGNED', description: '50% chance: Choose 1 player to take a drink (shown to driver at end of round).' }
   },
   { 
-    id: 'gigachad', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
+    id: 'gigachad', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, imageSocial: socialGigachad, imageBio: bioGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
     ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'MOG', description: '20% chance: 1 random player must drop if they lose stare challenge (both notified at start).' },
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall (shown post-round).' }
   },
   { 
-    id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules all game.' },
     bioAbility: { name: 'BIG BRAIN', description: '15% chance at end of round: Option to have everyone pass drink to the left.' }
   },
   { 
-    id: 'disaster', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    id: 'disaster', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
     ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
     socialAbility: { name: 'VIRAL MOMENT', description: '1 random round: Re-enact a meme. Best performance wins.' },
     bioAbility: { name: 'SPICY', description: '20% chance post-round: Everyone drinks (all notified).' }
   },
   { 
-    id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, description: 'Always sweating the big decisions.', color: 'text-red-400',
+    id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialButtons, imageBio: bioButtons, description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drop button.' },
     bioAbility: { name: 'EMERGENCY MEETING', description: '25% chance: Everyone points at person to gang up on next round for drinking.' }
   },
   { 
-    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, description: 'Trust the process. He\'s cooking.', color: 'text-amber-600',
+    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, imageSocial: socialPrimate, imageBio: bioPrimate, description: 'Trust the process. He\'s cooking.', color: 'text-amber-600',
     ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s over second place.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'FRESH CUT', description: '10% chance post-round: 1 random player must compliment everyone.' },
     bioAbility: { name: 'GREEDY GRAB', description: '5% chance post-round: Previous winner must burn 40s next round or finish drink.' }
   },
   { 
-    id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, description: 'Smiling through the bear market.', color: 'text-slate-400',
+    id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialHarold, imageBio: bioHarold, description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'BOOMER', description: 'You forgot what your power was (never triggers).' },
     bioAbility: { name: 'SUPPRESS', description: 'If anyone reacts to their drink, they drink again.' }
@@ -2750,8 +2798,8 @@ export default function Game() {
                   filter: (c: Character) => (c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE') && !['RAINBOW RUN','CHEF\'S SPECIAL'].includes(c.ability?.name || '')
                 },
                 {
-                  id: 'risk_takers',
-                  title: 'RISK TAKERS',
+                  id: 'degens',
+                  title: 'DEGENS',
                   subtitle: 'High variance, high reward',
                   className: 'border-yellow-500/20 hover:border-yellow-500/50',
                   headerText: 'text-yellow-300',
@@ -2775,7 +2823,14 @@ export default function Game() {
                 },
               ];
 
-              const renderDriverCard = (char: Character) => (
+              const renderDriverCard = (char: Character) => {
+                  const getCharImage = (c: Character) => {
+                    if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
+                    if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
+                    return c.image;
+                  };
+
+                  return (
                 <motion.button
                   key={char.id}
                   whileHover={{ scale: 1.03, backgroundColor: "rgba(255,255,255,0.05)" }}
@@ -2785,7 +2840,7 @@ export default function Game() {
                   className="flex flex-col items-center p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden"
                 >
                   <div className={cn("w-24 h-24 rounded-full mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10", char.color)}>
-                     <img src={char.image} alt={char.name} className="w-full h-full object-cover" />
+                     <img src={getCharImage(char)} alt={char.name} className="w-full h-full object-cover" />
                   </div>
                   <h3 className="font-bold text-white mb-1" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
                   <p className="text-xs text-primary/80 uppercase tracking-wider mb-2 font-display" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
@@ -2819,6 +2874,7 @@ export default function Game() {
                   )}
                 </motion.button>
               );
+            };
 
 
               const pools = (() => {
