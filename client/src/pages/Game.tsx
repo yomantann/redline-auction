@@ -2518,7 +2518,7 @@ export default function Game() {
                         checked={protocolsEnabled} 
                         onCheckedChange={setProtocolsEnabled} 
                         className={cn(
-                          "data-[state=checked]:bg-zinc-200",
+                          "data-[state=checked]:bg-red-500",
                           variant === 'SOCIAL_OVERDRIVE' && "data-[state=checked]:bg-purple-500",
                           variant === 'BIO_FUEL' && "data-[state=checked]:bg-orange-500"
                         )}
@@ -2653,7 +2653,7 @@ export default function Game() {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-              <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-red-500 text-white hover:bg-red-600 flex-1 max-w-xs" data-testid="button-banner-single-player">
+              <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 max-w-xs">
                  SINGLE PLAYER
               </Button>
               <Button size="lg" variant="outline" onClick={() => setPhase('multiplayer_lobby')} className="text-xl px-12 py-6 border-white/20 hover:bg-white/10 flex-1 max-w-xs">
@@ -3226,7 +3226,7 @@ export default function Game() {
                   onCheckedChange={setProtocolsEnabled} 
                   className={cn(
                     "scale-75 origin-right",
-                    "data-[state=checked]:bg-zinc-200",
+                    "data-[state=checked]:bg-red-500",
                     variant === 'SOCIAL_OVERDRIVE' && "data-[state=checked]:bg-purple-500",
                     variant === 'BIO_FUEL' && "data-[state=checked]:bg-orange-500"
                   )}
