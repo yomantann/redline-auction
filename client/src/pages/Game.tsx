@@ -2377,56 +2377,26 @@ export default function Game() {
             </div>
             
             <div className="flex flex-col gap-4 bg-black/40 p-4 rounded-xl border border-white/10 w-full max-w-lg">
-              {/* Top Row: Modes */}
+              {/* Row 1: Core Toggles (Difficulty / Protocols / Limit Breaks) */}
               <div className="flex flex-wrap items-center justify-center gap-4">
-                {/* GAME DIFFICULTY (Matches top banner) */}
+                {/* GAME DIFFICULTY (same behavior as top banner) */}
                 <div className="flex items-center gap-2">
                   <Button 
-                    variant={difficulty === 'COMPETITIVE' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setDifficulty('COMPETITIVE')}
-                    className={cn(
-                      'h-8 px-3 text-xs font-mono flex items-center gap-2 border',
-                      difficulty === 'COMPETITIVE' 
-                        ? 'bg-destructive text-white border-destructive/80' 
-                        : 'bg-black/40 text-zinc-300 border-white/10 hover:bg-white/10'
-                    )}
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={toggleDifficulty}
+                    className="h-8 px-3 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
                   >
-                    <Skull size={12} /> COMPETITIVE
-                  </Button>
-                  <Button 
-                    variant={difficulty === 'CASUAL' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setDifficulty('CASUAL')}
-                    className={cn(
-                      'h-8 px-3 text-xs font-mono flex items-center gap-2 border',
-                      difficulty === 'CASUAL' 
-                        ? 'bg-emerald-500 text-black border-emerald-500' 
-                        : 'bg-black/40 text-zinc-300 border-white/10 hover:bg-white/10'
-                    )}
-                  >
-                    <span role="img" aria-label="casual" className="text-emerald-300">:)</span> CASUAL
+                    {difficulty === 'CASUAL' ? <Eye size={12} className="text-emerald-400"/> : <EyeOff size={12} className="text-zinc-400"/>}
+                    <span className={difficulty === 'CASUAL' ? "text-emerald-400" : "text-zinc-400"}>
+                      {difficulty}
+                    </span>
                   </Button>
                 </div>
                 
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
 
-                 <div className="flex items-center gap-2">
-                   <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={toggleVariant}
-                      className="h-8 px-3 text-xs font-mono bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
-                   >
-                      <span className={getVariantColor()}>{getVariantIcon()}</span>
-                      <span className={cn("tracking-widest", getVariantColor())}>
-                         {variant.replace('_', ' ')}
-                      </span>
-                   </Button>
-                </div>
-                
-                <Separator orientation="vertical" className="h-6 bg-white/10" />
-                
+                {/* PROTOCOLS TOGGLE (same row as difficulty & Limit Breaks) */}
                 <div className="flex items-center gap-2">
                   <div className="flex items-center space-x-2">
                     <Switch 
@@ -2453,6 +2423,7 @@ export default function Game() {
 
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
 
+                {/* LIMIT BREAKS TOGGLE */}
                 <div className="flex items-center gap-2">
                   <Switch 
                     id="abilities-intro" 
@@ -2462,14 +2433,56 @@ export default function Game() {
                   />
                   <Label htmlFor="abilities-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
                     <Zap size={14} className={abilitiesEnabled ? "text-blue-400" : "text-muted-foreground"}/>
-                    Abilities
+                    LIMIT BREAKS
                   </Label>
                 </div>
               </div>
 
               <Separator className="bg-white/10" />
 
-              {/* Bottom Row: Game Pace */}
+              {/* Row 2: Reality Modes */}
+              <div className="flex flex-col items-center gap-2">
+                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">REALITY MODES</h3>
+                 <div className="flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => setVariant('STANDARD')}
+                      className={cn(
+                        'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
+                        variant === 'STANDARD'
+                          ? 'bg-zinc-700/60 border-zinc-300 text-zinc-50'
+                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
+                      )}
+                    >
+                      STANDARD
+                    </button>
+                    <button
+                      onClick={() => setVariant('SOCIAL_OVERDRIVE')}
+                      className={cn(
+                        'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
+                        variant === 'SOCIAL_OVERDRIVE'
+                          ? 'bg-purple-500/20 border-purple-500 text-purple-300'
+                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
+                      )}
+                    >
+                      SOCIAL OVERDRIVE
+                    </button>
+                    <button
+                      onClick={() => setVariant('BIO_FUEL')}
+                      className={cn(
+                        'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
+                        variant === 'BIO_FUEL'
+                          ? 'bg-orange-500/20 border-orange-500 text-orange-300'
+                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
+                      )}
+                    >
+                      BIO-FUEL
+                    </button>
+                 </div>
+              </div>
+
+              <Separator className="bg-white/10" />
+
+              {/* Row 3: Game Pace */}
               <div className="flex flex-col items-center gap-2">
                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">GAME PACE</h3>
                  <div className="flex items-center justify-center gap-2">
@@ -2620,7 +2633,7 @@ export default function Game() {
                   <p className="text-xs text-primary/80 uppercase tracking-wider mb-2 font-display">{char.title}</p>
                   <p className="text-xs text-zinc-500 leading-tight line-clamp-2">{char.description}</p>
                   
-                  {char.ability && (
+                  {abilitiesEnabled && char.ability && (
                     <div className="mt-3 pt-3 border-t border-white/5 w-full">
                        <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">
                           <Zap size={10} fill="currentColor" /> {char.ability.name}
@@ -2998,7 +3011,7 @@ export default function Game() {
 
             <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
              
-             {/* DIFFICULTY TOGGLE */}
+             {/* GAME DIFFICULTY (Limit Breaks unaffected) */}
              <div className="flex items-center gap-2">
                 <Button 
                    variant="ghost" 
@@ -3043,7 +3056,7 @@ export default function Game() {
                   <AlertTriangle size={12}/>
                   Protocols
                 </Label>
-                <button onClick={() => setShowProtocolGuide(true)} className="text-zinc-500 hover:text-white transition-colors ml-1" title="Protocol Guide">
+                <button onClick={() => setShowProtocolGuide(true)} className="text-zinc-500 hover:text-white transition-colors ml-1" title="Protocol Database">
                    <BookOpen size={14} />
                 </button>
              </div>
@@ -3059,16 +3072,36 @@ export default function Game() {
                 />
                 <Label htmlFor="abilities" className={cn("text-sm cursor-pointer flex items-center gap-1", abilitiesEnabled ? "text-blue-400" : "text-zinc-400")}>
                   <Zap size={12}/>
-                  LIMIT BREAK
+                  LIMIT BREAKS
                 </Label>
              </div>
-             {/* Popup Library Info Button */}
+             {/* Reality Mode Info */}
+             <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-zinc-400 hover:text-white"
+                title="Reality Modes"
+             >
+                <PartyPopper className="h-4 w-4 text-purple-400" />
+             </Button>
+
+             {/* Limit Breaks Info */}
+             <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-zinc-400 hover:text-white"
+                title="Limit Breaks"
+             >
+                <Zap className="h-4 w-4 text-blue-400" />
+             </Button>
+
+             {/* Moment Flags Button */}
              <Button
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-zinc-400 hover:text-white ml-2"
                 onClick={() => setShowPopupLibrary(true)}
-                title="Popup Gallery"
+                title="Moment Flags"
              >
                 <CircleHelp className="h-4 w-4" />
              </Button>
