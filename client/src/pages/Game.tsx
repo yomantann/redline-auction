@@ -305,7 +305,7 @@ export default function Game() {
   const { toast } = useToast();
   // Game State
   const [phase, setPhase] = useState<GamePhase>('intro');
-  const [difficulty, setDifficulty] = useState<GameDifficulty>('COMPETITIVE');
+  const [difficulty, setDifficulty] = useState<GameDifficulty>('CASUAL');
   const [variant, setVariant] = useState<GameVariant>('STANDARD');
   
   // Derived state for backward compatibility or simple logic
@@ -2347,7 +2347,7 @@ export default function Game() {
 
             <h1 className="text-6xl font-display text-primary text-glow font-bold">REDLINE AUCTION</h1>
             <p className="text-xl text-muted-foreground">
-              Bid time to win tokens.<br/>
+              Bid time from your time bank to win tokens.<br/>
               <span className="text-sm font-mono opacity-70">
                 {gameDuration === 'short' && "SPEED MODE: 2.5 Minutes | 9 Rounds"}
                 {gameDuration === 'standard' && "STANDARD: 5 Minutes | 9 Rounds"}
@@ -2595,7 +2595,6 @@ export default function Game() {
             <div className="text-center mb-8">
               <h2 className="text-4xl font-display font-bold text-white mb-2">CHOOSE YOUR DRIVER</h2>
               <p className="text-muted-foreground">Select your persona for the auction.</p>
-              <p className="text-xs text-zinc-500 mt-1">Each time bid subtracts from your time bank.</p>
               {variant !== 'STANDARD' && (
                   <Badge variant="outline" className={cn("mt-2 border-white/10", getVariantColor())}>
                       {getVariantIcon()} {variant.replace('_', ' ')} MODE ACTIVE
@@ -3011,13 +3010,14 @@ export default function Game() {
 
             <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
              
-             {/* GAME DIFFICULTY (Limit Breaks unaffected) */}
+             {/* CASUAL / COMPETITIVE (Difficulty) */}
              <div className="flex items-center gap-2">
                 <Button 
                    variant="ghost" 
                    size="sm" 
                    onClick={toggleDifficulty}
                    className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
+                   title={difficulty === 'CASUAL' ? 'CASUAL: Everyone can see time banks.' : 'COMPETITIVE: Time banks are hidden until the end.'}
                 >
                    {difficulty === 'CASUAL' ? <Eye size={12} className="text-emerald-400"/> : <EyeOff size={12} className="text-zinc-400"/>}
                    <span className={difficulty === 'CASUAL' ? "text-emerald-400" : "text-zinc-400"}>
@@ -3028,23 +3028,7 @@ export default function Game() {
 
              <Separator orientation="vertical" className="h-4 bg-white/10" />
 
-             {/* REALITY MODE TOGGLE */}
-             <div className="flex items-center gap-2">
-                <Button 
-                   variant="ghost" 
-                   size="sm" 
-                   onClick={toggleVariant}
-                   className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
-                >
-                   <span className={getVariantColor()}>{getVariantIcon()}</span>
-                   <span className={cn("tracking-widest", getVariantColor())}>
-                      {variant.replace('_', ' ')}
-                   </span>
-                </Button>
-             </div>
-             
-             <Separator orientation="vertical" className="h-4 bg-white/10" />
-
+             {/* PROTOCOLS */}
              <div className="flex items-center gap-2">
                 <Switch 
                   id="protocols" 
@@ -3063,6 +3047,7 @@ export default function Game() {
 
              <Separator orientation="vertical" className="h-4 bg-white/10" />
 
+             {/* LIMIT BREAKS */}
              <div className="flex items-center gap-2">
                 <Switch 
                   id="abilities" 
@@ -3070,32 +3055,37 @@ export default function Game() {
                   onCheckedChange={setAbilitiesEnabled} 
                   className="data-[state=checked]:bg-blue-500 scale-75 origin-right"
                 />
-                <Label htmlFor="abilities" className={cn("text-sm cursor-pointer flex items-center gap-1", abilitiesEnabled ? "text-blue-400" : "text-zinc-400")}>
+                <Label htmlFor="abilities" className={cn("text-sm cursor-pointer flex items-center gap-1", abilitiesEnabled ? "text-blue-400" : "text-zinc-400")} title="Limit Breaks: Driver-specific passive powers.">
                   <Zap size={12}/>
                   LIMIT BREAKS
                 </Label>
              </div>
-             {/* Reality Mode Info */}
-             <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-zinc-400 hover:text-white"
-                title="Reality Modes"
-             >
-                <PartyPopper className="h-4 w-4 text-purple-400" />
-             </Button>
 
-             {/* Limit Breaks Info */}
-             <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-zinc-400 hover:text-white"
-                title="Limit Breaks"
-             >
-                <Zap className="h-4 w-4 text-blue-400" />
-             </Button>
+             <Separator orientation="vertical" className="h-4 bg-white/10" />
 
-             {/* Moment Flags Button */}
+             {/* REALITY MODES VARIANT */}
+             <div className="flex items-center gap-2">
+                <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   onClick={toggleVariant}
+                   className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
+                   title={
+                     variant === 'STANDARD'
+                       ? 'STANDARD: Pure auction, no social or drinking modifiers.'
+                       : variant === 'SOCIAL_OVERDRIVE'
+                         ? 'SOCIAL OVERDRIVE: Adds social dares and group prompts.'
+                         : 'BIO-FUEL: Adds drinking prompts and 21+ content.'
+                   }
+                >
+                   <span className={getVariantColor()}>{getVariantIcon()}</span>
+                   <span className={cn("tracking-widest", getVariantColor())}>
+                      {variant.replace('_', ' ')}
+                   </span>
+                </Button>
+             </div>
+
+             {/* MOMENT FLAGS BUTTON */}
              <Button
                 variant="ghost"
                 size="icon"
@@ -3124,26 +3114,80 @@ export default function Game() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            {[
-              { title: "SMUG CONFIDENCE", desc: "Win Round 1 immediately.", color: "text-purple-400 border-purple-500/20" },
-              { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
-              { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
-              { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
-              { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
-              { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-blue-400 border-blue-500/20" },
-              { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-400 border-blue-500/20" },
-              { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
-              { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-yellow-400 border-yellow-500/20" },
-              { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-200 border-white/20" },
-              { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-destructive border-destructive/20" },
-              { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-yellow-200 border-yellow-200/20" },
-            ].map((p, i) => (
-              <div key={i} className={`bg-black/40 p-4 rounded border ${p.color} transition-colors`}>
-                <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
-                <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+          <div className="space-y-4 mt-4">
+            {/* Skill-based Flags */}
+            <details className="bg-black/40 rounded border border-blue-500/20" open>
+              <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-blue-300">
+                High-Skill Flags
+                <span className="text-[10px] uppercase tracking-widest text-zinc-500">Consistency & Precision</span>
+              </summary>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
+                {[ 
+                  { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
+                  { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-400 border-blue-500/20" },
+                  { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-yellow-400 border-yellow-500/20" },
+                  { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
+                ].map((p, i) => (
+                  <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
+                    <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            </details>
+
+            {/* Chaos & Drama Flags */}
+            <details className="bg-black/40 rounded border border-purple-500/20">
+              <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-purple-300">
+                Chaos & Drama Flags
+                <span className="text-[10px] uppercase tracking-widest text-zinc-500">Swingy, Loud Moments</span>
+              </summary>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
+                {[ 
+                  { title: "SMUG CONFIDENCE", desc: "Win Round 1 immediately.", color: "text-purple-400 border-purple-500/20" },
+                  { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
+                  { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
+                  { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-200 border-white/20" },
+                ].map((p, i) => (
+                  <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
+                    <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+
+            {/* Game State Flags */}
+            <details className="bg-black/40 rounded border border-amber-500/20">
+              <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-amber-300">
+                Game State Flags
+                <span className="text-[10px] uppercase tracking-widest text-zinc-500">Elims & Edge Cases</span>
+              </summary>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
+                {[ 
+                  { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
+                  { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-blue-400 border-blue-500/20" },
+                  { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-destructive border-destructive/20" },
+                  { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-yellow-200 border-yellow-200/20" },
+                ].map((p, i) => (
+                  <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
+                    <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+
+            {/* Hidden Flags Placeholder */}
+            <details className="bg-black/40 rounded border border-zinc-700/60">
+              <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-zinc-200">
+                Hidden Moment Flags
+                <span className="text-[10px] uppercase tracking-widest text-zinc-500">???</span>
+              </summary>
+              <div className="p-4 pt-3 text-xs text-zinc-500 italic">
+                Future secret flags live here. Unlock by playing.
+              </div>
+            </details>
           </div>
           
           <DialogFooter className="mt-6">
