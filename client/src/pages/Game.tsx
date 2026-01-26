@@ -625,7 +625,7 @@ export default function Game() {
                              ...p, 
                              isHolding: false, 
                              currentBid: 0, 
-                             tokens: Math.max(0, p.tokens - 1), 
+                             // NO trophy loss on elimination (over-limit holding)
                              remainingTime: 0, 
                              isEliminated: true 
                          };
@@ -638,7 +638,7 @@ export default function Game() {
         if (overLimitToastShownRef.current) {
              toast({
                 title: "OVER-LIMIT ELIMINATION",
-                description: "You held longer than your remaining time! Eliminated & Lost Trophy.",
+                description: "You held longer than your remaining time! Eliminated.",
                 className: "bg-cyan-950 border-cyan-500 text-cyan-100",
                 duration: 4000
             });
@@ -1782,9 +1782,16 @@ export default function Game() {
     let overlaySub = "";
 
     if (playersOut.length > 0) {
-      overlayType = "time_out";
-      overlayMsg = "PLAYER ELIMINATED";
-      overlaySub = "Out of time!";
+      // Only show the elimination flag to the eliminated driver (p1)
+      if (playersOut.some(id => id === 'p1')) {
+        overlayType = "time_out";
+        overlayMsg = "PLAYER ELIMINATED";
+        overlaySub = "Out of time!";
+      } else {
+        overlayType = null;
+        overlayMsg = "";
+        overlaySub = "";
+      }
     } else if (winnerId) {
        const winnerPlayer = participants[0]; // winner is first
        const secondPlayer = participants.length > 1 ? participants[1] : null;
@@ -2651,36 +2658,36 @@ export default function Game() {
               const allDrivers = [...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])];
               const categories = [
                 {
-                  id: 'time_refund',
-                  title: 'TIME REFUND',
-                  subtitle: 'Survive longer',
+                  id: 'steady_hands',
+                  title: 'STEADY HANDS',
+                  subtitle: 'Timing & refunds',
                   className: 'border-emerald-500/20 hover:border-emerald-500/50',
                   headerText: 'text-emerald-300',
-                  filter: (c: Character) => c.ability?.effect === 'TIME_REFUND'
+                  filter: (c: Character) => c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE'
                 },
                 {
-                  id: 'token_boost',
-                  title: 'TOKEN BOOST',
-                  subtitle: 'Snowball trophies',
+                  id: 'high_rollers',
+                  title: 'HIGH ROLLERS',
+                  subtitle: 'Tokens & big swings',
                   className: 'border-yellow-500/20 hover:border-yellow-500/50',
                   headerText: 'text-yellow-300',
-                  filter: (c: Character) => c.ability?.effect === 'TOKEN_BOOST'
+                  filter: (c: Character) => c.ability?.effect === 'TOKEN_BOOST' || (c.ability?.effect === 'TIME_REFUND' && (c.ability?.name === 'RAINBOW RUN' || c.ability?.name === 'ROYAL DECREE'))
                 },
                 {
-                  id: 'disrupt',
-                  title: 'DISRUPT',
-                  subtitle: 'Steal time',
+                  id: 'saboteurs',
+                  title: 'SABOTEURS',
+                  subtitle: 'Disrupt & steal',
                   className: 'border-red-500/20 hover:border-red-500/50',
                   headerText: 'text-red-300',
                   filter: (c: Character) => c.ability?.effect === 'DISRUPT'
                 },
                 {
-                  id: 'intel',
-                  title: 'INTEL / PEEK',
-                  subtitle: 'Read the room',
+                  id: 'mind_games',
+                  title: 'MIND GAMES',
+                  subtitle: 'Intel & immunity',
                   className: 'border-sky-500/20 hover:border-sky-500/50',
                   headerText: 'text-sky-300',
-                  filter: (c: Character) => c.ability?.effect === 'PEEK'
+                  filter: (c: Character) => c.ability?.effect === 'PEEK' || c.ability?.name === 'FIRE WALL' || c.ability?.name === 'CALCULATED'
                 },
               ];
 
@@ -2757,7 +2764,7 @@ export default function Game() {
                             <div className="text-xs text-zinc-500">{cat.subtitle} • {drivers.length} drivers</div>
                             <div className="mt-2 text-[10px] text-zinc-600">Tap to expand</div>
                           </summary>
-                          <div className="p-3 pt-0 grid grid-cols-1 gap-3">
+                          <div className="p-3 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {drivers.map(renderDriverCard)}
                           </div>
                         </details>
