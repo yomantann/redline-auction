@@ -3110,7 +3110,7 @@ export default function Game() {
               <CircleHelp /> MOMENT FLAGS
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
-              A guide to all special victory conditions and game events.
+              Moment Flags are special in-game achievements—some are skill-based, some are chaos, and some reflect game state.
             </DialogDescription>
           </DialogHeader>
           
@@ -3126,7 +3126,7 @@ export default function Game() {
                   { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
                   { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-400 border-blue-500/20" },
                   { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-yellow-400 border-yellow-500/20" },
-                  { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
+                  { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
                 ].map((p, i) => (
                   <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
                     <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
@@ -3147,6 +3147,8 @@ export default function Game() {
                   { title: "SMUG CONFIDENCE", desc: "Win Round 1 immediately.", color: "text-purple-400 border-purple-500/20" },
                   { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
                   { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
+                  { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-blue-400 border-blue-500/20" },
+                  { title: "LATE PANIC", desc: "Win starting the round with the lowest time bank.", color: "text-fuchsia-300 border-fuchsia-500/20" },
                   { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-200 border-white/20" },
                 ].map((p, i) => (
                   <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
@@ -3165,8 +3167,7 @@ export default function Game() {
               </summary>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
                 {[ 
-                  { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
-                  { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-blue-400 border-blue-500/20" },
+                  { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
                   { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-destructive border-destructive/20" },
                   { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-yellow-200 border-yellow-200/20" },
                 ].map((p, i) => (
@@ -3182,10 +3183,15 @@ export default function Game() {
             <details className="bg-black/40 rounded border border-zinc-700/60">
               <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-zinc-200">
                 Hidden Moment Flags
-                <span className="text-[10px] uppercase tracking-widest text-zinc-500">???</span>
+                <span className="text-[10px] uppercase tracking-widest text-zinc-500">Easter Eggs</span>
               </summary>
-              <div className="p-4 pt-3 text-xs text-zinc-500 italic">
-                Future secret flags live here. Unlock by playing.
+              <div className="p-4 pt-3 space-y-3">
+                <p className="text-xs text-zinc-500 italic">Easter egg moments. Unlock by playing.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[0,1,2,3].map((i) => (
+                    <div key={i} className="h-14 rounded border border-white/10 bg-white/5" />
+                  ))}
+                </div>
               </div>
             </details>
           </div>
