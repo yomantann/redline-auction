@@ -324,6 +324,8 @@ export default function Game() {
   const [frostbyteAbilityUsed, setFrostbyteAbilityUsed] = useState(false); // Track Frostbyte single use
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
   const [showProtocolSelect, setShowProtocolSelect] = useState(false);
+
+  const [expandedDriverCategoryId, setExpandedDriverCategoryId] = useState<string | null>(null);
   const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
         'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
         'OPEN_HAND', 'MUTE_PROTOCOL', 
@@ -2748,8 +2750,8 @@ export default function Game() {
                   filter: (c: Character) => (c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE')
                 },
                 {
-                  id: 'risk_engine',
-                  title: 'RISK ENGINE',
+                  id: 'token_tycoons',
+                  title: 'TOKEN TYCOONS',
                   subtitle: 'Tokens, tempo & big swings',
                   className: 'border-yellow-500/20 hover:border-yellow-500/50',
                   headerText: 'text-yellow-300',
@@ -2818,7 +2820,6 @@ export default function Game() {
                 </motion.button>
               );
 
-              const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 
               const pools = (() => {
                 const picked = new Set<string>();
@@ -2836,7 +2837,7 @@ export default function Game() {
                 }));
               })();
 
-              const active = pools.find((p) => p.cat.id === expandedCategoryId) || null;
+              const active = pools.find((p) => p.cat.id === expandedDriverCategoryId) || null;
 
               return (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -2857,12 +2858,12 @@ export default function Game() {
 
                   {/* CATEGORY TILES */}
                   {pools.map(({ cat, drivers }) => {
-                    const isOpen = expandedCategoryId === cat.id;
+                    const isOpen = expandedDriverCategoryId === cat.id;
                     return (
                       <button
                         key={cat.id}
                         type="button"
-                        onClick={() => setExpandedCategoryId((prev) => (prev === cat.id ? null : cat.id))}
+                        onClick={() => setExpandedDriverCategoryId((prev) => (prev === cat.id ? null : cat.id))}
                         className={cn(
                           `col-span-1 flex flex-col rounded-xl border ${cat.className} bg-black/40 overflow-hidden text-left`,
                           isOpen ? 'ring-1 ring-white/10' : ''
