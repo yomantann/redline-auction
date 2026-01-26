@@ -3116,7 +3116,7 @@ export default function Game() {
           
           <div className="space-y-4 mt-4">
             {/* Skill-based Flags */}
-            <details className="bg-black/40 rounded border border-blue-500/20" open>
+            <details className="bg-black/40 rounded border border-blue-500/20">
               <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-blue-300">
                 High-Skill Flags
                 <span className="text-[10px] uppercase tracking-widest text-zinc-500">Consistency & Precision</span>

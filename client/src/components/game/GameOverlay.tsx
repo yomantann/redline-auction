@@ -22,6 +22,11 @@ export type OverlayType =
   | "precision_strike"
   | "overkill"
   | "clutch_play"
+  | "late_panic"
+  | "hidden_67"
+  | "hidden_redline_reversal"
+  | "hidden_deja_bid"
+  | "hidden_patch_notes"
   | "social_event" // New
   | "bio_event"    // New
   | null;
@@ -65,6 +70,11 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "precision_strike": return <Crosshair size={48} className="text-blue-400" />;
       case "overkill": return <Flame size={48} className="text-red-500" />;
       case "clutch_play": return <Hourglass size={48} className="text-yellow-400" />;
+      case "late_panic": return <Hourglass size={48} className="text-fuchsia-400" />;
+      case "hidden_67": return <BadgeCheck size={48} className="text-lime-300" />;
+      case "hidden_redline_reversal": return <Flame size={48} className="text-rose-400" />;
+      case "hidden_deja_bid": return <BadgeCheck size={48} className="text-sky-300" />;
+      case "hidden_patch_notes": return <AlertTriangle size={48} className="text-amber-200" />;
       
       case "social_event": return <PartyPopper size={48} className="text-purple-400" />;
       case "bio_event": return <Martini size={48} className="text-orange-400" />;
