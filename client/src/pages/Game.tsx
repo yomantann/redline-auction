@@ -347,12 +347,63 @@ type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
 
 // ... (Existing types)
 
+import { Volume2, VolumeX } from "lucide-react";
+
+// ... (Existing Imports)
+
+// Sound Assets (Placeholders for now)
+const MUSIC_TRACKS = [
+    '/assets/music/track1.mp3',
+    '/assets/music/track2.mp3',
+    '/assets/music/track3.mp3'
+];
+const SFX_MOMENT = '/assets/sfx/moment_flag.mp3';
+
 export default function Game() {
   const { toast } = useToast();
+  
   // Game State
   const [phase, setPhase] = useState<GamePhase>('intro');
   const [difficulty, setDifficulty] = useState<GameDifficulty>('CASUAL');
   const [variant, setVariant] = useState<GameVariant>('STANDARD');
+  
+  // Sound State
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sfxRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize Audio
+  useEffect(() => {
+    audioRef.current = new Audio();
+    audioRef.current.loop = true;
+    audioRef.current.volume = 0.4;
+    
+    sfxRef.current = new Audio(SFX_MOMENT);
+    sfxRef.current.volume = 0.6;
+
+    return () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+        }
+    };
+  }, []);
+
+  // Handle Music Playback based on Phase
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    if (soundEnabled && phase === 'character_select') {
+        // Pick random track if not playing
+        if (audioRef.current.paused) {
+            const track = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
+            audioRef.current.src = track;
+            audioRef.current.play().catch(e => console.log("Audio play failed (user interaction needed first)"));
+        }
+    } else {
+        audioRef.current.pause();
+    }
+  }, [phase, soundEnabled]);
   
   // Derived state for backward compatibility or simple logic
   const showDetails = difficulty === 'CASUAL';
@@ -393,6 +444,13 @@ export default function Game() {
   const addOverlay = (type: OverlayType, message: string, subMessage?: string, duration: number = 0) => {
       const id = Math.random().toString(36).substring(7);
       setOverlays(prev => [...prev, { id, type, message, subMessage, duration }]);
+      
+      // Play SFX if enabled
+      if (soundEnabled && sfxRef.current) {
+          // Clone node to allow overlapping sounds
+          const sound = sfxRef.current.cloneNode() as HTMLAudioElement;
+          sound.play().catch(() => {});
+      }
       
       // Auto dismiss if desired (0 = manual dismiss)
       if (duration > 0) {
@@ -1504,7 +1562,7 @@ export default function Game() {
                 if (ab) {
                     let refund = 0;
                     if (ab.name === 'SPIRIT SHIELD' && round === 1) refund = 11.0;
-                    if (ab.name === 'RAINBOW RUN' && (p.currentBid || 0) > 40) refund = 3.5;
+                    // RAINBOW RUN handled in refund pass
                     if (ab.name === 'PAY DAY') refund = 0.5;
                     if (ab.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) <= 0.1) refund = 4.0;
                     if (ab.name === 'CHEF\'S SPECIAL') {
@@ -1569,7 +1627,7 @@ export default function Game() {
     });
 
     // 6. APPLY CHEESE TAX DAMAGE TO WINNER (Post-Processing)
-    if (winnerId) {
+    if (winnerId && abilitiesEnabled) {
         finalPlayers.forEach(p => {
              if (p.id !== winnerId && !p.isEliminated) {
                  const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
@@ -1858,64 +1916,50 @@ export default function Game() {
        const secondBid = secondPlayer?.currentBid || 0;
        const margin = winnerBid - secondBid;
 
-       // 1. Smug Confidence (Round 1 Win) - Title Changed Back
+       // 1. Smug Confidence (Round 1 Win)
        if (round === 1 && winnerId === 'p1') {
-         overlayType = "smug_confidence";
-         overlayMsg = "SMUG CONFIDENCE";
-         overlaySub = `${winnerName} starts strong!`;
+         addOverlay("smug_confidence", "SMUG CONFIDENCE", `${winnerName} starts strong!`);
        }
+       
        // 2. Fake Calm (Margin >= 15s)
-       else if (secondPlayer && margin >= 15 && winnerId === 'p1') {
-         overlayType = "fake_calm";
-         overlayMsg = "FAKE CALM";
-         overlaySub = `Won by ${margin.toFixed(1)}s!`;
+       if (secondPlayer && margin >= 15 && winnerId === 'p1') {
+         // Delay slightly if smug confidence also triggered
+         setTimeout(() => addOverlay("fake_calm", "FAKE CALM", `Won by ${margin.toFixed(1)}s!`), 500);
        }
+       
        // 3. Genius Move (Margin <= 5s)
-       else if (secondPlayer && margin <= 5 && winnerId === 'p1') {
-         overlayType = "genius_move";
-         overlayMsg = "GENIUS MOVE";
-         overlaySub = `Won by just ${margin.toFixed(1)}s`;
+       if (secondPlayer && margin <= 5 && winnerId === 'p1') {
+         setTimeout(() => addOverlay("genius_move", "GENIUS MOVE", `Won by just ${margin.toFixed(1)}s`), 500);
        }
+       
        // 4. Easy W (Bid < 20s)
-       else if (winnerBid < 20 && winnerId === 'p1') {
-         overlayType = "easy_w";
-         overlayMsg = "EASY W";
-         overlaySub = `Won with only ${winnerBid.toFixed(1)}s`;
+       if (winnerBid < 20 && winnerId === 'p1') {
+         setTimeout(() => addOverlay("easy_w", "EASY W", `Won with only ${winnerBid.toFixed(1)}s`), 1000);
        }
-       // 5. Comeback Hope (Winner was last in tokens before this win)
-       else {
-         const winnerTokensBefore = players.find(p => p.id === winnerId)?.tokens || 0;
-         const minTokens = Math.min(...players.map(p => p.tokens));
-         if (winnerTokensBefore === minTokens && players.some(p => p.tokens > winnerTokensBefore) && winnerId === 'p1') {
-           overlayType = "comeback_hope";
-           overlayMsg = "COMEBACK HOPE";
-           overlaySub = `${winnerName} stays in the fight!`;
-         } else if (winnerId === 'p1') {
-           // New Event 1: Precision
+       
+       // 5. Comeback Hope & Others
+       if (winnerId === 'p1') {
+           const winnerTokensBefore = players.find(p => p.id === winnerId)?.tokens || 0;
+           const minTokens = Math.min(...players.map(p => p.tokens));
+           
+           if (winnerTokensBefore === minTokens && players.some(p => p.tokens > winnerTokensBefore)) {
+               setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winnerName} stays in the fight!`), 1000);
+           }
+           
+           // Precision
            if (winnerBid % 1 === 0) {
-               overlayType = "precision_strike";
-               overlayMsg = "PRECISION STRIKE";
-               overlaySub = "Exact second bid!";
+               setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
            }
-           // New Event: Calculated (Handled below, but check priority)
-           // New Event 2: Overkill (More tokens than time needed?)
-           else if (winnerBid > 60) {
-               overlayType = "overkill";
-               overlayMsg = "OVERKILL";
-               overlaySub = "Massive bid!";
+           
+           // Overkill
+           if (winnerBid > 60) {
+               setTimeout(() => addOverlay("overkill", "OVERKILL", "Massive bid!"), 1500);
            }
-           // New Event 3: Clutch (Less than 10s remaining after bid)
-           else if (winnerPlayer.remainingTime < 10) {
-               overlayType = "clutch_play";
-               overlayMsg = "CLUTCH PLAY";
-               overlaySub = "Almost out of time!";
+           
+           // Clutch
+           if (winnerPlayer.remainingTime < 10) {
+               setTimeout(() => addOverlay("clutch_play", "CLUTCH PLAY", "Almost out of time!"), 1500);
            }
-           else {
-             overlayType = null;
-           }
-         } else {
-           overlayType = null;
-         }
        }
 
     } else {
@@ -2515,8 +2559,8 @@ export default function Game() {
             <p className="text-xl text-muted-foreground">
               Bid time from your time bank to win tokens.<br/>
               <span className="text-sm font-mono opacity-70">
-                {gameDuration === 'short' && "SPEED MODE: 2.5 Minutes | 9 Rounds"}
-                {gameDuration === 'standard' && "STANDARD: 5 Minutes | 9 Rounds"}
+                {gameDuration === 'short' && "SPRINT: 2.5 Minutes | 9 Rounds"}
+                {gameDuration === 'standard' && "TEMPO: 5 Minutes | 9 Rounds"}
                 {gameDuration === 'long' && "MARATHON: 10 Minutes | 18 Rounds"}
               </span>
             </p>
@@ -2672,29 +2716,29 @@ export default function Game() {
                        className={cn(
                          "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
                          gameDuration === 'short' 
-                           ? "bg-purple-500/20 border-purple-500 text-purple-400" 
+                           ? "bg-yellow-500/20 border-yellow-500 text-yellow-400" 
                            : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
                        )}
                      >
-                       SPEED (2.5m)
+                       SPRINT (2.5m)
                      </button>
                      <button 
                        onClick={() => setGameDuration('standard')}
                        className={cn(
                          "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
                          gameDuration === 'standard' 
-                           ? "bg-primary/20 border-primary text-primary" 
+                           ? "bg-orange-400/20 border-orange-400 text-orange-400" 
                            : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
                        )}
                      >
-                       STANDARD (5m)
+                       TEMPO (5m)
                      </button>
                      <button 
                        onClick={() => setGameDuration('long')}
                        className={cn(
                          "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
                          gameDuration === 'long' 
-                           ? "bg-orange-500/20 border-orange-500 text-orange-400" 
+                           ? "bg-orange-600/20 border-orange-600 text-orange-600" 
                            : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
                        )}
                      >
@@ -2708,7 +2752,7 @@ export default function Game() {
               <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 max-w-xs" data-testid="button-banner-single-player">
                  SINGLE PLAYER
               </Button>
-              <Button size="lg" variant="outline" onClick={() => setPhase('multiplayer_lobby')} className="text-xl px-12 py-6 border-white/20 hover:bg-white/10 flex-1 max-w-xs">
+              <Button size="lg" variant="outline" onClick={() => setPhase('multiplayer_lobby')} className="text-xl px-12 py-6 border-red-500/50 hover:bg-red-500/20 text-red-400 hover:text-red-300 flex-1 max-w-xs transition-colors">
                  MULTIPLAYER
               </Button>
             </div>
