@@ -59,12 +59,25 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
         
         <span className={cn(
           "font-display text-2xl font-bold tracking-widest transition-colors duration-200 text-center px-2",
-          isPressed ? "text-primary text-glow" : isWaiting ? "text-yellow-500 text-xl" : "text-zinc-400"
+          isPressed ? "text-primary text-glow" : isWaiting ? "text-yellow-500 text-xl" : "text-zinc-400",
+          disabled && !isWaiting && !isPressed && "text-zinc-600 text-lg"
         )}>
-          {isWaiting ? "BID LOCKED" : isPressed ? "HOLDING" : "PRESS"}
+          {isWaiting 
+            ? "BID LOCKED" 
+            : isPressed 
+              ? "HOLDING" 
+              : disabled 
+                ? "OTHERS CURRENTLY BIDDING" 
+                : "PRESS"}
         </span>
         <span className="text-xs text-zinc-600 font-mono mt-2 uppercase tracking-wider">
-          {isWaiting ? "Waiting for others..." : isPressed ? "" : "Hold to Ready"}
+          {isWaiting 
+            ? "Waiting for others..." 
+            : isPressed 
+              ? "Click to Release" 
+              : disabled 
+                ? "Wait for round end" 
+                : "Hold to Ready"}
         </span>
       </button>
 

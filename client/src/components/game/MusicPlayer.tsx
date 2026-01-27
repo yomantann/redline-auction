@@ -28,11 +28,14 @@ export function MusicPlayer() {
     playAudio();
   }, []);
 
-  const toggleMute = () => {
+  useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
+      audioRef.current.muted = isMuted;
     }
+  }, [isMuted]);
+
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
   };
 
   const togglePlay = () => {

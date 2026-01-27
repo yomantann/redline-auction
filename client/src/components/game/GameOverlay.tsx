@@ -107,6 +107,13 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "precision_strike": return "text-blue-400 border-blue-500/20 bg-black/80";
       case "overkill": return "text-red-500 border-red-500/20 bg-black/80";
       case "clutch_play": return "text-yellow-400 border-yellow-500/20 bg-black/80";
+      
+      // Hidden Flags - Special Styling
+      case "hidden_67": 
+      case "hidden_redline_reversal":
+      case "hidden_deja_bid":
+      case "hidden_patch_notes":
+        return "text-pink-400 border-pink-500/50 bg-black/95 shadow-[0_0_30px_rgba(236,72,153,0.3)]";
 
       case "social_event": return "text-purple-400 border-purple-500/20 bg-black/90";
       case "bio_event": return "text-orange-400 border-orange-500/20 bg-black/90";
@@ -147,6 +154,13 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
               {getIcon(item.type)}
             </div>
             
+            {/* Header for Hidden Flags */}
+            {(item.type?.startsWith('hidden_') || item.type === 'hidden_patch_notes') && (
+                <div className="mb-2 text-xs font-bold tracking-[0.2em] text-pink-500 uppercase animate-pulse">
+                    HIDDEN MOMENT FLAG
+                </div>
+            )}
+
             <h2 className="text-2xl font-display font-bold mb-1 uppercase tracking-widest text-glow">
               {item.message}
             </h2>
