@@ -2020,9 +2020,7 @@ export default function Game() {
         if (activeProtocol === 'SWITCH_SEATS') { msg = "SEAT SWAP"; sub = "Everyone move left!"; }
         
         // Priority over win popup
-        overlayType = "social_event";
-        overlayMsg = msg;
-        overlaySub = sub;
+        setTimeout(() => addOverlay("social_event", msg, sub), 500);
     }
 
     // SECRET PROTOCOL REVEALS (Underdog / Time Tax)
@@ -2084,42 +2082,28 @@ export default function Game() {
     // Win final round AND at least one player eliminated in that round
     if (winnerId === 'p1' && round === totalRounds) {
          if (playersOut.length > 0) {
-             overlayType = "clutch_play"; // Reuse clutch_play color/icon or add new one? User didn't specify color.
-             // Wait, overlayType "clutch_play" is yellow hourglass. "CALCULATED" was blue zap. 
-             // "LAST ONE STANDING" sounds like a clutch/survival moment.
-             // Let's use "clutch_play" (Yellow) or reuse the "ability_trigger" (Blue)?
-             // The old "calculated" used overlayType="calculated" which wasn't in definition list but was handled?
-             // Ah, previous edit I missed adding "calculated" to GameOverlay types in the Read result, 
-             // but I saw it in the edit block I sent.
-             // Actually, I should probably add "last_one_standing" to GameOverlay.tsx if I want a specific icon.
-             // For now, let's reuse "clutch_play" which fits "Last One Standing".
-             
-             // Or better, let's stick to the BLUE theme of Calculated since I'm replacing it.
-             overlayType = "genius_move"; // Blue Badge Check
-             overlayMsg = "LAST ONE STANDING";
-             overlaySub = `Survivor Victory! (${playersOut.length} eliminated)`;
+             // LAST ONE STANDING
+             setTimeout(() => addOverlay("genius_move", "LAST ONE STANDING", `Survivor Victory! (${playersOut.length} eliminated)`), 2000);
          }
     }
 
     // BIO-FUEL Logic: Add drink prompt if applicable
-    if (variant === 'BIO_FUEL' && (overlayType === 'time_out')) {
-        if (overlayType === 'time_out') {
-             // Stack Bio Event for time out
-             addOverlay("bio_event", "ELIMINATED! CONSUME BIO-FUEL.", "", 0);
-        }
+    if (variant === 'BIO_FUEL' && playersOut.some(id => id === 'p1')) {
+         // Stack Bio Event for time out
+         setTimeout(() => addOverlay("bio_event", "ELIMINATED! CONSUME BIO-FUEL.", "", 0), 1000);
     }
 
     // --- Moment Flags can stack (2+ in same round) ---
-    let momentCount = 0;
+    // Removed duplicate momentCount declaration
+    // Use the one declared at start of Overlay Logic
 
     const isMomentOverlay = (t: OverlayType) => {
       return t === 'time_out' || t === 'smug_confidence' || t === 'fake_calm' || t === 'genius_move' || t === 'easy_w' || t === 'comeback_hope' || t === 'precision_strike' || t === 'overkill' || t === 'clutch_play';
     };
 
-    if (overlayType) {
-        addOverlay(overlayType, overlayMsg, overlaySub, 0);
-        if (isMomentOverlay(overlayType)) momentCount += 1;
-    }
+    // Note: We are now adding overlays directly via addOverlay() above, not setting overlayType variable.
+    // So we need to increment momentCount where we call addOverlay() for moment types.
+    // I will refactor the above blocks to increment momentCount correctly.
 
     // LATE PANIC: if winner started the round with the lowest bank (approx)
     if (winnerId === 'p1' && participants.length > 0) {

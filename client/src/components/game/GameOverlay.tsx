@@ -29,6 +29,7 @@ export type OverlayType =
   | "hidden_patch_notes"
   | "social_event" // New
   | "bio_event"    // New
+  | "god_mode"     // New (Triple Play)
   | null;
 
 interface OverlayItem {
@@ -78,6 +79,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       
       case "social_event": return <PartyPopper size={48} className="text-purple-400" />;
       case "bio_event": return <Martini size={48} className="text-orange-400" />;
+      case "god_mode": return <Trophy size={64} className="text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />;
 
       default: return null;
     }
@@ -90,6 +92,8 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "game_over":
         return "text-primary border-primary/20 bg-black/80";
         
+      case "god_mode": return "text-yellow-400 border-yellow-500/50 bg-black/90 shadow-[0_0_50px_rgba(234,179,8,0.2)]";
+
       case "fake_calm": return "text-amber-400 border-amber-500/20 bg-black/80";
       case "undercut": return "text-orange-500 border-orange-500/20 bg-black/80";
       case "genius_move": return "text-cyan-400 border-cyan-500/20 bg-black/80";
