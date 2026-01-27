@@ -5,6 +5,7 @@ import { GameLayout } from "@/components/game/GameLayout";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
+import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
 
 // Define OverlayItem interface locally to match GameOverlay
@@ -3116,7 +3117,7 @@ export default function Game() {
 
                <div className="z-10 relative">
                  <AuctionButton 
-                    onPress={() => {}} 
+                    onPress={handlePress} 
                     onRelease={handleRelease} 
                     isPressed={players.find(p => p.id === 'p1')?.isHolding}
                     disabled={!players.find(p => p.id === 'p1')?.isHolding} 
@@ -3161,7 +3162,7 @@ export default function Game() {
             <div className="h-[280px] flex items-center justify-center relative">
                <div className="relative">
                   <AuctionButton 
-                    onPress={() => {}} 
+                    onPress={handlePress} 
                     onRelease={handleRelease} 
                     isPressed={players.find(p => p.id === 'p1')?.isHolding}
                     disabled={!players.find(p => p.id === 'p1')?.isHolding}
@@ -3341,6 +3342,7 @@ export default function Game() {
 
   return (
     <GameLayout>
+      <MusicPlayer />
 
       {/* Header Info */}
       <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
@@ -3826,6 +3828,10 @@ export default function Game() {
                         <div className="bg-black/30 p-3 rounded">
                             <div className="text-[10px] text-zinc-500 uppercase">Impact Given</div>
                             <div className="text-sm font-mono text-zinc-300">{selectedPlayerStats?.totalImpactGiven?.toFixed(1)}s</div>
+                        </div>
+                        <div className="bg-black/30 p-3 rounded">
+                            <div className="text-[10px] text-zinc-500 uppercase">Impact Taken</div>
+                            <div className="text-sm font-mono text-zinc-300">-{selectedPlayerStats?.totalImpactReceived?.toFixed(1) || '0.0'}s</div>
                         </div>
                     </div>
                 )}
