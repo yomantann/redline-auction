@@ -95,6 +95,12 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
           <span className={cn("font-display font-bold tracking-wide", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isEliminated && "text-red-500")}>
             {player.name}
           </span>
+          {/* IMPACT TAKEN BADGE - New */}
+          {player.totalImpactReceived > 0 && (
+              <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-950/40 border border-red-500/20" title="Total Impact Taken">
+                  <span className="text-[9px] text-red-400 font-mono font-bold">-{player.totalImpactReceived.toFixed(1)}s</span>
+              </div>
+          )}
         </div>
         {player.hasBidThisRound === false && !player.isEliminated && (
            <span className="text-[10px] bg-accent/20 text-accent px-2 py-0.5 rounded border border-accent/20">

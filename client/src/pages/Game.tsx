@@ -351,7 +351,7 @@ import { Volume2, VolumeX } from "lucide-react";
 
 // ... (Existing Imports)
 
-// Sound Assets (Placeholders for now)
+// Sound Assets
 const MUSIC_TRACKS = [
     '/assets/music/track1.mp3',
     '/assets/music/track2.mp3',
@@ -936,29 +936,18 @@ export default function Game() {
   const handlePress = () => {
     if (phase === 'ready') {
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: true } : p));
+    } else if (phase === 'bidding' || phase === 'countdown') {
+        // CLICK TO STOP / SUBMIT
+        // If we are already holding (timer running), this press means STOP.
+        const p1 = players.find(p => p.id === 'p1');
+        if (p1 && p1.isHolding) {
+            handleStopBidding();
+        }
     }
   };
 
-  // Constants for Penalty
-  const getPenalty = () => {
-     if (gameDuration === 'short') return 1.0;
-     if (gameDuration === 'long') return 4.0;
-     return 2.0; // standard
-  };
-
-  const MIN_BID = 0.1;
-
-  // New Helper for Timer Start
-  const getTimerStart = () => {
-      // Per requirements: "The round timer must start at the minimum bid second, not zero."
-      // This refers to the PENALTY value (1s/2s/4s)
-      return getPenalty();
-  };
-
-  const handleRelease = () => {
-    if (phase === 'ready') {
-      setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false } : p));
-    } else if (phase === 'bidding') {
+  const handleStopBidding = () => {
+    if (phase === 'bidding') {
       const bidTime = parseFloat(currentTime.toFixed(1));
       
       setPlayers(prev => prev.map(p => {
@@ -1004,7 +993,7 @@ export default function Game() {
       }));
 
     } else if (phase === 'countdown') {
-       // If releasing during countdown, store penalty to apply at round end
+       // If stopping during countdown, store penalty to apply at round end
        let penalty = getPenalty();
        
        // ALPHA PRIME (Gigachad) EXCEPTION: "JAWLINE"
@@ -1039,6 +1028,30 @@ export default function Game() {
             // NO remainingTime change here - will apply at round end
        } : p));
     }
+  };
+
+  // Constants for Penalty
+  const getPenalty = () => {
+     if (gameDuration === 'short') return 1.0;
+     if (gameDuration === 'long') return 4.0;
+     return 2.0; // standard
+  };
+
+  const MIN_BID = 0.1;
+
+  // New Helper for Timer Start
+  const getTimerStart = () => {
+      // Per requirements: "The round timer must start at the minimum bid second, not zero."
+      // This refers to the PENALTY value (1s/2s/4s)
+      return getPenalty();
+  };
+
+  const handleRelease = () => {
+    if (phase === 'ready') {
+      setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false } : p));
+    } 
+    // DROPPING IN COUNTDOWN OR BIDDING NO LONGER STOPS TIMER
+    // Use click (handlePress) to stop.
   };
 
   // Start Round Logic
@@ -1138,6 +1151,10 @@ export default function Game() {
       // Filter out popups that shouldn't be seen by the player
       const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE', 'UNDERDOG_VICTORY', 'TIME_TAX'];
 
+      // LOW FLAME IMMUNITY CHECK (Fire Wall)
+      const isLowFlame = selectedCharacter?.id === 'fine';
+      const isImmune = isLowFlame && abilitiesEnabled && newProtocol !== 'THE_MOLE' && newProtocol !== 'UNDERDOG_VICTORY' && newProtocol !== 'TIME_TAX'; // Passive immunity (except secrets/role)
+
       if (newProtocol && targetProtocols.includes(newProtocol)) {
          showPopup = false;
          if (newProtocol === 'THE_MOLE') {
@@ -1148,15 +1165,24 @@ export default function Game() {
       }
 
       if (showPopup) {
-         if (['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'].includes(newProtocol || '')) {
-             addOverlay("social_event", msg, sub);
-         } else if (['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(newProtocol || '')) {
-             addOverlay("bio_event", msg, sub);
+         if (isImmune) {
+             // Show Immunity Overlay INSTEAD of Protocol
+             setTimeout(() => {
+                 addOverlay("protocol_alert", "IMMUNE", "Fire Wall blocked protocol!");
+             }, 500);
          } else {
-             addOverlay("protocol_alert", msg, sub);
+             if (['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'].includes(newProtocol || '')) {
+                 addOverlay("social_event", msg, sub);
+             } else if (['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(newProtocol || '')) {
+                 addOverlay("bio_event", msg, sub);
+             } else {
+                 addOverlay("protocol_alert", msg, sub);
+             }
          }
       } else {
-         addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
+         if (newProtocol === 'UNDERDOG_VICTORY' || newProtocol === 'TIME_TAX') {
+             addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
+         }
       }
     } else {
       setActiveProtocol(null);
@@ -1894,21 +1920,21 @@ export default function Game() {
     setActiveAbilities(newAbilities); // Update state for other components
 
     // --- DETERMINE OVERLAY TYPE ---
-    let overlayType: OverlayType = null;
-    let overlayMsg = "";
-    let overlaySub = "";
+    let momentCount = 0; // Track moment flags for triple play
 
     if (playersOut.length > 0) {
-      // Only show the elimination flag to the eliminated driver (p1)
-      if (playersOut.some(id => id === 'p1')) {
-        overlayType = "time_out";
-        overlayMsg = "PLAYER ELIMINATED";
-        overlaySub = "Out of time!";
-      } else {
-        overlayType = null;
-        overlayMsg = "";
-        overlaySub = "";
-      }
+      // Show elimination flag if any player is out this round
+      const justEliminated = playersState.filter(p => p.isEliminated && players.find(old => old.id === p.id && !old.isEliminated));
+      
+      justEliminated.forEach(elim => {
+          // Always show for p1 if p1 is out
+          // Also show for others if desired, but user specifically asked for p1 popup
+          // "The elimination moment flag is not popping up for the main player in singleplayer. This needs to popup for the eliminated player only in any mode."
+          if (elim.id === 'p1') {
+             setTimeout(() => addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!"), 100);
+          }
+      });
+      
     } else if (winnerId) {
        const winnerPlayer = participants[0]; // winner is first
        const secondPlayer = participants.length > 1 ? participants[1] : null;
@@ -1919,22 +1945,26 @@ export default function Game() {
        // 1. Smug Confidence (Round 1 Win)
        if (round === 1 && winnerId === 'p1') {
          addOverlay("smug_confidence", "SMUG CONFIDENCE", `${winnerName} starts strong!`);
+         momentCount++;
        }
        
        // 2. Fake Calm (Margin >= 15s)
        if (secondPlayer && margin >= 15 && winnerId === 'p1') {
          // Delay slightly if smug confidence also triggered
          setTimeout(() => addOverlay("fake_calm", "FAKE CALM", `Won by ${margin.toFixed(1)}s!`), 500);
+         momentCount++;
        }
        
        // 3. Genius Move (Margin <= 5s)
        if (secondPlayer && margin <= 5 && winnerId === 'p1') {
          setTimeout(() => addOverlay("genius_move", "GENIUS MOVE", `Won by just ${margin.toFixed(1)}s`), 500);
+         momentCount++;
        }
        
        // 4. Easy W (Bid < 20s)
        if (winnerBid < 20 && winnerId === 'p1') {
          setTimeout(() => addOverlay("easy_w", "EASY W", `Won with only ${winnerBid.toFixed(1)}s`), 1000);
+         momentCount++;
        }
        
        // 5. Comeback Hope & Others
@@ -1944,36 +1974,41 @@ export default function Game() {
            
            if (winnerTokensBefore === minTokens && players.some(p => p.tokens > winnerTokensBefore)) {
                setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winnerName} stays in the fight!`), 1000);
+               momentCount++;
            }
            
            // Precision
            if (winnerBid % 1 === 0) {
                setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
+               momentCount++;
            }
            
            // Overkill
            if (winnerBid > 60) {
                setTimeout(() => addOverlay("overkill", "OVERKILL", "Massive bid!"), 1500);
+               momentCount++;
            }
            
            // Clutch
            if (winnerPlayer.remainingTime < 10) {
                setTimeout(() => addOverlay("clutch_play", "CLUTCH PLAY", "Almost out of time!"), 1500);
+               momentCount++;
+           }
+           
+           // TRIPLE PLAY CHECK
+           if (momentCount >= 3) {
+               setTimeout(() => addOverlay("god_mode", "TRIPLE PLAY", "3+ Moments in one round!"), 2500);
            }
        }
 
     } else {
        // No winner
-       overlayType = "round_draw";
-       overlayMsg = "NO WINNER";
-       overlaySub = "Tie or No Bids";
+       addOverlay("round_draw", "NO WINNER", "Tie or No Bids");
     }
 
     if (!winnerId && participants.length === 0) {
        // Everyone zero bid / abandoned?
-       overlayType = "zero_bid";
-       overlayMsg = "AFK";
-       overlaySub = "No one dared to bid!";
+       addOverlay("zero_bid", "AFK", "No one dared to bid!");
     }
 
     // Protocol Post-Round Popups
@@ -2837,7 +2872,7 @@ export default function Game() {
                   subtitle: 'Timing & refunds',
                   className: 'border-emerald-500/20 hover:border-emerald-500/50',
                   headerText: 'text-emerald-300',
-                  filter: (c: Character) => (c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE') && !['RAINBOW RUN','CHEF\'S SPECIAL'].includes(c.ability?.name || '')
+                  filter: (c: Character) => (c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE') && !['RAINBOW RUN','CHEF\'S SPECIAL'].includes(c.ability?.name || '') && c.id !== 'fine'
                 },
                 {
                   id: 'degens',
