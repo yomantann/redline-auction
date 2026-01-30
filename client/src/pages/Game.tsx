@@ -8,17 +8,17 @@ import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 
 import bioAccuserOption1 from "../assets/generated_images/bio_accuser_option1.png";
-import bioAccuserOption2 from "../assets/generated_images/bio_accuser_option2.png";
-import bioAccuserOption3 from "../assets/generated_images/bio_accuser_option3.png";
-import bioPainHiderOption1 from "../assets/generated_images/bio_pain_hider_option1.png";
-import bioPainHiderOption2 from "../assets/generated_images/bio_pain_hider_option2.png";
-import bioPainHiderOption3 from "../assets/generated_images/bio_pain_hider_option3.png";
-import bioPanicBotOption1 from "../assets/generated_images/bio_panic_bot_option1.png";
-import bioPanicBotOption2 from "../assets/generated_images/bio_panic_bot_option2.png";
 import bioPanicBotOption3 from "../assets/generated_images/bio_panic_bot_option3.png";
-import bioAnointedOption1 from "../assets/generated_images/bio_anointed_option1.png";
-import bioAnointedOption2 from "../assets/generated_images/bio_anointed_option2.png";
-import bioAnointedOption3 from "../assets/generated_images/bio_anointed_option3.png";
+
+import socialSadmanOption3 from "../assets/generated_images/social_sadman_option3.png";
+import socialRainbowDashOption1 from "../assets/generated_images/social_rainbow_dash_option1.png";
+import socialGuardianHOption1 from "../assets/generated_images/social_guardian_h_option1.png";
+import socialFrostybyteOption1 from "../assets/generated_images/social_frostybyte_option1.png";
+import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_option1.png";
+
+import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_option1.png";
+import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_option1.png";
+import socialAccuserOption1 from "../assets/generated_images/social_accuser_option1.png";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
 
 // Define OverlayItem interface locally to match GameOverlay
@@ -252,7 +252,7 @@ interface Character {
 
 const CHARACTERS: Character[] = [
   { 
-    id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialHarambe, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
     ability: { name: 'SPIRIT SHIELD', description: 'Limit Break: +11s if you win Round 1.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Shown at prepare-to-bid: Designate a player immune to social dares this round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Tell others they cannot release button until you finish a sip.' }
@@ -264,26 +264,26 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'MOUTH POP', description: '1 random round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
-    id: 'winter', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialWinter, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'winter', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: '25% chance: Ignore all social interactions (only you see this at prepare-to-bid).' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 random round: Force opponent to win or drink (only you and target notified).' }
   },
   { 
-    id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, imageSocial: socialPepe, imageBio: bioPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, imageSocial: socialSadmanOption3, imageBio: bioPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'SAD STORY', description: '5% chance after round: 1 random player shares a sad story (shown to that player only).' },
     bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you are notified you can change your drinking buddy.' }
   },
   { 
-    id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, imageSocial: socialNyan, imageBio: bioNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, imageSocial: socialRainbowDashOption1, imageBio: bioNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: '15% chance: 1 random opponent must speak 2x speed (shown at start of round).' },
     bioAbility: { name: 'RAINBOW SHOT', description: '10% chance: 1 random player mixes two drinks (shown at end of round).' }
   },
   { 
-    id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialKaren,
-    imageBio: [bioAccuserOption1, bioAccuserOption2, bioAccuserOption3][Math.floor(Math.random() * 3)],
+    id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialAccuserOption1,
+    imageBio: bioAccuserOption1,
     description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
     socialAbility: { name: 'COMPLAINT', description: '15% chance: Everyone votes on winner\'s punishment (shown to all at end of round).' },
@@ -309,14 +309,14 @@ const CHARACTERS: Character[] = [
   },
   { 
     id: 'baldwin', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin,
-    imageBio: [bioAnointedOption1, bioAnointedOption2, bioAnointedOption3][Math.floor(Math.random() * 3)],
+    imageBio: bioBaldwin,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 4s refund if you bid within 0.1s of exactly 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: '50% chance: Everyone is commanded silence at start of round.' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round at end: Make a rule for remainder of game.' }
   },
   { 
-    id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, imageSocial: socialSigma, imageBio: bioSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, imageSocial: socialExecutivePOption1, imageBio: bioSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
     ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
     socialAbility: { name: 'CC\'D', description: '20% chance: 1 random player must copy your actions next round (both notified at end).' },
     bioAbility: { name: 'REASSIGNED', description: '50% chance: Choose 1 player to take a drink (shown to driver at end of round).' }
@@ -340,8 +340,8 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'SPICY', description: '20% chance post-round: Everyone drinks (all notified).' }
   },
   { 
-    id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialButtons,
-    imageBio: [bioPanicBotOption1, bioPanicBotOption2, bioPanicBotOption3][Math.floor(Math.random() * 3)],
+    id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialPanicBotOption1,
+    imageBio: bioPanicBotOption3,
     description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drop button.' },
@@ -354,8 +354,8 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'GREEDY GRAB', description: '5% chance post-round: Previous winner must burn 40s next round or finish drink.' }
   },
   { 
-    id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialHarold,
-    imageBio: [bioPainHiderOption1, bioPainHiderOption2, bioPainHiderOption3][Math.floor(Math.random() * 3)],
+    id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialPainHiderOption1,
+    imageBio: bioHarold,
     description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'BOOMER', description: 'You forgot what your power was (never triggers).' },
