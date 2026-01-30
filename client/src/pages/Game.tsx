@@ -6,6 +6,19 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
+
+import bioAccuserOption1 from "../assets/generated_images/bio_accuser_option1.png";
+import bioAccuserOption2 from "../assets/generated_images/bio_accuser_option2.png";
+import bioAccuserOption3 from "../assets/generated_images/bio_accuser_option3.png";
+import bioPainHiderOption1 from "../assets/generated_images/bio_pain_hider_option1.png";
+import bioPainHiderOption2 from "../assets/generated_images/bio_pain_hider_option2.png";
+import bioPainHiderOption3 from "../assets/generated_images/bio_pain_hider_option3.png";
+import bioPanicBotOption1 from "../assets/generated_images/bio_panic_bot_option1.png";
+import bioPanicBotOption2 from "../assets/generated_images/bio_panic_bot_option2.png";
+import bioPanicBotOption3 from "../assets/generated_images/bio_panic_bot_option3.png";
+import bioAnointedOption1 from "../assets/generated_images/bio_anointed_option1.png";
+import bioAnointedOption2 from "../assets/generated_images/bio_anointed_option2.png";
+import bioAnointedOption3 from "../assets/generated_images/bio_anointed_option3.png";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
 
 // Define OverlayItem interface locally to match GameOverlay
@@ -269,7 +282,9 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'RAINBOW SHOT', description: '10% chance: 1 random player mixes two drinks (shown at end of round).' }
   },
   { 
-    id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialKaren, imageBio: bioKaren, description: 'Loud and disruptive tactics.', color: 'text-red-400',
+    id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialKaren,
+    imageBio: [bioAccuserOption1, bioAccuserOption2, bioAccuserOption3][Math.floor(Math.random() * 3)],
+    description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
     socialAbility: { name: 'COMPLAINT', description: '15% chance: Everyone votes on winner\'s punishment (shown to all at end of round).' },
     bioAbility: { name: 'SPILL HAZARD', description: '25% chance: Accuse someone of spilling; they drink (shown to driver post-round).' }
@@ -293,7 +308,9 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'SCAVENGE', description: '5% chance: 1 random player finishes someone else\'s drink (shown to them after round).' }
   },
   { 
-    id: 'baldwin', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin, imageBio: bioBaldwin, description: 'Silent authority and iron will.', color: 'text-blue-500',
+    id: 'baldwin', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin,
+    imageBio: [bioAnointedOption1, bioAnointedOption2, bioAnointedOption3][Math.floor(Math.random() * 3)],
+    description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 4s refund if you bid within 0.1s of exactly 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: '50% chance: Everyone is commanded silence at start of round.' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round at end: Make a rule for remainder of game.' }
@@ -323,7 +340,9 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'SPICY', description: '20% chance post-round: Everyone drinks (all notified).' }
   },
   { 
-    id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialButtons, imageBio: bioButtons, description: 'Always sweating the big decisions.', color: 'text-red-400',
+    id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialButtons,
+    imageBio: [bioPanicBotOption1, bioPanicBotOption2, bioPanicBotOption3][Math.floor(Math.random() * 3)],
+    description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drop button.' },
     bioAbility: { name: 'EMERGENCY MEETING', description: '25% chance: Everyone points at person to gang up on next round for drinking.' }
@@ -335,7 +354,9 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'GREEDY GRAB', description: '5% chance post-round: Previous winner must burn 40s next round or finish drink.' }
   },
   { 
-    id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialHarold, imageBio: bioHarold, description: 'Smiling through the bear market.', color: 'text-slate-400',
+    id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialHarold,
+    imageBio: [bioPainHiderOption1, bioPainHiderOption2, bioPainHiderOption3][Math.floor(Math.random() * 3)],
+    description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'BOOMER', description: 'You forgot what your power was (never triggers).' },
     bioAbility: { name: 'SUPPRESS', description: 'If anyone reacts to their drink, they drink again.' }
@@ -3426,9 +3447,28 @@ export default function Game() {
     }
   };
 
+  const toggleSound = () => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+
+      // Immediately stop any in-flight SFX when muting
+      if (!next) {
+        if (sfxInFlightRef.current) {
+          try {
+            sfxInFlightRef.current.pause();
+            sfxInFlightRef.current.currentTime = 0;
+          } catch {}
+          sfxInFlightRef.current = null;
+        }
+      }
+
+      return next;
+    });
+  };
+
   return (
     <GameLayout>
-      <MusicPlayer />
+      <MusicPlayer soundEnabled={soundEnabled} onToggleSound={toggleSound} />
 
       {/* Header Info */}
       <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
