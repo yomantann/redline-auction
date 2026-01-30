@@ -2082,9 +2082,10 @@ export default function Game() {
                momentCount++;
            }
            
-           // TRIPLE PLAY CHECK
+           // Patch Notes Pending: 3+ flags in same round (shows after the other flags)
            if (momentCount >= 3) {
-               setTimeout(() => addOverlay("god_mode", "TRIPLE PLAY", "3+ Moments in one round!"), 2500);
+               setTimeout(() => addOverlay("hidden_patch_notes", "HIDDEN MOMENT FLAG: PATCH NOTES PENDING", "Triggered 3+ moment flags in one round."), 2500);
+               momentCount++;
            }
        }
 
