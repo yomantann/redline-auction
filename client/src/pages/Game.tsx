@@ -358,7 +358,44 @@ const MUSIC_TRACKS = [
     '/assets/music/track2.mp3',
     '/assets/music/track3.mp3'
 ];
-const SFX_MOMENT = '/assets/sfx/moment_flag.mp3';
+const SFX_POOL = [
+  '/assets/sfx/aa-with-reverb-meme-381632.mp3',
+  '/assets/sfx/among-us-sound-157106.mp3',
+  '/assets/sfx/bonus-143026.mp3',
+  '/assets/sfx/fart-4-228244.mp3',
+  '/assets/sfx/funny-cat-meow-246012.mp3',
+  '/assets/sfx/game-bonus-144751.mp3',
+  '/assets/sfx/game-challenge-scene-music-326385.mp3',
+  '/assets/sfx/game-over-retro-video-game-1-422479.mp3',
+  '/assets/sfx/goodresult-82807.mp3',
+  '/assets/sfx/goofy-ahh-car-horn-200870.mp3',
+  '/assets/sfx/i-got-this-467997.mp3',
+  '/assets/sfx/kaze-no-kioku-30-sec-edit-439955.mp3',
+  '/assets/sfx/level-up-191997.mp3',
+  '/assets/sfx/losing-horn-313723.mp3',
+  '/assets/sfx/mechanical-fantasium-335369.mp3',
+  '/assets/sfx/moment_flag2.mp3',
+  '/assets/sfx/moment_flag.mp3',
+  '/assets/sfx/quirky-detective-comedy-music-ending-15-sec-409287.mp3',
+  '/assets/sfx/rakuen-no-tsubasa-30-sec-edit-439976.mp3',
+  '/assets/sfx/sound-effect-twinklesparkle-115095.mp3',
+  '/assets/sfx/success-resolution-video-game-sound-effect-strings-99782.mp3',
+  '/assets/sfx/sus-meme-sound-181271.mp3',
+  '/assets/sfx/thud-sound-effect-405470.mp3',
+  '/assets/sfx/western-stand-off-474218.mp3',
+  '/assets/sfx/wowowowowowowow-103214.mp3'
+];
+
+const LOBBY_TRACKS = [
+  '/assets/lobby/competition-briefing-i-game-lobby-435660.mp3',
+  '/assets/lobby/cyberpunk-futuristic-background-349787.mp3',
+  '/assets/lobby/futuristic-179493.mp3',
+  '/assets/lobby/futuristic-motivation-synthwave-431078.mp3',
+  '/assets/lobby/hope-in-the-darkness-226465.mp3',
+  '/assets/lobby/luxury-lounge-jazz-groove-hotel-lobby-ambience-342592.mp3',
+  '/assets/lobby/night-detective-226857.mp3',
+  '/assets/lobby/ready-to-win-multiverse-fugitives-competitive-ost-269606.mp3'
+];
 
 export default function Game() {
   const { toast } = useToast();
@@ -371,7 +408,9 @@ export default function Game() {
   // Sound State
   const [soundEnabled, setSoundEnabled] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const sfxRef = useRef<HTMLAudioElement | null>(null);
+  const sfxLastPlayedAtRef = useRef<number>(0);
+  const sfxBlockUntilRef = useRef<number>(0);
+  const sfxInFlightRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize Audio
   useEffect(() => {
@@ -379,8 +418,7 @@ export default function Game() {
     audioRef.current.loop = true;
     audioRef.current.volume = 0.4;
     
-    sfxRef.current = new Audio(SFX_MOMENT);
-    sfxRef.current.volume = 0.6;
+    // SFX is created per trigger so it can replay reliably
 
     return () => {
         if (audioRef.current) {
@@ -394,16 +432,47 @@ export default function Game() {
   useEffect(() => {
     if (!audioRef.current) return;
 
-    if (soundEnabled && phase === 'character_select') {
-        // Pick random track if not playing
-        if (audioRef.current.paused) {
-            const track = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
-            audioRef.current.src = track;
-            audioRef.current.play().catch(e => console.log("Audio play failed (user interaction needed first)"));
-        }
-    } else {
-        audioRef.current.pause();
+    if (!soundEnabled) {
+      audioRef.current.pause();
+      audioRef.current.muted = true;
+      return;
     }
+
+    audioRef.current.muted = false;
+
+    // Lobby loop music (random pick)
+    if (phase === 'multiplayer_lobby') {
+      const track = LOBBY_TRACKS.length > 0
+        ? LOBBY_TRACKS[Math.floor(Math.random() * LOBBY_TRACKS.length)]
+        : null;
+
+      if (track) {
+        if (audioRef.current.src !== window.location.origin + track) {
+          audioRef.current.src = track;
+        }
+        audioRef.current.loop = true;
+        audioRef.current.volume = 0.4;
+        audioRef.current.play().catch(() => console.log('Audio play blocked'));
+      } else {
+        // No lobby tracks configured; keep silent in lobby
+        audioRef.current.pause();
+      }
+      return;
+    }
+
+    // Character select loop music
+    if (phase === 'character_select') {
+      if (audioRef.current.paused) {
+        const track = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
+        audioRef.current.src = track;
+        audioRef.current.loop = true;
+        audioRef.current.volume = 0.4;
+        audioRef.current.play().catch(() => console.log('Audio play blocked'));
+      }
+      return;
+    }
+
+    audioRef.current.pause();
   }, [phase, soundEnabled]);
   
   // Derived state for backward compatibility or simple logic
@@ -446,11 +515,28 @@ export default function Game() {
       const id = Math.random().toString(36).substring(7);
       setOverlays(prev => [...prev, { id, type, message, subMessage, duration }]);
       
-      // Play SFX if enabled
-      if (soundEnabled && sfxRef.current) {
-          // Clone node to allow overlapping sounds
-          const sound = sfxRef.current.cloneNode() as HTMLAudioElement;
-          sound.play().catch(() => {});
+      // Play SFX (one per "burst" even if multiple overlays stack)
+      if (soundEnabled) {
+          const now = Date.now();
+          if (now >= sfxBlockUntilRef.current) {
+              const pick = SFX_POOL[Math.floor(Math.random() * SFX_POOL.length)];
+              // Stop any currently-playing overlay sound before starting a new burst
+              if (sfxInFlightRef.current) {
+                try {
+                  sfxInFlightRef.current.pause();
+                  sfxInFlightRef.current.currentTime = 0;
+                } catch {}
+              }
+
+              const sound = new Audio(pick + `?t=${now}`);
+              sound.volume = 0.6;
+              sfxInFlightRef.current = sound;
+              sound.play().catch(() => {});
+
+              // Block further overlay SFX for a short window so stacked popups only play once
+              sfxLastPlayedAtRef.current = now;
+              sfxBlockUntilRef.current = now + 450;
+          }
       }
       
       // Auto dismiss if desired (0 = manual dismiss)

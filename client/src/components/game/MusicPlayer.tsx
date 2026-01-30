@@ -31,10 +31,15 @@ export function MusicPlayer() {
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isMuted;
+      audioRef.current.volume = isMuted ? 0 : 0.3;
     }
   }, [isMuted]);
 
   const toggleMute = () => {
+    if (audioRef.current) {
+      audioRef.current.muted = !isMuted;
+      audioRef.current.volume = !isMuted ? 0 : 0.3;
+    }
     setIsMuted(!isMuted);
   };
 
