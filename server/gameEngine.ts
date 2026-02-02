@@ -150,11 +150,12 @@ function startCountdown(lobbyCode: string) {
   game.roundWinner = null;
   game.eliminatedThisRound = [];
   
-  // Reset all player bids and holding status
+  // Reset bids but preserve holding state from waiting_for_ready
+  // Players who were holding continue to hold through countdown
   game.players.forEach(p => {
     if (!p.isEliminated) {
       p.currentBid = null;
-      p.isHolding = false;
+      // Don't reset isHolding - preserve from waiting_for_ready phase
     }
   });
   
@@ -190,11 +191,16 @@ function startBidding(lobbyCode: string) {
   game.phase = 'bidding';
   game.roundStartTime = Date.now();
   
-  // All non-eliminated players start holding (bots and humans)
-  // Human players must hold button down to keep holding, or click to release
+  // Preserve holding state from countdown/waiting phase
+  // Human players who were holding continue holding (must release to lock bid)
+  // Bots auto-hold during bidding phase
   game.players.forEach(p => {
     if (!p.isEliminated) {
-      p.isHolding = true;
+      // Bots always start holding in bidding phase
+      if (p.isBot) {
+        p.isHolding = true;
+      }
+      // Humans preserve their holding state (they must have been holding through countdown)
       p.currentBid = 0;
     }
   });
@@ -234,7 +240,10 @@ function startBidding(lobbyCode: string) {
     
     // Check if round should end (all players released)
     const holdingPlayers = g.players.filter(p => p.isHolding && !p.isEliminated);
-    if (holdingPlayers.length === 0) {
+    
+    // End round when all players have released, but wait at least 0.5s 
+    // (to give time for late starters and prevent instant round ends)
+    if (holdingPlayers.length === 0 && elapsed > 0.5) {
       clearInterval(interval);
       endRound(lobbyCode);
       return;
