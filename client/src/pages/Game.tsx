@@ -215,6 +215,11 @@ interface Player {
   characterIcon?: string | React.ReactNode; // Can be image URL or icon
   roundImpact?: string; // Legacy string for backward compatibility
   impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // NEW: Structured logs
+  // Multiplayer driver info
+  selectedDriver?: string; // Driver ID for multiplayer
+  driverName?: string; // Driver/character name
+  driverAbility?: string; // Driver ability description
+  roundEndAcknowledged?: boolean; // For next round acknowledgment
   // Stats
   totalTimeBid: number;
   totalImpactGiven: number;
@@ -684,6 +689,7 @@ export default function Game() {
 
   const [roundWinner, setRoundWinner] = useState<{ name: string; time: number } | null>(null);
   const [roundLog, setRoundLog] = useState<string[]>([]);
+  const [showAllLogs, setShowAllLogs] = useState(false); // For game log filtering
 
   // Refs for loop management
   const requestRef = useRef<number | null>(null);
@@ -875,8 +881,14 @@ export default function Game() {
     }
 
     // Character select loop music (single player or multiplayer driver selection)
+    // Must stop lobby music and switch to character select music
     if (phase === 'character_select' || (isMultiplayer && multiplayerGameState?.phase === 'driver_selection')) {
-      if (audioRef.current.paused) {
+      const currentSrc = audioRef.current.src;
+      const isPlayingLobbyMusic = LOBBY_TRACKS.some(t => currentSrc.includes(t));
+      const isPlayingCharSelectMusic = MUSIC_TRACKS.some(t => currentSrc.includes(t));
+      
+      // Switch from lobby music OR start fresh if paused
+      if (isPlayingLobbyMusic || audioRef.current.paused || !isPlayingCharSelectMusic) {
         const track = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
         audioRef.current.src = track;
         audioRef.current.loop = true;
@@ -4168,11 +4180,34 @@ export default function Game() {
                       </div>
                       <h3 className="font-bold text-sm text-white mb-0.5">{char.name}</h3>
                       <p className="text-[10px] text-primary/80 uppercase tracking-wider">{char.title}</p>
-                      {abilitiesEnabled && getDriverAbility(char) && (
-                        <p className="text-[9px] text-blue-400/80 mt-1 line-clamp-2">
-                          {getDriverAbility(char)?.name}
-                        </p>
+                      
+                      {/* Standard Limit Break ability */}
+                      {abilitiesEnabled && char.ability && (
+                        <div className="mt-1 pt-1 border-t border-white/5 w-full">
+                          <div className="flex items-center justify-center gap-1 text-[8px] font-bold text-blue-400 uppercase tracking-widest">
+                            <Zap size={8} fill="currentColor" /> {char.ability.name}
+                          </div>
+                        </div>
                       )}
+                      
+                      {/* Social Overdrive ability */}
+                      {variant === 'SOCIAL_OVERDRIVE' && char.socialAbility && (
+                        <div className="mt-1 pt-1 border-t border-purple-500/20 w-full">
+                          <div className="flex items-center justify-center gap-1 text-[8px] font-bold text-purple-400 uppercase tracking-widest">
+                            <PartyPopper size={8} /> {char.socialAbility.name}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Bio Fuel ability */}
+                      {variant === 'BIO_FUEL' && char.bioAbility && (
+                        <div className="mt-1 pt-1 border-t border-orange-500/20 w-full">
+                          <div className="flex items-center justify-center gap-1 text-[8px] font-bold text-orange-400 uppercase tracking-widest">
+                            <Martini size={8} /> {char.bioAbility.name}
+                          </div>
+                        </div>
+                      )}
+                      
                       {isTaken && (
                         <span className="text-[10px] text-red-400 mt-1">Taken by {takenBy?.name}</span>
                       )}
@@ -4197,6 +4232,64 @@ export default function Game() {
                 );
               })}
             </div>
+
+            {/* Selected Driver Details Panel */}
+            {mySelectedDriver && !myDriverConfirmed && (() => {
+              const selectedChar = mpAllDrivers.find(c => c.id === mySelectedDriver);
+              if (!selectedChar) return null;
+              
+              return (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 p-4 rounded-xl border border-primary/30 bg-primary/5"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={cn("w-16 h-16 rounded-full overflow-hidden border-2 border-primary", selectedChar.color)}>
+                      <img src={getDriverImage(selectedChar)} alt={selectedChar.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg text-white">{selectedChar.name}</h3>
+                      <p className="text-xs text-primary/80 uppercase tracking-wider">{selectedChar.title}</p>
+                      <p className="text-xs text-zinc-400 mt-1">{selectedChar.description}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Abilities Section */}
+                  <div className="mt-3 space-y-2">
+                    {/* Standard Limit Break */}
+                    {abilitiesEnabled && selectedChar.ability && (
+                      <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                        <div className="flex items-center gap-1 text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">
+                          <Zap size={12} fill="currentColor" /> {selectedChar.ability.name}
+                        </div>
+                        <p className="text-xs text-zinc-300">{selectedChar.ability.description}</p>
+                      </div>
+                    )}
+                    
+                    {/* Social Overdrive */}
+                    {variant === 'SOCIAL_OVERDRIVE' && selectedChar.socialAbility && (
+                      <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20">
+                        <div className="flex items-center gap-1 text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">
+                          <PartyPopper size={12} /> {selectedChar.socialAbility.name}
+                        </div>
+                        <p className="text-xs text-purple-200">{selectedChar.socialAbility.description}</p>
+                      </div>
+                    )}
+                    
+                    {/* Bio Fuel */}
+                    {variant === 'BIO_FUEL' && selectedChar.bioAbility && (
+                      <div className="p-2 rounded bg-orange-500/10 border border-orange-500/20">
+                        <div className="flex items-center gap-1 text-xs font-bold text-orange-400 uppercase tracking-widest mb-1">
+                          <Martini size={12} /> {selectedChar.bioAbility.name}
+                        </div>
+                        <p className="text-xs text-orange-200">{selectedChar.bioAbility.description}</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })()}
 
             {/* Status message at bottom */}
             <div className="flex justify-center pt-4">
@@ -4296,7 +4389,7 @@ export default function Game() {
              <div className="h-[100px] flex flex-col items-center justify-center space-y-2"> 
               <h2 className="text-3xl font-display text-destructive">PREPARE TO BID</h2>
               <p className="text-muted-foreground">
-                {isMultiplayer ? "Get ready! Round starting..." : `Release now to abandon auction (-${getTimerStart().toFixed(1)}s)`}
+                {`Release now to abandon auction (-${getTimerStart().toFixed(1)}s)`}
               </p>
             </div>
             
@@ -5066,11 +5159,16 @@ export default function Game() {
                         <User />
                     )}
                 </div>
-                <span className="font-display tracking-widest uppercase text-xl">{selectedPlayerStats?.name}</span>
+                <div className="flex flex-col">
+                  <span className="font-display tracking-widest uppercase text-xl">{selectedPlayerStats?.name}</span>
+                  {selectedPlayerStats?.driverName && (
+                    <span className="text-xs text-primary/70">{selectedPlayerStats.driverName}</span>
+                  )}
+                </div>
                 {selectedPlayerStats?.isBot && <Badge variant="secondary" className="ml-2 text-[10px]">BOT</Badge>}
             </DialogTitle>
             <DialogDescription>
-                Detailed player statistics and abilities.
+                {selectedPlayerStats?.driverAbility ? selectedPlayerStats.driverAbility : 'Detailed player statistics and abilities.'}
             </DialogDescription>
             </DialogHeader>
             
@@ -5081,8 +5179,12 @@ export default function Game() {
                     {/* Show abilities based on current mode */}
                     {(() => {
                         // Find character definition to get ability details
-                        const char = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === selectedPlayerStats?.name);
-                        if (!char) return <p className="text-zinc-500 text-xs">Unknown character data.</p>;
+                        // For multiplayer: use selectedDriver ID, for singleplayer: match by name
+                        const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
+                        const char = selectedPlayerStats?.selectedDriver 
+                          ? allChars.find(c => c.id === selectedPlayerStats.selectedDriver)
+                          : allChars.find(c => c.name === selectedPlayerStats?.name);
+                        if (!char) return <p className="text-zinc-500 text-xs">No driver abilities available.</p>;
                         
                         return (
                             <div className="space-y-3">
@@ -5208,15 +5310,25 @@ export default function Game() {
           <div className="bg-card/30 rounded p-4 border border-white/5 h-[300px] flex flex-col">
             <h3 className="font-display text-muted-foreground text-xs tracking-widest mb-2 flex items-center gap-2 justify-between">
               <span className="flex items-center gap-2"><SkipForward size={12} /> GAME LOG</span>
-              <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1" onClick={() => console.log('Toggle log filter')}>
-                ALL
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`h-4 text-[10px] px-1 ${showAllLogs ? 'text-emerald-400' : 'text-zinc-500'}`}
+                onClick={() => setShowAllLogs(!showAllLogs)}
+              >
+                {showAllLogs ? 'ALL' : 'BASIC'}
               </Button>
             </h3>
             <div className="flex-1 overflow-y-auto space-y-2 font-mono text-xs text-zinc-500 custom-scrollbar">
               {(() => {
-                const logs = isMultiplayer && multiplayerGameState?.gameLog 
+                const allLogs = isMultiplayer && multiplayerGameState?.gameLog 
                   ? multiplayerGameState.gameLog.map(l => l.message)
                   : roundLog;
+                // Filter logs: show only important ones unless showAllLogs is true
+                const logs = showAllLogs ? allLogs : allLogs.filter(log => 
+                  log.includes('>>') || log.includes('ROUND') || log.includes('WINNER') || 
+                  log.includes('PROTOCOL') || log.includes('ELIMINATED') || log.includes('TOKEN')
+                );
                 if (logs.length === 0) return <p className="italic opacity-50">Game started...</p>;
                 return logs.map((log, i) => (
                   <div key={i} className="border-b border-white/5 pb-1 mb-1 last:border-0">{log}</div>
