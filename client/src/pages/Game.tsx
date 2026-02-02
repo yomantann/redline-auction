@@ -907,6 +907,12 @@ export default function Game() {
       
       let charIndex = 0;
 
+      const pickIcon = (c: Character) => {
+        if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
+        if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
+        return c.image;
+      };
+
       setPlayers(prev => prev.map(p => {
         if (p.isBot) {
           const char = shuffledChars[charIndex % shuffledChars.length];
@@ -915,7 +921,7 @@ export default function Game() {
           return { 
             ...p, 
             name: char.name, 
-            characterIcon: char.image,
+            characterIcon: pickIcon(char),
             // Bots also get abilities if enabled, but we just store the icon/name for now
           };
         }
@@ -1916,8 +1922,8 @@ export default function Game() {
             else if (bName === 'PACE SETTER' && round % 3 === 0) {
                  triggered = true; abilityName = bName; abilityDesc = "Alpha Prime: Pace Setter: \"Start a Waterfall!\"";
             }
-            // ROLL SAFE: "BIG BRAIN" (15% chance)
-            else if (bName === 'BIG BRAIN' && roll < 0.15) {
+            // ROLL SAFE: "BIG BRAIN" (05% chance)
+            else if (bName === 'BIG BRAIN' && roll < 0.05) {
                  triggered = true; abilityName = bName; abilityDesc = "Pass drink to the left?";
             }
             // HOTWIRED: "SPICY" (20% chance)
@@ -1963,8 +1969,8 @@ export default function Game() {
             else if (sName === 'MISCLICK' && roll < 0.25) {
                  triggered = true; abilityName = sName; abilityDesc = "Hold without hands!";
             }
-            // FROSTBYTE: "COLD SHOULDER" (25% chance)
-            else if (sName === 'COLD SHOULDER' && roll < 0.25) {
+            // FROSTBYTE: "COLD SHOULDER" (50% chance)
+            else if (sName === 'COLD SHOULDER' && roll < 0.50) {
                  triggered = true; abilityName = sName; abilityDesc = "Ignore social interactions!";
             }
             // SADMAN LOGIC: "SAD STORY" (5% chance)
@@ -1996,9 +2002,9 @@ export default function Game() {
             else if (sName === 'CC\'D' && roll < 0.2) {
                  triggered = true; abilityName = sName; abilityDesc = "Player copies you next round!";
             }
-            // ALPHA PRIME: "MOG" (20% chance)
-            else if (sName === 'MOG' && roll < 0.2) {
-                 triggered = true; abilityName = sName; abilityDesc = "Stare challenge!";
+            // ALPHA PRIME: "MOG" (10% chance)
+            else if (sName === 'MOG' && roll < 0.1) {
+                 triggered = true; abilityName = sName; abilityDesc = "10 pushups or ff next round";
             }
             // ROLL SAFE: "TECHNICALLY" - NO POPUP
             
@@ -2443,10 +2449,16 @@ export default function Game() {
     setSelectedCharacter(char);
     // Assign random characters to bots now that player has chosen
     assignBotCharacters(char);
+
+    const pickIcon = (c: Character) => {
+      if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
+      if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
+      return c.image;
+    };
     
     setPlayers(prev => prev.map(p => {
       if (p.id === 'p1') {
-        return { ...p, name: char.name, characterIcon: char.image };
+        return { ...p, name: char.name, characterIcon: pickIcon(char) };
       }
       return p;
     }));
@@ -2722,6 +2734,8 @@ export default function Game() {
                     size="sm" 
                     onClick={toggleDifficulty}
                     className="h-8 px-3 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
+                    title={difficulty === 'CASUAL' ? 'CASUAL: Everyone can see time banks.' : 'COMPETITIVE: Time banks are hidden until the end.'}
+                    data-testid="button-intro-toggle-difficulty"
                   >
                     {difficulty === 'CASUAL' ? <Eye size={12} className="text-emerald-400"/> : <EyeOff size={12} className="text-zinc-400"/>}
                     <span className={difficulty === 'CASUAL' ? "text-emerald-400" : "text-zinc-400"}>
@@ -2733,7 +2747,7 @@ export default function Game() {
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
 
                 {/* PROTOCOLS TOGGLE (same row as difficulty & Limit Breaks) */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" title="Protocols: Round modifiers that add party/drinking prompts (in Reality Modes)." data-testid="group-intro-protocols">
                   <div className="flex items-center space-x-2">
                     <Switch 
                         id="protocols-intro" 
@@ -2744,8 +2758,9 @@ export default function Game() {
                           variant === 'SOCIAL_OVERDRIVE' && "data-[state=checked]:bg-purple-500",
                           variant === 'BIO_FUEL' && "data-[state=checked]:bg-orange-500"
                         )}
+                        data-testid="switch-intro-protocols"
                     />
-                    <Label htmlFor="protocols-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
+                    <Label htmlFor="protocols-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1" data-testid="label-intro-protocols">
                         {variant === 'SOCIAL_OVERDRIVE' ? (
                           <PartyPopper size={14} className={protocolsEnabled ? "text-purple-400" : "text-muted-foreground"} />
                         ) : variant === 'BIO_FUEL' ? (
@@ -2767,6 +2782,8 @@ export default function Game() {
                     className="h-6 w-6 text-zinc-400 hover:text-white"
                     disabled={!protocolsEnabled}
                     onClick={() => setShowProtocolSelect(true)}
+                    title="Configure allowed protocols"
+                    data-testid="button-intro-protocol-settings"
                   >
                     <Settings className="h-4 w-4" />
                   </Button>
@@ -2775,14 +2792,15 @@ export default function Game() {
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
 
                 {/* LIMIT BREAKS TOGGLE */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" title="Limit Breaks: Driver-specific passive powers." data-testid="group-intro-limit-breaks">
                   <Switch 
                     id="abilities-intro" 
                     checked={abilitiesEnabled} 
                     onCheckedChange={setAbilitiesEnabled} 
                     className="data-[state=checked]:bg-blue-500"
+                    data-testid="switch-intro-limit-breaks"
                   />
-                  <Label htmlFor="abilities-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1">
+                  <Label htmlFor="abilities-intro" className="text-sm cursor-pointer text-zinc-400 flex items-center gap-1" data-testid="label-intro-limit-breaks">
                     <Zap size={14} className={abilitiesEnabled ? "text-blue-400" : "text-muted-foreground"}/>
                     LIMIT BREAKS
                   </Label>
@@ -2803,6 +2821,8 @@ export default function Game() {
                           ? 'bg-zinc-700/60 border-zinc-300 text-zinc-50'
                           : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
                       )}
+                      title="STANDARD: Pure auction, no social or 21+ modifiers."
+                      data-testid="button-intro-variant-standard"
                     >
                       STANDARD
                     </button>
@@ -2814,6 +2834,8 @@ export default function Game() {
                           ? 'bg-purple-500/20 border-purple-500 text-purple-300'
                           : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
                       )}
+                      title="SOCIAL OVERDRIVE: Party-game protocols + social driver abilities."
+                      data-testid="button-intro-variant-social"
                     >
                       SOCIAL OVERDRIVE
                     </button>
@@ -2825,6 +2847,8 @@ export default function Game() {
                           ? 'bg-orange-500/20 border-orange-500 text-orange-300'
                           : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
                       )}
+                      title="BIO-FUEL (21+): Drinking-game protocols + bio driver abilities."
+                      data-testid="button-intro-variant-bio"
                     >
                       BIO-FUEL
                     </button>

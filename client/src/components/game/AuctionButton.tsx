@@ -37,6 +37,7 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
         className={cn(
           "relative z-10 w-48 h-48 rounded-full flex flex-col items-center justify-center transition-all duration-100 focus:outline-none",
           "bg-gradient-to-b from-zinc-800 to-black border-4",
+          "select-none [-webkit-touch-callout:none] [-webkit-user-select:none] [touch-action:manipulation]",
           disabled && !isWaiting ? "border-zinc-800 opacity-50 cursor-not-allowed grayscale" : "cursor-pointer",
           isPressed 
             ? "border-primary shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] scale-95" 
@@ -44,6 +45,7 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
               ? "border-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.2)]" 
               : "border-zinc-700 shadow-[0_10px_20px_rgba(0,0,0,0.5),inset_0_2px_10px_rgba(255,255,255,0.1)] hover:border-primary/50 hover:shadow-[0_0_30px_rgba(255,215,0,0.2)]"
         )}
+        onContextMenu={(e) => e.preventDefault()}
         onMouseDown={!disabled ? onPress : undefined}
         onMouseUp={!disabled ? onRelease : undefined}
         onMouseLeave={!disabled && isPressed ? onRelease : undefined}
