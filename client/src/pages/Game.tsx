@@ -7,7 +7,7 @@ import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 
-import bioAccuserOption1 from "../assets/generated_images/bio_accuser_pointing_v4.png";
+import bioAccuserOption1 from "../assets/generated_images/bio_accuser_girl_pointing_v5.png";
 import bioPanicBotOption3 from "../assets/generated_images/bio_panic_bot_option3.png";
 
 import socialSadmanOption3 from "../assets/generated_images/social_sadman_option3.png";
@@ -120,10 +120,10 @@ import bioFine from '../assets/generated_images/bio_low_flame_no_text_v3.png';
 import bioBf from '../assets/generated_images/bio_bf.png';
 import bioRat from '../assets/generated_images/bio_rind_mouse_sniper_v4.png';
 import bioBaldwin from '../assets/generated_images/bio_baldwin.png';
-import bioSigma from '../assets/generated_images/bio_executive_p_v4.png';
+import bioSigma from '../assets/generated_images/bio_executive_p_axe_v5.png';
 import bioGigachad from '../assets/generated_images/bio_gigachad.png';
 import bioThinker from '../assets/generated_images/bio_thinker.png';
-import bioDisaster from '../assets/generated_images/bio_hotwired_fire_v4.png';
+import bioDisaster from '../assets/generated_images/bio_hotwired_fire_v5.png';
 import bioButtons from '../assets/generated_images/bio_buttons.png';
 import bioPrimate from '../assets/generated_images/bio_primate.png';
 import bioHarold from '../assets/generated_images/bio_harold.png';
@@ -1819,8 +1819,18 @@ export default function Game() {
              }
          }
          
-         setPhase('game_end'); // Skip round_end summary, go straight to game over
-         setOverlay({ type: "game_over", message: "GAME OVER" });
+         // Show eliminated overlay for P1, then proceed to game over.
+         // (Single player: p1 only)
+         addOverlay("eliminated", "ELIMINATED", "Out of time.");
+
+         // Simulate remaining rounds simply by awarding tokens
+         // (kept as-is; does not affect the overlay flow)
+
+         window.setTimeout(() => {
+           setPhase('game_end'); // Skip round_end summary, go straight to game over
+           setOverlay({ type: "game_over", message: "GAME OVER" });
+         }, 900);
+
          return; // Stop here
     }
 
