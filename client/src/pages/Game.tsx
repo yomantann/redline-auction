@@ -752,6 +752,7 @@ export default function Game() {
       protocolsEnabled: boolean;
       abilitiesEnabled: boolean;
       variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+      gameDuration?: 'sprint' | 'standard' | 'long' | 'short';
     };
     activeProtocol: string | null;
     protocolHistory: string[];
@@ -1022,6 +1023,23 @@ export default function Game() {
     // 7. Precision Strike (Exact second bid)
     if (winnerBid % 1 === 0) {
       setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
+      momentCount++;
+    }
+    
+    // 8. Comeback Hope (Won with fewer tokens than others)
+    const currentPlayerStats = players.find(p => p.id === winner.id);
+    const otherTokens = players.filter(p => p.id !== winner.id && !p.isEliminated).map(p => p.tokens);
+    if (currentPlayerStats && otherTokens.length > 0 && currentPlayerStats.tokens < Math.max(...otherTokens)) {
+      setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winner.name} stays in the fight!`), 1000);
+      momentCount++;
+    }
+    
+    // 9. Last One Standing (Won final round with eliminations)
+    const mpDuration = multiplayerGameState.settings?.gameDuration;
+    const totalRoundsForMp = (mpDuration === 'short' || mpDuration === 'sprint') ? 9 
+      : mpDuration === 'long' ? 18 : 9;
+    if (multiplayerGameState.round === totalRoundsForMp && multiplayerGameState.eliminatedThisRound?.length > 0) {
+      setTimeout(() => addOverlay("genius_move", "LAST ONE STANDING", `Survivor Victory!`), 2000);
       momentCount++;
     }
     
@@ -4002,12 +4020,12 @@ export default function Game() {
                   data-testid={`card-driver-${char.id}`}
                   className="flex flex-col items-center p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden"
                 >
-                  <div className={cn("w-28 h-28 sm:w-32 sm:h-32 rounded-full mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10", char.color)}>
+                  <div className={cn("w-32 h-32 sm:w-40 sm:h-40 rounded-full mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10", char.color)}>
                      <img src={getCharImage(char)} alt={char.name} className="w-full h-full object-cover" />
                   </div>
-                  <h3 className="font-bold text-base sm:text-lg text-white mb-1" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
-                  <p className="text-sm text-primary/80 uppercase tracking-wider mb-2 font-display" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
-                  <p className="text-sm text-zinc-500 leading-tight line-clamp-2" data-testid={`text-driver-desc-${char.id}`}>{char.description}</p>
+                  <h3 className="font-bold text-lg sm:text-xl text-white mb-1" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
+                  <p className="text-sm sm:text-base text-primary/80 uppercase tracking-wider mb-2 font-display" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
+                  <p className="text-sm sm:text-base text-zinc-500 leading-tight line-clamp-2" data-testid={`text-driver-desc-${char.id}`}>{char.description}</p>
                   
                   {abilitiesEnabled && char.ability && (
                     <div className="mt-3 pt-3 border-t border-white/5 w-full">
@@ -4257,14 +4275,14 @@ export default function Game() {
                       )}
                       data-testid={`mp-driver-${char.id}`}
                     >
-                      <div className={cn("w-20 h-20 sm:w-24 sm:h-24 rounded-full mb-2 overflow-hidden border-2", 
+                      <div className={cn("w-24 h-24 sm:w-32 sm:h-32 rounded-full mb-2 overflow-hidden border-2", 
                         isSelected ? "border-primary" : "border-white/10",
                         char.color
                       )}>
                         <img src={getDriverImage(char)} alt={char.name} className="w-full h-full object-cover" />
                       </div>
-                      <h3 className="font-bold text-sm sm:text-base text-white mb-0.5">{char.name}</h3>
-                      <p className="text-xs sm:text-sm text-primary/80 uppercase tracking-wider">{char.title}</p>
+                      <h3 className="font-bold text-base sm:text-lg text-white mb-0.5">{char.name}</h3>
+                      <p className="text-sm sm:text-base text-primary/80 uppercase tracking-wider">{char.title}</p>
                       
                       {isTaken && (
                         <span className="text-[10px] text-red-400 mt-1">Taken by {takenBy?.name}</span>

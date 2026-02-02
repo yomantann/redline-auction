@@ -161,6 +161,7 @@ export interface GameSettings {
   protocolsEnabled: boolean;
   abilitiesEnabled: boolean;
   variant: GameVariant;
+  gameDuration: GameDuration;
 }
 
 export interface GameState {
@@ -267,11 +268,17 @@ export function createGame(
   });
   
   // Merge lobby settings with defaults
+  // Map duration: server receives 'sprint' from client, but also accept 'short' for compatibility
+  const mappedDuration: GameDuration = (lobbySettings?.gameDuration === 'sprint' || lobbySettings?.gameDuration === 'short') 
+    ? 'short' 
+    : (lobbySettings?.gameDuration === 'long' ? 'long' : 'standard');
+  
   const settings: GameSettings = {
     difficulty: lobbySettings?.difficulty || 'CASUAL',
     protocolsEnabled: lobbySettings?.protocolsEnabled || false,
     abilitiesEnabled: lobbySettings?.abilitiesEnabled || false,
     variant: lobbySettings?.variant || 'STANDARD',
+    gameDuration: mappedDuration,
   };
   
   const gameState: GameState = {
@@ -814,6 +821,48 @@ function endRound(lobbyCode: string) {
     });
   }
   
+  // Handle SECRET PROTOCOLS (UNDERDOG_VICTORY, TIME_TAX) - revealed at round end
+  if (game.activeProtocol === 'UNDERDOG_VICTORY') {
+    // Find lowest bidder with valid bid (>= min bid) who is not eliminated
+    const minBid = getMinBidPenalty(game.settings.gameDuration);
+    const eligible = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid >= minBid);
+    eligible.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0));
+    
+    if (eligible.length > 0) {
+      const underdog = eligible[0];
+      underdog.tokens += 1;
+      addGameLogEntry(game, {
+        type: 'protocol',
+        playerId: underdog.id,
+        playerName: underdog.name,
+        message: `SECRET REVEALED: UNDERDOG VICTORY! ${underdog.name} wins +1 token for lowest bid!`,
+        value: 1,
+      });
+      log(`UNDERDOG_VICTORY: ${underdog.name} awarded +1 token for lowest bid in lobby ${game.lobbyCode}`, "game");
+    }
+  }
+  
+  if (game.activeProtocol === 'TIME_TAX') {
+    // Deduct 10s from all non-eliminated players
+    game.players.forEach(p => {
+      if (!p.isEliminated && p.remainingTime > 0) {
+        p.remainingTime = Math.max(0, p.remainingTime - 10);
+        if (p.remainingTime === 0) {
+          p.isEliminated = true;
+          if (!game.eliminatedThisRound.includes(p.id)) {
+            game.eliminatedThisRound.push(p.id);
+          }
+        }
+      }
+    });
+    addGameLogEntry(game, {
+      type: 'protocol',
+      message: `SECRET REVEALED: TIME TAX! -10s to all survivors!`,
+      value: -10,
+    });
+    log(`TIME_TAX: -10s to all survivors in lobby ${game.lobbyCode}`, "game");
+  }
+  
   // Process abilities before time deduction (allows for refunds)
   processAbilities(game, winnerId);
   
@@ -953,7 +1002,7 @@ function startWaitingForReady(lobbyCode: string) {
     });
     
     // Handle specific protocol effects at round start
-    if (protocol === 'DOUBLE_STAKES') {
+    if (protocol === 'DOUBLE_STAKES' || protocol === 'PANIC_ROOM') {
       game.isDoubleTokensRound = true;
     }
     if (protocol === 'THE_MOLE') {
