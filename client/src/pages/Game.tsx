@@ -3186,7 +3186,7 @@ export default function Game() {
         return (
           <motion.div 
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center space-y-8 text-center max-w-2xl mx-auto mt-20"
+            className="flex flex-col items-center justify-center space-y-4 sm:space-y-8 text-center max-w-2xl mx-auto mt-8 sm:mt-20 px-2"
           >
             {/* Protocol Selection Dialog */}
             <Dialog open={showProtocolSelect} onOpenChange={setShowProtocolSelect}>
@@ -3361,19 +3361,19 @@ export default function Game() {
                 </DialogContent>
             </Dialog>
 
-            <h1 className="text-6xl font-display text-primary text-glow font-bold">REDLINE AUCTION</h1>
-            <p className="text-xl text-muted-foreground">
+            <h1 className="text-4xl sm:text-6xl font-display text-primary text-glow font-bold">REDLINE AUCTION</h1>
+            <p className="text-base sm:text-xl text-muted-foreground">
               Bid time from your time bank to win tokens.<br/>
-              <span className="text-sm font-mono opacity-70">
+              <span className="text-xs sm:text-sm font-mono opacity-70">
                 {gameDuration === 'short' && "SPRINT: 2.5 Minutes | 9 Rounds"}
                 {gameDuration === 'standard' && "TEMPO: 5 Minutes | 9 Rounds"}
                 {gameDuration === 'long' && "MARATHON: 10 Minutes | 18 Rounds"}
               </span>
             </p>
-            <div className="grid grid-cols-2 gap-4 text-left bg-card/50 p-6 rounded border border-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left bg-card/50 p-4 sm:p-6 rounded border border-white/5">
                <div className="space-y-2">
-                <h3 className="text-primary font-bold">Rules</h3>
-                <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1">
+                <h3 className="text-primary font-bold text-sm sm:text-base">Rules</h3>
+                <ul className="list-disc list-inside text-xs sm:text-sm text-zinc-400 space-y-1">
                   <li>Hold button to start.</li>
                   <li>Release to bid time.</li>
                   <li>Longest time wins token.</li>
@@ -3383,8 +3383,8 @@ export default function Game() {
               </div>
               <div className="space-y-2 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-destructive font-bold">Winning</h3>
-                  <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1">
+                  <h3 className="text-destructive font-bold text-sm sm:text-base">Winning</h3>
+                  <ul className="list-disc list-inside text-xs sm:text-sm text-zinc-400 space-y-1">
                     <li>Most tokens wins game.</li>
                     <li>Tiebreaker: Remaining Time.</li>
                   </ul>
@@ -4708,8 +4708,8 @@ export default function Game() {
           </div>
 
           <div className="w-full flex items-center justify-center">
-            <div className="max-w-full overflow-x-auto px-2 [-webkit-overflow-scrolling:touch]">
-              <div className="inline-flex items-center gap-6 min-w-max">
+            <div className="max-w-full px-2">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-6">
                 {variant === 'BIO_FUEL' && (
                   <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-orange-950/40 border border-orange-500/30 rounded text-xs text-orange-300">
                       <AlertTriangle size={12} className="text-orange-500" />
@@ -4717,7 +4717,7 @@ export default function Game() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 bg-black/40 p-1.5 px-2 sm:px-3 rounded-2xl sm:rounded-full border border-white/10">
                  
                  {/* CASUAL / COMPETITIVE (Difficulty) */}
                  <div className="flex items-center gap-2">
