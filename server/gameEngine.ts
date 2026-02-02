@@ -15,15 +15,19 @@ const BOT_NAMES = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta'];
 const BOT_PERSONALITIES = ['aggressive', 'conservative', 'random', 'balanced'] as const;
 
 // Character/Driver IDs by variant for bot random assignment
+// These match the client-side character definitions - all variants use base characters
+// plus variant-specific characters defined in SOCIAL_CHARACTERS and BIO_CHARACTERS
 const STANDARD_DRIVER_IDS = [
   'harambe', 'popcat', 'winter', 'pepe', 'nyan', 'karen', 'fine', 'bf', 
-  'rat', 'baldwin', 'sigma', 'gigachad', 'thinker', 'disaster', 'buttons', 'primate', 'harold', 'tank'
+  'rat', 'baldwin', 'sigma', 'gigachad', 'thinker', 'disaster', 'buttons', 'primate', 'harold'
 ];
+// Social mode adds: prom_king, idol_core from SOCIAL_CHARACTERS
 const SOCIAL_DRIVER_IDS = [
-  'social_clown', 'social_influencer', 'social_diva', 'social_troll', 'social_hypeman'
+  'prom_king', 'idol_core'
 ];
+// Bio mode adds: tank, danger_zone from BIO_CHARACTERS
 const BIO_DRIVER_IDS = [
-  'bio_bartender', 'bio_designated', 'bio_wildcard', 'bio_shotcaller', 'bio_lightweight'
+  'tank', 'danger_zone'
 ];
 
 export type BotPersonality = typeof BOT_PERSONALITIES[number];
@@ -219,30 +223,11 @@ export function createGame(
     botIndex++;
   }
   
-  // Assign random drivers to bots and mark as confirmed
-  const variant = lobbySettings?.variant || 'STANDARD';
-  const availableDrivers = [
-    ...STANDARD_DRIVER_IDS,
-    ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_DRIVER_IDS : []),
-    ...(variant === 'BIO_FUEL' ? BIO_DRIVER_IDS : [])
-  ];
-  const usedDrivers: string[] = [];
-  
+  // Bots will get drivers assigned AFTER all human players have confirmed
+  // This is handled in confirmDriverInGame when all humans are done
   gamePlayers.forEach(p => {
-    if (p.isBot) {
-      // Assign random unused driver to bot
-      const unusedDrivers = availableDrivers.filter(d => !usedDrivers.includes(d));
-      if (unusedDrivers.length > 0) {
-        const randomDriver = unusedDrivers[Math.floor(Math.random() * unusedDrivers.length)];
-        p.selectedDriver = randomDriver;
-        usedDrivers.push(randomDriver);
-      }
-      p.driverConfirmed = true;
-    } else {
-      p.driverConfirmed = false;
-      // Clear any pre-selected drivers from lobby - players pick fresh in game
-      p.selectedDriver = undefined;
-    }
+    p.driverConfirmed = false;
+    p.selectedDriver = undefined;
   });
   
   // Merge lobby settings with defaults
@@ -336,10 +321,38 @@ export function confirmDriverInGame(lobbyCode: string, playerId: string): { succ
   
   log(`Player ${player.name} confirmed driver ${player.selectedDriver} in game ${lobbyCode}`, "game");
   
-  // Check if all human players have confirmed
-  const allConfirmed = game.players.every(p => p.driverConfirmed);
-  if (allConfirmed) {
-    log(`All players confirmed drivers in game ${lobbyCode}, starting round 1`, "game");
+  // Check if all HUMAN players have confirmed - then assign drivers to bots
+  const humanPlayers = game.players.filter(p => !p.isBot);
+  const allHumansConfirmed = humanPlayers.every(p => p.driverConfirmed);
+  
+  if (allHumansConfirmed) {
+    // Now assign random drivers to bots
+    const variant = game.settings.variant || 'STANDARD';
+    const availableDrivers = [
+      ...STANDARD_DRIVER_IDS,
+      ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_DRIVER_IDS : []),
+      ...(variant === 'BIO_FUEL' ? BIO_DRIVER_IDS : [])
+    ];
+    
+    // Get drivers already taken by humans
+    const usedDrivers = game.players
+      .filter(p => p.selectedDriver)
+      .map(p => p.selectedDriver!);
+    
+    game.players.forEach(p => {
+      if (p.isBot) {
+        const unusedDrivers = availableDrivers.filter(d => !usedDrivers.includes(d));
+        if (unusedDrivers.length > 0) {
+          const randomDriver = unusedDrivers[Math.floor(Math.random() * unusedDrivers.length)];
+          p.selectedDriver = randomDriver;
+          usedDrivers.push(randomDriver);
+        }
+        p.driverConfirmed = true;
+      }
+    });
+    
+    broadcastGameState(lobbyCode);
+    log(`All human players confirmed, bots assigned drivers in game ${lobbyCode}, starting round 1`, "game");
     startWaitingForReady(lobbyCode);
   }
   
@@ -1141,9 +1154,13 @@ function broadcastGameState(lobbyCode: string) {
       isEliminated: p.isEliminated,
       currentBid: p.currentBid,
       isHolding: p.isHolding,
+      roundEndAcknowledged: (p as any).roundEndAcknowledged || false,
     })),
     roundWinner: game.roundWinner,
     eliminatedThisRound: game.eliminatedThisRound,
+    gameLog: game.gameLog,
+    activeProtocol: game.activeProtocol,
+    settings: game.settings,
   };
   
   emitToLobby(lobbyCode, 'game_state', stateForClients);

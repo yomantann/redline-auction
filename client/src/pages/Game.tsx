@@ -48,7 +48,7 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2
+  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle
 } from "lucide-react";
 import { 
   Tooltip,
@@ -2923,8 +2923,13 @@ export default function Game() {
           if (!driverId) return undefined;
           const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
           const char = allChars.find(c => c.id === driverId);
-          return char?.ability?.description;
+          if (!char) return undefined;
+          // Use variant-specific ability
+          if (variant === 'SOCIAL_OVERDRIVE' && char.socialAbility) return char.socialAbility.description;
+          if (variant === 'BIO_FUEL' && char.bioAbility) return char.bioAbility.description;
+          return char.ability?.description;
         })(),
+        roundEndAcknowledged: (mp as any).roundEndAcknowledged || false,
       } as Player))
     : players;
 
@@ -4045,6 +4050,33 @@ export default function Game() {
         
         const mpAllDrivers = [...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])];
         
+        // Get variant-specific image for a character
+        const getDriverImage = (char: typeof CHARACTERS[0]) => {
+          if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) return char.imageSocial;
+          if (variant === 'BIO_FUEL' && char.imageBio) return char.imageBio;
+          return char.image;
+        };
+        
+        // Get variant-specific ability for a character
+        const getDriverAbility = (char: typeof CHARACTERS[0]) => {
+          if (variant === 'SOCIAL_OVERDRIVE' && char.socialAbility) return char.socialAbility;
+          if (variant === 'BIO_FUEL' && char.bioAbility) return char.bioAbility;
+          return char.ability;
+        };
+        
+        // Handle random driver selection
+        const handleRandomDriver = () => {
+          if (myDriverConfirmed) return;
+          const takenDrivers = mpPlayers
+            .filter(p => p.socketId !== socket?.id && p.selectedDriver)
+            .map(p => p.selectedDriver);
+          const availableDrivers = mpAllDrivers.filter(c => !takenDrivers.includes(c.id));
+          if (availableDrivers.length > 0) {
+            const randomDriver = availableDrivers[Math.floor(Math.random() * availableDrivers.length)];
+            handleMpSelectDriver(randomDriver.id);
+          }
+        };
+        
         return (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -4053,12 +4085,31 @@ export default function Game() {
             <div className="text-center mb-4">
               <h2 className="text-4xl font-display font-bold text-white mb-2">CHOOSE YOUR DRIVER</h2>
               <p className="text-muted-foreground">Select your persona for the auction.</p>
+              {abilitiesEnabled && (
+                <p className="text-xs text-blue-400 mt-1">LIMIT BREAK ENABLED - Driver abilities active</p>
+              )}
             </div>
+            
+            {/* Random Select Button */}
+            {!myDriverConfirmed && (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={handleRandomDriver}
+                  className="border-primary/50 text-primary hover:bg-primary/10"
+                  data-testid="button-random-driver"
+                >
+                  <Shuffle size={16} className="mr-2" />
+                  RANDOM
+                </Button>
+              </div>
+            )}
 
             {/* Player Status Row */}
             <div className="flex flex-wrap justify-center gap-3 mb-4">
               {mpPlayers.filter(p => !p.isBot).map(p => {
                 const pDriver = mpAllDrivers.find(c => c.id === p.selectedDriver);
+                const pDriverImage = pDriver ? getDriverImage(pDriver) : null;
                 return (
                   <div 
                     key={p.id}
@@ -4069,8 +4120,8 @@ export default function Game() {
                     )}
                     data-testid={`mp-player-status-${p.id}`}
                   >
-                    {pDriver ? (
-                      <img src={pDriver.image} alt={pDriver.name} className="w-8 h-8 rounded-full object-cover" />
+                    {pDriver && pDriverImage ? (
+                      <img src={pDriverImage} alt={pDriver.name} className="w-8 h-8 rounded-full object-cover" />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
                         <CircleHelp size={16} className="text-zinc-500" />
@@ -4113,10 +4164,15 @@ export default function Game() {
                         isSelected ? "border-primary" : "border-white/10",
                         char.color
                       )}>
-                        <img src={char.image} alt={char.name} className="w-full h-full object-cover" />
+                        <img src={getDriverImage(char)} alt={char.name} className="w-full h-full object-cover" />
                       </div>
                       <h3 className="font-bold text-sm text-white mb-0.5">{char.name}</h3>
                       <p className="text-[10px] text-primary/80 uppercase tracking-wider">{char.title}</p>
+                      {abilitiesEnabled && getDriverAbility(char) && (
+                        <p className="text-[9px] text-blue-400/80 mt-1 line-clamp-2">
+                          {getDriverAbility(char)?.name}
+                        </p>
+                      )}
                       {isTaken && (
                         <span className="text-[10px] text-red-400 mt-1">Taken by {takenBy?.name}</span>
                       )}
@@ -4420,16 +4476,56 @@ export default function Game() {
               )}
             </div>
 
-            <Button onClick={() => {
-              if (isMultiplayer && socket) {
-                socket.emit("player_ready_next");
-                console.log('[Game] Emitted player_ready_next');
-              } else {
-                nextRound();
-              }
-            }} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
-              NEXT ROUND
-            </Button>
+            {isMultiplayer ? (() => {
+              const mpHumanPlayers = displayPlayers.filter(p => !p.isBot && !p.isEliminated);
+              const myAck = mpHumanPlayers.find(p => p.id === myMultiplayerPlayer?.id);
+              const hasAcknowledged = (myAck as any)?.roundEndAcknowledged;
+              const readyCount = mpHumanPlayers.filter(p => (p as any).roundEndAcknowledged).length;
+              
+              return (
+                <div className="space-y-2">
+                  <Button 
+                    onClick={() => {
+                      if (socket && !hasAcknowledged) {
+                        socket.emit("player_ready_next");
+                        console.log('[Game] Emitted player_ready_next');
+                      }
+                    }} 
+                    size="lg" 
+                    className={cn(
+                      "w-full",
+                      hasAcknowledged 
+                        ? "bg-green-600 hover:bg-green-600 text-white" 
+                        : "bg-white text-black hover:bg-zinc-200"
+                    )}
+                    disabled={hasAcknowledged}
+                  >
+                    {hasAcknowledged ? "WAITING FOR OTHERS..." : "NEXT ROUND"}
+                  </Button>
+                  <div className="flex justify-center gap-2">
+                    {mpHumanPlayers.map(p => (
+                      <div 
+                        key={p.id} 
+                        className={cn(
+                          "w-3 h-3 rounded-full transition-colors duration-300",
+                          (p as any).roundEndAcknowledged 
+                            ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" 
+                            : "bg-zinc-700"
+                        )} 
+                        title={`${p.name}: ${(p as any).roundEndAcknowledged ? 'Ready' : 'Waiting'}`} 
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-center text-zinc-500">
+                    {readyCount} / {mpHumanPlayers.length} ready
+                  </p>
+                </div>
+              );
+            })() : (
+              <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
+                NEXT ROUND
+              </Button>
+            )}
             {/* Inline Overlay for Round End Phase */}
              <GameOverlay 
                overlays={overlays}
