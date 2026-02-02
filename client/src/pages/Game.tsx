@@ -3341,7 +3341,7 @@ export default function Game() {
           return (
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-col items-center justify-center max-w-lg mx-auto w-full space-y-6"
+              className="flex flex-col items-center justify-start pt-8 max-w-lg mx-auto w-full space-y-6"
             >
               <div className="text-center space-y-2">
                 <Users className="w-12 h-12 text-primary mx-auto mb-2" />
@@ -3447,7 +3447,7 @@ export default function Game() {
         return (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center justify-center h-[450px] max-w-md mx-auto w-full space-y-8"
+            className="flex flex-col items-center justify-start pt-8 min-h-[450px] max-w-md mx-auto w-full space-y-8"
           >
              <div className="text-center space-y-2">
                <Globe className="w-16 h-16 text-primary mx-auto mb-4" />
