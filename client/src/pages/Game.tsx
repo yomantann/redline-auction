@@ -537,17 +537,11 @@ export default function Game() {
       setOverlays(prev => [...prev, { id, type, message, subMessage, duration }]);
       
       // Play SFX (one per "burst" even if multiple overlays stack)
+      // Do NOT interrupt an in-flight sound; just block new ones briefly.
       if (soundEnabled) {
           const now = Date.now();
           if (now >= sfxBlockUntilRef.current) {
               const pick = SFX_POOL[Math.floor(Math.random() * SFX_POOL.length)];
-              // Stop any currently-playing overlay sound before starting a new burst
-              if (sfxInFlightRef.current) {
-                try {
-                  sfxInFlightRef.current.pause();
-                  sfxInFlightRef.current.currentTime = 0;
-                } catch {}
-              }
 
               const sound = new Audio(pick + `?t=${now}`);
               sound.volume = 0.6;
@@ -556,7 +550,7 @@ export default function Game() {
 
               // Block further overlay SFX for a short window so stacked popups only play once
               sfxLastPlayedAtRef.current = now;
-              sfxBlockUntilRef.current = now + 450;
+              sfxBlockUntilRef.current = now + 650;
           }
       }
       
@@ -812,6 +806,7 @@ export default function Game() {
         if (startTimeRef.current === null) startTimeRef.current = time;
         
         // Calculate deltaTime based on speed (Panic Room = 2x)
+        // Panic Room doubles timer drain speed only (everyone).
         const rawDelta = (time - startTimeRef.current) / 1000;
         const multiplier = activeProtocol === 'PANIC_ROOM' ? 2 : 1;
         
@@ -1232,7 +1227,7 @@ export default function Game() {
         case 'DOUBLE_STAKES': msg = "HIGH STAKES"; sub = "Double Tokens for Winner"; break;
         case 'SYSTEM_FAILURE': msg = "SYSTEM FAILURE"; sub = "HUD Glitches & Timer Scramble"; break;
         case 'OPEN_HAND': msg = "OPEN HAND"; sub = `${getRandomPlayer()} must state they won't bid!`; break;
-        case 'MUTE_PROTOCOL': msg = "SILENCE ENFORCED"; sub = "All players must remain silent!"; break;
+        case 'MUTE_PROTOCOL': msg = "MUTE PROTOCOL"; sub = "All players must remain silent!"; break;
         case 'PRIVATE_CHANNEL': 
             const [p1, p2] = getTwoRandomPlayers();
             msg = "PRIVATE CHANNEL"; sub = `${p1} & ${p2} discuss strategy now!`; 
@@ -2616,7 +2611,7 @@ export default function Game() {
                                 subtitle: 'Social & physical constraints',
                                 items: [
                                   { id: 'OPEN_HAND', label: 'OPEN HAND', desc: 'Player forced to reveal plan' },
-                                  { id: 'MUTE_PROTOCOL', label: 'SILENCE ENFORCED', desc: 'Silence required' },
+                                  { id: 'MUTE_PROTOCOL', label: 'MUTE PROTOCOL', desc: 'Silence required' },
                                   { id: 'NO_LOOK', label: 'BLIND BIDDING', desc: 'Cannot look at screen' },
                                 ]
                               },
