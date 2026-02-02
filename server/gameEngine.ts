@@ -189,7 +189,8 @@ function startBidding(lobbyCode: string) {
   game.phase = 'bidding';
   game.roundStartTime = Date.now();
   
-  // All non-eliminated players start holding
+  // All non-eliminated players start holding (bots and humans)
+  // Human players must hold button down to keep holding, or click to release
   game.players.forEach(p => {
     if (!p.isEliminated) {
       p.isHolding = true;

@@ -1180,22 +1180,21 @@ export default function Game() {
   }, [activeProtocol, selectedCharacter?.id]);
 
 
-  // User Interactions
+  // User Interactions - Button Down
   const handlePress = () => {
     if (isMultiplayer && socket) {
       // Multiplayer: emit button press to server
       const currentPhase = multiplayerGameState?.phase || phase;
       
       if (currentPhase === 'countdown') {
-        // During countdown, press to indicate ready
+        // During countdown, press to indicate ready (start holding)
         socket.emit("player_press");
         console.log('[Game] Emitted player_press (countdown ready)');
       } else if (currentPhase === 'bidding') {
-        // During bidding, press to release/lock in bid
-        if (currentPlayerIsHolding) {
-          socket.emit("player_release");
-          console.log('[Game] Emitted player_release (lock in bid)');
-        }
+        // During bidding, button down means continue holding (confirm)
+        // Server already auto-starts holding, so press does nothing during bidding
+        // The actual release is on button up
+        console.log('[Game] Button down during bidding - holding');
       }
       return;
     }
@@ -1326,15 +1325,24 @@ export default function Game() {
       return getPenalty();
   };
 
+  // User Interactions - Button Up
   const handleRelease = () => {
     if (isMultiplayer && socket) {
-      // During countdown, releasing means not ready
       const currentPhase = multiplayerGameState?.phase || phase;
-      if (currentPhase === 'countdown' && currentPlayerIsHolding) {
-        socket.emit("player_release");
-        console.log('[Game] Emitted player_release (countdown cancel)');
+      
+      if (currentPhase === 'countdown') {
+        // During countdown, releasing means not ready
+        if (currentPlayerIsHolding) {
+          socket.emit("player_release");
+          console.log('[Game] Emitted player_release (countdown cancel)');
+        }
+      } else if (currentPhase === 'bidding') {
+        // During bidding, button up means lock in bid
+        if (currentPlayerIsHolding) {
+          socket.emit("player_release");
+          console.log('[Game] Emitted player_release (lock in bid)');
+        }
       }
-      // During bidding, releasing does nothing - must click to lock in
       return;
     }
     

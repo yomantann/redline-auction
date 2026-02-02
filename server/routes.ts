@@ -279,10 +279,10 @@ export async function registerRoutes(
         return;
       }
       
-      // Need at least 2 ready players
+      // Need at least 1 ready player (bots will fill the rest)
       const readyPlayers = lobby.players.filter(p => p.isReady);
-      if (readyPlayers.length < 2) {
-        if (callback) callback({ success: false, error: "Need at least 2 ready players" });
+      if (readyPlayers.length < 1) {
+        if (callback) callback({ success: false, error: "Need at least 1 ready player" });
         return;
       }
       
