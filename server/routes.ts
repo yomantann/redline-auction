@@ -280,6 +280,42 @@ export async function registerRoutes(
       if (callback) callback({ success: true });
     });
 
+    // UPDATE LOBBY SETTINGS (host only)
+    socket.on("update_lobby_settings", (data: { settings: Partial<GameSettings> }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      
+      const lobby = lobbies.get(lobbyCode);
+      if (!lobby) {
+        if (callback) callback({ success: false, error: "Lobby not found" });
+        return;
+      }
+      
+      // Only host can update settings
+      if (lobby.hostSocketId !== socket.id) {
+        if (callback) callback({ success: false, error: "Only host can update settings" });
+        return;
+      }
+      
+      // Map client duration to server duration if provided
+      const newSettings = { ...data.settings };
+      if (newSettings.gameDuration) {
+        newSettings.gameDuration = mapDuration(newSettings.gameDuration);
+      }
+      
+      // Merge new settings
+      lobby.settings = { ...lobby.settings, ...newSettings };
+      
+      log(`Lobby ${lobbyCode} settings updated by host`, "lobby");
+      
+      broadcastLobbyUpdate(lobbyCode);
+      
+      if (callback) callback({ success: true });
+    });
+
     // PLAYER READY TOGGLE
     socket.on("toggle_ready", (callback?) => {
       const lobbyCode = playerToLobby.get(socket.id);

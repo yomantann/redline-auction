@@ -1388,13 +1388,32 @@ export default function Game() {
         socket.emit("player_press");
         console.log('[Game] Emitted player_press (waiting - ready)');
       } else if (currentPhase === 'countdown') {
-        // During countdown, press to continue holding
-        socket.emit("player_press");
-        console.log('[Game] Emitted player_press (countdown)');
+        // During countdown, clicking while holding means RELEASE (PC toggle behavior)
+        if (currentPlayerIsHolding) {
+          socket.emit("player_release");
+          console.log('[Game] Emitted player_release (countdown - click to release)');
+          
+          // Show penalty toast (server applies penalty)
+          const penalty = multiplayerGameState?.minBid || 2.0;
+          toast({
+            title: "EARLY RELEASE",
+            description: `Released before start! -${penalty.toFixed(1)}s penalty applied.`,
+            variant: "destructive",
+            duration: 3000
+          });
+        } else {
+          // Not holding, start holding
+          socket.emit("player_press");
+          console.log('[Game] Emitted player_press (countdown - start holding)');
+        }
       } else if (currentPhase === 'bidding') {
-        // During bidding, button down means continue holding (confirm)
-        // Server already auto-starts holding, so press does nothing during bidding
-        console.log('[Game] Button down during bidding - holding');
+        // During bidding, clicking while holding means RELEASE/lock in bid (PC toggle behavior)
+        if (currentPlayerIsHolding) {
+          socket.emit("player_release");
+          console.log('[Game] Emitted player_release (bidding - click to lock in)');
+        } else {
+          console.log('[Game] Button down during bidding - already released');
+        }
       }
       return;
     }
@@ -1536,27 +1555,11 @@ export default function Game() {
           socket.emit("player_release");
           console.log('[Game] Emitted player_release (waiting - not ready)');
         }
-      } else if (currentPhase === 'countdown') {
-        // During countdown, releasing means abandon round with penalty
-        if (currentPlayerIsHolding) {
-          socket.emit("player_release");
-          console.log('[Game] Emitted player_release (countdown cancel)');
-          
-          // Show penalty toast immediately (server applies penalty)
-          const penalty = multiplayerGameState?.minBid || 2.0;
-          toast({
-            title: "EARLY RELEASE",
-            description: `Released before start! -${penalty.toFixed(1)}s penalty applied.`,
-            variant: "destructive",
-            duration: 3000
-          });
-        }
-      } else if (currentPhase === 'bidding') {
-        // During bidding, button up means lock in bid
-        if (currentPlayerIsHolding) {
-          socket.emit("player_release");
-          console.log('[Game] Emitted player_release (lock in bid)');
-        }
+      } else if (currentPhase === 'countdown' || currentPhase === 'bidding') {
+        // PC behavior: During countdown/bidding, mouse-up does NOT release
+        // Player must CLICK (handlePress) to release/lock in bid
+        // This prevents accidental releases when lifting mouse button
+        console.log(`[Game] Mouse up during ${currentPhase} - ignoring (use click to release)`);
       }
       return;
     }
@@ -3068,6 +3071,27 @@ export default function Game() {
       console.log('[Lobby] Driver selected:', response.driverId);
     });
   }, [socket]);
+
+  // Sync lobby settings when host changes them
+  useEffect(() => {
+    if (!socket || !currentLobby) return;
+    // Only host can update settings
+    if (socket.id !== currentLobby.hostSocketId) return;
+    
+    // Map local gameDuration to server format
+    const serverDuration = gameDuration === 'short' ? 'sprint' : gameDuration;
+    
+    socket.emit("update_lobby_settings", { 
+      settings: {
+        difficulty,
+        protocolsEnabled,
+        abilitiesEnabled,
+        variant,
+        gameDuration: serverDuration
+      }
+    });
+    console.log('[Lobby] Settings updated:', { difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
+  }, [socket, currentLobby, difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration]);
 
   const handleStartMultiplayerGame = useCallback(() => {
     if (!socket) return;
@@ -5308,14 +5332,26 @@ export default function Game() {
             </h3>
             <div className="flex-1 overflow-y-auto space-y-2 font-mono text-xs text-zinc-500 custom-scrollbar">
               {(() => {
-                const allLogs = isMultiplayer && multiplayerGameState?.gameLog 
-                  ? multiplayerGameState.gameLog.map(l => l.message)
-                  : roundLog;
+                // Get logs with type information for filtering
+                const mpLogs = isMultiplayer && multiplayerGameState?.gameLog 
+                  ? multiplayerGameState.gameLog : [];
+                const spLogs = !isMultiplayer ? roundLog : [];
+                
                 // Filter logs: show only important ones unless showAllLogs is true
-                const logs = showAllLogs ? allLogs : allLogs.filter(log => 
-                  log.includes('>>') || log.includes('ROUND') || log.includes('WINNER') || 
-                  log.includes('PROTOCOL') || log.includes('ELIMINATED') || log.includes('TOKEN')
-                );
+                // Basic mode shows: wins, eliminations, protocols, abilities - not individual bids
+                let logs: string[] = [];
+                if (isMultiplayer && mpLogs.length > 0) {
+                  const filtered = showAllLogs ? mpLogs : mpLogs.filter(log => 
+                    log.type === 'win' || log.type === 'elimination' || 
+                    log.type === 'protocol' || log.type === 'ability'
+                  );
+                  logs = filtered.map(l => l.message);
+                } else {
+                  logs = showAllLogs ? spLogs : spLogs.filter(log => 
+                    log.includes('>>') || log.includes('ROUND') || log.includes('WINNER') || 
+                    log.includes('PROTOCOL') || log.includes('ELIMINATED') || log.includes('TOKEN')
+                  );
+                }
                 if (logs.length === 0) return <p className="italic opacity-50">Game started...</p>;
                 return logs.map((log, i) => (
                   <div key={i} className="border-b border-white/5 pb-1 mb-1 last:border-0">{log}</div>

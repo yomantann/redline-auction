@@ -143,6 +143,7 @@ export interface GamePlayer {
   totalTimeBid: number;
   roundImpact?: { type: string; value: number; source: string };
   abilityUsed: boolean;
+  penaltyAppliedThisRound?: boolean; // Track if penalty was already applied this round
 }
 
 export interface GameLogEntry {
@@ -975,6 +976,7 @@ function startWaitingForReady(lobbyCode: string) {
       p.currentBid = null;
       p.roundImpact = undefined;
       p.abilityUsed = false;
+      p.penaltyAppliedThisRound = false;
     }
     // Reset round end acknowledgment for all players (human and bot)
     (p as any).roundEndAcknowledged = p.isBot ? true : false;
@@ -1090,13 +1092,21 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     return;
   }
   
-  // During countdown: releasing means abandoning this round with penalty
+  // During countdown: releasing means abandoning this round with penalty (once per round)
   if (game.phase === 'countdown') {
     player.isHolding = false;
+    
+    // Only apply penalty once per round
+    if (player.penaltyAppliedThisRound) {
+      log(`${player.name} already received penalty this round, no additional penalty`, "game");
+      broadcastGameState(lobbyCode);
+      return;
+    }
     
     // Apply penalty based on game pace
     const penalty = getMinBidPenalty(game.gameDuration);
     player.remainingTime -= penalty;
+    player.penaltyAppliedThisRound = true;
     
     // Track penalty as negative bid for display in bid history
     player.currentBid = -penalty;
