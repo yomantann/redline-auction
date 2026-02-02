@@ -16,7 +16,7 @@ interface Player {
   isHolding?: boolean; // Added for Peek Logic
   roundImpact?: string; // New field for limit break impact
   impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // Structured logs
-  totalImpactReceived?: number;
+  netImpact?: number; // Net of all positive and negative impacts
 }
 
 interface PlayerStatsProps {
@@ -105,10 +105,20 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
               </span>
             )}
           </div>
-          {/* IMPACT TAKEN BADGE - New */}
-          {(player.totalImpactReceived ?? 0) > 0 && (
-              <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-950/40 border border-red-500/20" title="Total Impact Taken">
-                  <span className="text-[9px] text-red-400 font-mono font-bold">-{(player.totalImpactReceived ?? 0).toFixed(1)}s</span>
+          {/* NET IMPACT BADGE */}
+          {(player.netImpact ?? 0) !== 0 && (
+              <div className={cn(
+                "flex items-center gap-0.5 px-1.5 py-0.5 rounded border",
+                (player.netImpact ?? 0) > 0 
+                  ? "bg-emerald-950/40 border-emerald-500/20" 
+                  : "bg-red-950/40 border-red-500/20"
+              )} title="Net Impact">
+                  <span className={cn(
+                    "text-[9px] font-mono font-bold",
+                    (player.netImpact ?? 0) > 0 ? "text-emerald-400" : "text-red-400"
+                  )}>
+                    {(player.netImpact ?? 0) > 0 ? '+' : ''}{(player.netImpact ?? 0).toFixed(1)}s
+                  </span>
               </div>
           )}
         </div>

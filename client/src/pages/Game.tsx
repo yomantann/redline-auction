@@ -222,8 +222,7 @@ interface Player {
   roundEndAcknowledged?: boolean; // For next round acknowledgment
   // Stats
   totalTimeBid: number;
-  totalImpactGiven: number;
-  totalImpactReceived: number; // NEW: Track damage taken from enemy abilities
+  netImpact: number; // Net of all positive and negative impacts throughout the game
   specialEvents: string[];
   eventDatabasePopups: string[]; // NEW: Track Event DB Popups
   protocolsTriggered: string[];
@@ -661,19 +660,19 @@ export default function Game() {
   const [players, setPlayers] = useState<Player[]>([
     { 
         id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false,
-        totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0 
+        totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0 
     },
     { 
         id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
-        totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
+        totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
     },
     { 
         id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
-        totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
+        totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
     },
     { 
         id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
-        totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
+        totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
     },
   ]);
 
@@ -1917,13 +1916,14 @@ export default function Game() {
     // A. CALCULATE INTERMEDIATE TIMES (Bids + Penalties + Standard Disruptions)
     let tempPlayersState = players.map(p => {
         // EVEN ELIMINATED PLAYERS should be processed if needed for history, but typically we return them as is.
-        if (p.isEliminated) return { ...p, roundImpact: "", impactLogs: undefined };
+        if (p.isEliminated) return { ...p, roundImpact: "", impactLogs: undefined, roundNetImpactNum: 0 };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
         let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
+        let roundNetImpactNum = 0; // Track numeric impact from abilities/protocols (not bids)
 
-        // Bid Deduction (Only if bid exists)
+        // Bid Deduction (Only if bid exists) - NOT tracked in netImpact (player choice)
         if (p.currentBid !== null && p.currentBid > 0) {
              const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
              const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
@@ -1936,15 +1936,16 @@ export default function Game() {
              }
         }
 
-        // Pending Penalties (Applied regardless of bid)
+        // Pending Penalties (Applied regardless of bid) - tracked in netImpact
         const pending = pendingPenalties[p.id] || 0;
         if (pending > 0) {
             newTime -= pending;
+            roundNetImpactNum -= pending;
             roundImpact += ` -${pending}s (Penalty)`;
             impactLogs.push({ value: `-${pending.toFixed(1)}s`, reason: "Penalty", type: 'loss' });
         }
 
-        // Apply Standard Disruptions (Manager Call, Burn It)
+        // Apply Standard Disruptions (Manager Call, Burn It) - tracked in netImpact
         // Fire Wall BLOCKS PROTOCOLS but NOT DISRUPTIONS (Abilities) per user request.
         // Roll Safe BLOCKS ALL.
         
@@ -1952,12 +1953,13 @@ export default function Game() {
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
+                roundNetImpactNum -= d.amount;
                 roundImpact += ` -${d.amount}s (${d.ability})`;
                 impactLogs.push({ value: `-${d.amount.toFixed(1)}s`, reason: d.ability, type: 'loss' });
             });
         }
 
-        return { ...p, remainingTime: newTime, roundImpact, impactLogs };
+        return { ...p, remainingTime: newTime, roundImpact, impactLogs, roundNetImpactNum };
     });
 
     // B. EXECUTIVE P (AXE SWING) LOGIC - After standard calcs
@@ -2034,6 +2036,7 @@ export default function Game() {
                     const targetIdx = tempPlayersState.findIndex(t => t.id === target.id);
                     if (targetIdx >= 0) {
                         tempPlayersState[targetIdx].remainingTime -= 2.0;
+                        tempPlayersState[targetIdx].roundNetImpactNum = (tempPlayersState[targetIdx].roundNetImpactNum || 0) - 2.0;
                         tempPlayersState[targetIdx].roundImpact += " -2.0s (Axe Swing)";
                         if (tempPlayersState[targetIdx].impactLogs) {
                              tempPlayersState[targetIdx].impactLogs!.push({ value: "-2.0s", reason: "Axe Swing", type: 'loss' });
@@ -2054,6 +2057,7 @@ export default function Game() {
         let newTime = p.remainingTime;
         let roundImpact = p.roundImpact || ""; // Ensure string
         let impactLogs = [...(p.impactLogs || [])];
+        let roundNetImpactNum = p.roundNetImpactNum || 0; // Carry forward from previous steps
         let selfGain = 0;
         
         const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
@@ -2072,6 +2076,7 @@ export default function Game() {
             
             if (refund !== 0) {
                 newTime += refund;
+                roundNetImpactNum += refund;
                 roundImpact += ` ${refund > 0 ? '+' : ''}${refund}s (${ab.name})`;
                 impactLogs.push({ value: `${refund > 0 ? '+' : ''}${refund.toFixed(1)}s`, reason: ab.name, type: refund > 0 ? 'gain' : 'loss' });
                 selfGain += refund;
@@ -2089,7 +2094,8 @@ export default function Game() {
             isEliminated: isEliminatedNow,
             roundImpact: roundImpact,
             impactLogs: impactLogs,
-            selfGain: selfGain
+            selfGain: selfGain,
+            roundNetImpactNum: roundNetImpactNum
         };
     });
 
@@ -2158,6 +2164,7 @@ export default function Game() {
         let newTime = p.remainingTime;
         let impact = p.roundImpact || "";
         let impactLogs = [...(p.impactLogs || [])];
+        let roundNetImpactNum = p.roundNetImpactNum || 0; // Carry forward from earlier processing
 
         if (p.id === winnerId) {
              let tokensToAdd = 1;
@@ -2185,6 +2192,7 @@ export default function Game() {
 
                     if (refund > 0) {
                         newTime += refund;
+                        roundNetImpactNum += refund;
                         impact += ` +${refund}s (${ab.name})`;
                         impactLogs.push({ value: `+${refund.toFixed(1)}s`, reason: ab.name, type: 'gain' });
                         newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TIME_REFUND', impactValue: `+${refund}s` });
@@ -2244,13 +2252,14 @@ export default function Game() {
              const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
              if (playerChar?.ability?.name === 'CHEESE TAX') {
                  newTime += 2.0;
+                 roundNetImpactNum += 2.0;
                  impact += " +2.0s (Cheese Tax)";
                  impactLogs.push({ value: "+2.0s", reason: "Cheese Tax", type: 'gain' });
                  newAbilities.push({ playerId: p.id, ability: 'CHEESE TAX', effect: 'DISRUPT', targetId: winnerId, impactValue: "Steal 2s" });
              }
         }
-
-        return { ...p, tokens: newTokens, remainingTime: newTime, roundImpact: impact, impactLogs: impactLogs };
+        
+        return { ...p, tokens: newTokens, remainingTime: newTime, roundImpact: impact, impactLogs: impactLogs, netImpact: (p.netImpact || 0) + roundNetImpactNum };
     });
 
     // 6. APPLY CHEESE TAX DAMAGE TO WINNER (Post-Processing)
@@ -2265,6 +2274,7 @@ export default function Game() {
                      
                      if (w && w.id !== rollSafeId) {
                          w.remainingTime = Math.max(0, w.remainingTime - 2.0);
+                         w.netImpact = (w.netImpact || 0) - 2.0; // Track cheese tax damage received
                          w.roundImpact = (w.roundImpact || "") + " -2.0s (Cheese Tax)";
                          if (w.impactLogs) w.impactLogs.push({ value: "-2.0s", reason: "Cheese Tax", type: 'loss' });
                          
@@ -2979,8 +2989,7 @@ export default function Game() {
         currentBid: mp.currentBid,
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,
-        totalImpactGiven: mp.roundImpact?.value && mp.roundImpact.value > 0 ? mp.roundImpact.value : 0,
-        totalImpactReceived: mp.roundImpact?.value && mp.roundImpact.value < 0 ? Math.abs(mp.roundImpact.value) : 0,
+        netImpact: (mp as any).netImpact || 0,
         roundImpact: mp.roundImpact ? `${mp.roundImpact.value > 0 ? '+' : ''}${mp.roundImpact.value.toFixed(1)}s (${mp.roundImpact.source})` : undefined,
         specialEvents: [],
         eventDatabasePopups: [],
@@ -3205,19 +3214,19 @@ export default function Game() {
      setPlayers([
         { 
             id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false,
-            totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
         },
         { 
             id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
-            totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
         },
         { 
             id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
-            totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
         },
         { 
             id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
-            totalTimeBid: 0, totalImpactGiven: 0, totalImpactReceived: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
+            totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
         },
      ]);
   };
@@ -4787,18 +4796,21 @@ export default function Game() {
                          <span className="font-bold text-lg">{p.name}</span>
                      </div>
                    
-                   <div className="grid grid-cols-3 gap-2 text-xs">
+                   <div className="grid grid-cols-2 gap-2 text-xs">
                        <div className="bg-black/20 p-2 rounded">
                            <div className="text-zinc-500">Time Left</div>
                            <div className="font-mono text-white">{formatTime(p.remainingTime)}</div>
                        </div>
-                       <div className="bg-emerald-950/30 p-2 rounded border border-emerald-500/20">
-                           <div className="text-emerald-400/70">Impact Given</div>
-                           <div className="font-mono text-emerald-300">+{p.totalImpactGiven?.toFixed(1) || '0.0'}s</div>
-                       </div>
-                       <div className="bg-red-950/30 p-2 rounded border border-red-500/20">
-                           <div className="text-red-400/70">Impact Taken</div>
-                           <div className="font-mono text-red-300">-{p.totalImpactReceived?.toFixed(1) || '0.0'}s</div>
+                       <div className={cn(
+                         "p-2 rounded border",
+                         (p.netImpact ?? 0) >= 0 
+                           ? "bg-emerald-950/30 border-emerald-500/20" 
+                           : "bg-red-950/30 border-red-500/20"
+                       )}>
+                           <div className={(p.netImpact ?? 0) >= 0 ? "text-emerald-400/70" : "text-red-400/70"}>Net Impact</div>
+                           <div className={cn("font-mono", (p.netImpact ?? 0) >= 0 ? "text-emerald-300" : "text-red-300")}>
+                             {(p.netImpact ?? 0) >= 0 ? '+' : ''}{(p.netImpact ?? 0).toFixed(1)}s
+                           </div>
                        </div>
                    </div>
                    
@@ -5362,13 +5374,16 @@ export default function Game() {
                                 })()}
                             </div>
                         </div>
-                        <div className="bg-black/30 p-3 rounded">
-                            <div className="text-[10px] text-zinc-500 uppercase">Impact Given</div>
-                            <div className="text-sm font-mono text-zinc-300">{selectedPlayerStats?.totalImpactGiven?.toFixed(1)}s</div>
-                        </div>
-                        <div className="bg-black/30 p-3 rounded">
-                            <div className="text-[10px] text-zinc-500 uppercase">Impact Taken</div>
-                            <div className="text-sm font-mono text-zinc-300">-{selectedPlayerStats?.totalImpactReceived?.toFixed(1) || '0.0'}s</div>
+                        <div className={cn(
+                          "p-3 rounded",
+                          (selectedPlayerStats?.netImpact ?? 0) >= 0 
+                            ? "bg-emerald-950/30 border border-emerald-500/20" 
+                            : "bg-red-950/30 border border-red-500/20"
+                        )}>
+                            <div className="text-[10px] text-zinc-500 uppercase">Net Impact</div>
+                            <div className={cn("text-sm font-mono", (selectedPlayerStats?.netImpact ?? 0) >= 0 ? "text-emerald-300" : "text-red-300")}>
+                              {(selectedPlayerStats?.netImpact ?? 0) >= 0 ? '+' : ''}{(selectedPlayerStats?.netImpact ?? 0).toFixed(1)}s
+                            </div>
                         </div>
                     </div>
                 )}
@@ -5417,7 +5432,7 @@ export default function Game() {
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end' && !isMultiplayer) {
                          // Mask all stats
-                         setSelectedPlayerStats({...p, remainingTime: -1, tokens: -1, totalImpactGiven: -1}); 
+                         setSelectedPlayerStats({...p, remainingTime: -1, tokens: -1, netImpact: 0}); 
                     } else {
                          setSelectedPlayerStats(p);
                     }

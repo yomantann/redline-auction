@@ -142,6 +142,7 @@ export interface GamePlayer {
   // Round statistics
   totalTimeBid: number;
   roundImpact?: { type: string; value: number; source: string };
+  netImpact: number; // Cumulative time impact from abilities/protocols (not bids)
   abilityUsed: boolean;
   penaltyAppliedThisRound?: boolean; // Track if penalty was already applied this round
 }
@@ -236,6 +237,7 @@ export function createGame(
     currentBid: null,
     isHolding: false,
     totalTimeBid: 0,
+    netImpact: 0,
     abilityUsed: false,
   }));
   
@@ -255,6 +257,7 @@ export function createGame(
       currentBid: null,
       isHolding: false,
       totalTimeBid: 0,
+      netImpact: 0,
       abilityUsed: false,
     });
     botIndex++;
@@ -674,6 +677,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
       case 'TIME_REFUND':
         if (refundAmount !== 0) {
           player.remainingTime += refundAmount;
+          player.netImpact += refundAmount; // Accumulate into total
           player.roundImpact = { type: 'REFUND', value: refundAmount, source: ability.name };
           abilityImpacts.push({
             playerId: player.id,
@@ -727,6 +731,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
               // Burn It: affects all others
               targets.forEach(t => {
                 t.remainingTime += refundAmount;
+                t.netImpact += refundAmount; // Accumulate into total
                 t.roundImpact = { type: 'DISRUPT', value: refundAmount, source: ability.name };
                 abilityImpacts.push({
                   playerId: player.id,
@@ -755,11 +760,14 @@ function processAbilities(game: GameState, winnerId: string | null) {
             // For Cheese Tax (LOSE trigger), we ADD to self and REMOVE from target
             if (player.selectedDriver === 'rat') {
               player.remainingTime += Math.abs(refundAmount);
+              player.netImpact += Math.abs(refundAmount); // Accumulate into total
               player.roundImpact = { type: 'STEAL', value: Math.abs(refundAmount), source: ability.name };
               target.remainingTime -= Math.abs(refundAmount);
+              target.netImpact -= Math.abs(refundAmount); // Accumulate into total
               target.roundImpact = { type: 'STOLEN', value: -Math.abs(refundAmount), source: ability.name };
             } else {
               target.remainingTime += refundAmount; // negative value
+              target.netImpact += refundAmount; // Accumulate into total (negative)
               target.roundImpact = { type: 'DISRUPT', value: refundAmount, source: ability.name };
             }
             
@@ -848,6 +856,7 @@ function endRound(lobbyCode: string) {
     game.players.forEach(p => {
       if (!p.isEliminated && p.remainingTime > 0) {
         p.remainingTime = Math.max(0, p.remainingTime - 10);
+        p.netImpact -= 10; // Track protocol impact
         if (p.remainingTime === 0) {
           p.isEliminated = true;
           if (!game.eliminatedThisRound.includes(p.id)) {
@@ -1308,6 +1317,7 @@ function broadcastGameState(lobbyCode: string) {
       isHolding: p.isHolding,
       roundEndAcknowledged: (p as any).roundEndAcknowledged || false,
       roundImpact: p.roundImpact,
+      netImpact: p.netImpact,
       abilityUsed: p.abilityUsed,
     })),
     roundWinner: game.roundWinner,
