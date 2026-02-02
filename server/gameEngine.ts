@@ -35,7 +35,7 @@ export interface GameState {
   players: GamePlayer[];
   round: number;
   totalRounds: number;
-  phase: 'countdown' | 'bidding' | 'round_end' | 'game_over';
+  phase: 'waiting_for_ready' | 'countdown' | 'bidding' | 'round_end' | 'game_over';
   roundStartTime: number | null;
   countdownRemaining: number;
   gameDuration: GameDuration;
@@ -117,7 +117,7 @@ export function createGame(
     players: gamePlayers,
     round: 1,
     totalRounds,
-    phase: 'countdown',
+    phase: 'waiting_for_ready', // Start in waiting phase - humans must hold button
     roundStartTime: null,
     countdownRemaining: COUNTDOWN_SECONDS,
     gameDuration: duration,
@@ -137,7 +137,8 @@ export function startGame(lobbyCode: string) {
   if (!game) return;
   
   log(`Starting game for lobby ${lobbyCode}`, "game");
-  startCountdown(lobbyCode);
+  // Start in waiting_for_ready phase - players must hold button
+  startWaitingForReady(lobbyCode);
 }
 
 function startCountdown(lobbyCode: string) {
@@ -335,12 +336,55 @@ function endRound(lobbyCode: string) {
   if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
     setTimeout(() => endGame(lobbyCode), 3000);
   } else {
-    // Start next round after delay
+    // Start next round after delay - go to waiting_for_ready phase
     setTimeout(() => {
       game.round++;
-      startCountdown(lobbyCode);
+      startWaitingForReady(lobbyCode);
     }, 3000);
   }
+}
+
+// Start the waiting_for_ready phase (used for each round)
+function startWaitingForReady(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
+  
+  game.phase = 'waiting_for_ready';
+  game.roundWinner = null;
+  game.eliminatedThisRound = [];
+  
+  // Reset all player holding/bid status for new round
+  game.players.forEach(p => {
+    if (!p.isEliminated) {
+      p.isHolding = false;
+      p.currentBid = null;
+    }
+  });
+  
+  broadcastGameState(lobbyCode);
+  
+  log(`Round ${game.round} waiting for ready in lobby ${lobbyCode}`, "game");
+  
+  // Check periodically if all humans are ready
+  const readyCheckInterval = setInterval(() => {
+    const g = activeGames.get(lobbyCode);
+    if (!g || g.phase !== 'waiting_for_ready') {
+      clearInterval(readyCheckInterval);
+      return;
+    }
+    
+    // Check if all non-eliminated human players are holding
+    const humanPlayers = g.players.filter(p => !p.isBot && !p.isEliminated);
+    const allHumansHolding = humanPlayers.every(p => p.isHolding);
+    
+    if (allHumansHolding && humanPlayers.length > 0) {
+      clearInterval(readyCheckInterval);
+      log(`All human players ready in lobby ${lobbyCode}, starting countdown`, "game");
+      startCountdown(lobbyCode);
+    }
+  }, 100);
+  
+  gameIntervals.set(`${lobbyCode}_ready_check`, readyCheckInterval);
 }
 
 function endGame(lobbyCode: string) {
@@ -371,10 +415,18 @@ export function playerPressBid(lobbyCode: string, socketId: string) {
   const player = game.players.find(p => p.socketId === socketId);
   if (!player || player.isEliminated) return;
   
-  // During countdown: player is indicating they're ready
+  // During waiting_for_ready phase: player is pressing to indicate ready
+  if (game.phase === 'waiting_for_ready') {
+    player.isHolding = true;
+    log(`${player.name} pressed (ready) during waiting phase in lobby ${lobbyCode}`, "game");
+    broadcastGameState(lobbyCode);
+    return;
+  }
+  
+  // During countdown: player continues holding
   if (game.phase === 'countdown') {
     player.isHolding = true;
-    log(`${player.name} pressed (ready) during countdown in lobby ${lobbyCode}`, "game");
+    log(`${player.name} pressed during countdown in lobby ${lobbyCode}`, "game");
     broadcastGameState(lobbyCode);
     return;
   }
@@ -393,10 +445,18 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
   const player = game.players.find(p => p.socketId === socketId);
   if (!player || player.isEliminated) return;
   
-  // During countdown: releasing means not ready/abandoning
+  // During waiting_for_ready: releasing means not ready
+  if (game.phase === 'waiting_for_ready') {
+    player.isHolding = false;
+    log(`${player.name} released (not ready) during waiting phase in lobby ${lobbyCode}`, "game");
+    broadcastGameState(lobbyCode);
+    return;
+  }
+  
+  // During countdown: releasing means abandoning this round
   if (game.phase === 'countdown') {
     player.isHolding = false;
-    log(`${player.name} released (not ready) during countdown in lobby ${lobbyCode}`, "game");
+    log(`${player.name} released during countdown in lobby ${lobbyCode}`, "game");
     broadcastGameState(lobbyCode);
     return;
   }
@@ -444,12 +504,15 @@ export function cleanupGame(lobbyCode: string) {
 }
 
 function clearGameIntervals(lobbyCode: string) {
+  const readyCheckInterval = gameIntervals.get(`${lobbyCode}_ready_check`);
   const countdownInterval = gameIntervals.get(`${lobbyCode}_countdown`);
   const biddingInterval = gameIntervals.get(`${lobbyCode}_bidding`);
   
+  if (readyCheckInterval) clearInterval(readyCheckInterval);
   if (countdownInterval) clearInterval(countdownInterval);
   if (biddingInterval) clearInterval(biddingInterval);
   
+  gameIntervals.delete(`${lobbyCode}_ready_check`);
   gameIntervals.delete(`${lobbyCode}_countdown`);
   gameIntervals.delete(`${lobbyCode}_bidding`);
 }

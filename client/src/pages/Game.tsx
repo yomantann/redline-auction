@@ -759,7 +759,7 @@ export default function Game() {
   const [multiplayerGameState, setMultiplayerGameState] = useState<{
     round: number;
     totalRounds: number;
-    phase: 'countdown' | 'bidding' | 'round_end' | 'game_over';
+    phase: 'waiting_for_ready' | 'countdown' | 'bidding' | 'round_end' | 'game_over';
     countdownRemaining: number;
     elapsedTime: number;
     players: Array<{
@@ -1186,14 +1186,17 @@ export default function Game() {
       // Multiplayer: emit button press to server
       const currentPhase = multiplayerGameState?.phase || phase;
       
-      if (currentPhase === 'countdown') {
-        // During countdown, press to indicate ready (start holding)
+      if (currentPhase === 'waiting_for_ready') {
+        // During waiting phase, press to indicate ready
         socket.emit("player_press");
-        console.log('[Game] Emitted player_press (countdown ready)');
+        console.log('[Game] Emitted player_press (waiting - ready)');
+      } else if (currentPhase === 'countdown') {
+        // During countdown, press to continue holding
+        socket.emit("player_press");
+        console.log('[Game] Emitted player_press (countdown)');
       } else if (currentPhase === 'bidding') {
         // During bidding, button down means continue holding (confirm)
         // Server already auto-starts holding, so press does nothing during bidding
-        // The actual release is on button up
         console.log('[Game] Button down during bidding - holding');
       }
       return;
@@ -1330,8 +1333,14 @@ export default function Game() {
     if (isMultiplayer && socket) {
       const currentPhase = multiplayerGameState?.phase || phase;
       
-      if (currentPhase === 'countdown') {
-        // During countdown, releasing means not ready
+      if (currentPhase === 'waiting_for_ready') {
+        // During waiting phase, releasing means not ready
+        if (currentPlayerIsHolding) {
+          socket.emit("player_release");
+          console.log('[Game] Emitted player_release (waiting - not ready)');
+        }
+      } else if (currentPhase === 'countdown') {
+        // During countdown, releasing means abandon round
         if (currentPlayerIsHolding) {
           socket.emit("player_release");
           console.log('[Game] Emitted player_release (countdown cancel)');
@@ -2860,7 +2869,59 @@ export default function Game() {
 
   // Render Helpers
   const renderPhaseContent = () => {
-    switch (phase) {
+    // In multiplayer, use server phase if available
+    const effectivePhase = isMultiplayer && multiplayerGameState?.phase 
+      ? multiplayerGameState.phase 
+      : phase;
+    
+    // Handle multiplayer waiting_for_ready phase
+    if (effectivePhase === 'waiting_for_ready' && isMultiplayer) {
+      const humanPlayers = displayPlayers.filter(p => !p.isBot);
+      const readyPlayers = humanPlayers.filter(p => p.isHolding);
+      
+      return (
+        <div className="flex flex-col items-center justify-center h-[450px]">
+          <div className="h-[100px] flex flex-col items-center justify-center space-y-2">
+            <h2 className="text-3xl font-display">ROUND {multiplayerGameState?.round || 1}</h2>
+            <p className="text-muted-foreground text-sm">Hold button to ready up!</p>
+            <p className="text-xs text-zinc-500 uppercase tracking-widest">
+              {readyPlayers.length} / {humanPlayers.length} PLAYERS READY
+            </p>
+          </div>
+          
+          <div className="h-[280px] flex items-center justify-center">
+            <AuctionButton 
+              onPress={handlePress} 
+              onRelease={handleRelease} 
+              isPressed={currentPlayerIsHolding}
+              showPulse={!currentPlayerIsHolding}
+            />
+          </div>
+          
+          <div className="h-[50px] flex flex-col items-center justify-start gap-2">
+            <div className="flex gap-2">
+              {humanPlayers.map(p => (
+                <div 
+                  key={p.id} 
+                  className={cn(
+                    "w-3 h-3 rounded-full transition-colors duration-300",
+                    p.isHolding ? "bg-primary shadow-[0_0_10px_var(--color-primary)]" : "bg-zinc-800"
+                  )} 
+                  title={p.name} 
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Map multiplayer phases to local phases for rendering
+    const renderPhase = isMultiplayer 
+      ? (effectivePhase === 'round_end' ? 'round_end' : effectivePhase)
+      : phase;
+    
+    switch (renderPhase) {
       case 'intro':
         return (
           <motion.div 
