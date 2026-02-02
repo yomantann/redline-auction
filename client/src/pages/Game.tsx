@@ -563,7 +563,21 @@ export default function Game() {
   };
 
   const removeOverlay = (id: string) => {
-      setOverlays(prev => prev.filter(o => o.id !== id));
+      setOverlays(prev => {
+          const next = prev.filter(o => o.id !== id);
+
+          // If the player is eliminated and they just dismissed the elimination overlay,
+          // allow the game over screen to show.
+          const p1 = players.find(p => p.id === 'p1');
+          const dismissedWasElim = prev.find(o => o.id === id)?.type === 'eliminated' || prev.find(o => o.id === id)?.type === 'time_out';
+          const stillHasElimOverlay = next.some(o => o.type === 'eliminated' || o.type === 'time_out');
+
+          if (p1?.isEliminated && dismissedWasElim && !stillHasElimOverlay) {
+              setPhase('game_end');
+          }
+
+          return next;
+      });
   };
   
   // Compatibility shim for existing code that uses setOverlay({ ... })
@@ -1403,6 +1417,7 @@ export default function Game() {
     const participants = players.filter(p => p.currentBid !== null && p.currentBid > 0);
 
     // Make sure the elimination moment flag shows up for the player if they got eliminated.
+    // (Do NOT auto-dismiss; this must persist until the player clicks it.)
     const p1AtRoundEnd = players.find(p => p.id === 'p1');
     if (p1AtRoundEnd?.isEliminated) {
       addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
@@ -1873,11 +1888,9 @@ export default function Game() {
          // Simulate remaining rounds simply by awarding tokens
          // (kept as-is; does not affect the overlay flow)
 
-         // Keep the elimination overlay visible through the game over screen.
-         // We only transition phase; the overlay stays until dismissed.
-         window.setTimeout(() => {
-           setPhase('game_end');
-         }, 650);
+         // Keep the elimination overlays visible; do NOT auto-transition to game over.
+         // Player must dismiss the elimination overlay(s), then can proceed.
+         setPhase('game_end');
 
          return; // Stop here
     }
