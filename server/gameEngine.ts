@@ -10,6 +10,15 @@ const SHORT_TOTAL_ROUNDS = 9;
 const COUNTDOWN_SECONDS = 3;
 const MIN_PLAYERS = 4;
 
+// Min bid / penalty based on game duration
+function getMinBidPenalty(duration: GameDuration): number {
+  switch (duration) {
+    case 'short': return 1.0;  // Sprint: 1s min bid
+    case 'long': return 4.0;   // Marathon: 4s min bid
+    default: return 2.0;       // Standard: 2s min bid
+  }
+}
+
 // Bot names for auto-fill
 const BOT_NAMES = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta'];
 const BOT_PERSONALITIES = ['aggressive', 'conservative', 'random', 'balanced'] as const;
@@ -466,10 +475,11 @@ function startBidding(lobbyCode: string) {
     
     const elapsed = (Date.now() - (g.roundStartTime || Date.now())) / 1000;
     
-    // Update bids for holding players
+    // Update bids for holding players (include min bid offset)
+    const minBid = getMinBidPenalty(g.gameDuration);
     g.players.forEach(p => {
       if (p.isHolding && !p.isEliminated) {
-        p.currentBid = elapsed;
+        p.currentBid = elapsed + minBid; // Bid starts at min bid value
         
         // Auto-eliminate if bid exceeds remaining time
         if (p.currentBid >= p.remainingTime) {
@@ -1080,10 +1090,40 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     return;
   }
   
-  // During countdown: releasing means abandoning this round
+  // During countdown: releasing means abandoning this round with penalty
   if (game.phase === 'countdown') {
     player.isHolding = false;
-    log(`${player.name} released during countdown in lobby ${lobbyCode}`, "game");
+    
+    // Apply penalty based on game pace
+    const penalty = getMinBidPenalty(game.gameDuration);
+    player.remainingTime -= penalty;
+    
+    // Track as a "failed" bid with penalty
+    player.currentBid = null;
+    
+    addGameLogEntry(game, {
+      type: 'impact',
+      playerId: player.id,
+      playerName: player.name,
+      message: `${player.name} released during countdown: -${penalty.toFixed(1)}s penalty`,
+      value: -penalty,
+    });
+    
+    log(`${player.name} released during countdown in lobby ${lobbyCode}, penalty: -${penalty}s`, "game");
+    
+    // Check for elimination
+    if (player.remainingTime <= 0) {
+      player.remainingTime = 0;
+      player.isEliminated = true;
+      game.eliminatedThisRound.push(player.id);
+      addGameLogEntry(game, {
+        type: 'elimination',
+        playerId: player.id,
+        playerName: player.name,
+        message: `${player.name} was eliminated (countdown penalty)`,
+      });
+    }
+    
     broadcastGameState(lobbyCode);
     return;
   }
@@ -1180,9 +1220,12 @@ function broadcastGameState(lobbyCode: string) {
   if (!game || !emitToLobby) return;
   
   // Calculate elapsed time since round start for bidding phase
-  const elapsedTime = game.roundStartTime && game.phase === 'bidding' 
+  // Add timer offset based on game pace (starts at min bid time, not 0)
+  const minBid = getMinBidPenalty(game.gameDuration);
+  const rawElapsed = game.roundStartTime && game.phase === 'bidding' 
     ? (Date.now() - game.roundStartTime) / 1000 
     : 0;
+  const elapsedTime = rawElapsed + minBid; // Timer starts at min bid value
   
   // Send sanitized game state to all players
   const stateForClients = {
@@ -1213,6 +1256,8 @@ function broadcastGameState(lobbyCode: string) {
     activeProtocol: game.activeProtocol,
     settings: game.settings,
     allHumansHoldingStartTime: game.allHumansHoldingStartTime,
+    gameDuration: game.gameDuration,
+    minBid: minBid,
   };
   
   emitToLobby(lobbyCode, 'game_state', stateForClients);

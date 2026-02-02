@@ -767,6 +767,8 @@ export default function Game() {
     isDoubleTokensRound: boolean;
     molePlayerId: string | null;
     allHumansHoldingStartTime: number | null;
+    gameDuration: 'short' | 'standard' | 'long';
+    minBid: number;
   } | null>(null);
   
   // Socket connection
@@ -3399,7 +3401,7 @@ export default function Game() {
             
             <div className="flex flex-col gap-4 bg-black/40 p-4 rounded-xl border border-white/10 w-full max-w-lg">
               {/* Row 1: Core Toggles (Difficulty / Protocols / Limit Breaks) */}
-              <div className="flex flex-wrap items-center justify-center gap-4">
+              <div className="flex flex-wrap items-center justify-start sm:justify-center gap-4">
                 {/* GAME DIFFICULTY (same behavior as top banner) */}
                 <div className="flex items-center gap-2">
                   <Button 
@@ -4704,8 +4706,8 @@ export default function Game() {
                  <LogOut size={20} />
               </Button>
             )}
-            <img src={logoFuturistic} alt="Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-            <h1 className="font-display font-bold text-xl tracking-wider hidden sm:block">REDLINE AUCTION</h1>
+            <img src={logoFuturistic} alt="Logo" className="h-6 sm:h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+            <h1 className="font-display font-bold text-sm sm:text-xl tracking-wider">REDLINE AUCTION</h1>
             {/* Show lobby code during multiplayer game so others can join */}
             {isMultiplayer && currentLobby && phase !== 'multiplayer_lobby' && (
               <div className="ml-4 flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/30 rounded text-xs">
