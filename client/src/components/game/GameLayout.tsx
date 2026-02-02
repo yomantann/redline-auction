@@ -1,8 +1,8 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import bgStandard from "../../assets/generated_images/bg_standard_redline.png";
-import bgSocial from "../../assets/generated_images/bg_social_overdrive.png";
-import bgBio from "../../assets/generated_images/bg_bio_fuel.png";
+import bgSocial from "../../assets/generated_images/bg_social_overdrive_v2.png";
+import bgBio from "../../assets/generated_images/bg_bio_fuel_v2.png";
 
 type RealityMode = "STANDARD" | "SOCIAL_OVERDRIVE" | "BIO_FUEL";
 

@@ -7,18 +7,18 @@ import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 
-import bioAccuserOption1 from "../assets/generated_images/bio_accuser_goth_new.png";
+import bioAccuserOption1 from "../assets/generated_images/bio_accuser_goth_v2.png";
 import bioPanicBotOption3 from "../assets/generated_images/bio_panic_bot_option3.png";
 
 import socialSadmanOption3 from "../assets/generated_images/social_sadman_option3.png";
 import socialRainbowDashOption1 from "../assets/generated_images/social_rainbow_dash_option1.png";
 import socialGuardianHOption1 from "../assets/generated_images/social_guardian_h_option1.png";
 import socialFrostybyteOption1 from "../assets/generated_images/social_frostybyte_option1.png";
-import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_option1.png";
+import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_v2.png";
 
-import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_option1.png";
-import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_option1.png";
-import socialAccuserOption1 from "../assets/generated_images/social_accuser_option1.png";
+import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_v2.png";
+import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_toy_v2.png";
+import socialAccuserOption1 from "../assets/generated_images/social_accuser_v2.png";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
 
 // Define OverlayItem interface locally to match GameOverlay
@@ -112,15 +112,15 @@ import socialDangerZone from '../assets/generated_images/social_danger_zone.png'
 // Bio Mode Images
 import bioHarambe from '../assets/generated_images/bio_harambe.png';
 import bioPopcat from '../assets/generated_images/bio_popcat.png';
-import bioWinter from '../assets/generated_images/bio_frostbyte_new.png';
+import bioWinter from '../assets/generated_images/bio_frostbyte_v2.png';
 import bioPepe from '../assets/generated_images/bio_pepe.png';
 import bioNyan from '../assets/generated_images/bio_nyan.png';
 import bioKaren from '../assets/generated_images/bio_karen.png';
-import bioFine from '../assets/generated_images/bio_low_flame_braids_glasses_new.png';
+import bioFine from '../assets/generated_images/bio_low_flame_v2.png';
 import bioBf from '../assets/generated_images/bio_bf.png';
-import bioRat from '../assets/generated_images/bio_rind_new.png';
+import bioRat from '../assets/generated_images/bio_rind_v2.png';
 import bioBaldwin from '../assets/generated_images/bio_baldwin.png';
-import bioSigma from '../assets/generated_images/bio_executive_p_new.png';
+import bioSigma from '../assets/generated_images/bio_executive_p_v2.png';
 import bioGigachad from '../assets/generated_images/bio_gigachad.png';
 import bioThinker from '../assets/generated_images/bio_thinker.png';
 import bioDisaster from '../assets/generated_images/bio_disaster.png';
