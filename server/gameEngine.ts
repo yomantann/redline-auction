@@ -43,6 +43,39 @@ const BIO_PROTOCOLS: ProtocolType[] = [
   'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'
 ];
 
+// Driver/Character ability definitions (minimal for server-side processing)
+type AbilityEffect = 'TIME_REFUND' | 'TOKEN_BOOST' | 'DISRUPT' | 'PEEK';
+
+interface DriverAbility {
+  name: string;
+  effect: AbilityEffect;
+  triggerCondition: 'WIN' | 'LOSE' | 'ALWAYS' | 'CONDITIONAL';
+  refundAmount?: number;
+  description: string;
+}
+
+const DRIVER_ABILITIES: Record<string, DriverAbility> = {
+  // Standard Mode Drivers - IDs match client character definitions
+  'harambe': { name: 'SPIRIT SHIELD', effect: 'TIME_REFUND', triggerCondition: 'WIN', refundAmount: 11, description: '+11s if you win Round 1' },
+  'popcat': { name: 'HYPER CLICK', effect: 'TOKEN_BOOST', triggerCondition: 'CONDITIONAL', description: '+1 token if close win (within 1.1s of 2nd)' },
+  'winter': { name: 'CYRO FREEZE', effect: 'TIME_REFUND', triggerCondition: 'ALWAYS', refundAmount: 1.0, description: '+1.0s every round' },
+  'pepe': { name: 'SAD REVEAL', effect: 'PEEK', triggerCondition: 'CONDITIONAL', description: 'See opponent holding' },
+  'nyan': { name: 'RAINBOW RUN', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', refundAmount: 3.5, description: '+3.5s if bid > 40s' },
+  'karen': { name: 'MANAGER CALL', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -2, description: '-2s from random opponent' },
+  'fine': { name: 'FIRE WALL', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: 'Immune to protocols' },
+  'bf': { name: 'SNEAK PEEK', effect: 'PEEK', triggerCondition: 'CONDITIONAL', description: 'See random opponent holding' },
+  'rat': { name: 'CHEESE TAX', effect: 'DISRUPT', triggerCondition: 'LOSE', refundAmount: 2, description: 'Steal 2s from winner' },
+  'baldwin': { name: 'ROYAL DECREE', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', refundAmount: 4, description: '+4s if bid near 20s' },
+  'sigma': { name: 'AXE SWING', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -2, description: '-2s from player with most time' },
+  'gigachad': { name: 'JAWLINE', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: 'No penalty during countdown' },
+  'thinker': { name: 'CALCULATED', effect: 'PEEK', triggerCondition: 'ALWAYS', description: 'Immune to abilities' },
+  'disaster': { name: 'BURN IT', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -1, description: '-1s from everyone else' },
+  'buttons': { name: 'PANIC MASH', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: '50% +3s, 50% -3s' },
+  'primate': { name: 'CHEF SPECIAL', effect: 'TOKEN_BOOST', triggerCondition: 'CONDITIONAL', description: '+1 token if comeback win' },
+  'harold': { name: 'PAIN HIDE', effect: 'TIME_REFUND', triggerCondition: 'WIN', refundAmount: 0.5, description: '+0.5s per win' },
+  'tank': { name: 'IRON STOMACH', effect: 'TIME_REFUND', triggerCondition: 'ALWAYS', refundAmount: 0, description: 'Immune to drink penalties' },
+};
+
 export interface GamePlayer {
   id: string;
   socketId: string | null; // null for bots
@@ -450,6 +483,205 @@ function decideBotRelease(bot: GamePlayer, elapsed: number, game: GameState): bo
   }
 }
 
+// Process driver abilities at end of round
+function processAbilities(game: GameState, winnerId: string | null) {
+  if (!game.settings.abilitiesEnabled) return;
+  
+  const abilityImpacts: Array<{ playerId: string; targetId?: string; ability: string; effect: string; value: number }> = [];
+  
+  // Find the "Thinker" player who is immune to abilities
+  const thinkerPlayer = game.players.find(p => p.selectedDriver === 'thinker' && !p.isEliminated);
+  const immunePlayerIds = thinkerPlayer ? [thinkerPlayer.id] : [];
+  
+  // Find winner and 2nd place for HYPER CLICK check
+  const sortedByBid = [...game.players]
+    .filter(p => p.currentBid !== null && !p.isEliminated)
+    .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+  const winnerBid = sortedByBid[0]?.currentBid || 0;
+  const secondBid = sortedByBid[1]?.currentBid || 0;
+  const winMargin = winnerBid - secondBid;
+  
+  game.players.forEach(player => {
+    if (player.isEliminated || !player.selectedDriver) return;
+    
+    const ability = DRIVER_ABILITIES[player.selectedDriver];
+    if (!ability) return;
+    
+    const isWinner = player.id === winnerId;
+    const playerBid = player.currentBid || 0;
+    
+    // Check if ability should trigger
+    let triggered = false;
+    let refundAmount = ability.refundAmount || 0;
+    let targetId: string | undefined;
+    
+    switch (ability.triggerCondition) {
+      case 'WIN':
+        if (isWinner) {
+          // Special case for Spirit Shield (harambe) - only Round 1
+          if (player.selectedDriver === 'harambe' && game.round !== 1) break;
+          triggered = true;
+        }
+        break;
+        
+      case 'LOSE':
+        if (!isWinner && winnerId) {
+          triggered = true;
+          targetId = winnerId;
+        }
+        break;
+        
+      case 'ALWAYS':
+        triggered = true;
+        break;
+        
+      case 'CONDITIONAL':
+        // Handle specific conditional abilities with correct driver IDs
+        if (player.selectedDriver === 'nyan' && playerBid > 40) {
+          // Rainbow Run: +3.5s if bid > 40s
+          triggered = true;
+        } else if (player.selectedDriver === 'baldwin' && Math.abs(playerBid - 20) <= 0.5) {
+          // Royal Decree: +4s if bid near 20s
+          triggered = true;
+        } else if (player.selectedDriver === 'buttons') {
+          // Panic Mash: 50% chance +3s or -3s
+          triggered = true;
+          refundAmount = Math.random() < 0.5 ? 3 : -3;
+        } else if (player.selectedDriver === 'popcat' && isWinner && sortedByBid.length >= 2 && winMargin <= 1.1 && winMargin > 0) {
+          // Hyper Click: +1 token if win within 1.1s of 2nd place (requires valid 2nd place)
+          triggered = true;
+        } else if (player.selectedDriver === 'primate' && isWinner) {
+          // Chef Special: +1 token if comeback win (had fewer tokens)
+          const othersTokens = game.players.filter(p => p.id !== player.id && !p.isEliminated).map(p => p.tokens);
+          if (othersTokens.length > 0 && player.tokens < Math.max(...othersTokens)) {
+            triggered = true;
+          }
+        }
+        break;
+    }
+    
+    if (!triggered) return;
+    
+    // Mark ability as used
+    player.abilityUsed = true;
+    
+    // Apply the ability effect
+    switch (ability.effect) {
+      case 'TIME_REFUND':
+        if (refundAmount !== 0) {
+          player.remainingTime += refundAmount;
+          player.roundImpact = { type: 'REFUND', value: refundAmount, source: ability.name };
+          abilityImpacts.push({
+            playerId: player.id,
+            ability: ability.name,
+            effect: 'TIME_REFUND',
+            value: refundAmount,
+          });
+          addGameLogEntry(game, {
+            type: 'ability',
+            playerId: player.id,
+            playerName: player.name,
+            message: `${player.name} triggered ${ability.name}: ${refundAmount > 0 ? '+' : ''}${refundAmount.toFixed(1)}s`,
+            value: refundAmount,
+          });
+        }
+        break;
+        
+      case 'TOKEN_BOOST':
+        player.tokens += 1;
+        abilityImpacts.push({
+          playerId: player.id,
+          ability: ability.name,
+          effect: 'TOKEN_BOOST',
+          value: 1,
+        });
+        addGameLogEntry(game, {
+          type: 'ability',
+          playerId: player.id,
+          playerName: player.name,
+          message: `${player.name} triggered ${ability.name}: +1 token`,
+          value: 1,
+        });
+        break;
+        
+      case 'DISRUPT':
+        if (refundAmount !== 0) {
+          // Find target based on ability type
+          let target: GamePlayer | undefined;
+          
+          if (player.selectedDriver === 'rat' && targetId) {
+            // Cheese Tax: target the winner
+            target = game.players.find(p => p.id === targetId);
+          } else if (player.selectedDriver === 'sigma') {
+            // Axe Swing: target player with most time
+            const nonEliminated = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
+            target = nonEliminated.reduce((max, p) => p.remainingTime > (max?.remainingTime || 0) ? p : max, undefined as GamePlayer | undefined);
+          } else if (player.selectedDriver === 'karen' || player.selectedDriver === 'disaster') {
+            // Manager Call / Burn It: random opponents or all
+            const targets = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
+            if (player.selectedDriver === 'disaster') {
+              // Burn It: affects all others
+              targets.forEach(t => {
+                t.remainingTime += refundAmount;
+                t.roundImpact = { type: 'DISRUPT', value: refundAmount, source: player.name };
+                abilityImpacts.push({
+                  playerId: player.id,
+                  targetId: t.id,
+                  ability: ability.name,
+                  effect: 'DISRUPT',
+                  value: refundAmount,
+                });
+              });
+              if (targets.length > 0) {
+                addGameLogEntry(game, {
+                  type: 'ability',
+                  playerId: player.id,
+                  playerName: player.name,
+                  message: `${player.name} triggered ${ability.name}: ${refundAmount}s to all opponents`,
+                  value: refundAmount,
+                });
+              }
+              return; // Already handled all targets
+            } else {
+              target = targets[Math.floor(Math.random() * targets.length)];
+            }
+          }
+          
+          if (target && !immunePlayerIds.includes(target.id)) {
+            // For Cheese Tax (LOSE trigger), we ADD to self and REMOVE from target
+            if (player.selectedDriver === 'rat') {
+              player.remainingTime += Math.abs(refundAmount);
+              player.roundImpact = { type: 'STEAL', value: Math.abs(refundAmount), source: target.name };
+              target.remainingTime -= Math.abs(refundAmount);
+              target.roundImpact = { type: 'STOLEN', value: -Math.abs(refundAmount), source: player.name };
+            } else {
+              target.remainingTime += refundAmount; // negative value
+              target.roundImpact = { type: 'DISRUPT', value: refundAmount, source: player.name };
+            }
+            
+            abilityImpacts.push({
+              playerId: player.id,
+              targetId: target.id,
+              ability: ability.name,
+              effect: 'DISRUPT',
+              value: refundAmount,
+            });
+            addGameLogEntry(game, {
+              type: 'ability',
+              playerId: player.id,
+              playerName: player.name,
+              message: `${player.name} triggered ${ability.name}: ${refundAmount}s to ${target.name}`,
+              value: refundAmount,
+            });
+          }
+        }
+        break;
+    }
+  });
+  
+  return abilityImpacts;
+}
+
 function endRound(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
   if (!game) return;
@@ -459,8 +691,11 @@ function endRound(lobbyCode: string) {
   // Find winner (highest bid among non-eliminated)
   const participants = game.players.filter(p => p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
   
+  let winnerId: string | null = null;
+  
   if (participants.length > 0) {
     const winner = participants.reduce((max, p) => (p.currentBid || 0) > (max.currentBid || 0) ? p : max);
+    winnerId = winner.id;
     game.roundWinner = { id: winner.id, name: winner.name, bid: winner.currentBid || 0 };
     
     // Award token(s) - double if DOUBLE_STAKES protocol is active
@@ -482,6 +717,29 @@ function endRound(lobbyCode: string) {
       message: `Round ${game.round} had no winner`,
     });
   }
+  
+  // Process abilities before time deduction (allows for refunds)
+  processAbilities(game, winnerId);
+  
+  // Check for eliminations from ability effects (clamp and eliminate players with <= 0 time)
+  game.players.forEach(p => {
+    if (p.remainingTime < 0) {
+      p.remainingTime = 0;
+    }
+    if (p.remainingTime === 0 && !p.isEliminated) {
+      p.isEliminated = true;
+      if (!game.eliminatedThisRound.includes(p.id)) {
+        game.eliminatedThisRound.push(p.id);
+        addGameLogEntry(game, {
+          type: 'elimination',
+          playerId: p.id,
+          playerName: p.name,
+          message: `${p.name} was eliminated (ability effect)`,
+        });
+        log(`${p.name} eliminated by ability effect in lobby ${game.lobbyCode}`, "game");
+      }
+    }
+  });
   
   // Log all bids and deduct time
   game.players.forEach(p => {
@@ -609,12 +867,13 @@ function startWaitingForReady(lobbyCode: string) {
     log(`Protocol ${protocol} activated for round ${game.round} in lobby ${lobbyCode}`, "game");
   }
   
-  // Reset all player holding/bid status for new round
+  // Reset all player holding/bid status and ability tracking for new round
   game.players.forEach(p => {
     if (!p.isEliminated) {
       p.isHolding = false;
       p.currentBid = null;
       p.roundImpact = undefined;
+      p.abilityUsed = false;
     }
   });
   

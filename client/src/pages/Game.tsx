@@ -2890,15 +2890,17 @@ export default function Game() {
         isEliminated: mp.isEliminated,
         currentBid: mp.currentBid,
         isHolding: mp.isHolding,
-        totalTimeBid: 0,
-        totalImpactGiven: 0,
-        totalImpactReceived: 0,
+        totalTimeBid: (mp as any).totalTimeBid || 0,
+        totalImpactGiven: (mp as any).roundImpact?.value > 0 ? (mp as any).roundImpact.value : 0,
+        totalImpactReceived: (mp as any).roundImpact?.value < 0 ? Math.abs((mp as any).roundImpact.value) : 0,
         specialEvents: [],
         eventDatabasePopups: [],
         protocolsTriggered: [],
         protocolWins: [],
         totalDrinks: 0,
         socialDares: 0,
+        selectedDriver: (mp as any).selectedDriver,
+        abilityUsed: (mp as any).abilityUsed || false,
       } as Player))
     : players;
 
