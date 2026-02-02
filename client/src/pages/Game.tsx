@@ -1182,21 +1182,32 @@ export default function Game() {
 
   // User Interactions
   const handlePress = () => {
+    if (isMultiplayer && socket) {
+      // Multiplayer: emit button press to server
+      const currentPhase = multiplayerGameState?.phase || phase;
+      
+      if (currentPhase === 'countdown') {
+        // During countdown, press to indicate ready
+        socket.emit("player_press");
+        console.log('[Game] Emitted player_press (countdown ready)');
+      } else if (currentPhase === 'bidding') {
+        // During bidding, press to release/lock in bid
+        if (currentPlayerIsHolding) {
+          socket.emit("player_release");
+          console.log('[Game] Emitted player_release (lock in bid)');
+        }
+      }
+      return;
+    }
+    
+    // Single-player logic
     if (phase === 'ready') {
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: true } : p));
     } else if (phase === 'bidding' || phase === 'countdown') {
         // CLICK TO STOP / SUBMIT
-        if (isMultiplayer) {
-          // In multiplayer, pressing the button during bidding releases the bid
-          if (currentPlayerIsHolding) {
-            handleStopBidding();
-          }
-        } else {
-          // Single-player: If we are already holding (timer running), this press means STOP.
-          const p1 = players.find(p => p.id === 'p1');
-          if (p1 && p1.isHolding) {
-            handleStopBidding();
-          }
+        const p1 = players.find(p => p.id === 'p1');
+        if (p1 && p1.isHolding) {
+          handleStopBidding();
         }
     }
   };
@@ -1316,10 +1327,22 @@ export default function Game() {
   };
 
   const handleRelease = () => {
-    if (phase === 'ready' && !isMultiplayer) {
+    if (isMultiplayer && socket) {
+      // During countdown, releasing means not ready
+      const currentPhase = multiplayerGameState?.phase || phase;
+      if (currentPhase === 'countdown' && currentPlayerIsHolding) {
+        socket.emit("player_release");
+        console.log('[Game] Emitted player_release (countdown cancel)');
+      }
+      // During bidding, releasing does nothing - must click to lock in
+      return;
+    }
+    
+    // Single-player: release during ready phase
+    if (phase === 'ready') {
       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false } : p));
     } 
-    // In multiplayer or single-player bidding: DROPPING DOES NOT STOP TIMER
+    // In single-player bidding: DROPPING DOES NOT STOP TIMER
     // Use click (handlePress) to stop.
   };
 

@@ -362,21 +362,55 @@ function endGame(lobbyCode: string) {
   clearGameIntervals(lobbyCode);
 }
 
-export function playerReleaseBid(lobbyCode: string, socketId: string) {
+// Player presses button to start holding (ready to bid)
+export function playerPressBid(lobbyCode: string, socketId: string) {
   const game = activeGames.get(lobbyCode);
-  if (!game || game.phase !== 'bidding') return;
+  if (!game) return;
   
   const player = game.players.find(p => p.socketId === socketId);
-  if (!player || !player.isHolding || player.isEliminated) return;
+  if (!player || player.isEliminated) return;
   
-  const elapsed = (Date.now() - (game.roundStartTime || Date.now())) / 1000;
-  player.isHolding = false;
-  player.currentBid = elapsed;
+  // During countdown: player is indicating they're ready
+  if (game.phase === 'countdown') {
+    player.isHolding = true;
+    log(`${player.name} pressed (ready) during countdown in lobby ${lobbyCode}`, "game");
+    broadcastGameState(lobbyCode);
+    return;
+  }
   
-  log(`${player.name} released at ${elapsed.toFixed(1)}s in lobby ${lobbyCode}`, "game");
+  // During bidding: already handled by startBidding (all players start holding)
+  if (game.phase === 'bidding' && !player.isHolding) {
+    // Re-press during bidding means nothing - can't rejoin after release
+    return;
+  }
+}
+
+export function playerReleaseBid(lobbyCode: string, socketId: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
   
-  // Broadcast immediately
-  broadcastGameState(lobbyCode);
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player || player.isEliminated) return;
+  
+  // During countdown: releasing means not ready/abandoning
+  if (game.phase === 'countdown') {
+    player.isHolding = false;
+    log(`${player.name} released (not ready) during countdown in lobby ${lobbyCode}`, "game");
+    broadcastGameState(lobbyCode);
+    return;
+  }
+  
+  // During bidding: lock in the bid
+  if (game.phase === 'bidding' && player.isHolding) {
+    const elapsed = (Date.now() - (game.roundStartTime || Date.now())) / 1000;
+    player.isHolding = false;
+    player.currentBid = elapsed;
+    
+    log(`${player.name} released at ${elapsed.toFixed(1)}s in lobby ${lobbyCode}`, "game");
+    
+    // Broadcast immediately
+    broadcastGameState(lobbyCode);
+  }
 }
 
 export function getGameState(lobbyCode: string): GameState | undefined {

@@ -6,6 +6,7 @@ import { log } from "./index";
 import { 
   createGame, 
   startGame, 
+  playerPressBid,
   playerReleaseBid, 
   getGameState, 
   removePlayerFromGame,
@@ -312,6 +313,19 @@ export async function registerRoutes(
       setTimeout(() => {
         startGame(lobbyCode);
       }, 1000);
+      
+      if (callback) callback({ success: true });
+    });
+
+    // PLAYER PRESSES BUTTON (starts holding/ready)
+    socket.on("player_press", (callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      
+      playerPressBid(lobbyCode, socket.id);
       
       if (callback) callback({ success: true });
     });
