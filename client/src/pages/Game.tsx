@@ -3513,6 +3513,8 @@ export default function Game() {
         return (
           <div className="flex flex-col items-center justify-center space-y-8 mt-10 h-[550px] overflow-y-auto custom-scrollbar">
             <h1 className="text-5xl font-display font-bold text-white">GAME OVER</h1>
+
+            <GameOverlay overlays={overlays} onDismiss={removeOverlay} />
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
               {sortedPlayers.map((p, i) => (
