@@ -4698,27 +4698,30 @@ export default function Game() {
       {/* Header Info */}
       <div className="mb-8 border-b border-white/5 pb-4">
         <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-2 justify-center">
-            {phase !== 'intro' && (
-              <Button variant="ghost" size="icon" onClick={quitGame} className="mr-2 text-white hover:text-white hover:bg-white/10" title="Quit to Menu" data-testid="button-quit-to-menu">
-                 <LogOut size={20} />
-              </Button>
-            )}
-            <img src={logoFuturistic} alt="Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-            <h1 className="font-display font-bold text-xl tracking-wider hidden sm:block">REDLINE AUCTION</h1>
-            {/* Show lobby code during multiplayer game so others can join */}
-            {isMultiplayer && currentLobby && phase !== 'multiplayer_lobby' && (
-              <div className="ml-4 flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/30 rounded text-xs">
-                <Users size={12} className="text-primary" />
-                <span className="text-zinc-400">Room:</span>
-                <span className="font-mono font-bold text-primary tracking-wider" data-testid="text-game-lobby-code">{currentLobby.code}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 justify-center w-full relative">
+              <img src={logoFuturistic} alt="Logo" className="h-6 sm:h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+              <h1 className="font-display font-bold text-lg sm:text-xl tracking-wider">REDLINE AUCTION</h1>
+            </div>
+            <div className="flex items-center justify-between w-full px-4">
+              {phase !== 'intro' ? (
+                <Button variant="ghost" size="icon" onClick={quitGame} className="text-white hover:text-white hover:bg-white/10" title="Quit to Menu" data-testid="button-quit-to-menu">
+                   <LogOut size={20} />
+                </Button>
+              ) : <div className="w-10" />}
+              {/* Show lobby code during multiplayer game so others can join */}
+              {isMultiplayer && currentLobby && phase !== 'multiplayer_lobby' && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/30 rounded text-xs">
+                  <Users size={12} className="text-primary" />
+                  <span className="text-zinc-400">Room:</span>
+                  <span className="font-mono font-bold text-primary tracking-wider" data-testid="text-game-lobby-code">{currentLobby.code}</span>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="w-full flex items-center justify-center">
+          <div className="w-full flex items-center justify-start">
             <div className="max-w-full px-2">
-              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-6">
+              <div className="flex flex-wrap items-center justify-start gap-2 sm:gap-6">
                 {variant === 'BIO_FUEL' && (
                   <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-orange-950/40 border border-orange-500/30 rounded text-xs text-orange-300">
                       <AlertTriangle size={12} className="text-orange-500" />
@@ -4726,7 +4729,7 @@ export default function Game() {
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 bg-black/40 p-1.5 px-2 sm:px-3 rounded-2xl sm:rounded-full border border-white/10">
+                <div className="flex flex-wrap items-center justify-start gap-2 sm:gap-4 bg-black/40 p-1.5 px-2 sm:px-3 rounded-2xl sm:rounded-full border border-white/10">
                  
                  {/* CASUAL / COMPETITIVE (Difficulty) */}
                  <div className="flex items-center gap-2">
@@ -4847,8 +4850,6 @@ export default function Game() {
             </div>
           </div>
         </div>
-      </div>
-
       {/* POPUP LIBRARY DIALOG */}
       <Dialog open={showPopupLibrary} onOpenChange={setShowPopupLibrary}>
         <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
@@ -5306,11 +5307,12 @@ export default function Game() {
                 return logs.map((log, i) => (
                   <div key={i} className="border-b border-white/5 pb-1 mb-1 last:border-0">{log}</div>
                 ));
-              })()}
+                            })()}
             </div>
           </div>
         </div>
-      </div>
-    </GameLayout>
+      </GameLayout>
   );
 }
+
+export default Game;
