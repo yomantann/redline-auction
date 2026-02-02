@@ -3,6 +3,16 @@ import { createServer, type Server } from "http";
 import { Server as SocketIOServer, Socket } from "socket.io";
 import { storage } from "./storage";
 import { log } from "./index";
+import { 
+  createGame, 
+  startGame, 
+  playerReleaseBid, 
+  getGameState, 
+  removePlayerFromGame,
+  cleanupGame,
+  setEmitCallback,
+  type GameDuration
+} from "./gameEngine";
 
 // Socket.IO instance - exported for later expansion
 export let io: SocketIOServer;
@@ -31,12 +41,11 @@ const playerToLobby = new Map<string, string>(); // socketId -> lobbyCode
 
 // Generate a random 4-character lobby code
 function generateLobbyCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars like O, 0, I, 1
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 4; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  // Ensure uniqueness
   if (lobbies.has(code)) {
     return generateLobbyCode();
   }
@@ -68,27 +77,29 @@ function removePlayerFromLobby(socketId: string) {
     return;
   }
   
-  // Remove player from lobby
+  // If game is in progress, handle player leaving game
+  if (lobby.status === 'in_game') {
+    removePlayerFromGame(socketId);
+  }
+  
   lobby.players = lobby.players.filter(p => p.socketId !== socketId);
   playerToLobby.delete(socketId);
   
   log(`Player ${socketId} left lobby ${lobbyCode}. ${lobby.players.length} players remaining.`, "lobby");
   
-  // If lobby is empty, delete it
   if (lobby.players.length === 0) {
     lobbies.delete(lobbyCode);
+    cleanupGame(lobbyCode);
     log(`Lobby ${lobbyCode} deleted (empty)`, "lobby");
     return;
   }
   
-  // If host left, assign new host to first player
   if (lobby.hostSocketId === socketId && lobby.players.length > 0) {
     lobby.hostSocketId = lobby.players[0].socketId;
     lobby.players[0].isHost = true;
     log(`New host assigned in lobby ${lobbyCode}: ${lobby.hostSocketId}`, "lobby");
   }
   
-  // Notify remaining players
   broadcastLobbyUpdate(lobbyCode);
 }
 
@@ -106,6 +117,11 @@ export async function registerRoutes(
     }
   });
 
+  // Set up game engine emit callback
+  setEmitCallback((lobbyCode: string, event: string, data: any) => {
+    io.to(lobbyCode).emit(event, data);
+  });
+
   // Socket.IO connection handling
   io.on("connection", (socket: Socket) => {
     log(`Client connected: ${socket.id}`, "socket.io");
@@ -114,7 +130,6 @@ export async function registerRoutes(
     socket.on("create_lobby", (data: { playerName: string }, callback) => {
       const { playerName } = data;
       
-      // Check if player is already in a lobby
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
         return;
@@ -160,7 +175,6 @@ export async function registerRoutes(
       const { code, playerName } = data;
       const upperCode = code.toUpperCase();
       
-      // Check if player is already in a lobby
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
         return;
@@ -244,6 +258,77 @@ export async function registerRoutes(
       }
     });
 
+    // START GAME (host only)
+    socket.on("start_game", (data: { duration?: GameDuration }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      
+      const lobby = lobbies.get(lobbyCode);
+      if (!lobby) {
+        if (callback) callback({ success: false, error: "Lobby not found" });
+        return;
+      }
+      
+      // Only host can start
+      if (lobby.hostSocketId !== socket.id) {
+        if (callback) callback({ success: false, error: "Only host can start" });
+        return;
+      }
+      
+      // Need at least 2 ready players
+      const readyPlayers = lobby.players.filter(p => p.isReady);
+      if (readyPlayers.length < 2) {
+        if (callback) callback({ success: false, error: "Need at least 2 ready players" });
+        return;
+      }
+      
+      // Update lobby status
+      lobby.status = 'in_game';
+      broadcastLobbyUpdate(lobbyCode);
+      
+      // Create game with ready players only
+      const gamePlayers = readyPlayers.map(p => ({
+        id: p.id,
+        socketId: p.socketId,
+        name: p.name
+      }));
+      
+      const gameState = createGame(lobbyCode, gamePlayers, data?.duration || 'standard');
+      
+      // Emit game started event
+      io.to(lobbyCode).emit('game_started', {
+        lobbyCode,
+        players: gameState.players,
+        totalRounds: gameState.totalRounds,
+        initialTime: gameState.initialTime
+      });
+      
+      log(`Game started in lobby ${lobbyCode} with ${gamePlayers.length} human players`, "game");
+      
+      // Start the game after a short delay for clients to prepare
+      setTimeout(() => {
+        startGame(lobbyCode);
+      }, 1000);
+      
+      if (callback) callback({ success: true });
+    });
+
+    // PLAYER RELEASES BID (stops holding)
+    socket.on("player_release", (callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      
+      playerReleaseBid(lobbyCode, socket.id);
+      
+      if (callback) callback({ success: true });
+    });
+
     // Handle disconnection
     socket.on("disconnect", (reason) => {
       log(`Client disconnected: ${socket.id} (reason: ${reason})`, "socket.io");
@@ -251,7 +336,7 @@ export async function registerRoutes(
     });
   });
 
-  log("Socket.IO initialized with lobby system", "socket.io");
+  log("Socket.IO initialized with lobby and game system", "socket.io");
 
   // API routes will go here
   // prefix all routes with /api

@@ -755,6 +755,27 @@ export default function Game() {
     maxPlayers: number;
   } | null>(null);
   const [lobbyError, setLobbyError] = useState<string | null>(null);
+  const [isMultiplayer, setIsMultiplayer] = useState(false);
+  const [multiplayerGameState, setMultiplayerGameState] = useState<{
+    round: number;
+    totalRounds: number;
+    phase: 'countdown' | 'bidding' | 'round_end' | 'game_over';
+    countdownRemaining: number;
+    elapsedTime: number;
+    players: Array<{
+      id: string;
+      socketId: string | null;
+      name: string;
+      isBot: boolean;
+      tokens: number;
+      remainingTime: number;
+      isEliminated: boolean;
+      currentBid: number | null;
+      isHolding: boolean;
+    }>;
+    roundWinner: { id: string; name: string; bid: number } | null;
+    eliminatedThisRound: string[];
+  } | null>(null);
   
   // Socket connection
   const { socket, isConnected } = useSocket();
@@ -767,7 +788,7 @@ export default function Game() {
     return `${m}:${s.toString().padStart(2, '0')}.${ms}`;
   };
 
-  // Socket event listeners for lobby
+  // Socket event listeners for lobby and game
   useEffect(() => {
     if (!socket) return;
 
@@ -776,10 +797,43 @@ export default function Game() {
       setCurrentLobby(lobbyData);
     };
 
+    const handleGameStarted = (data: { lobbyCode: string; players: any[]; totalRounds: number; initialTime: number }) => {
+      console.log('[Game] Started:', data);
+      setIsMultiplayer(true);
+      setPhase('countdown');
+    };
+
+    const handleGameState = (state: typeof multiplayerGameState) => {
+      console.log('[Game] State update:', state?.phase, 'Round:', state?.round);
+      setMultiplayerGameState(state);
+      
+      // Sync phase with server state for multiplayer
+      if (state) {
+        if (state.phase === 'countdown') {
+          setPhase('countdown');
+          setCountdown(state.countdownRemaining);
+        } else if (state.phase === 'bidding') {
+          setPhase('bidding');
+        } else if (state.phase === 'round_end') {
+          setPhase('round_end');
+          if (state.roundWinner) {
+            setRoundWinner({ name: state.roundWinner.name, time: state.roundWinner.bid });
+          }
+        } else if (state.phase === 'game_over') {
+          setPhase('game_end');
+        }
+        setRound(state.round);
+      }
+    };
+
     socket.on('lobby_update', handleLobbyUpdate);
+    socket.on('game_started', handleGameStarted);
+    socket.on('game_state', handleGameState);
 
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
+      socket.off('game_started', handleGameStarted);
+      socket.off('game_state', handleGameState);
     };
   }, [socket]);
 
@@ -1132,16 +1186,31 @@ export default function Game() {
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: true } : p));
     } else if (phase === 'bidding' || phase === 'countdown') {
         // CLICK TO STOP / SUBMIT
-        // If we are already holding (timer running), this press means STOP.
-        const p1 = players.find(p => p.id === 'p1');
-        if (p1 && p1.isHolding) {
+        if (isMultiplayer) {
+          // In multiplayer, pressing the button during bidding releases the bid
+          if (currentPlayerIsHolding) {
             handleStopBidding();
+          }
+        } else {
+          // Single-player: If we are already holding (timer running), this press means STOP.
+          const p1 = players.find(p => p.id === 'p1');
+          if (p1 && p1.isHolding) {
+            handleStopBidding();
+          }
         }
     }
   };
 
   const handleStopBidding = () => {
     if (phase === 'bidding') {
+      // In multiplayer mode, just emit release to server
+      if (isMultiplayer && socket) {
+        socket.emit("player_release");
+        console.log('[Game] Emitted player_release to server');
+        return;
+      }
+      
+      // Single-player logic
       const bidTime = parseFloat(currentTime.toFixed(1));
       
       setPlayers(prev => prev.map(p => {
@@ -1247,10 +1316,10 @@ export default function Game() {
   };
 
   const handleRelease = () => {
-    if (phase === 'ready') {
+    if (phase === 'ready' && !isMultiplayer) {
       setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: false } : p));
     } 
-    // DROPPING IN COUNTDOWN OR BIDDING NO LONGER STOPS TIMER
+    // In multiplayer or single-player bidding: DROPPING DOES NOT STOP TIMER
     // Use click (handlePress) to stop.
   };
 
@@ -2588,12 +2657,60 @@ export default function Game() {
     setPhase('ready');
   };
 
-  const playerIsReady = players.find(p => p.id === 'p1')?.isHolding;
-  const playerBid = players.find(p => p.id === 'p1')?.currentBid ?? null;
+  const playerIsReady = isMultiplayer 
+    ? currentPlayerIsHolding 
+    : (players.find(p => p.id === 'p1')?.isHolding ?? false);
+  const playerBid = isMultiplayer
+    ? (myMultiplayerPlayer?.currentBid ?? null)
+    : (players.find(p => p.id === 'p1')?.currentBid ?? null);
   const allPlayersReady = players.every(p => p.isHolding);
 
   // New logic for 'waiting' state
   const isWaiting = phase === 'bidding' && playerBid !== null && playerBid > 0;
+
+  // Computed players list for display - uses multiplayer state when available
+  const displayPlayers = isMultiplayer && multiplayerGameState?.players
+    ? multiplayerGameState.players.map(mp => ({
+        id: mp.id,
+        name: mp.name,
+        isBot: mp.isBot,
+        tokens: mp.tokens,
+        remainingTime: mp.remainingTime,
+        isEliminated: mp.isEliminated,
+        currentBid: mp.currentBid,
+        isHolding: mp.isHolding,
+        totalTimeBid: 0,
+        totalImpactGiven: 0,
+        totalImpactReceived: 0,
+        specialEvents: [],
+        eventDatabasePopups: [],
+        protocolsTriggered: [],
+        protocolWins: [],
+        totalDrinks: 0,
+        socialDares: 0,
+      } as Player))
+    : players;
+
+  // Get current player's bid/holding status for multiplayer (match by socketId)
+  const myMultiplayerPlayer = isMultiplayer && multiplayerGameState?.players && socket
+    ? multiplayerGameState.players.find(p => p.socketId === socket.id)
+    : null;
+
+  // Computed values for bidding phase that work in both modes
+  const currentPlayerIsHolding = isMultiplayer 
+    ? (myMultiplayerPlayer?.isHolding ?? false)
+    : (players.find(p => p.id === 'p1')?.isHolding ?? false);
+    
+  // For multiplayer: use currentBid if released, or elapsedTime if still holding
+  const currentPlayerBid = isMultiplayer
+    ? (myMultiplayerPlayer?.isHolding 
+        ? (multiplayerGameState?.elapsedTime ?? 0) 
+        : (myMultiplayerPlayer?.currentBid ?? 0))
+    : currentTime;
+    
+  const currentPlayerEliminated = isMultiplayer
+    ? (myMultiplayerPlayer?.isEliminated ?? false)
+    : (players.find(p => p.id === 'p1')?.isEliminated ?? false);
 
   // Multiplayer handlers
   const handleCreateRoom = useCallback(() => {
@@ -2654,7 +2771,36 @@ export default function Game() {
     });
   }, [socket]);
 
+  const handleStartMultiplayerGame = useCallback(() => {
+    if (!socket) return;
+    
+    socket.emit("start_game", { duration: gameDuration }, (response: { success: boolean; error?: string }) => {
+      if (!response.success) {
+        setLobbyError(response.error || "Failed to start game");
+      } else {
+        console.log('[Game] Starting multiplayer game...');
+      }
+    });
+  }, [socket, gameDuration]);
+
+  const handleMultiplayerBidRelease = useCallback(() => {
+    if (!socket || !isMultiplayer) return;
+    
+    socket.emit("player_release", () => {
+      console.log('[Game] Released bid');
+    });
+  }, [socket, isMultiplayer]);
+
   const quitGame = () => {
+     // Reset multiplayer state
+     if (isMultiplayer && socket) {
+       socket.emit("leave_lobby");
+     }
+     setIsMultiplayer(false);
+     setMultiplayerGameState(null);
+     setCurrentLobby(null);
+     setLobbyCode("");
+     
      setPhase('intro');
      setRound(1);
      setOverlay(null);
@@ -3182,7 +3328,7 @@ export default function Game() {
                 
                 {isHost && (
                   <Button 
-                    onClick={() => setPhase('character_select')}
+                    onClick={handleStartMultiplayerGame}
                     disabled={!allReady}
                     className="w-full bg-green-600 hover:bg-green-700"
                     data-testid="button-start-game"
@@ -3565,7 +3711,9 @@ export default function Game() {
           <div className="flex flex-col items-center justify-center h-[450px]"> 
              <div className="h-[100px] flex flex-col items-center justify-center space-y-2"> 
               <h2 className="text-3xl font-display text-destructive">PREPARE TO BID</h2>
-              <p className="text-muted-foreground">Release now to abandon auction (-{getTimerStart().toFixed(1)}s)</p>
+              <p className="text-muted-foreground">
+                {isMultiplayer ? "Get ready! Round starting..." : `Release now to abandon auction (-${getTimerStart().toFixed(1)}s)`}
+              </p>
             </div>
             
             <div className="h-[280px] flex items-center justify-center relative"> 
@@ -3573,15 +3721,15 @@ export default function Game() {
                </div>
                
                <div className="z-20 text-9xl font-display font-black text-destructive animate-ping absolute pointer-events-none">
-                  {countdown}
+                  {isMultiplayer ? multiplayerGameState?.countdownRemaining : countdown}
                </div>
 
                <div className="z-10 relative">
                  <AuctionButton 
                     onPress={handlePress} 
                     onRelease={handleRelease} 
-                    isPressed={players.find(p => p.id === 'p1')?.isHolding}
-                    disabled={!players.find(p => p.id === 'p1')?.isHolding} 
+                    isPressed={isMultiplayer ? currentPlayerIsHolding : (players.find(p => p.id === 'p1')?.isHolding ?? false)}
+                    disabled={isMultiplayer ? currentPlayerEliminated : !(players.find(p => p.id === 'p1')?.isHolding ?? false)} 
                   />
                   {/* Inline Overlay for Countdown Phase */}
                   <GameOverlay 
@@ -3598,12 +3746,26 @@ export default function Game() {
 
       case 'bidding':
         const isBlackout = activeProtocol === 'DATA_BLACKOUT' || activeProtocol === 'SYSTEM_FAILURE';
+        const displayTime = isMultiplayer ? currentPlayerBid : currentTime;
         
         return (
           <div className="flex flex-col items-center justify-center h-[450px]">
              {/* Timer Area */}
              <div className="h-[100px] flex items-center justify-center mb-4">
-                {showDetails && !isBlackout && currentTime <= 10 ? (
+                {isMultiplayer ? (
+                  // Multiplayer: Always show the current bid timer
+                  <div className="flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-primary/30 bg-black/40 w-[320px]">
+                    <span className="text-muted-foreground text-xs tracking-[0.2em] font-display mb-1">
+                      YOUR BID
+                    </span>
+                    <div className="text-5xl font-mono text-primary font-bold">
+                      {displayTime.toFixed(1)}s
+                    </div>
+                    {!currentPlayerIsHolding && (
+                      <span className="text-xs text-green-400 mt-1">BID LOCKED</span>
+                    )}
+                  </div>
+                ) : showDetails && !isBlackout && currentTime <= 10 ? (
                   <TimerDisplay time={currentTime} isRunning={true} />
                 ) : (
                   <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
@@ -3625,11 +3787,17 @@ export default function Game() {
                   <AuctionButton 
                     onPress={handlePress} 
                     onRelease={handleRelease} 
-                    isPressed={players.find(p => p.id === 'p1')?.isHolding}
-                    disabled={!players.find(p => p.id === 'p1')?.isHolding}
+                    isPressed={currentPlayerIsHolding}
+                    disabled={!currentPlayerIsHolding || currentPlayerEliminated}
                     isWaiting={false} // No waiting in bidding phase visually
                     showPulse={false}
                   />
+                  {/* Show current bid in multiplayer */}
+                  {isMultiplayer && currentPlayerIsHolding && (
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-lg font-mono text-primary">
+                      {currentPlayerBid.toFixed(1)}s
+                    </div>
+                  )}
                   {/* Inline Overlay for Bidding Phase */}
                   <GameOverlay 
                     overlays={overlays}
@@ -4355,24 +4523,28 @@ export default function Game() {
 
         {/* Sidebar / Stats */}
         <div className="lg:col-span-1 space-y-4">
-          <h3 className="font-display text-muted-foreground text-sm tracking-widest mb-4">PLAYERS</h3>
+          <h3 className="font-display text-muted-foreground text-sm tracking-widest mb-4">
+            PLAYERS {isMultiplayer && <span className="text-primary text-xs">(LIVE)</span>}
+          </h3>
           <div className="space-y-3">
-            {players.map(p => (
+            {displayPlayers.map((p, idx) => (
               <PlayerStats 
                 key={p.id} 
                 player={p} 
-                isCurrentPlayer={p.id === 'p1'} 
-                showTime={showDetails || phase === 'game_end' || p.isEliminated} 
-                // Show time if: Easy Mode OR Game Over OR Player Eliminated
+                isCurrentPlayer={isMultiplayer 
+                  ? (multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id === p.id)
+                  : p.id === 'p1'} 
+                showTime={showDetails || phase === 'game_end' || p.isEliminated || isMultiplayer} 
+                // Show time if: Easy Mode OR Game Over OR Player Eliminated OR Multiplayer
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
                 peekActive={(selectedCharacter?.id === 'pepe' || selectedCharacter?.id === 'bf') && peekTargetId === p.id}
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={activeProtocol === 'SYSTEM_FAILURE' || (p.id === 'p1' && selectedCharacter?.id === 'pepe')}
-                isScrambled={(p.id !== 'p1' && selectedCharacter?.id === 'bf' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}
+                isScrambled={!isMultiplayer && ((p.id !== 'p1' && selectedCharacter?.id === 'bf' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id))}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
-                    if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
+                    if (difficulty === 'COMPETITIVE' && phase !== 'game_end' && !isMultiplayer) {
                          // Mask all stats
                          setSelectedPlayerStats({...p, remainingTime: -1, tokens: -1, totalImpactGiven: -1}); 
                     } else {
