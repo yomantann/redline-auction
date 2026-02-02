@@ -1245,7 +1245,7 @@ export default function Game() {
           msg = target === 'YOU' ? "THE MOLE" : "SECRET PROTOCOL ACTIVE";
           sub = target === 'YOU'
             ? "You are the Mole. Goal: push the time up, but try NOT to get 1st. If you DO win, you only lose a trophy if you win by MORE than 7.0s."
-            : "A hidden role is in play. Someone is pushing time without wanting 1st. If the Mole wins by MORE than 7.0s, they lose a trophy.";
+            : "";
           break;
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break; // Secret
@@ -2415,7 +2415,18 @@ export default function Game() {
     
     // Mole Penalty Log
     if (activeProtocol === 'THE_MOLE' && winnerId === moleTarget) {
-        extraLogs.push(`>> MOLE PENALTY: ${winnerName} lost 1 Token!`);
+        const rawSorted = [...participants].sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+        const rawWinner = rawSorted[0];
+        const rawSecond = rawSorted[1];
+        const rawWinnerTime = rawWinner?.currentBid || 0;
+        const rawSecondTime = rawSecond?.currentBid || 0;
+        const margin = rawWinnerTime - rawSecondTime;
+
+        if (margin > 7) {
+          extraLogs.push(`>> MOLE FAILURE: ${winnerName} won by ${margin.toFixed(1)}s and LOST a trophy.`);
+        } else {
+          extraLogs.push(`>> MOLE SAFE WIN: ${winnerName} won by ${margin.toFixed(1)}s (<= 7.0s). Trophy awarded as normal.`);
+        }
     }
 
     // Ability Token Boost Log (Click-Click etc)
@@ -2447,8 +2458,8 @@ export default function Game() {
     
     if (activePlayers.length <= 1 || round >= totalRounds) {
       // End game immediately if only 1 or 0 players remain
+      // Keep existing overlays (moment flags / protocol notices) visible.
       setPhase('game_end');
-      setOverlay({ type: "game_over", message: "GAME OVER" });
       return;
     }
     
