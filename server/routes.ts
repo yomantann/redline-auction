@@ -379,14 +379,20 @@ export async function registerRoutes(
         selectedDriver: p.selectedDriver
       }));
       
-      const gameState = createGame(lobbyCode, gamePlayers, lobby.settings.gameDuration);
+      const gameState = createGame(lobbyCode, gamePlayers, lobby.settings.gameDuration, {
+        difficulty: lobby.settings.difficulty,
+        protocolsEnabled: lobby.settings.protocolsEnabled,
+        abilitiesEnabled: lobby.settings.abilitiesEnabled,
+        variant: lobby.settings.variant,
+      });
       
       // Emit game started event
       io.to(lobbyCode).emit('game_started', {
         lobbyCode,
         players: gameState.players,
         totalRounds: gameState.totalRounds,
-        initialTime: gameState.initialTime
+        initialTime: gameState.initialTime,
+        settings: gameState.settings,
       });
       
       log(`Game started in lobby ${lobbyCode} with ${gamePlayers.length} human players`, "game");

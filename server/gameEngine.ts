@@ -16,6 +16,32 @@ const BOT_PERSONALITIES = ['aggressive', 'conservative', 'random', 'balanced'] a
 
 export type BotPersonality = typeof BOT_PERSONALITIES[number];
 export type GameDuration = 'standard' | 'long' | 'short';
+export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+export type ProtocolType = 
+  | 'DATA_BLACKOUT' | 'DOUBLE_STAKES' | 'SYSTEM_FAILURE' 
+  | 'OPEN_HAND' | 'MUTE_PROTOCOL' 
+  | 'PRIVATE_CHANNEL' | 'NO_LOOK' | 'LOCK_ON' 
+  | 'THE_MOLE' | 'PANIC_ROOM' 
+  | 'UNDERDOG_VICTORY' | 'TIME_TAX'
+  | 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'NOISE_CANCEL'
+  | 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND'
+  | null;
+
+// Protocol pools by variant
+const STANDARD_PROTOCOLS: ProtocolType[] = [
+  'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
+  'OPEN_HAND', 'MUTE_PROTOCOL', 'PRIVATE_CHANNEL', 
+  'NO_LOOK', 'THE_MOLE', 'PANIC_ROOM',
+  'UNDERDOG_VICTORY', 'TIME_TAX'
+];
+
+const SOCIAL_PROTOCOLS: ProtocolType[] = [
+  'TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'
+];
+
+const BIO_PROTOCOLS: ProtocolType[] = [
+  'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'
+];
 
 export interface GamePlayer {
   id: string;
@@ -30,6 +56,27 @@ export interface GamePlayer {
   isEliminated: boolean;
   currentBid: number | null;
   isHolding: boolean;
+  // Round statistics
+  totalTimeBid: number;
+  roundImpact?: { type: string; value: number; source: string };
+  abilityUsed: boolean;
+}
+
+export interface GameLogEntry {
+  round: number;
+  type: 'bid' | 'elimination' | 'win' | 'protocol' | 'ability' | 'impact';
+  playerId?: string;
+  playerName?: string;
+  message: string;
+  value?: number;
+  timestamp: number;
+}
+
+export interface GameSettings {
+  difficulty: 'CASUAL' | 'COMPETITIVE';
+  protocolsEnabled: boolean;
+  abilitiesEnabled: boolean;
+  variant: GameVariant;
 }
 
 export interface GameState {
@@ -44,6 +91,13 @@ export interface GameState {
   initialTime: number;
   roundWinner: { id: string; name: string; bid: number } | null;
   eliminatedThisRound: string[];
+  // New fields for multiplayer parity
+  settings: GameSettings;
+  activeProtocol: ProtocolType;
+  protocolHistory: ProtocolType[];
+  gameLog: GameLogEntry[];
+  isDoubleTokensRound: boolean;
+  molePlayerId: string | null;
 }
 
 // Active games storage
@@ -77,7 +131,8 @@ function getTotalRounds(duration: GameDuration): number {
 export function createGame(
   lobbyCode: string,
   lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string }>,
-  duration: GameDuration = 'standard'
+  duration: GameDuration = 'standard',
+  lobbySettings?: Partial<GameSettings>
 ): GameState {
   const initialTime = getInitialTime(duration);
   const totalRounds = getTotalRounds(duration);
@@ -94,6 +149,8 @@ export function createGame(
     isEliminated: false,
     currentBid: null,
     isHolding: false,
+    totalTimeBid: 0,
+    abilityUsed: false,
   }));
   
   // Auto-fill with bots if less than MIN_PLAYERS
@@ -111,6 +168,8 @@ export function createGame(
       isEliminated: false,
       currentBid: null,
       isHolding: false,
+      totalTimeBid: 0,
+      abilityUsed: false,
     });
     botIndex++;
   }
@@ -126,6 +185,14 @@ export function createGame(
     }
   });
   
+  // Merge lobby settings with defaults
+  const settings: GameSettings = {
+    difficulty: lobbySettings?.difficulty || 'CASUAL',
+    protocolsEnabled: lobbySettings?.protocolsEnabled || false,
+    abilitiesEnabled: lobbySettings?.abilitiesEnabled || false,
+    variant: lobbySettings?.variant || 'STANDARD',
+  };
+  
   const gameState: GameState = {
     lobbyCode,
     players: gamePlayers,
@@ -138,6 +205,12 @@ export function createGame(
     initialTime,
     roundWinner: null,
     eliminatedThisRound: [],
+    settings,
+    activeProtocol: null,
+    protocolHistory: [],
+    gameLog: [],
+    isDoubleTokensRound: false,
+    molePlayerId: null,
   };
   
   activeGames.set(lobbyCode, gameState);
@@ -390,21 +463,52 @@ function endRound(lobbyCode: string) {
     const winner = participants.reduce((max, p) => (p.currentBid || 0) > (max.currentBid || 0) ? p : max);
     game.roundWinner = { id: winner.id, name: winner.name, bid: winner.currentBid || 0 };
     
-    // Award token and deduct time
-    winner.tokens++;
+    // Award token(s) - double if DOUBLE_STAKES protocol is active
+    const tokensAwarded = game.isDoubleTokensRound ? 2 : 1;
+    winner.tokens += tokensAwarded;
     
-    log(`Round ${game.round} winner: ${winner.name} with bid of ${winner.currentBid?.toFixed(1)}s`, "game");
+    addGameLogEntry(game, {
+      type: 'win',
+      playerId: winner.id,
+      playerName: winner.name,
+      message: `${winner.name} won round ${game.round} with ${winner.currentBid?.toFixed(1)}s bid${game.isDoubleTokensRound ? ' (2x tokens!)' : ''}`,
+      value: winner.currentBid || 0,
+    });
+    
+    log(`Round ${game.round} winner: ${winner.name} with bid of ${winner.currentBid?.toFixed(1)}s${game.isDoubleTokensRound ? ' (DOUBLE STAKES)' : ''}`, "game");
+  } else {
+    addGameLogEntry(game, {
+      type: 'win',
+      message: `Round ${game.round} had no winner`,
+    });
   }
   
-  // Deduct bids from all participants' remaining time
+  // Log all bids and deduct time
   game.players.forEach(p => {
     if (p.currentBid && p.currentBid > 0) {
+      // Track total time bid for stats
+      p.totalTimeBid += p.currentBid;
+      
+      addGameLogEntry(game, {
+        type: 'bid',
+        playerId: p.id,
+        playerName: p.name,
+        message: `${p.name} bid ${p.currentBid.toFixed(1)}s`,
+        value: p.currentBid,
+      });
+      
       p.remainingTime -= p.currentBid;
       if (p.remainingTime <= 0) {
         p.remainingTime = 0;
         p.isEliminated = true;
         if (!game.eliminatedThisRound.includes(p.id)) {
           game.eliminatedThisRound.push(p.id);
+          addGameLogEntry(game, {
+            type: 'elimination',
+            playerId: p.id,
+            playerName: p.name,
+            message: `${p.name} was eliminated (ran out of time)`,
+          });
         }
       }
     }
@@ -425,6 +529,49 @@ function endRound(lobbyCode: string) {
   }
 }
 
+// Select a random protocol for the round based on variant and settings
+function selectProtocolForRound(game: GameState): ProtocolType {
+  if (!game.settings.protocolsEnabled) return null;
+  
+  // 50% chance of no protocol for variety
+  if (Math.random() < 0.5) return null;
+  
+  let protocolPool: ProtocolType[] = [];
+  
+  switch (game.settings.variant) {
+    case 'SOCIAL_OVERDRIVE':
+      protocolPool = [...SOCIAL_PROTOCOLS];
+      break;
+    case 'BIO_FUEL':
+      protocolPool = [...BIO_PROTOCOLS];
+      break;
+    case 'STANDARD':
+    default:
+      protocolPool = [...STANDARD_PROTOCOLS];
+      break;
+  }
+  
+  // Filter out recently used protocols (avoid repetition)
+  const recentProtocols = game.protocolHistory.slice(-3);
+  const availableProtocols = protocolPool.filter(p => !recentProtocols.includes(p));
+  
+  if (availableProtocols.length === 0) {
+    // All protocols used recently, allow any
+    return protocolPool[Math.floor(Math.random() * protocolPool.length)];
+  }
+  
+  return availableProtocols[Math.floor(Math.random() * availableProtocols.length)];
+}
+
+// Add entry to game log
+function addGameLogEntry(game: GameState, entry: Omit<GameLogEntry, 'round' | 'timestamp'>) {
+  game.gameLog.push({
+    ...entry,
+    round: game.round,
+    timestamp: Date.now(),
+  });
+}
+
 // Start the waiting_for_ready phase (used for each round)
 function startWaitingForReady(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
@@ -433,12 +580,41 @@ function startWaitingForReady(lobbyCode: string) {
   game.phase = 'waiting_for_ready';
   game.roundWinner = null;
   game.eliminatedThisRound = [];
+  game.isDoubleTokensRound = false;
+  
+  // Select protocol for this round
+  const protocol = selectProtocolForRound(game);
+  game.activeProtocol = protocol;
+  if (protocol) {
+    game.protocolHistory.push(protocol);
+    addGameLogEntry(game, {
+      type: 'protocol',
+      message: `Protocol activated: ${protocol}`,
+    });
+    
+    // Handle specific protocol effects at round start
+    if (protocol === 'DOUBLE_STAKES') {
+      game.isDoubleTokensRound = true;
+    }
+    if (protocol === 'THE_MOLE') {
+      // Randomly select a non-eliminated player as the mole
+      const activePlayers = game.players.filter(p => !p.isEliminated && !p.isBot);
+      if (activePlayers.length > 0) {
+        game.molePlayerId = activePlayers[Math.floor(Math.random() * activePlayers.length)].id;
+      }
+    } else {
+      game.molePlayerId = null;
+    }
+    
+    log(`Protocol ${protocol} activated for round ${game.round} in lobby ${lobbyCode}`, "game");
+  }
   
   // Reset all player holding/bid status for new round
   game.players.forEach(p => {
     if (!p.isEliminated) {
       p.isHolding = false;
       p.currentBid = null;
+      p.roundImpact = undefined;
     }
   });
   

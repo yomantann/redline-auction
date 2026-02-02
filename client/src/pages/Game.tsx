@@ -782,9 +782,30 @@ export default function Game() {
       isEliminated: boolean;
       currentBid: number | null;
       isHolding: boolean;
+      totalTimeBid: number;
+      abilityUsed: boolean;
     }>;
     roundWinner: { id: string; name: string; bid: number } | null;
     eliminatedThisRound: string[];
+    settings: {
+      difficulty: 'CASUAL' | 'COMPETITIVE';
+      protocolsEnabled: boolean;
+      abilitiesEnabled: boolean;
+      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+    };
+    activeProtocol: string | null;
+    protocolHistory: string[];
+    gameLog: Array<{
+      round: number;
+      type: string;
+      playerId?: string;
+      playerName?: string;
+      message: string;
+      value?: number;
+      timestamp: number;
+    }>;
+    isDoubleTokensRound: boolean;
+    molePlayerId: string | null;
   } | null>(null);
   
   // Socket connection
@@ -820,6 +841,23 @@ export default function Game() {
       
       // Sync phase with server state for multiplayer
       if (state) {
+        // Sync settings from server
+        if (state.settings) {
+          setVariant(state.settings.variant);
+          setDifficulty(state.settings.difficulty);
+          setProtocolsEnabled(state.settings.protocolsEnabled);
+          setAbilitiesEnabled(state.settings.abilitiesEnabled);
+        }
+        
+        // Sync active protocol from server
+        if (state.activeProtocol) {
+          setActiveProtocol(state.activeProtocol as ProtocolType);
+        } else {
+          setActiveProtocol(null);
+        }
+        
+        // totalRounds is handled by multiplayer state directly
+        
         if (state.phase === 'driver_selection') {
           setPhase('mp_driver_select');
         } else if (state.phase === 'waiting_for_ready') {
@@ -851,6 +889,49 @@ export default function Game() {
       socket.off('game_state', handleGameState);
     };
   }, [socket]);
+
+  // Multiplayer Protocol Overlay - trigger when a new protocol is activated
+  const lastProtocolRoundRef = useRef<number>(0);
+  useEffect(() => {
+    if (!isMultiplayer || !multiplayerGameState) return;
+    
+    // Only trigger when entering waiting_for_ready phase with a protocol
+    if (multiplayerGameState.phase !== 'waiting_for_ready') return;
+    if (!multiplayerGameState.activeProtocol) return;
+    
+    // Prevent duplicate triggers for same round
+    if (lastProtocolRoundRef.current === multiplayerGameState.round) return;
+    lastProtocolRoundRef.current = multiplayerGameState.round;
+    
+    // Trigger protocol overlay with simple mapping
+    const protocol = multiplayerGameState.activeProtocol;
+    const protocolNames: Record<string, { name: string; desc: string }> = {
+      'DATA_BLACKOUT': { name: 'DATA BLACKOUT', desc: 'Timers Hidden' },
+      'DOUBLE_STAKES': { name: 'DOUBLE STAKES', desc: 'Winner Gets 2 Tokens' },
+      'SYSTEM_FAILURE': { name: 'SYSTEM FAILURE', desc: 'Timers Scrambled' },
+      'OPEN_HAND': { name: 'OPEN HAND', desc: 'All Bids Visible' },
+      'MUTE_PROTOCOL': { name: 'MUTE PROTOCOL', desc: 'No Talking Allowed' },
+      'PRIVATE_CHANNEL': { name: 'PRIVATE CHANNEL', desc: 'Whisper to One Player' },
+      'NO_LOOK': { name: 'NO LOOK', desc: 'Close Your Eyes' },
+      'LOCK_ON': { name: 'LOCK ON', desc: 'Stare at Target Player' },
+      'THE_MOLE': { name: 'THE MOLE', desc: 'Secret Saboteur' },
+      'PANIC_ROOM': { name: 'PANIC ROOM', desc: '2x Timer Speed' },
+      'UNDERDOG_VICTORY': { name: 'UNDERDOG VICTORY', desc: 'Revealed at Round End' },
+      'TIME_TAX': { name: 'TIME TAX', desc: 'Revealed at Round End' },
+      'TRUTH_DARE': { name: 'TRUTH OR DARE', desc: 'Winner Asks, Loser Does' },
+      'SWITCH_SEATS': { name: 'SEAT SWAP', desc: 'Everyone Move Left' },
+      'HUM_TUNE': { name: 'HUM A TUNE', desc: 'Loser Hums a Song' },
+      'NOISE_CANCEL': { name: 'NOISE CANCEL', desc: 'Play in Silence' },
+      'HYDRATE': { name: 'HYDRATE', desc: 'Loser Drinks Water' },
+      'BOTTOMS_UP': { name: 'BOTTOMS UP', desc: 'Loser Finishes Drink' },
+      'PARTNER_DRINK': { name: 'PARTNER DRINK', desc: 'Choose a Drink Buddy' },
+      'WATER_ROUND': { name: 'WATER ROUND', desc: 'No Alcohol This Round' },
+    };
+    const protocolInfo = protocolNames[protocol];
+    if (protocolInfo) {
+      addOverlay("protocol_alert", protocolInfo.name, protocolInfo.desc);
+    }
+  }, [isMultiplayer, multiplayerGameState, addOverlay]);
 
   // Multiplayer Moment Flags - trigger when round ends
   const lastRoundEndProcessedRef = useRef<number>(0);
@@ -3037,7 +3118,9 @@ export default function Game() {
     
     // Map multiplayer phases to local phases for rendering
     const renderPhase = isMultiplayer 
-      ? (effectivePhase === 'round_end' ? 'round_end' : effectivePhase)
+      ? (effectivePhase === 'driver_selection' ? 'mp_driver_select' 
+        : effectivePhase === 'round_end' ? 'round_end' 
+        : effectivePhase)
       : phase;
     
     switch (renderPhase) {
