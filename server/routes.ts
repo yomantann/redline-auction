@@ -8,6 +8,7 @@ import {
   startGame, 
   playerPressBid,
   playerReleaseBid, 
+  playerAcknowledgeRoundEnd,
   getGameState, 
   removePlayerFromGame,
   cleanupGame,
@@ -467,6 +468,19 @@ export async function registerRoutes(
       }
       
       playerReleaseBid(lobbyCode, socket.id);
+      
+      if (callback) callback({ success: true });
+    });
+
+    // PLAYER ACKNOWLEDGES ROUND END (clicks to continue to next round)
+    socket.on("player_ready_next", (callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      
+      playerAcknowledgeRoundEnd(lobbyCode, socket.id);
       
       if (callback) callback({ success: true });
     });

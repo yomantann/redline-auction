@@ -774,17 +774,23 @@ function endRound(lobbyCode: string) {
   
   broadcastGameState(lobbyCode);
   
-  // Check for game over
+  // Mark all players as not acknowledged for round end
+  game.players.forEach(p => {
+    if (!p.isBot && !p.isEliminated) {
+      (p as any).roundEndAcknowledged = false;
+    } else {
+      // Bots and eliminated players auto-acknowledge
+      (p as any).roundEndAcknowledged = true;
+    }
+  });
+  
+  // Check for game over - wait for player acknowledgment instead of auto-advancing
   const activePlayers = game.players.filter(p => !p.isEliminated);
   if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
+    // For game over, we can still auto-advance after a short delay
     setTimeout(() => endGame(lobbyCode), 3000);
-  } else {
-    // Start next round after delay - go to waiting_for_ready phase
-    setTimeout(() => {
-      game.round++;
-      startWaitingForReady(lobbyCode);
-    }, 3000);
   }
+  // Otherwise, wait for players to acknowledge round end (via player_ready_next event)
 }
 
 // Select a random protocol for the round based on variant and settings
@@ -986,6 +992,37 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     log(`${player.name} released at ${elapsed.toFixed(1)}s in lobby ${lobbyCode}`, "game");
     
     // Broadcast immediately
+    broadcastGameState(lobbyCode);
+  }
+}
+
+// Player acknowledges round end (clicks to continue)
+export function playerAcknowledgeRoundEnd(lobbyCode: string, socketId: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || game.phase !== 'round_end') return;
+  
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player || player.isEliminated) return;
+  
+  (player as any).roundEndAcknowledged = true;
+  log(`${player.name} acknowledged round end in lobby ${lobbyCode}`, "game");
+  
+  // Check if all human players have acknowledged
+  const humanPlayers = game.players.filter(p => !p.isBot && !p.isEliminated);
+  const allAcknowledged = humanPlayers.every(p => (p as any).roundEndAcknowledged === true);
+  
+  if (allAcknowledged && humanPlayers.length > 0) {
+    // Check for game over
+    const activePlayers = game.players.filter(p => !p.isEliminated);
+    if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
+      endGame(lobbyCode);
+    } else {
+      // Advance to next round
+      game.round++;
+      startWaitingForReady(lobbyCode);
+    }
+  } else {
+    // Broadcast updated state so clients can see who has acknowledged
     broadcastGameState(lobbyCode);
   }
 }

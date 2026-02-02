@@ -2901,6 +2901,17 @@ export default function Game() {
         socialDares: 0,
         selectedDriver: (mp as any).selectedDriver,
         abilityUsed: (mp as any).abilityUsed || false,
+        characterIcon: (() => {
+          const driverId = (mp as any).selectedDriver;
+          if (!driverId) return undefined;
+          const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
+          const char = allChars.find(c => c.id === driverId);
+          if (!char) return undefined;
+          // Use variant-specific image based on game settings
+          if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) return char.imageSocial;
+          if (variant === 'BIO_FUEL' && char.imageBio) return char.imageBio;
+          return char.image;
+        })(),
       } as Player))
     : players;
 
@@ -4325,10 +4336,10 @@ export default function Game() {
                   <div className="relative">
                     <Trophy size={64} className="mx-auto text-primary relative z-10" />
                     {/* Winner Image Behind Trophy or Next to it */}
-                     {players.find(p => p.name === roundWinner.name)?.characterIcon && (
+                     {displayPlayers.find(p => p.name === roundWinner.name)?.characterIcon && (
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full overflow-hidden border-4 border-primary/50 shadow-[0_0_20px_var(--color-primary)] z-0 opacity-80">
-                           {typeof players.find(p => p.name === roundWinner.name)?.characterIcon === 'string' ? (
-                             <img src={players.find(p => p.name === roundWinner.name)?.characterIcon as string} alt="Winner" className="w-full h-full object-cover" />
+                           {typeof displayPlayers.find(p => p.name === roundWinner.name)?.characterIcon === 'string' ? (
+                             <img src={displayPlayers.find(p => p.name === roundWinner.name)?.characterIcon as string} alt="Winner" className="w-full h-full object-cover" />
                            ) : (
                              <div className="w-full h-full bg-zinc-800" />
                            )}
@@ -4338,9 +4349,9 @@ export default function Game() {
                   
                   {/* Clean layout for image + text */}
                    <div className="flex items-center justify-center gap-4 mt-4">
-                     {players.find(p => p.name === roundWinner.name)?.characterIcon && typeof players.find(p => p.name === roundWinner.name)?.characterIcon === 'string' && (
+                     {displayPlayers.find(p => p.name === roundWinner.name)?.characterIcon && typeof displayPlayers.find(p => p.name === roundWinner.name)?.characterIcon === 'string' && (
                         <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary shadow-lg">
-                           <img src={players.find(p => p.name === roundWinner.name)?.characterIcon as string} alt="Winner" className="w-full h-full object-cover" />
+                           <img src={displayPlayers.find(p => p.name === roundWinner.name)?.characterIcon as string} alt="Winner" className="w-full h-full object-cover" />
                         </div>
                      )}
                      <div className="text-left">
@@ -4362,7 +4373,7 @@ export default function Game() {
 
             <div className="w-full bg-card/50 p-4 rounded border border-white/5 space-y-2">
               <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Bid History</h4>
-              {players
+              {displayPlayers
                 .filter(p => p.currentBid !== null && p.currentBid > 0)
                 .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0))
                 .filter(p => {
@@ -4372,20 +4383,27 @@ export default function Game() {
                 })
                 .map(p => (
                 <div key={p.id} className="flex justify-between items-center text-sm">
-                  <span className={p.id === roundWinner?.name ? "text-primary font-bold" : "text-zinc-300"}>
+                  <span className={p.name === roundWinner?.name ? "text-primary font-bold" : "text-zinc-300"}>
                     {p.name}
                   </span>
                   <span className="font-mono">{formatTime(p.currentBid || 0)}</span>
                 </div>
               ))}
-              {!showDetails && players.filter(p => p.currentBid !== null && p.currentBid > 0).length > (roundWinner ? 1 : 0) && (
+              {!showDetails && displayPlayers.filter(p => p.currentBid !== null && p.currentBid > 0).length > (roundWinner ? 1 : 0) && (
                  <div className="text-center text-xs text-zinc-600 italic mt-2">
-                   + {players.filter(p => p.currentBid !== null && p.currentBid > 0).length - (roundWinner ? 1 : 0)} other hidden bids
+                   + {displayPlayers.filter(p => p.currentBid !== null && p.currentBid > 0).length - (roundWinner ? 1 : 0)} other hidden bids
                  </div>
               )}
             </div>
 
-            <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
+            <Button onClick={() => {
+              if (isMultiplayer && socket) {
+                socket.emit("player_ready_next");
+                console.log('[Game] Emitted player_ready_next');
+              } else {
+                nextRound();
+              }
+            }} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
               NEXT ROUND
             </Button>
             {/* Inline Overlay for Round End Phase */}
@@ -5075,10 +5093,15 @@ export default function Game() {
               </Button>
             </h3>
             <div className="flex-1 overflow-y-auto space-y-2 font-mono text-xs text-zinc-500 custom-scrollbar">
-              {roundLog.length === 0 && <p className="italic opacity-50">Game started...</p>}
-              {roundLog.map((log, i) => (
-                <div key={i} className="border-b border-white/5 pb-1 mb-1 last:border-0">{log}</div>
-              ))}
+              {(() => {
+                const logs = isMultiplayer && multiplayerGameState?.gameLog 
+                  ? multiplayerGameState.gameLog.map(l => l.message)
+                  : roundLog;
+                if (logs.length === 0) return <p className="italic opacity-50">Game started...</p>;
+                return logs.map((log, i) => (
+                  <div key={i} className="border-b border-white/5 pb-1 mb-1 last:border-0">{log}</div>
+                ));
+              })()}
             </div>
           </div>
         </div>
