@@ -4844,12 +4844,15 @@ export default function Game() {
                 </div>
 
                 <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5" data-testid="badge-round">
-                                  </Badge>
+                  ROUND {round} / {totalRounds}
+                </Badge>
               </div>
             </div>
           </div>
         </div>
-{/* POPUP LIBRARY DIALOG */}
+      {/* POPUP LIBRARY DIALOG */}
+      <Dialog open={showPopupLibrary} onOpenChange={setShowPopupLibrary}>
+        <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
           <DialogHeader>
             <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-primary flex items-center gap-2">
               <CircleHelp /> MOMENT FLAGS
@@ -5304,10 +5307,11 @@ export default function Game() {
                 return logs.map((log, i) => (
                   <div key={i} className="border-b border-white/5 pb-1 mb-1 last:border-0">{log}</div>
                 ));
-                                                                                    })()}
+                            })()}
             </div>
           </div>
-        </GameLayout>
+        </div>
+      </GameLayout>
   );
 }
 
