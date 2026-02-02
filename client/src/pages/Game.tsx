@@ -533,8 +533,17 @@ export default function Game() {
   
   // Helper to add overlay
   const addOverlay = (type: OverlayType, message: string, subMessage?: string, duration: number = 0) => {
-      const id = Math.random().toString(36).substring(7);
-      setOverlays(prev => [...prev, { id, type, message, subMessage, duration }]);
+      let createdId: string | null = null;
+
+      // De-dupe identical overlays (prevents duplicate elimination popups across multiple code paths)
+      setOverlays(prev => {
+          const already = prev.some(o => o.type === type && (o.message || "") === (message || "") && (o.subMessage || "") === (subMessage || ""));
+          if (already) return prev;
+
+          const id = Math.random().toString(36).substring(7);
+          createdId = id;
+          return [...prev, { id, type, message, subMessage, duration }];
+      });
       
       // Play SFX (one per "burst" even if multiple overlays stack)
       // Do NOT interrupt an in-flight sound; just block new ones briefly.
@@ -557,7 +566,8 @@ export default function Game() {
       // Auto dismiss if desired (0 = manual dismiss)
       if (duration > 0) {
           setTimeout(() => {
-              setOverlays(prev => prev.filter(o => o.id !== id));
+              if (!createdId) return;
+              setOverlays(prev => prev.filter(o => o.id !== createdId));
           }, duration);
       }
   };
@@ -2112,19 +2122,10 @@ export default function Game() {
     let momentCount = 0; // Track moment flags for triple play
 
     if (playersOut.length > 0) {
-      // Show elimination flag if any player is out this round
-      const justEliminated = playersState.filter(p => p.isEliminated && players.find(old => old.id === p.id && !old.isEliminated));
-      
-      justEliminated.forEach(elim => {
-          // Always show for p1 if p1 is out
-          // Also show for others if desired, but user specifically asked for p1 popup
-          // "The elimination moment flag is not popping up for the main player in singleplayer. This needs to popup for the eliminated player only in any mode."
-          if (elim.id === 'p1') {
-             setTimeout(() => addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!"), 100);
-          }
-      });
-      
-    } else if (winnerId) {
+      // Elimination moment flag is handled elsewhere (single source of truth).
+      // Keeping this block prevents other moment-flag logic from running when players are eliminated.
+      // (Intentionally no overlay added here to avoid duplicates.)
+    } else if (winnerId) { 
        const winnerPlayer = participants[0]; // winner is first
        const secondPlayer = participants.length > 1 ? participants[1] : null;
        const winnerBid = winnerPlayer.currentBid || 0;
@@ -3515,21 +3516,24 @@ export default function Game() {
         const loser = sortedPlayers[sortedPlayers.length - 1];
 
         return (
-          <div className="flex flex-col items-center justify-center space-y-8 mt-10 h-[550px] overflow-y-auto custom-scrollbar">
-            <h1 className="text-5xl font-display font-bold text-white">GAME OVER</h1>
+          <div className="relative h-[550px] overflow-y-auto custom-scrollbar">
+            <div className="sticky top-0 z-20 w-full pt-10 pb-4 flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-black/90 via-black/70 to-transparent backdrop-blur">
+              <h1 className="text-5xl font-display font-bold text-white">GAME OVER</h1>
+            </div>
 
-            <GameOverlay overlays={overlays} onDismiss={removeOverlay} />
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
-              {sortedPlayers.map((p, i) => (
-                <div key={p.id} className={cn("p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden", p.id === loser.id ? "border-destructive/50 bg-destructive/5" : "border-white/10")}>
-                   {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
-                   {p.id === loser.id && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
-                   
-                   <div className="flex items-center gap-2 mb-2">
-                       <span className="font-bold text-xl text-zinc-500">#{i + 1}</span>
-                       <span className="font-bold text-lg">{p.name}</span>
-                   </div>
+            <div className="relative z-0 flex flex-col items-center justify-start gap-8 px-0 pb-10">
+              <GameOverlay overlays={overlays} onDismiss={removeOverlay} />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+                {sortedPlayers.map((p, i) => (
+                  <div key={p.id} className={cn("p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden", p.id === loser.id ? "border-destructive/50 bg-destructive/5" : "border-white/10")}>
+                     {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
+                     {p.id === loser.id && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
+                     
+                     <div className="flex items-center gap-2 mb-2">
+                         <span className="font-bold text-xl text-zinc-500">#{i + 1}</span>
+                         <span className="font-bold text-lg">{p.name}</span>
+                     </div>
                    
                    <div className="grid grid-cols-3 gap-2 text-xs">
                        <div className="bg-black/20 p-2 rounded">
@@ -3567,6 +3571,7 @@ export default function Game() {
             <Button onClick={() => window.location.reload()} variant="outline" size="lg" className="mt-8">
               <RefreshCw className="mr-2 h-4 w-4" /> Play Again
             </Button>
+            </div>
           </div>
         );
     }
