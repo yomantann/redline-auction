@@ -3005,12 +3005,14 @@ export default function Game() {
     setLobbyError(null);
     
     // Send current game settings to the lobby
+    // Map local gameDuration ('short') to server format ('sprint')
+    const serverDuration = gameDuration === 'short' ? 'sprint' : gameDuration;
     const settings = {
       difficulty,
       protocolsEnabled,
       abilitiesEnabled,
       variant,
-      gameDuration
+      gameDuration: serverDuration
     };
     
     socket.emit("create_lobby", { playerName, settings }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
