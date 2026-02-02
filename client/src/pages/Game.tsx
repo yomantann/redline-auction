@@ -16,7 +16,7 @@ import socialGuardianHOption1 from "../assets/generated_images/social_guardian_h
 import socialFrostybyteOption1 from "../assets/generated_images/social_frostybyte_option1.png";
 import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_detailed_v4.png";
 
-import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_older_unique_v5.png";
+import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_life_support_v6.png";
 import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_toy_v2.png";
 import socialAccuserOption1 from "../assets/generated_images/social_accuser_pointing_v4.png";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
@@ -1418,9 +1418,13 @@ export default function Game() {
 
     // Make sure the elimination moment flag shows up for the player if they got eliminated.
     // (Do NOT auto-dismiss; this must persist until the player clicks it.)
+    // De-dupe: if another part of the round resolution also adds this, don't stack duplicates.
     const p1AtRoundEnd = players.find(p => p.id === 'p1');
     if (p1AtRoundEnd?.isEliminated) {
-      addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
+      const alreadyHasElimFlag = overlays.some(o => o.type === "time_out" && o.message === "PLAYER ELIMINATED");
+      if (!alreadyHasElimFlag) {
+        addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
+      }
     }
     
     // 2. CALCULATE PRELIMINARY TIME & ELIMINATION (Pre-Winner)
@@ -1878,12 +1882,12 @@ export default function Game() {
              }
          }
          
-         // Show eliminated overlay for P1, then proceed to game over.
-         // (Single player: p1 only)
-         addOverlay("eliminated", "ELIMINATED", "Out of time.");
-
-         // Also show the moment-flag style elimination notice (this should persist into game over).
-         addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
+         // Show only the moment-flag style elimination notice (this should persist into game over).
+         // (Avoid stacking multiple elimination popups; the moment flag is the single source of truth.)
+         const alreadyHasElimFlag = overlays.some(o => o.type === "time_out" && o.message === "PLAYER ELIMINATED");
+         if (!alreadyHasElimFlag) {
+           addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
+         }
 
          // Simulate remaining rounds simply by awarding tokens
          // (kept as-is; does not affect the overlay flow)
