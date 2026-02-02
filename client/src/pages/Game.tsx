@@ -2042,12 +2042,11 @@ export default function Game() {
     // Let's re-run the logic for STEP A with this correction.
     
     tempPlayersState = players.map(p => {
-        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "", roundNetImpactNum: 0 };
+        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "" };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
         let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
-        let roundNetImpactNum = 0;
 
         // Bid Deduction
         if (p.currentBid !== null && p.currentBid > 0) {
@@ -2062,7 +2061,6 @@ export default function Game() {
         const pending = pendingPenalties[p.id] || 0;
         if (pending > 0) {
             newTime -= pending;
-            roundNetImpactNum -= pending;
             roundImpact += ` -${pending}s (Penalty)`;
         }
 
@@ -2073,7 +2071,6 @@ export default function Game() {
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
-                roundNetImpactNum -= d.amount;
                 // Add to round impact for display
                 roundImpact += ` -${d.amount}s (${d.ability})`;
                 // Add detailed log
@@ -2081,7 +2078,7 @@ export default function Game() {
             });
         }
 
-        return { ...p, remainingTime: newTime, roundImpact, roundNetImpactNum, impactLogs };
+        return { ...p, remainingTime: newTime, roundImpact };
     });
 
     if (abilitiesEnabled) {
@@ -2328,8 +2325,7 @@ export default function Game() {
              }
         }
         
-        // netImpact is per-round only (not cumulative), shows current round's ability/protocol impacts
-        return { ...p, tokens: newTokens, remainingTime: newTime, roundImpact: impact, impactLogs: impactLogs, netImpact: roundNetImpactNum };
+        return { ...p, tokens: newTokens, remainingTime: newTime, roundImpact: impact, impactLogs: impactLogs, netImpact: (p.netImpact || 0) + roundNetImpactNum };
     });
 
     // 6. APPLY CHEESE TAX DAMAGE TO WINNER (Post-Processing)
@@ -2344,7 +2340,7 @@ export default function Game() {
                      
                      if (w && w.id !== rollSafeId) {
                          w.remainingTime = Math.max(0, w.remainingTime - 2.0);
-                         w.netImpact = (w.netImpact || 0) - 2.0; // Track cheese tax damage (within same round)
+                         w.netImpact = (w.netImpact || 0) - 2.0; // Track cheese tax damage received
                          w.roundImpact = (w.roundImpact || "") + " -2.0s (Cheese Tax)";
                          if (w.impactLogs) w.impactLogs.push({ value: "-2.0s", reason: "Cheese Tax", type: 'loss' });
                          

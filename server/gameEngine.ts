@@ -800,14 +800,6 @@ function endRound(lobbyCode: string) {
   
   game.phase = 'round_end';
   
-  // Log active protocol at round end (per user request - game log updates at round end, not round start)
-  if (game.activeProtocol) {
-    addGameLogEntry(game, {
-      type: 'protocol',
-      message: `Protocol active: ${game.activeProtocol}`,
-    });
-  }
-  
   // Find winner (highest bid among non-eliminated)
   const participants = game.players.filter(p => p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
   
@@ -1014,7 +1006,10 @@ function startWaitingForReady(lobbyCode: string) {
   game.activeProtocol = protocol;
   if (protocol) {
     game.protocolHistory.push(protocol);
-    // NOTE: Game log entry for protocol is added at round end, not here, per user request
+    addGameLogEntry(game, {
+      type: 'protocol',
+      message: `Protocol activated: ${protocol}`,
+    });
     
     // Handle specific protocol effects at round start
     if (protocol === 'DOUBLE_STAKES' || protocol === 'PANIC_ROOM') {
@@ -1039,7 +1034,6 @@ function startWaitingForReady(lobbyCode: string) {
       p.isHolding = false;
       p.currentBid = null;
       p.roundImpact = undefined;
-      p.netImpact = 0; // Reset net impact each round (per-round only, not cumulative)
       p.abilityUsed = false;
       p.penaltyAppliedThisRound = false;
     }
