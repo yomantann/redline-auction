@@ -717,7 +717,7 @@ export default function Game() {
       protocolsEnabled: boolean;
       abilitiesEnabled: boolean;
       variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
-      gameDuration: 'sprint' | 'standard' | 'long';
+      gameDuration: 'sprint' | 'standard' | 'long' | 'short';
     };
     maxPlayers: number;
   } | null>(null);
@@ -3707,7 +3707,7 @@ export default function Game() {
                       {currentLobby.settings.variant.replace('_', ' ')}
                     </span>
                     <span className="px-2 py-1 rounded border bg-zinc-500/10 border-zinc-500/30 text-zinc-400">
-                      {currentLobby.settings.gameDuration === 'sprint' ? '2.5m' : currentLobby.settings.gameDuration === 'long' ? '10m' : '5m'}
+                      {currentLobby.settings.gameDuration === 'short' || currentLobby.settings.gameDuration === 'sprint' ? '2.5m' : currentLobby.settings.gameDuration === 'long' ? '10m' : '5m'}
                     </span>
                     {currentLobby.settings.protocolsEnabled && (
                       <span className="px-2 py-1 rounded border bg-red-500/10 border-red-500/30 text-red-400">
