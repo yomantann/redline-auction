@@ -30,6 +30,31 @@ const BIO_DRIVER_IDS = [
   'tank', 'danger_zone'
 ];
 
+// Driver ID to display name mapping
+const DRIVER_NAMES: Record<string, string> = {
+  'harambe': 'Harambe',
+  'popcat': 'Pop Cat',
+  'winter': 'Winter Soldier',
+  'pepe': 'Pepe',
+  'nyan': 'Nyan Cat',
+  'karen': 'Karen',
+  'fine': 'This is Fine',
+  'bf': 'Distracted BF',
+  'rat': 'Pizza Rat',
+  'baldwin': 'Art Critic',
+  'sigma': 'Sigma',
+  'gigachad': 'GigaChad',
+  'thinker': 'Confused Math',
+  'disaster': 'Disaster Girl',
+  'buttons': 'Button Masher',
+  'primate': 'Primate',
+  'harold': 'Harold',
+  'prom_king': 'Prom King',
+  'idol_core': 'Idol Core',
+  'tank': 'Tank',
+  'danger_zone': 'Danger Zone'
+};
+
 export type BotPersonality = typeof BOT_PERSONALITIES[number];
 export type GameDuration = 'standard' | 'long' | 'short';
 export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
@@ -345,6 +370,8 @@ export function confirmDriverInGame(lobbyCode: string, playerId: string): { succ
         if (unusedDrivers.length > 0) {
           const randomDriver = unusedDrivers[Math.floor(Math.random() * unusedDrivers.length)];
           p.selectedDriver = randomDriver;
+          // Update bot name to be the driver name
+          p.name = DRIVER_NAMES[randomDriver] || randomDriver;
           usedDrivers.push(randomDriver);
         }
         p.driverConfirmed = true;
@@ -937,6 +964,8 @@ function startWaitingForReady(lobbyCode: string) {
       p.roundImpact = undefined;
       p.abilityUsed = false;
     }
+    // Reset round end acknowledgment for all players (human and bot)
+    (p as any).roundEndAcknowledged = p.isBot ? true : false;
   });
   
   broadcastGameState(lobbyCode);
