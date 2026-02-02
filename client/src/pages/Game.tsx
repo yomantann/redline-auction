@@ -3072,14 +3072,24 @@ export default function Game() {
     });
   }, [socket]);
 
-  // Sync lobby settings when host changes them
+  // Track if we're the host (use ref to avoid triggering effect when lobby updates)
+  const isHostRef = useRef(false);
   useEffect(() => {
-    if (!socket || !currentLobby) return;
-    // Only host can update settings
-    if (socket.id !== currentLobby.hostSocketId) return;
+    isHostRef.current = !!(socket && currentLobby && socket.id === currentLobby.hostSocketId);
+  }, [socket, currentLobby]);
+
+  // Sync lobby settings when host changes them (only when actual settings change)
+  const prevSettingsRef = useRef<string>('');
+  useEffect(() => {
+    if (!socket || !isHostRef.current) return;
     
     // Map local gameDuration to server format
     const serverDuration = gameDuration === 'short' ? 'sprint' : gameDuration;
+    
+    // Build settings string to detect actual changes
+    const settingsKey = JSON.stringify({ difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
+    if (settingsKey === prevSettingsRef.current) return;
+    prevSettingsRef.current = settingsKey;
     
     socket.emit("update_lobby_settings", { 
       settings: {
@@ -3091,7 +3101,7 @@ export default function Game() {
       }
     });
     console.log('[Lobby] Settings updated:', { difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
-  }, [socket, currentLobby, difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration]);
+  }, [socket, difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration]);
 
   const handleStartMultiplayerGame = useCallback(() => {
     if (!socket) return;
