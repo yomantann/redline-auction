@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast"; // Added toast hook
+import { useSocket } from "@/lib/socket";
 import { GameLayout } from "@/components/game/GameLayout";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
@@ -739,6 +740,24 @@ export default function Game() {
 
   // Multiplayer State
   const [lobbyCode, setLobbyCode] = useState("");
+  const [playerName, setPlayerName] = useState("Player");
+  const [currentLobby, setCurrentLobby] = useState<{
+    code: string;
+    players: Array<{
+      id: string;
+      socketId: string;
+      name: string;
+      isHost: boolean;
+      isReady: boolean;
+    }>;
+    hostSocketId: string;
+    status: 'waiting' | 'starting' | 'in_game';
+    maxPlayers: number;
+  } | null>(null);
+  const [lobbyError, setLobbyError] = useState<string | null>(null);
+  
+  // Socket connection
+  const { socket, isConnected } = useSocket();
 
   // Helper for formatting time
   const formatTime = (seconds: number) => {
@@ -747,6 +766,22 @@ export default function Game() {
     const ms = Math.floor((seconds % 1) * 10);
     return `${m}:${s.toString().padStart(2, '0')}.${ms}`;
   };
+
+  // Socket event listeners for lobby
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLobbyUpdate = (lobbyData: typeof currentLobby) => {
+      console.log('[Lobby] Update received:', lobbyData);
+      setCurrentLobby(lobbyData);
+    };
+
+    socket.on('lobby_update', handleLobbyUpdate);
+
+    return () => {
+      socket.off('lobby_update', handleLobbyUpdate);
+    };
+  }, [socket]);
 
   // --- Game Loop Logic ---
 
@@ -2560,18 +2595,64 @@ export default function Game() {
   // New logic for 'waiting' state
   const isWaiting = phase === 'bidding' && playerBid !== null && playerBid > 0;
 
-  // Multiplayer handlers (mock)
-  const handleCreateRoom = () => {
-    // In real app, this would call backend to create room
-    // For mockup, we just pretend and go to char select
-    setPhase('character_select');
-  };
-  
-  const handleJoinRoom = () => {
-    if (lobbyCode.length > 0) {
-      setPhase('character_select');
+  // Multiplayer handlers
+  const handleCreateRoom = useCallback(() => {
+    if (!socket || !isConnected) {
+      setLobbyError("Not connected to server");
+      return;
     }
-  };
+    
+    setLobbyError(null);
+    socket.emit("create_lobby", { playerName }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
+      if (response.success && response.lobby) {
+        console.log('[Lobby] Created:', response.code);
+        setCurrentLobby(response.lobby);
+        setLobbyCode(response.code || '');
+      } else {
+        setLobbyError(response.error || "Failed to create lobby");
+      }
+    });
+  }, [socket, isConnected, playerName]);
+  
+  const handleJoinRoom = useCallback(() => {
+    if (!socket || !isConnected) {
+      setLobbyError("Not connected to server");
+      return;
+    }
+    
+    if (lobbyCode.length < 4) {
+      setLobbyError("Please enter a valid 4-character code");
+      return;
+    }
+    
+    setLobbyError(null);
+    socket.emit("join_lobby", { code: lobbyCode, playerName }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+      if (response.success && response.lobby) {
+        console.log('[Lobby] Joined:', response.lobby.code);
+        setCurrentLobby(response.lobby);
+      } else {
+        setLobbyError(response.error || "Failed to join lobby");
+      }
+    });
+  }, [socket, isConnected, lobbyCode, playerName]);
+
+  const handleLeaveLobby = useCallback(() => {
+    if (!socket) return;
+    
+    socket.emit("leave_lobby", () => {
+      setCurrentLobby(null);
+      setLobbyCode("");
+      setLobbyError(null);
+    });
+  }, [socket]);
+
+  const handleToggleReady = useCallback(() => {
+    if (!socket) return;
+    
+    socket.emit("toggle_ready", (response: { success: boolean; isReady?: boolean }) => {
+      console.log('[Lobby] Ready toggled:', response.isReady);
+    });
+  }, [socket]);
 
   const quitGame = () => {
      setPhase('intro');
@@ -3012,6 +3093,118 @@ export default function Game() {
         );
 
       case 'multiplayer_lobby':
+        // If we're in a lobby, show the waiting room
+        if (currentLobby) {
+          const isHost = socket?.id === currentLobby.hostSocketId;
+          const myPlayer = currentLobby.players.find(p => p.socketId === socket?.id);
+          const allReady = currentLobby.players.length >= 2 && currentLobby.players.every(p => p.isReady);
+          
+          return (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center justify-center max-w-lg mx-auto w-full space-y-6"
+            >
+              <div className="text-center space-y-2">
+                <Users className="w-12 h-12 text-primary mx-auto mb-2" />
+                <h2 className="text-2xl font-display font-bold">LOBBY</h2>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-zinc-400">Room Code:</span>
+                  <span className="font-mono text-2xl font-bold tracking-widest text-primary" data-testid="text-lobby-code">
+                    {currentLobby.code}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500">Share this code with friends to join</p>
+              </div>
+
+              {/* Players List */}
+              <div className="w-full bg-card/30 rounded-lg border border-white/10 p-4 space-y-3">
+                <div className="flex justify-between items-center text-sm text-zinc-400">
+                  <span>Players ({currentLobby.players.length}/{currentLobby.maxPlayers})</span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-xs",
+                    currentLobby.status === 'waiting' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'
+                  )}>
+                    {currentLobby.status === 'waiting' ? 'Waiting' : 'Starting'}
+                  </span>
+                </div>
+                
+                <div className="space-y-2">
+                  {currentLobby.players.map((player, idx) => (
+                    <div 
+                      key={player.id}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg border",
+                        player.socketId === socket?.id 
+                          ? "bg-primary/10 border-primary/30" 
+                          : "bg-black/30 border-white/5"
+                      )}
+                      data-testid={`player-row-${idx}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-bold">
+                          {player.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{player.name}</span>
+                            {player.isHost && (
+                              <Badge variant="outline" className="text-xs border-yellow-500/50 text-yellow-400">Host</Badge>
+                            )}
+                            {player.socketId === socket?.id && (
+                              <span className="text-xs text-zinc-500">(You)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className={cn(
+                        "px-2 py-1 rounded text-xs font-medium",
+                        player.isReady 
+                          ? "bg-green-500/20 text-green-400" 
+                          : "bg-zinc-800 text-zinc-500"
+                      )}>
+                        {player.isReady ? "Ready" : "Not Ready"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col gap-3 w-full">
+                <Button 
+                  onClick={handleToggleReady}
+                  variant={myPlayer?.isReady ? "outline" : "default"}
+                  className="w-full"
+                  data-testid="button-toggle-ready"
+                >
+                  {myPlayer?.isReady ? "Cancel Ready" : "Ready Up"}
+                </Button>
+                
+                {isHost && (
+                  <Button 
+                    onClick={() => setPhase('character_select')}
+                    disabled={!allReady}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    data-testid="button-start-game"
+                  >
+                    {allReady ? "Start Game" : `Waiting for players (${currentLobby.players.filter(p => p.isReady).length}/${currentLobby.players.length})`}
+                  </Button>
+                )}
+                
+                <Button 
+                  variant="ghost" 
+                  onClick={handleLeaveLobby}
+                  className="text-zinc-500 hover:text-red-400"
+                  data-testid="button-leave-lobby"
+                >
+                  Leave Lobby
+                </Button>
+              </div>
+            </motion.div>
+          );
+        }
+
+        // Show create/join UI if not in a lobby
         return (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
@@ -3021,14 +3214,43 @@ export default function Game() {
                <Globe className="w-16 h-16 text-primary mx-auto mb-4" />
                <h2 className="text-3xl font-display font-bold">MULTIPLAYER LOBBY</h2>
                <p className="text-muted-foreground">Join the global network.</p>
+               {!isConnected && (
+                 <p className="text-yellow-400 text-sm">Connecting to server...</p>
+               )}
              </div>
+
+             {/* Player Name Input */}
+             <div className="w-full">
+               <Label className="text-xs text-zinc-500">Your Name</Label>
+               <Input 
+                 placeholder="Enter your name" 
+                 className="bg-black/50 border-white/20 text-center"
+                 value={playerName}
+                 onChange={(e) => setPlayerName(e.target.value)}
+                 maxLength={20}
+                 data-testid="input-player-name"
+               />
+             </div>
+
+             {lobbyError && (
+               <div className="text-red-400 text-sm bg-red-500/10 px-4 py-2 rounded border border-red-500/20">
+                 {lobbyError}
+               </div>
+             )}
 
              <div className="grid grid-cols-1 gap-6 w-full">
                 {/* Create Room */}
                 <div className="bg-card/30 p-6 rounded-lg border border-white/10 hover:border-primary/50 transition-colors text-center space-y-4">
                    <h3 className="font-bold text-lg flex items-center justify-center gap-2"><Users size={20}/> Create Room</h3>
                    <p className="text-xs text-zinc-500">Host a private match for friends.</p>
-                   <Button onClick={handleCreateRoom} className="w-full">Create New Lobby</Button>
+                   <Button 
+                     onClick={handleCreateRoom} 
+                     className="w-full" 
+                     disabled={!isConnected || !playerName.trim()}
+                     data-testid="button-create-lobby"
+                   >
+                     Create New Lobby
+                   </Button>
                 </div>
 
                 <div className="relative">
@@ -3050,8 +3272,16 @@ export default function Game() {
                        value={lobbyCode}
                        onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
                        maxLength={6}
+                       data-testid="input-lobby-code"
                      />
-                     <Button onClick={handleJoinRoom} variant="secondary" disabled={lobbyCode.length < 4}>Join</Button>
+                     <Button 
+                       onClick={handleJoinRoom} 
+                       variant="secondary" 
+                       disabled={lobbyCode.length < 4 || !isConnected || !playerName.trim()}
+                       data-testid="button-join-lobby"
+                     >
+                       Join
+                     </Button>
                    </div>
                 </div>
              </div>
