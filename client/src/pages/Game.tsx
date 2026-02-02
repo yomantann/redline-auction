@@ -3117,19 +3117,31 @@ export default function Game() {
       ? multiplayerGameState.phase 
       : phase;
     
-    // Handle multiplayer waiting_for_ready phase
+    // Handle multiplayer waiting_for_ready phase - uses same UI as singleplayer ready phase
     if (effectivePhase === 'waiting_for_ready' && isMultiplayer) {
       const humanPlayers = displayPlayers.filter(p => !p.isBot);
       const readyPlayers = humanPlayers.filter(p => p.isHolding);
+      const allHumansReady = humanPlayers.length > 0 && readyPlayers.length === humanPlayers.length;
       
       return (
         <div className="flex flex-col items-center justify-center h-[450px]">
           <div className="h-[100px] flex flex-col items-center justify-center space-y-2">
-            <h2 className="text-3xl font-display">ROUND {multiplayerGameState?.round || 1}</h2>
-            <p className="text-muted-foreground text-sm">Hold button to ready up!</p>
-            <p className="text-xs text-zinc-500 uppercase tracking-widest">
-              {readyPlayers.length} / {humanPlayers.length} PLAYERS READY
-            </p>
+            <h2 className="text-3xl font-display">ROUND {multiplayerGameState?.round || 1} / {multiplayerGameState?.totalRounds || totalRounds}</h2>
+            {/* Ready Progress Bar - shows when all humans are holding */}
+            <div className="h-6 flex items-center justify-center">
+              {allHumansReady ? (
+                <div className="w-64 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-primary"
+                    initial={{ width: 0 }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: 1, ease: 'linear' }}
+                  />
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">All players must hold button to start</p>
+              )}
+            </div>
           </div>
           
           <div className="h-[280px] flex items-center justify-center">
@@ -3154,6 +3166,9 @@ export default function Game() {
                 />
               ))}
             </div>
+            <p className="text-xs text-zinc-500 uppercase tracking-widest">
+              {readyPlayers.length} / {humanPlayers.length} READY
+            </p>
           </div>
         </div>
       );
@@ -4385,15 +4400,15 @@ export default function Game() {
              {/* Timer Area */}
              <div className="h-[100px] flex items-center justify-center mb-4">
                 {isMultiplayer ? (
-                  // Multiplayer: Always show the current bid timer
-                  <div className="flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-primary/30 bg-black/40 w-[320px]">
-                    <span className="text-muted-foreground text-xs tracking-[0.2em] font-display mb-1">
-                      YOUR BID
+                  // Multiplayer: Show auction time box same as singleplayer
+                  <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
+                    <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
+                      {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
                     </span>
-                    <div className="text-5xl font-mono text-primary font-bold">
-                      {displayTime.toFixed(1)}s
+                    <div className={cn("text-5xl font-mono font-bold", isBlackout ? "text-destructive/50" : "text-primary")}>
+                      {isBlackout ? "ERROR" : `${displayTime.toFixed(1)}s`}
                     </div>
-                    {!currentPlayerIsHolding && (
+                    {!currentPlayerIsHolding && !isBlackout && (
                       <span className="text-xs text-green-400 mt-1">BID LOCKED</span>
                     )}
                   </div>
@@ -4424,13 +4439,7 @@ export default function Game() {
                     isWaiting={false} // No waiting in bidding phase visually
                     showPulse={false}
                   />
-                  {/* Show current bid in multiplayer */}
-                  {isMultiplayer && currentPlayerIsHolding && (
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-lg font-mono text-primary">
-                      {currentPlayerBid.toFixed(1)}s
-                    </div>
-                  )}
-                  {/* Inline Overlay for Bidding Phase */}
+                                    {/* Inline Overlay for Bidding Phase */}
                   <GameOverlay 
                     overlays={overlays}
                     onDismiss={removeOverlay}
