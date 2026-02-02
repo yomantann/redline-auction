@@ -30,28 +30,28 @@ const BIO_DRIVER_IDS = [
   'tank', 'danger_zone'
 ];
 
-// Driver ID to display name mapping
+// Driver ID to display name mapping (matches client-side character names)
 const DRIVER_NAMES: Record<string, string> = {
-  'harambe': 'Harambe',
-  'popcat': 'Pop Cat',
-  'winter': 'Winter Soldier',
-  'pepe': 'Pepe',
-  'nyan': 'Nyan Cat',
-  'karen': 'Karen',
-  'fine': 'This is Fine',
-  'bf': 'Distracted BF',
-  'rat': 'Pizza Rat',
-  'baldwin': 'Art Critic',
-  'sigma': 'Sigma',
-  'gigachad': 'GigaChad',
-  'thinker': 'Confused Math',
-  'disaster': 'Disaster Girl',
-  'buttons': 'Button Masher',
-  'primate': 'Primate',
-  'harold': 'Harold',
+  'harambe': 'Guardian H',
+  'popcat': 'Click-Click',
+  'winter': 'Frostbyte',
+  'pepe': 'Sadman Logic',
+  'nyan': 'Rainbow Dash',
+  'karen': 'The Accuser',
+  'fine': 'Low Flame',
+  'bf': 'Wandering Eye',
+  'rat': 'The Rind',
+  'baldwin': 'The Anointed',
+  'sigma': 'Executive P',
+  'gigachad': 'Alpha Prime',
+  'thinker': 'Roll Safe',
+  'disaster': 'Hotwired',
+  'buttons': 'Panic Bot',
+  'primate': 'Primate Prime',
+  'harold': 'Pain Hider',
   'prom_king': 'Prom King',
   'idol_core': 'Idol Core',
-  'tank': 'Tank',
+  'tank': 'The Tank',
   'danger_zone': 'Danger Zone'
 };
 
