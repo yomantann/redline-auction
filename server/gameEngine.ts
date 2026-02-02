@@ -719,7 +719,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
               // Burn It: affects all others
               targets.forEach(t => {
                 t.remainingTime += refundAmount;
-                t.roundImpact = { type: 'DISRUPT', value: refundAmount, source: player.name };
+                t.roundImpact = { type: 'DISRUPT', value: refundAmount, source: ability.name };
                 abilityImpacts.push({
                   playerId: player.id,
                   targetId: t.id,
@@ -747,12 +747,12 @@ function processAbilities(game: GameState, winnerId: string | null) {
             // For Cheese Tax (LOSE trigger), we ADD to self and REMOVE from target
             if (player.selectedDriver === 'rat') {
               player.remainingTime += Math.abs(refundAmount);
-              player.roundImpact = { type: 'STEAL', value: Math.abs(refundAmount), source: target.name };
+              player.roundImpact = { type: 'STEAL', value: Math.abs(refundAmount), source: ability.name };
               target.remainingTime -= Math.abs(refundAmount);
-              target.roundImpact = { type: 'STOLEN', value: -Math.abs(refundAmount), source: player.name };
+              target.roundImpact = { type: 'STOLEN', value: -Math.abs(refundAmount), source: ability.name };
             } else {
               target.remainingTime += refundAmount; // negative value
-              target.roundImpact = { type: 'DISRUPT', value: refundAmount, source: player.name };
+              target.roundImpact = { type: 'DISRUPT', value: refundAmount, source: ability.name };
             }
             
             abilityImpacts.push({

@@ -1109,9 +1109,9 @@ export default function Game() {
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Main Bidding Timer (Precision)
+  // Main Bidding Timer (Precision) - Singleplayer only
   useEffect(() => {
-    if (phase === 'bidding') {
+    if (phase === 'bidding' && !isMultiplayer) {
       const animate = (time: number) => {
         if (startTimeRef.current === null) startTimeRef.current = time;
         
@@ -1185,7 +1185,7 @@ export default function Game() {
     return () => {
       if (requestRef.current !== null && phase !== 'ready') cancelAnimationFrame(requestRef.current);
     };
-  }, [phase, players]); 
+  }, [phase, players, isMultiplayer]); 
 
   // Bot Logic
   const handleBotLogic = (time: number) => {
@@ -3430,7 +3430,7 @@ export default function Game() {
                   <li>Release to bid time.</li>
                   <li>Longest time wins token.</li>
                   <li>Min Bid: {gameDuration === 'short' ? '1.0s' : gameDuration === 'long' ? '4.0s' : '2.0s'}</li>
-                  <li>Max Bid: Your Remaining Time.</li>
+                  <li>Max Bid: Remaining Bank.</li>
                 </ul>
               </div>
               <div className="space-y-1 sm:space-y-2 flex flex-col justify-between">
@@ -3453,8 +3453,9 @@ export default function Game() {
                     variant="ghost" 
                     size="sm" 
                     onClick={toggleDifficulty}
-                    className="h-8 px-3 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
-                    title={difficulty === 'CASUAL' ? 'CASUAL: Everyone can see time banks.' : 'COMPETITIVE: Time banks are hidden until the end.'}
+                    disabled={!!currentLobby}
+                    className={cn("h-8 px-3 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5", currentLobby && "opacity-50 cursor-not-allowed")}
+                    title={currentLobby ? 'Settings locked - set by lobby host' : difficulty === 'CASUAL' ? 'CASUAL: Everyone can see time banks.' : 'COMPETITIVE: Time banks are hidden until the end.'}
                     data-testid="button-intro-toggle-difficulty"
                   >
                     {difficulty === 'CASUAL' ? <Eye size={12} className="text-emerald-400"/> : <EyeOff size={12} className="text-zinc-400"/>}
@@ -3467,12 +3468,13 @@ export default function Game() {
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
 
                 {/* PROTOCOLS TOGGLE (same row as difficulty & Limit Breaks) */}
-                <div className="flex items-center gap-2" title={variant === 'BIO_FUEL' ? "Protocols: Drinking prompts + 21+ party rules that trigger between rounds." : variant === 'SOCIAL_OVERDRIVE' ? "Protocols: Party-game prompts and social rules that trigger between rounds." : "Protocols: Round modifiers that can change visibility, scramble info, or add secret twists."} data-testid="group-intro-protocols">
-                  <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2" title={currentLobby ? 'Settings locked - set by lobby host' : variant === 'BIO_FUEL' ? "Protocols: Drinking prompts + 21+ party rules that trigger between rounds." : variant === 'SOCIAL_OVERDRIVE' ? "Protocols: Party-game prompts and social rules that trigger between rounds." : "Protocols: Round modifiers that can change visibility, scramble info, or add secret twists."} data-testid="group-intro-protocols">
+                  <div className={cn("flex items-center space-x-2", currentLobby && "opacity-50 pointer-events-none")}>
                     <Switch 
                         id="protocols-intro" 
                         checked={protocolsEnabled} 
-                        onCheckedChange={setProtocolsEnabled} 
+                        onCheckedChange={setProtocolsEnabled}
+                        disabled={!!currentLobby}
                         className={cn(
                           "data-[state=checked]:bg-red-500",
                           variant === 'SOCIAL_OVERDRIVE' && "data-[state=checked]:bg-purple-500",
@@ -3512,11 +3514,12 @@ export default function Game() {
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
 
                 {/* LIMIT BREAKS TOGGLE */}
-                <div className="flex items-center gap-2" title="Limit Breaks: Driver-specific passive powers that can trigger mid-round or post-round." data-testid="group-intro-limit-breaks">
+                <div className={cn("flex items-center gap-2", currentLobby && "opacity-50 pointer-events-none")} title={currentLobby ? 'Settings locked - set by lobby host' : "Limit Breaks: Driver-specific passive powers that can trigger mid-round or post-round."} data-testid="group-intro-limit-breaks">
                   <Switch 
                     id="abilities-intro" 
                     checked={abilitiesEnabled} 
-                    onCheckedChange={setAbilitiesEnabled} 
+                    onCheckedChange={setAbilitiesEnabled}
+                    disabled={!!currentLobby}
                     className="data-[state=checked]:bg-blue-500"
                     data-testid="switch-intro-limit-breaks"
                   />
@@ -3530,44 +3533,50 @@ export default function Game() {
               <Separator className="bg-white/10" />
 
               {/* Row 2: Reality Modes */}
-              <div className="flex flex-col items-center gap-2">
+              <div className={cn("flex flex-col items-center gap-2", currentLobby && "opacity-50 pointer-events-none")}>
                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">REALITY MODES</h3>
                  <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => setVariant('STANDARD')}
+                      disabled={!!currentLobby}
                       className={cn(
                         'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
                         variant === 'STANDARD'
                           ? 'bg-zinc-700/60 border-zinc-300 text-zinc-50'
-                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
+                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300',
+                        currentLobby && 'cursor-not-allowed'
                       )}
-                      title="STANDARD: Pure auction, no social or 21+ modifiers."
+                      title={currentLobby ? 'Settings locked - set by lobby host' : "STANDARD: Pure auction, no social or 21+ modifiers."}
                       data-testid="button-intro-variant-standard"
                     >
                       STANDARD
                     </button>
                     <button
                       onClick={() => setVariant('SOCIAL_OVERDRIVE')}
+                      disabled={!!currentLobby}
                       className={cn(
                         'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
                         variant === 'SOCIAL_OVERDRIVE'
                           ? 'bg-purple-500/20 border-purple-500 text-purple-300'
-                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
+                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300',
+                        currentLobby && 'cursor-not-allowed'
                       )}
-                      title="SOCIAL OVERDRIVE: Party-game protocols + social driver abilities."
+                      title={currentLobby ? 'Settings locked - set by lobby host' : "SOCIAL OVERDRIVE: Party-game protocols + social driver abilities."}
                       data-testid="button-intro-variant-social"
                     >
                       SOCIAL OVERDRIVE
                     </button>
                     <button
                       onClick={() => setVariant('BIO_FUEL')}
+                      disabled={!!currentLobby}
                       className={cn(
                         'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
                         variant === 'BIO_FUEL'
                           ? 'bg-orange-500/20 border-orange-500 text-orange-300'
-                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
+                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300',
+                        currentLobby && 'cursor-not-allowed'
                       )}
-                      title="BIO-FUEL (21+): Drinking-game prompts, toasts, and chaos. Orange = heat + hydration." 
+                      title={currentLobby ? 'Settings locked - set by lobby host' : "BIO-FUEL (21+): Drinking-game prompts, toasts, and chaos. Orange = heat + hydration."} 
                       data-testid="button-intro-variant-bio"
                     >
                       BIO-FUEL
@@ -3578,39 +3587,48 @@ export default function Game() {
               <Separator className="bg-white/10" />
 
               {/* Row 3: Game Pace */}
-              <div className="flex flex-col items-center gap-2">
+              <div className={cn("flex flex-col items-center gap-2", currentLobby && "opacity-50 pointer-events-none")}>
                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">GAME PACE</h3>
                  <div className="flex items-center justify-center gap-2">
                      <button 
                        onClick={() => setGameDuration('short')}
+                       disabled={!!currentLobby}
                        className={cn(
                          "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
                          gameDuration === 'short' 
                            ? "bg-yellow-500/20 border-yellow-500 text-yellow-400" 
-                           : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
+                           : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300",
+                         currentLobby && 'cursor-not-allowed'
                        )}
+                       title={currentLobby ? 'Settings locked - set by lobby host' : undefined}
                      >
                        SPRINT (2.5m)
                      </button>
                      <button 
                        onClick={() => setGameDuration('standard')}
+                       disabled={!!currentLobby}
                        className={cn(
                          "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
                          gameDuration === 'standard' 
                            ? "bg-orange-400/20 border-orange-400 text-orange-400" 
-                           : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
+                           : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300",
+                         currentLobby && 'cursor-not-allowed'
                        )}
+                       title={currentLobby ? 'Settings locked - set by lobby host' : undefined}
                      >
                        TEMPO (5m)
                      </button>
                      <button 
                        onClick={() => setGameDuration('long')}
+                       disabled={!!currentLobby}
                        className={cn(
                          "px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border",
                          gameDuration === 'long' 
                            ? "bg-orange-600/20 border-orange-600 text-orange-600" 
-                           : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300"
+                           : "bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300",
+                         currentLobby && 'cursor-not-allowed'
                        )}
+                       title={currentLobby ? 'Settings locked - set by lobby host' : undefined}
                      >
                        MARATHON (10m)
                      </button>
@@ -3984,12 +4002,12 @@ export default function Game() {
                   data-testid={`card-driver-${char.id}`}
                   className="flex flex-col items-center p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden"
                 >
-                  <div className={cn("w-24 h-24 rounded-full mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10", char.color)}>
+                  <div className={cn("w-28 h-28 sm:w-32 sm:h-32 rounded-full mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10", char.color)}>
                      <img src={getCharImage(char)} alt={char.name} className="w-full h-full object-cover" />
                   </div>
-                  <h3 className="font-bold text-white mb-1" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
-                  <p className="text-xs text-primary/80 uppercase tracking-wider mb-2 font-display" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
-                  <p className="text-xs text-zinc-500 leading-tight line-clamp-2" data-testid={`text-driver-desc-${char.id}`}>{char.description}</p>
+                  <h3 className="font-bold text-base sm:text-lg text-white mb-1" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
+                  <p className="text-sm text-primary/80 uppercase tracking-wider mb-2 font-display" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
+                  <p className="text-sm text-zinc-500 leading-tight line-clamp-2" data-testid={`text-driver-desc-${char.id}`}>{char.description}</p>
                   
                   {abilitiesEnabled && char.ability && (
                     <div className="mt-3 pt-3 border-t border-white/5 w-full">
@@ -4239,14 +4257,14 @@ export default function Game() {
                       )}
                       data-testid={`mp-driver-${char.id}`}
                     >
-                      <div className={cn("w-16 h-16 rounded-full mb-2 overflow-hidden border-2", 
+                      <div className={cn("w-20 h-20 sm:w-24 sm:h-24 rounded-full mb-2 overflow-hidden border-2", 
                         isSelected ? "border-primary" : "border-white/10",
                         char.color
                       )}>
                         <img src={getDriverImage(char)} alt={char.name} className="w-full h-full object-cover" />
                       </div>
-                      <h3 className="font-bold text-sm text-white mb-0.5">{char.name}</h3>
-                      <p className="text-[10px] text-primary/80 uppercase tracking-wider">{char.title}</p>
+                      <h3 className="font-bold text-sm sm:text-base text-white mb-0.5">{char.name}</h3>
+                      <p className="text-xs sm:text-sm text-primary/80 uppercase tracking-wider">{char.title}</p>
                       
                       {isTaken && (
                         <span className="text-[10px] text-red-400 mt-1">Taken by {takenBy?.name}</span>
