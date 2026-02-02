@@ -49,8 +49,8 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
   
   const getIcon = (type: OverlayType) => {
     switch (type) {
-      case "round_start": return <Play size={48} className="text-primary" />;
-      case "round_win": return <Trophy size={48} className="text-primary" />;
+      case "round_start": return <Play size={40} className="text-primary" />;
+      case "round_win": return <Trophy size={40} className="text-primary" />;
       case "round_draw": return <AlertTriangle size={48} className="text-muted-foreground" />;
       case "eliminated": return <Skull size={48} className="text-destructive" />;
       case "game_over": return <Trophy size={48} className="text-primary" />;
@@ -76,8 +76,8 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "hidden_deja_bid": return <BadgeCheck size={48} className="text-sky-300" />;
       case "hidden_patch_notes": return <AlertTriangle size={48} className="text-amber-200" />;
       
-      case "social_event": return <PartyPopper size={48} className="text-purple-400" />;
-      case "bio_event": return <Martini size={48} className="text-orange-400" />;
+      case "social_event": return <PartyPopper size={40} className="text-purple-400" />;
+      case "bio_event": return <Martini size={40} className="text-orange-400" />;
 
       default: return null;
     }
@@ -130,7 +130,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
         {overlays.map((item) => (
           <motion.div 
             key={item.id}
-            className={`flex flex-col items-center justify-center py-6 px-12 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor(item.type)} min-w-[300px] md:min-w-[400px] text-center pointer-events-auto cursor-pointer relative`}
+            className={`flex flex-col items-center justify-center py-4 px-6 sm:py-6 sm:px-10 rounded-2xl border backdrop-blur-xl shadow-2xl ${getColor(item.type)} w-[min(92vw,420px)] text-center pointer-events-auto cursor-pointer relative`}
             initial={{ opacity: 0, scale: 0.8, y: 50 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -20, filter: "blur(10px)" }}
@@ -161,12 +161,12 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
                 </div>
             )}
 
-            <h2 className="text-2xl font-display font-bold mb-1 uppercase tracking-widest text-glow">
+            <h2 className="text-xl sm:text-2xl font-display font-bold mb-1 uppercase tracking-widest text-glow">
               {item.message}
             </h2>
             
             {item.subMessage && (
-              <p className="text-sm font-mono opacity-80 max-w-[300px] whitespace-pre-wrap">
+              <p className="text-xs sm:text-sm font-mono opacity-80 max-w-[340px] whitespace-pre-wrap">
                 {item.subMessage}
               </p>
             )}

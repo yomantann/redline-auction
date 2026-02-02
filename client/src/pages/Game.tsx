@@ -2747,7 +2747,7 @@ export default function Game() {
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
 
                 {/* PROTOCOLS TOGGLE (same row as difficulty & Limit Breaks) */}
-                <div className="flex items-center gap-2" title="Protocols: Round modifiers that add party/drinking prompts (in Reality Modes)." data-testid="group-intro-protocols">
+                <div className="flex items-center gap-2" title={variant === 'BIO_FUEL' ? "Protocols: Drinking prompts + 21+ party rules that trigger between rounds." : variant === 'SOCIAL_OVERDRIVE' ? "Protocols: Party-game prompts and social rules that trigger between rounds." : "Protocols: Round modifiers that can change visibility, scramble info, or add secret twists."} data-testid="group-intro-protocols">
                   <div className="flex items-center space-x-2">
                     <Switch 
                         id="protocols-intro" 
@@ -2792,7 +2792,7 @@ export default function Game() {
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
 
                 {/* LIMIT BREAKS TOGGLE */}
-                <div className="flex items-center gap-2" title="Limit Breaks: Driver-specific passive powers." data-testid="group-intro-limit-breaks">
+                <div className="flex items-center gap-2" title="Limit Breaks: Driver-specific passive powers that can trigger mid-round or post-round." data-testid="group-intro-limit-breaks">
                   <Switch 
                     id="abilities-intro" 
                     checked={abilitiesEnabled} 
@@ -2847,7 +2847,7 @@ export default function Game() {
                           ? 'bg-orange-500/20 border-orange-500 text-orange-300'
                           : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300'
                       )}
-                      title="BIO-FUEL (21+): Drinking-game protocols + bio driver abilities."
+                      title="BIO-FUEL (21+): Drinking-game prompts, toasts, and chaos. Orange = heat + hydration." 
                       data-testid="button-intro-variant-bio"
                     >
                       BIO-FUEL

@@ -68,7 +68,7 @@
   --muted: 240 5% 20%;
   --muted-foreground: 240 5% 60%;
 
-  --accent: 0 90% 60%; /* Red Laser */
+  --accent: 0 95% 64%; /* Red Laser (brighter) */
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 90% 60%;
@@ -124,7 +124,9 @@
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background-image: radial-gradient(circle at center, hsla(240, 10%, 10%, 0.8) 0%, hsla(240, 10%, 4%, 1) 100%);
+    background-image:
+      radial-gradient(circle at 50% 35%, hsla(0, 95%, 64%, 0.10) 0%, transparent 40%),
+      radial-gradient(circle at center, hsla(240, 10%, 10%, 0.8) 0%, hsla(240, 10%, 4%, 1) 100%);
     min-height: 100vh;
   }
   h1, h2, h3, h4, h5, h6 {
