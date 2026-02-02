@@ -1,22 +1,41 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import background from "@assets/generated_images/dark_futuristic_abstract_auction_background.png";
+import bgStandard from "@assets/generated_images/bg_standard_redline.png";
+import bgSocial from "@assets/generated_images/bg_social_overdrive.png";
+import bgBio from "@assets/generated_images/bg_bio_fuel.png";
+
+type RealityMode = "STANDARD" | "SOCIAL_OVERDRIVE" | "BIO_FUEL";
 
 interface GameLayoutProps {
   children: React.ReactNode;
   className?: string;
+  variant?: RealityMode;
 }
 
-export function GameLayout({ children, className }: GameLayoutProps) {
+export function GameLayout({ children, className, variant = "STANDARD" }: GameLayoutProps) {
+  const background = variant === "SOCIAL_OVERDRIVE" ? bgSocial : variant === "BIO_FUEL" ? bgBio : bgStandard;
+
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground">
       {/* Background Image with Overlay */}
-      <div 
-        className="fixed inset-0 z-0 opacity-40 bg-cover bg-center bg-no-repeat"
+      <div
+        className={cn(
+          "fixed inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500",
+          variant === "STANDARD" ? "opacity-55" : "opacity-45"
+        )}
         style={{ backgroundImage: `url(${background})` }}
+        data-testid="img-background"
       />
-      <div className="fixed inset-0 z-0 bg-gradient-to-b from-background/80 via-background/90 to-background pointer-events-none" />
-      
+
+      <div
+        className={cn(
+          "fixed inset-0 z-0 pointer-events-none",
+          variant === "SOCIAL_OVERDRIVE" && "bg-gradient-to-b from-purple-950/40 via-background/80 to-background",
+          variant === "BIO_FUEL" && "bg-gradient-to-b from-orange-950/35 via-background/80 to-background",
+          variant === "STANDARD" && "bg-gradient-to-b from-background/55 via-background/85 to-background"
+        )}
+      />
+
       {/* Content */}
       <div className={cn("relative z-10 container mx-auto px-4 py-6 min-h-screen flex flex-col", className)}>
         {children}

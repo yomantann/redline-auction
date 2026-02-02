@@ -7,7 +7,7 @@ import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 
-import bioAccuserOption1 from "../assets/generated_images/bio_accuser_option1.png";
+import bioAccuserOption1 from "../assets/generated_images/bio_accuser_goth_new.png";
 import bioPanicBotOption3 from "../assets/generated_images/bio_panic_bot_option3.png";
 
 import socialSadmanOption3 from "../assets/generated_images/social_sadman_option3.png";
@@ -112,15 +112,15 @@ import socialDangerZone from '../assets/generated_images/social_danger_zone.png'
 // Bio Mode Images
 import bioHarambe from '../assets/generated_images/bio_harambe.png';
 import bioPopcat from '../assets/generated_images/bio_popcat.png';
-import bioWinter from '../assets/generated_images/bio_winter.png';
+import bioWinter from '../assets/generated_images/bio_frostbyte_new.png';
 import bioPepe from '../assets/generated_images/bio_pepe.png';
 import bioNyan from '../assets/generated_images/bio_nyan.png';
 import bioKaren from '../assets/generated_images/bio_karen.png';
-import bioFine from '../assets/generated_images/bio_fine.png';
+import bioFine from '../assets/generated_images/bio_low_flame_braids_glasses_new.png';
 import bioBf from '../assets/generated_images/bio_bf.png';
-import bioRat from '../assets/generated_images/bio_rat.png';
+import bioRat from '../assets/generated_images/bio_rind_new.png';
 import bioBaldwin from '../assets/generated_images/bio_baldwin.png';
-import bioSigma from '../assets/generated_images/bio_sigma.png';
+import bioSigma from '../assets/generated_images/bio_executive_p_new.png';
 import bioGigachad from '../assets/generated_images/bio_gigachad.png';
 import bioThinker from '../assets/generated_images/bio_thinker.png';
 import bioDisaster from '../assets/generated_images/bio_disaster.png';
@@ -3503,7 +3503,7 @@ export default function Game() {
   };
 
   return (
-    <GameLayout>
+    <GameLayout variant={variant}>
       <MusicPlayer soundEnabled={soundEnabled} onToggleSound={toggleSound} />
 
       {/* Header Info */}
