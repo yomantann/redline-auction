@@ -12,6 +12,8 @@ import {
   removePlayerFromGame,
   cleanupGame,
   setEmitCallback,
+  selectDriverInGame,
+  confirmDriverInGame,
   type GameDuration
 } from "./gameEngine";
 
@@ -293,12 +295,7 @@ export async function registerRoutes(
       
       const player = lobby.players.find(p => p.socketId === socket.id);
       if (player) {
-        // Can only ready up if a driver is selected
-        if (!player.isReady && !player.selectedDriver) {
-          if (callback) callback({ success: false, error: "Must select a driver first" });
-          return;
-        }
-        
+        // Driver selection now happens after game starts, no longer required for ready-up
         player.isReady = !player.isReady;
         log(`${player.name} is ${player.isReady ? 'ready' : 'not ready'} in lobby ${lobbyCode}`, "lobby");
         broadcastLobbyUpdate(lobbyCode);
@@ -368,12 +365,7 @@ export async function registerRoutes(
         return;
       }
       
-      // Validate all ready players have selected a driver (before changing status)
-      const playersWithoutDriver = readyPlayers.filter(p => !p.selectedDriver);
-      if (playersWithoutDriver.length > 0) {
-        if (callback) callback({ success: false, error: "All players must select a driver" });
-        return;
-      }
+      // Driver selection now happens after game starts, no validation needed here
       
       // All validations passed - now update lobby status
       lobby.status = 'in_game';
@@ -405,6 +397,46 @@ export async function registerRoutes(
       }, 1000);
       
       if (callback) callback({ success: true });
+    });
+
+    // SELECT DRIVER IN GAME (during driver_selection phase)
+    socket.on("select_driver_in_game", (data: { driverId: string }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      
+      // Find player ID from socket ID
+      const lobby = lobbies.get(lobbyCode);
+      const player = lobby?.players.find(p => p.socketId === socket.id);
+      if (!player) {
+        if (callback) callback({ success: false, error: "Player not found" });
+        return;
+      }
+      
+      const result = selectDriverInGame(lobbyCode, player.id, data.driverId);
+      if (callback) callback(result);
+    });
+
+    // CONFIRM DRIVER IN GAME (during driver_selection phase)
+    socket.on("confirm_driver", (callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      
+      // Find player ID from socket ID
+      const lobby = lobbies.get(lobbyCode);
+      const player = lobby?.players.find(p => p.socketId === socket.id);
+      if (!player) {
+        if (callback) callback({ success: false, error: "Player not found" });
+        return;
+      }
+      
+      const result = confirmDriverInGame(lobbyCode, player.id);
+      if (callback) callback(result);
     });
 
     // PLAYER PRESSES BUTTON (starts holding/ready)

@@ -22,6 +22,7 @@ export interface GamePlayer {
   socketId: string | null; // null for bots
   name: string;
   selectedDriver?: string; // Driver/character ID selected by the player
+  driverConfirmed?: boolean; // Has the player confirmed their driver selection in-game
   isBot: boolean;
   personality?: BotPersonality;
   tokens: number;
@@ -36,7 +37,7 @@ export interface GameState {
   players: GamePlayer[];
   round: number;
   totalRounds: number;
-  phase: 'waiting_for_ready' | 'countdown' | 'bidding' | 'round_end' | 'game_over';
+  phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'round_end' | 'game_over';
   roundStartTime: number | null;
   countdownRemaining: number;
   gameDuration: GameDuration;
@@ -114,12 +115,23 @@ export function createGame(
     botIndex++;
   }
   
+  // Mark bots as having confirmed drivers (they don't need to select)
+  gamePlayers.forEach(p => {
+    if (p.isBot) {
+      p.driverConfirmed = true;
+    } else {
+      p.driverConfirmed = false;
+      // Clear any pre-selected drivers from lobby - players pick fresh in game
+      p.selectedDriver = undefined;
+    }
+  });
+  
   const gameState: GameState = {
     lobbyCode,
     players: gamePlayers,
     round: 1,
     totalRounds,
-    phase: 'waiting_for_ready', // Start in waiting phase - humans must hold button
+    phase: 'driver_selection', // Start in driver selection phase - humans must pick their driver
     roundStartTime: null,
     countdownRemaining: COUNTDOWN_SECONDS,
     gameDuration: duration,
@@ -139,8 +151,66 @@ export function startGame(lobbyCode: string) {
   if (!game) return;
   
   log(`Starting game for lobby ${lobbyCode}`, "game");
-  // Start in waiting_for_ready phase - players must hold button
-  startWaitingForReady(lobbyCode);
+  // Game starts in driver_selection phase - broadcast state to clients
+  broadcastGameState(lobbyCode);
+}
+
+// Handle driver selection during driver_selection phase
+export function selectDriverInGame(lobbyCode: string, playerId: string, driverId: string): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return { success: false, error: "Game not found" };
+  
+  if (game.phase !== 'driver_selection') {
+    return { success: false, error: "Not in driver selection phase" };
+  }
+  
+  const player = game.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+  
+  if (player.isBot) return { success: false, error: "Bots cannot select drivers" };
+  
+  // Check if driver is already taken by another player
+  const driverTaken = game.players.some(p => p.id !== playerId && p.selectedDriver === driverId);
+  if (driverTaken) {
+    return { success: false, error: "Driver already taken" };
+  }
+  
+  player.selectedDriver = driverId;
+  broadcastGameState(lobbyCode);
+  
+  log(`Player ${player.name} selected driver ${driverId} in game ${lobbyCode}`, "game");
+  return { success: true };
+}
+
+// Handle driver confirmation during driver_selection phase
+export function confirmDriverInGame(lobbyCode: string, playerId: string): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return { success: false, error: "Game not found" };
+  
+  if (game.phase !== 'driver_selection') {
+    return { success: false, error: "Not in driver selection phase" };
+  }
+  
+  const player = game.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+  
+  if (!player.selectedDriver) {
+    return { success: false, error: "Must select a driver first" };
+  }
+  
+  player.driverConfirmed = true;
+  broadcastGameState(lobbyCode);
+  
+  log(`Player ${player.name} confirmed driver ${player.selectedDriver} in game ${lobbyCode}`, "game");
+  
+  // Check if all human players have confirmed
+  const allConfirmed = game.players.every(p => p.driverConfirmed);
+  if (allConfirmed) {
+    log(`All players confirmed drivers in game ${lobbyCode}, starting round 1`, "game");
+    startWaitingForReady(lobbyCode);
+  }
+  
+  return { success: true };
 }
 
 function startCountdown(lobbyCode: string) {
@@ -549,6 +619,7 @@ function broadcastGameState(lobbyCode: string) {
       socketId: p.socketId,
       name: p.name,
       selectedDriver: p.selectedDriver,
+      driverConfirmed: p.driverConfirmed,
       isBot: p.isBot,
       tokens: p.tokens,
       remainingTime: p.remainingTime,

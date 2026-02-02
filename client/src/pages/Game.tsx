@@ -148,7 +148,7 @@ const SHORT_INITIAL_TIME = 150.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -767,13 +767,15 @@ export default function Game() {
   const [multiplayerGameState, setMultiplayerGameState] = useState<{
     round: number;
     totalRounds: number;
-    phase: 'waiting_for_ready' | 'countdown' | 'bidding' | 'round_end' | 'game_over';
+    phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'round_end' | 'game_over';
     countdownRemaining: number;
     elapsedTime: number;
     players: Array<{
       id: string;
       socketId: string | null;
       name: string;
+      selectedDriver?: string;
+      driverConfirmed?: boolean;
       isBot: boolean;
       tokens: number;
       remainingTime: number;
@@ -818,7 +820,11 @@ export default function Game() {
       
       // Sync phase with server state for multiplayer
       if (state) {
-        if (state.phase === 'countdown') {
+        if (state.phase === 'driver_selection') {
+          setPhase('mp_driver_select');
+        } else if (state.phase === 'waiting_for_ready') {
+          setPhase('ready');
+        } else if (state.phase === 'countdown') {
           setPhase('countdown');
           setCountdown(state.countdownRemaining);
         } else if (state.phase === 'bidding') {
@@ -845,6 +851,92 @@ export default function Game() {
       socket.off('game_state', handleGameState);
     };
   }, [socket]);
+
+  // Multiplayer Moment Flags - trigger when round ends
+  const lastRoundEndProcessedRef = useRef<number>(0);
+  useEffect(() => {
+    if (!isMultiplayer || !multiplayerGameState || !socket) return;
+    
+    // Only trigger on round_end phase
+    if (multiplayerGameState.phase !== 'round_end') return;
+    
+    // Prevent duplicate triggers for same round - only update ref after processing
+    if (lastRoundEndProcessedRef.current === multiplayerGameState.round) return;
+    
+    const winner = multiplayerGameState.roundWinner;
+    if (!winner) return;
+    
+    // Find current player and check if they won
+    const currentPlayerId = multiplayerGameState.players.find(p => p.socketId === socket.id)?.id;
+    const isCurrentPlayerWinner = winner.id === currentPlayerId;
+    
+    if (!isCurrentPlayerWinner) return;
+    
+    // Trigger moment flags for current player
+    let momentCount = 0;
+    const winnerBid = winner.bid;
+    
+    // Get player data
+    const players = multiplayerGameState.players;
+    const winnerPlayer = players.find(p => p.id === winner.id);
+    
+    // Find second place bid
+    const sortedByBid = [...players]
+      .filter(p => !p.isEliminated && p.currentBid !== null)
+      .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    const secondBid = sortedByBid.length > 1 ? sortedByBid[1].currentBid || 0 : 0;
+    const margin = winnerBid - secondBid;
+    
+    // 1. Smug Confidence (Round 1 Win)
+    if (multiplayerGameState.round === 1) {
+      addOverlay("smug_confidence", "SMUG CONFIDENCE", `${winner.name} starts strong!`);
+      momentCount++;
+    }
+    
+    // 2. Fake Calm (Margin >= 15s)
+    if (sortedByBid.length > 1 && margin >= 15) {
+      setTimeout(() => addOverlay("fake_calm", "FAKE CALM", `Won by ${margin.toFixed(1)}s!`), 500);
+      momentCount++;
+    }
+    
+    // 3. Genius Move (Margin <= 5s)
+    if (sortedByBid.length > 1 && margin <= 5 && margin > 0) {
+      setTimeout(() => addOverlay("genius_move", "GENIUS MOVE", `Won by just ${margin.toFixed(1)}s`), 500);
+      momentCount++;
+    }
+    
+    // 4. Easy W (Bid < 20s)
+    if (winnerBid < 20) {
+      setTimeout(() => addOverlay("easy_w", "EASY W", `Won with only ${winnerBid.toFixed(1)}s`), 1000);
+      momentCount++;
+    }
+    
+    // 5. Overkill (Bid > 60s)
+    if (winnerBid > 60) {
+      setTimeout(() => addOverlay("overkill", "OVERKILL", "Massive bid!"), 1500);
+      momentCount++;
+    }
+    
+    // 6. Clutch Play (Low remaining time)
+    if (winnerPlayer && winnerPlayer.remainingTime < 10) {
+      setTimeout(() => addOverlay("clutch_play", "CLUTCH PLAY", "Almost out of time!"), 1500);
+      momentCount++;
+    }
+    
+    // 7. Precision Strike (Exact second bid)
+    if (winnerBid % 1 === 0) {
+      setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
+      momentCount++;
+    }
+    
+    // Patch Notes Pending: 3+ moment flags in same round
+    if (momentCount >= 3) {
+      setTimeout(() => addOverlay("hidden_patch_notes", "PATCH NOTES PENDING", "Triggered 3+ moment flags in one round."), 2500);
+    }
+    
+    // Mark this round as processed to prevent duplicate triggers
+    lastRoundEndProcessedRef.current = multiplayerGameState.round;
+  }, [isMultiplayer, multiplayerGameState, socket, addOverlay]);
 
   // --- Game Loop Logic ---
 
@@ -3506,57 +3598,15 @@ export default function Game() {
                 </div>
               </div>
 
-              {/* Driver Selection */}
-              <div className="w-full bg-card/30 rounded-lg border border-white/10 p-3">
-                <div className="text-xs text-zinc-500 mb-2 uppercase tracking-wider">Select Your Driver</div>
-                <div className="grid grid-cols-4 gap-2">
-                  {CHARACTERS.slice(0, 8).map((char) => {
-                    const isSelected = myPlayer?.selectedDriver === char.id;
-                    const isTaken = currentLobby.players.some(p => p.socketId !== socket?.id && p.selectedDriver === char.id);
-                    return (
-                      <button
-                        key={char.id}
-                        onClick={() => !isTaken && handleSelectDriver(char.id)}
-                        disabled={isTaken}
-                        className={cn(
-                          "p-2 rounded-lg border transition-all relative",
-                          isSelected 
-                            ? "bg-primary/20 border-primary" 
-                            : isTaken 
-                              ? "bg-zinc-900/50 border-zinc-800 opacity-50 cursor-not-allowed"
-                              : "bg-black/30 border-white/10 hover:border-white/30"
-                        )}
-                        title={char.name}
-                        data-testid={`driver-select-${char.id}`}
-                      >
-                        <img 
-                          src={char.image} 
-                          alt={char.name} 
-                          className={cn("w-10 h-10 mx-auto rounded-full object-cover", isTaken && "grayscale")}
-                        />
-                        <div className="text-[10px] text-center mt-1 truncate">{char.name}</div>
-                        {isSelected && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center text-[10px]">✓</div>
-                        )}
-                        {isTaken && (
-                          <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">Taken</div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               {/* Actions */}
               <div className="flex flex-col gap-3 w-full">
                 <Button 
                   onClick={handleToggleReady}
                   variant={myPlayer?.isReady ? "outline" : "default"}
                   className="w-full"
-                  disabled={!myPlayer?.selectedDriver}
                   data-testid="button-toggle-ready"
                 >
-                  {!myPlayer?.selectedDriver ? "Select a Driver First" : myPlayer?.isReady ? "Cancel Ready" : "Ready Up"}
+                  {myPlayer?.isReady ? "Cancel Ready" : "Ready Up"}
                 </Button>
                 
                 {isHost && (
@@ -3856,6 +3906,131 @@ export default function Game() {
                 </div>
               );
             })()}
+          </motion.div>
+        );
+
+      case 'mp_driver_select':
+        // Multiplayer driver selection - similar to single player but with player status
+        const mpPlayers = multiplayerGameState?.players || [];
+        const myMpPlayer = mpPlayers.find(p => p.socketId === socket?.id);
+        const mySelectedDriver = myMpPlayer?.selectedDriver;
+        const myDriverConfirmed = myMpPlayer?.driverConfirmed;
+        
+        const handleMpSelectDriver = (driverId: string) => {
+          if (!socket || myDriverConfirmed) return;
+          socket.emit('select_driver_in_game', { driverId }, (response: { success: boolean; error?: string }) => {
+            if (!response.success) {
+              console.log('[Game] Driver selection failed:', response.error);
+            }
+          });
+        };
+        
+        const handleMpConfirmDriver = () => {
+          if (!socket || !mySelectedDriver || myDriverConfirmed) return;
+          socket.emit('confirm_driver', (response: { success: boolean; error?: string }) => {
+            if (!response.success) {
+              console.log('[Game] Driver confirmation failed:', response.error);
+            }
+          });
+        };
+        
+        const mpAllDrivers = [...CHARACTERS, ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_CHARACTERS : []), ...(variant === 'BIO_FUEL' ? BIO_CHARACTERS : [])];
+        
+        return (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="w-full max-w-5xl mx-auto space-y-6"
+          >
+            <div className="text-center mb-4">
+              <h2 className="text-4xl font-display font-bold text-white mb-2">CHOOSE YOUR DRIVER</h2>
+              <p className="text-muted-foreground">Select your persona for the auction.</p>
+            </div>
+
+            {/* Player Status Row */}
+            <div className="flex flex-wrap justify-center gap-3 mb-4">
+              {mpPlayers.filter(p => !p.isBot).map(p => {
+                const pDriver = mpAllDrivers.find(c => c.id === p.selectedDriver);
+                return (
+                  <div 
+                    key={p.id}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-lg border",
+                      p.socketId === socket?.id ? "bg-primary/10 border-primary/30" : "bg-black/30 border-white/10",
+                      p.driverConfirmed && "border-green-500/50"
+                    )}
+                    data-testid={`mp-player-status-${p.id}`}
+                  >
+                    {pDriver ? (
+                      <img src={pDriver.image} alt={pDriver.name} className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
+                        <CircleHelp size={16} className="text-zinc-500" />
+                      </div>
+                    )}
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{p.name}</span>
+                      <span className={cn("text-xs", p.driverConfirmed ? "text-green-400" : "text-zinc-500")}>
+                        {p.driverConfirmed ? "LOCKED IN" : pDriver ? pDriver.name : "Selecting..."}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Driver Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {mpAllDrivers.map(char => {
+                const takenBy = mpPlayers.find(p => p.selectedDriver === char.id && p.socketId !== socket?.id);
+                const isSelected = mySelectedDriver === char.id;
+                const isTaken = !!takenBy;
+                
+                return (
+                  <motion.button
+                    key={char.id}
+                    whileHover={!isTaken && !myDriverConfirmed ? { scale: 1.03 } : {}}
+                    whileTap={!isTaken && !myDriverConfirmed ? { scale: 0.97 } : {}}
+                    onClick={() => !isTaken && !myDriverConfirmed && handleMpSelectDriver(char.id)}
+                    disabled={isTaken || myDriverConfirmed}
+                    className={cn(
+                      "flex flex-col items-center p-3 rounded-xl border transition-colors text-center",
+                      isSelected ? "bg-primary/20 border-primary" : "bg-black/40 border-white/10",
+                      isTaken ? "opacity-40 cursor-not-allowed" : "hover:border-primary/50",
+                      myDriverConfirmed && !isSelected && "opacity-30"
+                    )}
+                    data-testid={`mp-driver-${char.id}`}
+                  >
+                    <div className={cn("w-16 h-16 rounded-full mb-2 overflow-hidden border-2", 
+                      isSelected ? "border-primary" : "border-white/10",
+                      char.color
+                    )}>
+                      <img src={char.image} alt={char.name} className="w-full h-full object-cover" />
+                    </div>
+                    <h3 className="font-bold text-sm text-white mb-0.5">{char.name}</h3>
+                    <p className="text-[10px] text-primary/80 uppercase tracking-wider">{char.title}</p>
+                    {isTaken && (
+                      <span className="text-[10px] text-red-400 mt-1">Taken by {takenBy?.name}</span>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            {/* Confirm Button */}
+            <div className="flex justify-center pt-4">
+              <Button
+                size="lg"
+                onClick={handleMpConfirmDriver}
+                disabled={!mySelectedDriver || myDriverConfirmed}
+                className={cn(
+                  "px-12 py-6 text-xl",
+                  myDriverConfirmed ? "bg-green-600 hover:bg-green-600" : "bg-primary hover:bg-primary/90"
+                )}
+                data-testid="button-confirm-driver"
+              >
+                {myDriverConfirmed ? "LOCKED IN - WAITING FOR OTHERS" : mySelectedDriver ? "LOCK IN DRIVER" : "SELECT A DRIVER"}
+              </Button>
+            </div>
           </motion.div>
         );
 
