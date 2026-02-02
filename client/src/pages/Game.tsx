@@ -2657,17 +2657,6 @@ export default function Game() {
     setPhase('ready');
   };
 
-  const playerIsReady = isMultiplayer 
-    ? currentPlayerIsHolding 
-    : (players.find(p => p.id === 'p1')?.isHolding ?? false);
-  const playerBid = isMultiplayer
-    ? (myMultiplayerPlayer?.currentBid ?? null)
-    : (players.find(p => p.id === 'p1')?.currentBid ?? null);
-  const allPlayersReady = players.every(p => p.isHolding);
-
-  // New logic for 'waiting' state
-  const isWaiting = phase === 'bidding' && playerBid !== null && playerBid > 0;
-
   // Computed players list for display - uses multiplayer state when available
   const displayPlayers = isMultiplayer && multiplayerGameState?.players
     ? multiplayerGameState.players.map(mp => ({
@@ -2711,6 +2700,18 @@ export default function Game() {
   const currentPlayerEliminated = isMultiplayer
     ? (myMultiplayerPlayer?.isEliminated ?? false)
     : (players.find(p => p.id === 'p1')?.isEliminated ?? false);
+
+  // Now define playerIsReady and playerBid AFTER currentPlayerIsHolding is defined
+  const playerIsReady = isMultiplayer 
+    ? currentPlayerIsHolding 
+    : (players.find(p => p.id === 'p1')?.isHolding ?? false);
+  const playerBid = isMultiplayer
+    ? (myMultiplayerPlayer?.currentBid ?? null)
+    : (players.find(p => p.id === 'p1')?.currentBid ?? null);
+  const allPlayersReady = players.every(p => p.isHolding);
+
+  // New logic for 'waiting' state
+  const isWaiting = phase === 'bidding' && playerBid !== null && playerBid > 0;
 
   // Multiplayer handlers
   const handleCreateRoom = useCallback(() => {
