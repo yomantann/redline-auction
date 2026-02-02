@@ -21,6 +21,7 @@ export interface GamePlayer {
   id: string;
   socketId: string | null; // null for bots
   name: string;
+  selectedDriver?: string; // Driver/character ID selected by the player
   isBot: boolean;
   personality?: BotPersonality;
   tokens: number;
@@ -74,7 +75,7 @@ function getTotalRounds(duration: GameDuration): number {
 
 export function createGame(
   lobbyCode: string,
-  lobbyPlayers: Array<{ id: string; socketId: string; name: string }>,
+  lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string }>,
   duration: GameDuration = 'standard'
 ): GameState {
   const initialTime = getInitialTime(duration);
@@ -85,6 +86,7 @@ export function createGame(
     id: p.id,
     socketId: p.socketId,
     name: p.name,
+    selectedDriver: p.selectedDriver,
     isBot: false,
     tokens: 0,
     remainingTime: initialTime,
@@ -546,6 +548,7 @@ function broadcastGameState(lobbyCode: string) {
       id: p.id,
       socketId: p.socketId,
       name: p.name,
+      selectedDriver: p.selectedDriver,
       isBot: p.isBot,
       tokens: p.tokens,
       remainingTime: p.remainingTime,

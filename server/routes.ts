@@ -25,6 +25,25 @@ interface LobbyPlayer {
   name: string;
   isHost: boolean;
   isReady: boolean;
+  selectedDriver?: string; // Driver/character ID selected by the player
+}
+
+interface GameSettings {
+  difficulty: 'CASUAL' | 'COMPETITIVE';
+  protocolsEnabled: boolean;
+  abilitiesEnabled: boolean;
+  variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+  gameDuration: GameDuration; // 'short' | 'standard' | 'long'
+}
+
+// Map client duration names to server duration names
+function mapDuration(clientDuration: string): GameDuration {
+  switch (clientDuration) {
+    case 'sprint': return 'short';
+    case 'long': return 'long';
+    case 'standard': 
+    default: return 'standard';
+  }
 }
 
 interface Lobby {
@@ -34,6 +53,7 @@ interface Lobby {
   maxPlayers: number;
   createdAt: number;
   status: 'waiting' | 'starting' | 'in_game';
+  settings: GameSettings;
 }
 
 // In-memory lobby storage
@@ -63,7 +83,8 @@ function broadcastLobbyUpdate(lobbyCode: string) {
     players: lobby.players,
     hostSocketId: lobby.hostSocketId,
     status: lobby.status,
-    maxPlayers: lobby.maxPlayers
+    maxPlayers: lobby.maxPlayers,
+    settings: lobby.settings
   });
 }
 
@@ -128,8 +149,11 @@ export async function registerRoutes(
     log(`Client connected: ${socket.id}`, "socket.io");
 
     // CREATE LOBBY
-    socket.on("create_lobby", (data: { playerName: string }, callback) => {
-      const { playerName } = data;
+    socket.on("create_lobby", (data: { 
+      playerName: string; 
+      settings?: Partial<GameSettings>;
+    }, callback) => {
+      const { playerName, settings: hostSettings } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -145,13 +169,28 @@ export async function registerRoutes(
         isReady: false
       };
       
+      // Default settings merged with host's settings
+      const defaultSettings: GameSettings = {
+        difficulty: 'CASUAL',
+        protocolsEnabled: true,
+        abilitiesEnabled: true,
+        variant: 'STANDARD',
+        gameDuration: 'standard'
+      };
+      
+      // Map client duration to server duration
+      const mappedDuration = hostSettings?.gameDuration 
+        ? mapDuration(hostSettings.gameDuration) 
+        : defaultSettings.gameDuration;
+      
       const lobby: Lobby = {
         code,
         hostSocketId: socket.id,
         players: [player],
         maxPlayers: 8,
         createdAt: Date.now(),
-        status: 'waiting'
+        status: 'waiting',
+        settings: { ...defaultSettings, ...hostSettings, gameDuration: mappedDuration }
       };
       
       lobbies.set(code, lobby);
@@ -165,7 +204,8 @@ export async function registerRoutes(
         players: lobby.players,
         hostSocketId: lobby.hostSocketId,
         status: lobby.status,
-        maxPlayers: lobby.maxPlayers
+        maxPlayers: lobby.maxPlayers,
+        settings: lobby.settings
       }});
       
       broadcastLobbyUpdate(code);
@@ -216,7 +256,8 @@ export async function registerRoutes(
         players: lobby.players,
         hostSocketId: lobby.hostSocketId,
         status: lobby.status,
-        maxPlayers: lobby.maxPlayers
+        maxPlayers: lobby.maxPlayers,
+        settings: lobby.settings
       }});
       
       broadcastLobbyUpdate(upperCode);
@@ -252,11 +293,52 @@ export async function registerRoutes(
       
       const player = lobby.players.find(p => p.socketId === socket.id);
       if (player) {
+        // Can only ready up if a driver is selected
+        if (!player.isReady && !player.selectedDriver) {
+          if (callback) callback({ success: false, error: "Must select a driver first" });
+          return;
+        }
+        
         player.isReady = !player.isReady;
         log(`${player.name} is ${player.isReady ? 'ready' : 'not ready'} in lobby ${lobbyCode}`, "lobby");
         broadcastLobbyUpdate(lobbyCode);
         if (callback) callback({ success: true, isReady: player.isReady });
       }
+    });
+
+    // SELECT DRIVER
+    socket.on("select_driver", (data: { driverId: string }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      
+      const lobby = lobbies.get(lobbyCode);
+      if (!lobby) {
+        if (callback) callback({ success: false, error: "Lobby not found" });
+        return;
+      }
+      
+      const player = lobby.players.find(p => p.socketId === socket.id);
+      if (!player) {
+        if (callback) callback({ success: false, error: "Player not found" });
+        return;
+      }
+      
+      // Check if driver is already taken by another player
+      const driverTaken = lobby.players.some(p => 
+        p.socketId !== socket.id && p.selectedDriver === data.driverId
+      );
+      if (driverTaken) {
+        if (callback) callback({ success: false, error: "Driver already taken" });
+        return;
+      }
+      
+      player.selectedDriver = data.driverId;
+      log(`${player.name} selected driver ${data.driverId} in lobby ${lobbyCode}`, "lobby");
+      broadcastLobbyUpdate(lobbyCode);
+      if (callback) callback({ success: true, driverId: data.driverId });
     });
 
     // START GAME (host only)
@@ -286,18 +368,26 @@ export async function registerRoutes(
         return;
       }
       
-      // Update lobby status
+      // Validate all ready players have selected a driver (before changing status)
+      const playersWithoutDriver = readyPlayers.filter(p => !p.selectedDriver);
+      if (playersWithoutDriver.length > 0) {
+        if (callback) callback({ success: false, error: "All players must select a driver" });
+        return;
+      }
+      
+      // All validations passed - now update lobby status
       lobby.status = 'in_game';
       broadcastLobbyUpdate(lobbyCode);
       
-      // Create game with ready players only
+      // Create game with ready players only (include driver selection)
       const gamePlayers = readyPlayers.map(p => ({
         id: p.id,
         socketId: p.socketId,
-        name: p.name
+        name: p.name,
+        selectedDriver: p.selectedDriver
       }));
       
-      const gameState = createGame(lobbyCode, gamePlayers, data?.duration || 'standard');
+      const gameState = createGame(lobbyCode, gamePlayers, lobby.settings.gameDuration);
       
       // Emit game started event
       io.to(lobbyCode).emit('game_started', {

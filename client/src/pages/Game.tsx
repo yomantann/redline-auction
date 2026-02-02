@@ -749,9 +749,17 @@ export default function Game() {
       name: string;
       isHost: boolean;
       isReady: boolean;
+      selectedDriver?: string;
     }>;
     hostSocketId: string;
     status: 'waiting' | 'starting' | 'in_game';
+    settings?: {
+      difficulty: 'CASUAL' | 'COMPETITIVE';
+      protocolsEnabled: boolean;
+      abilitiesEnabled: boolean;
+      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+      gameDuration: 'sprint' | 'standard' | 'long';
+    };
     maxPlayers: number;
   } | null>(null);
   const [lobbyError, setLobbyError] = useState<string | null>(null);
@@ -800,7 +808,8 @@ export default function Game() {
     const handleGameStarted = (data: { lobbyCode: string; players: any[]; totalRounds: number; initialTime: number }) => {
       console.log('[Game] Started:', data);
       setIsMultiplayer(true);
-      setPhase('countdown');
+      // Don't set phase here - let the server game_state dictate the phase
+      // The server starts in 'waiting_for_ready' phase
     };
 
     const handleGameState = (state: typeof multiplayerGameState) => {
@@ -2761,7 +2770,17 @@ export default function Game() {
     }
     
     setLobbyError(null);
-    socket.emit("create_lobby", { playerName }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
+    
+    // Send current game settings to the lobby
+    const settings = {
+      difficulty,
+      protocolsEnabled,
+      abilitiesEnabled,
+      variant,
+      gameDuration
+    };
+    
+    socket.emit("create_lobby", { playerName, settings }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Created:', response.code);
         setCurrentLobby(response.lobby);
@@ -2770,7 +2789,7 @@ export default function Game() {
         setLobbyError(response.error || "Failed to create lobby");
       }
     });
-  }, [socket, isConnected, playerName]);
+  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration]);
   
   const handleJoinRoom = useCallback(() => {
     if (!socket || !isConnected) {
@@ -2809,6 +2828,14 @@ export default function Game() {
     
     socket.emit("toggle_ready", (response: { success: boolean; isReady?: boolean }) => {
       console.log('[Lobby] Ready toggled:', response.isReady);
+    });
+  }, [socket]);
+
+  const handleSelectDriver = useCallback((driverId: string) => {
+    if (!socket) return;
+    
+    socket.emit("select_driver", { driverId }, (response: { success: boolean; driverId?: string }) => {
+      console.log('[Lobby] Driver selected:', response.driverId);
     });
   }, [socket]);
 
@@ -3355,6 +3382,46 @@ export default function Game() {
                 <p className="text-xs text-zinc-500">Share this code with friends to join</p>
               </div>
 
+              {/* Game Settings */}
+              {currentLobby.settings && (
+                <div className="w-full bg-card/30 rounded-lg border border-white/10 p-3">
+                  <div className="text-xs text-zinc-500 mb-2 uppercase tracking-wider">Game Settings</div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className={cn(
+                      "px-2 py-1 rounded border",
+                      currentLobby.settings.difficulty === 'COMPETITIVE' 
+                        ? "bg-orange-500/10 border-orange-500/30 text-orange-400" 
+                        : "bg-green-500/10 border-green-500/30 text-green-400"
+                    )}>
+                      {currentLobby.settings.difficulty}
+                    </span>
+                    <span className={cn(
+                      "px-2 py-1 rounded border",
+                      currentLobby.settings.variant === 'SOCIAL_OVERDRIVE' 
+                        ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
+                        : currentLobby.settings.variant === 'BIO_FUEL'
+                          ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
+                          : "bg-zinc-500/10 border-zinc-500/30 text-zinc-400"
+                    )}>
+                      {currentLobby.settings.variant.replace('_', ' ')}
+                    </span>
+                    <span className="px-2 py-1 rounded border bg-zinc-500/10 border-zinc-500/30 text-zinc-400">
+                      {currentLobby.settings.gameDuration === 'sprint' ? '2.5m' : currentLobby.settings.gameDuration === 'long' ? '10m' : '5m'}
+                    </span>
+                    {currentLobby.settings.protocolsEnabled && (
+                      <span className="px-2 py-1 rounded border bg-red-500/10 border-red-500/30 text-red-400">
+                        Protocols
+                      </span>
+                    )}
+                    {currentLobby.settings.abilitiesEnabled && (
+                      <span className="px-2 py-1 rounded border bg-blue-500/10 border-blue-500/30 text-blue-400">
+                        Limit Breaks
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Players List */}
               <div className="w-full bg-card/30 rounded-lg border border-white/10 p-4 space-y-3">
                 <div className="flex justify-between items-center text-sm text-zinc-400">
@@ -3380,9 +3447,17 @@ export default function Game() {
                       data-testid={`player-row-${idx}`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-bold">
-                          {player.name.charAt(0).toUpperCase()}
-                        </div>
+                        {player.selectedDriver ? (
+                          <img 
+                            src={CHARACTERS.find(c => c.id === player.selectedDriver)?.image} 
+                            alt={player.selectedDriver}
+                            className="w-8 h-8 rounded-full object-cover border border-white/20"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-bold">
+                            {player.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{player.name}</span>
@@ -3393,6 +3468,11 @@ export default function Game() {
                               <span className="text-xs text-zinc-500">(You)</span>
                             )}
                           </div>
+                          {player.selectedDriver && (
+                            <div className="text-[10px] text-zinc-500">
+                              {CHARACTERS.find(c => c.id === player.selectedDriver)?.name}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className={cn(
@@ -3408,15 +3488,57 @@ export default function Game() {
                 </div>
               </div>
 
+              {/* Driver Selection */}
+              <div className="w-full bg-card/30 rounded-lg border border-white/10 p-3">
+                <div className="text-xs text-zinc-500 mb-2 uppercase tracking-wider">Select Your Driver</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {CHARACTERS.slice(0, 8).map((char) => {
+                    const isSelected = myPlayer?.selectedDriver === char.id;
+                    const isTaken = currentLobby.players.some(p => p.socketId !== socket?.id && p.selectedDriver === char.id);
+                    return (
+                      <button
+                        key={char.id}
+                        onClick={() => !isTaken && handleSelectDriver(char.id)}
+                        disabled={isTaken}
+                        className={cn(
+                          "p-2 rounded-lg border transition-all relative",
+                          isSelected 
+                            ? "bg-primary/20 border-primary" 
+                            : isTaken 
+                              ? "bg-zinc-900/50 border-zinc-800 opacity-50 cursor-not-allowed"
+                              : "bg-black/30 border-white/10 hover:border-white/30"
+                        )}
+                        title={char.name}
+                        data-testid={`driver-select-${char.id}`}
+                      >
+                        <img 
+                          src={char.image} 
+                          alt={char.name} 
+                          className={cn("w-10 h-10 mx-auto rounded-full object-cover", isTaken && "grayscale")}
+                        />
+                        <div className="text-[10px] text-center mt-1 truncate">{char.name}</div>
+                        {isSelected && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center text-[10px]">✓</div>
+                        )}
+                        {isTaken && (
+                          <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">Taken</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Actions */}
               <div className="flex flex-col gap-3 w-full">
                 <Button 
                   onClick={handleToggleReady}
                   variant={myPlayer?.isReady ? "outline" : "default"}
                   className="w-full"
+                  disabled={!myPlayer?.selectedDriver}
                   data-testid="button-toggle-ready"
                 >
-                  {myPlayer?.isReady ? "Cancel Ready" : "Ready Up"}
+                  {!myPlayer?.selectedDriver ? "Select a Driver First" : myPlayer?.isReady ? "Cancel Ready" : "Ready Up"}
                 </Button>
                 
                 {isHost && (
