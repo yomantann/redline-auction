@@ -48,7 +48,7 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info
+  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2
 } from "lucide-react";
 import { 
   Tooltip,
@@ -3380,6 +3380,24 @@ export default function Game() {
                   </span>
                 </div>
                 <p className="text-xs text-zinc-500">Share this code with friends to join</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}${window.location.pathname}?join=${currentLobby.code}`;
+                    if (navigator.share) {
+                      navigator.share({ title: 'Join my Redline Auction game!', url });
+                    } else {
+                      navigator.clipboard.writeText(url);
+                      alert('Link copied to clipboard!');
+                    }
+                  }}
+                  className="mt-2 text-xs border-primary/30 hover:bg-primary/10"
+                  data-testid="button-send-link"
+                >
+                  <Share2 size={14} className="mr-2" />
+                  Send Link
+                </Button>
               </div>
 
               {/* Game Settings */}
@@ -4224,6 +4242,14 @@ export default function Game() {
             )}
             <img src={logoFuturistic} alt="Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
             <h1 className="font-display font-bold text-xl tracking-wider hidden sm:block">REDLINE AUCTION</h1>
+            {/* Show lobby code during multiplayer game so others can join */}
+            {isMultiplayer && currentLobby && phase !== 'multiplayer_lobby' && (
+              <div className="ml-4 flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/30 rounded text-xs">
+                <Users size={12} className="text-primary" />
+                <span className="text-zinc-400">Room:</span>
+                <span className="font-mono font-bold text-primary tracking-wider" data-testid="text-game-lobby-code">{currentLobby.code}</span>
+              </div>
+            )}
           </div>
 
           <div className="w-full flex items-center justify-center">
