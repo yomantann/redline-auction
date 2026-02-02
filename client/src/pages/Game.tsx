@@ -5347,10 +5347,12 @@ export default function Game() {
                   );
                   logs = filtered.map(l => l.message);
                 } else {
-                  logs = showAllLogs ? spLogs : spLogs.filter(log => 
-                    log.includes('>>') || log.includes('ROUND') || log.includes('WINNER') || 
-                    log.includes('PROTOCOL') || log.includes('ELIMINATED') || log.includes('TOKEN')
-                  );
+                  logs = showAllLogs ? spLogs : spLogs.filter(log => {
+                    const upper = log.toUpperCase();
+                    return log.includes('>>') || upper.includes('ROUND') || upper.includes('WON') || 
+                           upper.includes('WINNER') || upper.includes('PROTOCOL') || 
+                           upper.includes('ELIMINATED') || upper.includes('TOKEN');
+                  });
                 }
                 if (logs.length === 0) return <p className="italic opacity-50">Game started...</p>;
                 return logs.map((log, i) => (
