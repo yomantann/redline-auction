@@ -927,49 +927,75 @@ export default function Game() {
   useEffect(() => {
     if (phase === 'ready') {
       const newBotBids: Record<string, number> = {};
+
+      const minBidTime = getTimerStart();
+      const isLastRound = round >= totalRounds;
+      const isPanicRoom = activeProtocol === 'PANIC_ROOM';
+      const isNoLook = activeProtocol === 'NO_LOOK';
+      const isMute = activeProtocol === 'MUTE_PROTOCOL';
+      const isMole = activeProtocol === 'THE_MOLE';
+
       players.forEach(p => {
         if (p.isBot) {
-          const maxBid = p.remainingTime;
-          let bid = 0;
+          const maxBid = Math.max(minBidTime, p.remainingTime);
+          let bid = minBidTime;
 
-          // Personality-based Randomness
+          const lowTime = p.remainingTime <= 8;
+          const midTime = p.remainingTime > 8 && p.remainingTime <= 20;
+
+          // Protocol-aware tuning:
+          // - Panic Room: avoid huge holds (timer burns 2x)
+          // - No Look / Mute: slightly more conservative (table friction)
+          // - Late rounds: reduce risk
+          // - Low remaining time: reduce risk
+          const riskDown = (isPanicRoom ? 0.35 : 0) + (isNoLook ? 0.1 : 0) + (isMute ? 0.1 : 0) + (isLastRound ? 0.2 : 0) + (lowTime ? 0.35 : midTime ? 0.15 : 0);
+
+          const clamp = (v: number) => Math.min(maxBid, Math.max(minBidTime, v));
+
           switch (p.personality) {
-            case 'aggressive':
-              // Likes to bid high (20s - 60s), sometimes low to trick
-              if (Math.random() > 0.3) {
-                 bid = 20 + Math.random() * 40; 
-              } else {
-                 bid = Math.random() * 10;
-              }
+            case 'aggressive': {
+              // Aggressive bots usually push higher, but back off under riskDown.
+              const base = 18 + Math.random() * 28;
+              const cautious = 6 + Math.random() * 10;
+              const chooseHigh = Math.random() > (0.25 + riskDown);
+              bid = chooseHigh ? base : cautious;
               break;
-            
-            case 'conservative':
-              // Likes to save time, bids low (1s - 15s)
-              bid = 1 + Math.random() * 14;
+            }
+
+            case 'conservative': {
+              // Conservative bots stay low, especially late / low-time / panic room.
+              const base = 1.5 + Math.random() * 10;
+              bid = base;
+              if (isLastRound || isPanicRoom || lowTime) bid = 1.0 + Math.random() * 6;
               break;
+            }
 
             case 'random':
-            default:
-              // Pure chaos
-              bid = Math.random() * 40 + 1;
+            default: {
+              // Random bots still get bounded by riskDown.
+              const base = 1 + Math.random() * 40;
+              bid = base * (1 - Math.min(0.55, riskDown));
               break;
+            }
           }
 
-          // Random fuzzy factor so they don't hit exact integers often
-          bid += Math.random(); 
+          // Mole protocol: bots should be a bit more "second-place" oriented.
+          // Without revealing who is mole, we make bots generally avoid massive winning margins.
+          if (isMole) {
+            bid = bid * 0.85;
+          }
 
-          // Hard cap at max time
-          if (bid > maxBid) bid = maxBid;
-          
-          // Ensure at least 0.1s
-          if (bid < 0.1) bid = 0.1;
+          // Add small fuzz so they don't land on identical tenths too often.
+          bid += Math.random() * 0.8;
 
+          bid = clamp(bid);
           newBotBids[p.id] = parseFloat(bid.toFixed(1));
         }
       });
+
       setBotBids(newBotBids);
     }
-  }, [phase]);
+  }, [phase, round, totalRounds, activeProtocol, gameDuration, variant]);
 
   // Check bot bids during bidding phase
   // Also check for PEEK abilities (Sadman Logic / Pepe)
@@ -1103,6 +1129,12 @@ export default function Game() {
 
     } else if (phase === 'countdown') {
        // If stopping during countdown, store penalty to apply at round end
+       // Only apply if the player actually held during countdown (i.e., they were "in" the countdown).
+       const p1 = players.find(p => p.id === 'p1');
+       if (!p1?.isHolding) {
+         return;
+       }
+
        let penalty = getPenalty();
        
        // ALPHA PRIME (Gigachad) EXCEPTION: "JAWLINE"
@@ -1369,6 +1401,12 @@ export default function Game() {
     
     // 1. IDENTIFY PARTICIPANTS (Those who held past countdown)
     const participants = players.filter(p => p.currentBid !== null && p.currentBid > 0);
+
+    // Make sure the elimination moment flag shows up for the player if they got eliminated.
+    const p1AtRoundEnd = players.find(p => p.id === 'p1');
+    if (p1AtRoundEnd?.isEliminated) {
+      addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
+    }
     
     // 2. CALCULATE PRELIMINARY TIME & ELIMINATION (Pre-Winner)
     
@@ -1380,7 +1418,9 @@ export default function Game() {
     
     if (abilitiesEnabled) {
         players.forEach(sourcePlayer => {
-            if (sourcePlayer.isEliminated || sourcePlayer.remainingTime <= 0) return; // Eliminated players cannot attack
+            // Abilities should trigger even if the player didn't participate this round.
+            // Only fully eliminated players (out of time) are blocked.
+            if (sourcePlayer.isEliminated || sourcePlayer.remainingTime <= 0) return;
             
             const character = sourcePlayer.isBot 
                 ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
@@ -3541,7 +3581,7 @@ export default function Game() {
         <div className="flex flex-col items-center gap-4">
           <div className="flex items-center gap-2 justify-center">
             {phase !== 'intro' && (
-              <Button variant="ghost" size="icon" onClick={quitGame} className="mr-2 text-muted-foreground hover:text-white hover:bg-white/10" title="Quit to Menu">
+              <Button variant="ghost" size="icon" onClick={quitGame} className="mr-2 text-white hover:text-white hover:bg-white/10" title="Quit to Menu" data-testid="button-quit-to-menu">
                  <LogOut size={20} />
               </Button>
             )}
