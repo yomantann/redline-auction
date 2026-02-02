@@ -450,53 +450,6 @@ export default function Game() {
     };
   }, []);
 
-  // Handle Music Playback based on Phase
-  useEffect(() => {
-    if (!audioRef.current) return;
-
-    if (!soundEnabled) {
-      audioRef.current.pause();
-      audioRef.current.muted = true;
-      return;
-    }
-
-    audioRef.current.muted = false;
-
-    // Lobby loop music (random pick)
-    if (phase === 'multiplayer_lobby') {
-      const track = LOBBY_TRACKS.length > 0
-        ? LOBBY_TRACKS[Math.floor(Math.random() * LOBBY_TRACKS.length)]
-        : null;
-
-      if (track) {
-        if (audioRef.current.src !== window.location.origin + track) {
-          audioRef.current.src = track;
-        }
-        audioRef.current.loop = true;
-        audioRef.current.volume = 0.4;
-        audioRef.current.play().catch(() => console.log('Audio play blocked'));
-      } else {
-        // No lobby tracks configured; keep silent in lobby
-        audioRef.current.pause();
-      }
-      return;
-    }
-
-    // Character select loop music
-    if (phase === 'character_select') {
-      if (audioRef.current.paused) {
-        const track = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
-        audioRef.current.src = track;
-        audioRef.current.loop = true;
-        audioRef.current.volume = 0.4;
-        audioRef.current.play().catch(() => console.log('Audio play blocked'));
-      }
-      return;
-    }
-
-    audioRef.current.pause();
-  }, [phase, soundEnabled]);
-  
   // Derived state for backward compatibility or simple logic
   const showDetails = difficulty === 'CASUAL';
 
@@ -889,6 +842,52 @@ export default function Game() {
       socket.off('game_state', handleGameState);
     };
   }, [socket]);
+
+  // Handle Music Playback based on Phase
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    if (!soundEnabled) {
+      audioRef.current.pause();
+      audioRef.current.muted = true;
+      return;
+    }
+
+    audioRef.current.muted = false;
+
+    // Lobby loop music (random pick)
+    if (phase === 'multiplayer_lobby') {
+      const track = LOBBY_TRACKS.length > 0
+        ? LOBBY_TRACKS[Math.floor(Math.random() * LOBBY_TRACKS.length)]
+        : null;
+
+      if (track) {
+        if (audioRef.current.src !== window.location.origin + track) {
+          audioRef.current.src = track;
+        }
+        audioRef.current.loop = true;
+        audioRef.current.volume = 0.4;
+        audioRef.current.play().catch(() => console.log('Audio play blocked'));
+      } else {
+        audioRef.current.pause();
+      }
+      return;
+    }
+
+    // Character select loop music (single player or multiplayer driver selection)
+    if (phase === 'character_select' || (isMultiplayer && multiplayerGameState?.phase === 'driver_selection')) {
+      if (audioRef.current.paused) {
+        const track = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
+        audioRef.current.src = track;
+        audioRef.current.loop = true;
+        audioRef.current.volume = 0.4;
+        audioRef.current.play().catch(() => console.log('Audio play blocked'));
+      }
+      return;
+    }
+
+    audioRef.current.pause();
+  }, [phase, soundEnabled, isMultiplayer, multiplayerGameState?.phase]);
 
   // Multiplayer Protocol Overlay - trigger when a new protocol is activated
   const lastProtocolRoundRef = useRef<number>(0);
@@ -2912,6 +2911,20 @@ export default function Game() {
           if (variant === 'BIO_FUEL' && char.imageBio) return char.imageBio;
           return char.image;
         })(),
+        driverName: (() => {
+          const driverId = (mp as any).selectedDriver;
+          if (!driverId) return undefined;
+          const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
+          const char = allChars.find(c => c.id === driverId);
+          return char?.name;
+        })(),
+        driverAbility: (() => {
+          const driverId = (mp as any).selectedDriver;
+          if (!driverId) return undefined;
+          const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
+          const char = allChars.find(c => c.id === driverId);
+          return char?.ability?.description;
+        })(),
       } as Player))
     : players;
 
@@ -4082,50 +4095,61 @@ export default function Game() {
                 const isTaken = !!takenBy;
                 
                 return (
-                  <motion.button
-                    key={char.id}
-                    whileHover={!isTaken && !myDriverConfirmed ? { scale: 1.03 } : {}}
-                    whileTap={!isTaken && !myDriverConfirmed ? { scale: 0.97 } : {}}
-                    onClick={() => !isTaken && !myDriverConfirmed && handleMpSelectDriver(char.id)}
-                    disabled={isTaken || myDriverConfirmed}
-                    className={cn(
-                      "flex flex-col items-center p-3 rounded-xl border transition-colors text-center",
-                      isSelected ? "bg-primary/20 border-primary" : "bg-black/40 border-white/10",
-                      isTaken ? "opacity-40 cursor-not-allowed" : "hover:border-primary/50",
-                      myDriverConfirmed && !isSelected && "opacity-30"
+                  <div key={char.id} className="relative">
+                    <motion.button
+                      whileHover={!isTaken && !myDriverConfirmed ? { scale: 1.03 } : {}}
+                      whileTap={!isTaken && !myDriverConfirmed ? { scale: 0.97 } : {}}
+                      onClick={() => !isTaken && !myDriverConfirmed && handleMpSelectDriver(char.id)}
+                      disabled={isTaken || myDriverConfirmed}
+                      className={cn(
+                        "flex flex-col items-center p-3 rounded-xl border transition-colors text-center w-full",
+                        isSelected ? "bg-primary/20 border-primary" : "bg-black/40 border-white/10",
+                        isTaken ? "opacity-40 cursor-not-allowed" : "hover:border-primary/50",
+                        myDriverConfirmed && !isSelected && "opacity-30"
+                      )}
+                      data-testid={`mp-driver-${char.id}`}
+                    >
+                      <div className={cn("w-16 h-16 rounded-full mb-2 overflow-hidden border-2", 
+                        isSelected ? "border-primary" : "border-white/10",
+                        char.color
+                      )}>
+                        <img src={char.image} alt={char.name} className="w-full h-full object-cover" />
+                      </div>
+                      <h3 className="font-bold text-sm text-white mb-0.5">{char.name}</h3>
+                      <p className="text-[10px] text-primary/80 uppercase tracking-wider">{char.title}</p>
+                      {isTaken && (
+                        <span className="text-[10px] text-red-400 mt-1">Taken by {takenBy?.name}</span>
+                      )}
+                    </motion.button>
+                    {/* LOCK IN overlay on selected driver */}
+                    {isSelected && !myDriverConfirmed && (
+                      <Button
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); handleMpConfirmDriver(); }}
+                        className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-primary hover:bg-primary/90 text-black font-bold text-xs px-4 py-1 shadow-lg z-10"
+                        data-testid="button-confirm-driver-inline"
+                      >
+                        LOCK IN
+                      </Button>
                     )}
-                    data-testid={`mp-driver-${char.id}`}
-                  >
-                    <div className={cn("w-16 h-16 rounded-full mb-2 overflow-hidden border-2", 
-                      isSelected ? "border-primary" : "border-white/10",
-                      char.color
-                    )}>
-                      <img src={char.image} alt={char.name} className="w-full h-full object-cover" />
-                    </div>
-                    <h3 className="font-bold text-sm text-white mb-0.5">{char.name}</h3>
-                    <p className="text-[10px] text-primary/80 uppercase tracking-wider">{char.title}</p>
-                    {isTaken && (
-                      <span className="text-[10px] text-red-400 mt-1">Taken by {takenBy?.name}</span>
+                    {isSelected && myDriverConfirmed && (
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-green-600 text-white font-bold text-xs px-4 py-1 rounded shadow-lg z-10">
+                        LOCKED
+                      </div>
                     )}
-                  </motion.button>
+                  </div>
                 );
               })}
             </div>
 
-            {/* Confirm Button */}
+            {/* Status message at bottom */}
             <div className="flex justify-center pt-4">
-              <Button
-                size="lg"
-                onClick={handleMpConfirmDriver}
-                disabled={!mySelectedDriver || myDriverConfirmed}
-                className={cn(
-                  "px-12 py-6 text-xl",
-                  myDriverConfirmed ? "bg-green-600 hover:bg-green-600" : "bg-primary hover:bg-primary/90"
-                )}
-                data-testid="button-confirm-driver"
-              >
-                {myDriverConfirmed ? "LOCKED IN - WAITING FOR OTHERS" : mySelectedDriver ? "LOCK IN DRIVER" : "SELECT A DRIVER"}
-              </Button>
+              <p className={cn(
+                "text-sm",
+                myDriverConfirmed ? "text-green-400" : mySelectedDriver ? "text-primary" : "text-muted-foreground"
+              )}>
+                {myDriverConfirmed ? "LOCKED IN - WAITING FOR OTHERS" : mySelectedDriver ? "Click LOCK IN on your selected driver" : "SELECT A DRIVER"}
+              </p>
             </div>
           </motion.div>
         );

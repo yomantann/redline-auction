@@ -14,6 +14,18 @@ const MIN_PLAYERS = 4;
 const BOT_NAMES = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta'];
 const BOT_PERSONALITIES = ['aggressive', 'conservative', 'random', 'balanced'] as const;
 
+// Character/Driver IDs by variant for bot random assignment
+const STANDARD_DRIVER_IDS = [
+  'harambe', 'popcat', 'winter', 'pepe', 'nyan', 'karen', 'fine', 'bf', 
+  'rat', 'baldwin', 'sigma', 'gigachad', 'thinker', 'disaster', 'buttons', 'primate', 'harold', 'tank'
+];
+const SOCIAL_DRIVER_IDS = [
+  'social_clown', 'social_influencer', 'social_diva', 'social_troll', 'social_hypeman'
+];
+const BIO_DRIVER_IDS = [
+  'bio_bartender', 'bio_designated', 'bio_wildcard', 'bio_shotcaller', 'bio_lightweight'
+];
+
 export type BotPersonality = typeof BOT_PERSONALITIES[number];
 export type GameDuration = 'standard' | 'long' | 'short';
 export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
@@ -207,9 +219,24 @@ export function createGame(
     botIndex++;
   }
   
-  // Mark bots as having confirmed drivers (they don't need to select)
+  // Assign random drivers to bots and mark as confirmed
+  const variant = lobbySettings?.variant || 'STANDARD';
+  const availableDrivers = [
+    ...STANDARD_DRIVER_IDS,
+    ...(variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_DRIVER_IDS : []),
+    ...(variant === 'BIO_FUEL' ? BIO_DRIVER_IDS : [])
+  ];
+  const usedDrivers: string[] = [];
+  
   gamePlayers.forEach(p => {
     if (p.isBot) {
+      // Assign random unused driver to bot
+      const unusedDrivers = availableDrivers.filter(d => !usedDrivers.includes(d));
+      if (unusedDrivers.length > 0) {
+        const randomDriver = unusedDrivers[Math.floor(Math.random() * unusedDrivers.length)];
+        p.selectedDriver = randomDriver;
+        usedDrivers.push(randomDriver);
+      }
       p.driverConfirmed = true;
     } else {
       p.driverConfirmed = false;
@@ -453,33 +480,49 @@ function decideBotRelease(bot: GamePlayer, elapsed: number, game: GameState): bo
   const otherPlayers = game.players.filter(p => p.id !== bot.id && !p.isEliminated);
   const holdingOthers = otherPlayers.filter(p => p.isHolding).length;
   
-  // Random base chance increases with time
+  // Random base chance increases with time - with more variance
   const baseChance = elapsed / 30; // 3.3% per second base
+  
+  // Add per-bot random offset to make timing less predictable
+  const botVariance = (Math.random() - 0.5) * 2; // -1 to +1 random offset each check
+  const varianceMultiplier = 0.5 + Math.random(); // 0.5x to 1.5x multiplier
+  
+  // Minimum wait time before bots consider releasing (2-6 seconds based on personality)
+  const minWaitByPersonality = {
+    aggressive: 6 + Math.random() * 4,
+    conservative: 2 + Math.random() * 2,
+    random: 1 + Math.random() * 5,
+    balanced: 3 + Math.random() * 3,
+  };
+  const minWait = minWaitByPersonality[bot.personality || 'balanced'];
+  
+  // Don't even consider releasing before minimum wait
+  if (elapsed < minWait) return false;
   
   switch (bot.personality) {
     case 'aggressive':
-      // Hold longer, only release if really pushed
+      // Hold longer, only release if really pushed - with more variance
       if (elapsed > maxBid) return true;
-      if (holdingOthers === 0) return true;
-      return Math.random() < baseChance * 0.3;
+      if (holdingOthers === 0 && Math.random() > 0.3) return true; // 70% chance to release when alone
+      return Math.random() < (baseChance * 0.3 * varianceMultiplier);
       
     case 'conservative':
-      // Release early
-      if (elapsed > 5) return Math.random() < baseChance * 2;
-      if (elapsed > maxBid * 0.5) return true;
-      return Math.random() < baseChance * 1.5;
+      // Release early - with variance
+      if (elapsed > 5 + botVariance * 2) return Math.random() < baseChance * 2 * varianceMultiplier;
+      if (elapsed > maxBid * 0.5) return Math.random() > 0.3; // 70% chance
+      return Math.random() < (baseChance * 1.5 * varianceMultiplier);
       
     case 'random':
-      // Unpredictable
+      // Unpredictable - maximum variance
       if (elapsed > maxBid) return true;
-      return Math.random() < baseChance * (0.5 + Math.random());
+      return Math.random() < (baseChance * (0.3 + Math.random() * 1.4)); // Very wide range
       
     case 'balanced':
     default:
-      // Moderate strategy
+      // Moderate strategy - with some variance
       if (elapsed > maxBid) return true;
-      if (holdingOthers === 0) return true;
-      return Math.random() < baseChance;
+      if (holdingOthers === 0 && Math.random() > 0.4) return true; // 60% chance
+      return Math.random() < (baseChance * varianceMultiplier);
   }
 }
 

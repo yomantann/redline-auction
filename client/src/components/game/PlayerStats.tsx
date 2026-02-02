@@ -11,6 +11,8 @@ interface Player {
   hasBidThisRound?: boolean;
   bidTime?: number; // Only for round result
   characterIcon?: string | React.ReactNode;
+  driverName?: string; // Driver/character name
+  driverAbility?: string; // Driver ability description
   isHolding?: boolean; // Added for Peek Logic
   roundImpact?: string; // New field for limit break impact
   impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // Structured logs
@@ -93,9 +95,16 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
                player.characterIcon || (player.isBot ? <Cpu size={16} className="text-zinc-500"/> : <User size={16} className="text-zinc-500"/>)
              )}
           </div>
-          <span className={cn("font-display font-bold tracking-wide", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isEliminated && "text-red-500")}>
-            {player.name}
-          </span>
+          <div className="flex flex-col">
+            <span className={cn("font-display font-bold tracking-wide leading-tight", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isEliminated && "text-red-500")}>
+              {player.name}
+            </span>
+            {player.driverName && (
+              <span className="text-[10px] text-primary/70 leading-tight" title={player.driverAbility}>
+                {player.driverName}
+              </span>
+            )}
+          </div>
           {/* IMPACT TAKEN BADGE - New */}
           {(player.totalImpactReceived ?? 0) > 0 && (
               <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-950/40 border border-red-500/20" title="Total Impact Taken">
