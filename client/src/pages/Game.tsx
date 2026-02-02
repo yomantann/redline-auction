@@ -4158,7 +4158,7 @@ export default function Game() {
                 const isTaken = !!takenBy;
                 
                 return (
-                  <div key={char.id} className="relative">
+                  <div key={char.id} className="relative flex flex-col">
                     <motion.button
                       whileHover={!isTaken && !myDriverConfirmed ? { scale: 1.03 } : {}}
                       whileTap={!isTaken && !myDriverConfirmed ? { scale: 0.97 } : {}}
@@ -4181,50 +4181,63 @@ export default function Game() {
                       <h3 className="font-bold text-sm text-white mb-0.5">{char.name}</h3>
                       <p className="text-[10px] text-primary/80 uppercase tracking-wider">{char.title}</p>
                       
-                      {/* Standard Limit Break ability */}
-                      {abilitiesEnabled && char.ability && (
-                        <div className="mt-1 pt-1 border-t border-white/5 w-full">
-                          <div className="flex items-center justify-center gap-1 text-[8px] font-bold text-blue-400 uppercase tracking-widest">
-                            <Zap size={8} fill="currentColor" /> {char.ability.name}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Social Overdrive ability */}
-                      {variant === 'SOCIAL_OVERDRIVE' && char.socialAbility && (
-                        <div className="mt-1 pt-1 border-t border-purple-500/20 w-full">
-                          <div className="flex items-center justify-center gap-1 text-[8px] font-bold text-purple-400 uppercase tracking-widest">
-                            <PartyPopper size={8} /> {char.socialAbility.name}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Bio Fuel ability */}
-                      {variant === 'BIO_FUEL' && char.bioAbility && (
-                        <div className="mt-1 pt-1 border-t border-orange-500/20 w-full">
-                          <div className="flex items-center justify-center gap-1 text-[8px] font-bold text-orange-400 uppercase tracking-widest">
-                            <Martini size={8} /> {char.bioAbility.name}
-                          </div>
-                        </div>
-                      )}
-                      
                       {isTaken && (
                         <span className="text-[10px] text-red-400 mt-1">Taken by {takenBy?.name}</span>
                       )}
                     </motion.button>
+                    
+                    {/* Ability details shown directly below selected driver */}
+                    {isSelected && !myDriverConfirmed && (abilitiesEnabled || variant !== 'STANDARD') && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-2 space-y-1 text-left"
+                      >
+                        {/* Standard Limit Break */}
+                        {abilitiesEnabled && char.ability && (
+                          <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                            <div className="flex items-center gap-1 text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-0.5">
+                              <Zap size={10} fill="currentColor" /> {char.ability.name}
+                            </div>
+                            <p className="text-[10px] text-zinc-300 leading-tight">{char.ability.description}</p>
+                          </div>
+                        )}
+                        
+                        {/* Social Overdrive */}
+                        {variant === 'SOCIAL_OVERDRIVE' && char.socialAbility && (
+                          <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20">
+                            <div className="flex items-center gap-1 text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-0.5">
+                              <PartyPopper size={10} /> {char.socialAbility.name}
+                            </div>
+                            <p className="text-[10px] text-purple-200 leading-tight">{char.socialAbility.description}</p>
+                          </div>
+                        )}
+                        
+                        {/* Bio Fuel */}
+                        {variant === 'BIO_FUEL' && char.bioAbility && (
+                          <div className="p-2 rounded bg-orange-500/10 border border-orange-500/20">
+                            <div className="flex items-center gap-1 text-[9px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">
+                              <Martini size={10} /> {char.bioAbility.name}
+                            </div>
+                            <p className="text-[10px] text-orange-200 leading-tight">{char.bioAbility.description}</p>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                    
                     {/* LOCK IN overlay on selected driver */}
                     {isSelected && !myDriverConfirmed && (
                       <Button
                         size="sm"
                         onClick={(e) => { e.stopPropagation(); handleMpConfirmDriver(); }}
-                        className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-primary hover:bg-primary/90 text-black font-bold text-xs px-4 py-1 shadow-lg z-10"
+                        className="mt-2 w-full bg-primary hover:bg-primary/90 text-black font-bold text-xs py-1 shadow-lg"
                         data-testid="button-confirm-driver-inline"
                       >
                         LOCK IN
                       </Button>
                     )}
                     {isSelected && myDriverConfirmed && (
-                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-green-600 text-white font-bold text-xs px-4 py-1 rounded shadow-lg z-10">
+                      <div className="mt-2 w-full text-center bg-green-600 text-white font-bold text-xs py-1 rounded shadow-lg">
                         LOCKED
                       </div>
                     )}
@@ -4232,64 +4245,6 @@ export default function Game() {
                 );
               })}
             </div>
-
-            {/* Selected Driver Details Panel */}
-            {mySelectedDriver && !myDriverConfirmed && (() => {
-              const selectedChar = mpAllDrivers.find(c => c.id === mySelectedDriver);
-              if (!selectedChar) return null;
-              
-              return (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-4 rounded-xl border border-primary/30 bg-primary/5"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={cn("w-16 h-16 rounded-full overflow-hidden border-2 border-primary", selectedChar.color)}>
-                      <img src={getDriverImage(selectedChar)} alt={selectedChar.name} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg text-white">{selectedChar.name}</h3>
-                      <p className="text-xs text-primary/80 uppercase tracking-wider">{selectedChar.title}</p>
-                      <p className="text-xs text-zinc-400 mt-1">{selectedChar.description}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Abilities Section */}
-                  <div className="mt-3 space-y-2">
-                    {/* Standard Limit Break */}
-                    {abilitiesEnabled && selectedChar.ability && (
-                      <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20">
-                        <div className="flex items-center gap-1 text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">
-                          <Zap size={12} fill="currentColor" /> {selectedChar.ability.name}
-                        </div>
-                        <p className="text-xs text-zinc-300">{selectedChar.ability.description}</p>
-                      </div>
-                    )}
-                    
-                    {/* Social Overdrive */}
-                    {variant === 'SOCIAL_OVERDRIVE' && selectedChar.socialAbility && (
-                      <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20">
-                        <div className="flex items-center gap-1 text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">
-                          <PartyPopper size={12} /> {selectedChar.socialAbility.name}
-                        </div>
-                        <p className="text-xs text-purple-200">{selectedChar.socialAbility.description}</p>
-                      </div>
-                    )}
-                    
-                    {/* Bio Fuel */}
-                    {variant === 'BIO_FUEL' && selectedChar.bioAbility && (
-                      <div className="p-2 rounded bg-orange-500/10 border border-orange-500/20">
-                        <div className="flex items-center gap-1 text-xs font-bold text-orange-400 uppercase tracking-widest mb-1">
-                          <Martini size={12} /> {selectedChar.bioAbility.name}
-                        </div>
-                        <p className="text-xs text-orange-200">{selectedChar.bioAbility.description}</p>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })()}
 
             {/* Status message at bottom */}
             <div className="flex justify-center pt-4">
