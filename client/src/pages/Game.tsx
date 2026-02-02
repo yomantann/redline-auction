@@ -16,7 +16,7 @@ import socialGuardianHOption1 from "../assets/generated_images/social_guardian_h
 import socialFrostybyteOption1 from "../assets/generated_images/social_frostybyte_option1.png";
 import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_detailed_v4.png";
 
-import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_older_v4.png";
+import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_older_unique_v5.png";
 import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_toy_v2.png";
 import socialAccuserOption1 from "../assets/generated_images/social_accuser_pointing_v4.png";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
@@ -123,7 +123,7 @@ import bioBaldwin from '../assets/generated_images/bio_baldwin.png';
 import bioSigma from '../assets/generated_images/bio_executive_p_axe_v5.png';
 import bioGigachad from '../assets/generated_images/bio_gigachad.png';
 import bioThinker from '../assets/generated_images/bio_thinker.png';
-import bioDisaster from '../assets/generated_images/bio_hotwired_fire_v5.png';
+import bioDisaster from '../assets/generated_images/bio_hotwired_bar_on_fire_v6.png';
 import bioButtons from '../assets/generated_images/bio_buttons.png';
 import bioPrimate from '../assets/generated_images/bio_primate.png';
 import bioHarold from '../assets/generated_images/bio_harold.png';
@@ -1747,10 +1747,25 @@ export default function Game() {
         }
         
         if (activeProtocol === 'THE_MOLE' && p.id === moleTarget && p.id === winnerId) {
-             newTokens -= 2; 
-             impact += " -1 Token (Mole Win)";
-             impactLogs.push({ value: "-1 Token", reason: "Mole Win", type: 'loss' });
-             extraLogs.push(`>> MOLE FAILURE: ${p.name} won and LOST a trophy!`);
+             const sortedBids = validParticipants
+               .filter(vp => vp.id !== winnerId)
+               .map(vp => vp.currentBid || 0)
+               .sort((a, b) => b - a);
+
+             const secondPlaceTime = sortedBids[0] || 0;
+             const margin = winnerTime - secondPlaceTime;
+
+             // Incentive: push time up, but avoid winning by too much.
+             // Only lose a trophy if you win by MORE THAN 7 seconds.
+             if (margin > 7) {
+               newTokens -= 2;
+               impact += " -1 Token (Mole Win > 7s)";
+               impactLogs.push({ value: "-1 Token", reason: "Mole Win > 7s", type: 'loss' });
+               extraLogs.push(`>> MOLE FAILURE: ${p.name} won by ${margin.toFixed(1)}s and LOST a trophy!`);
+             } else {
+               impact += " +0 (Mole Win Safe)";
+               impactLogs.push({ value: "+0", reason: "Mole Win (<=7s)", type: 'neutral' });
+             }
         }
         
         if (abilitiesEnabled && p.id !== winnerId && winnerId && !p.isEliminated) {
@@ -1826,10 +1841,11 @@ export default function Game() {
          // Simulate remaining rounds simply by awarding tokens
          // (kept as-is; does not affect the overlay flow)
 
+         // Keep the elimination overlay visible through the game over screen.
+         // We only transition phase; the overlay stays until dismissed.
          window.setTimeout(() => {
-           setPhase('game_end'); // Skip round_end summary, go straight to game over
-           setOverlay({ type: "game_over", message: "GAME OVER" });
-         }, 900);
+           setPhase('game_end');
+         }, 650);
 
          return; // Stop here
     }
