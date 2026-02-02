@@ -2080,7 +2080,10 @@ export default function Game() {
            const winnerTokensBefore = players.find(p => p.id === winnerId)?.tokens || 0;
            const minTokens = Math.min(...players.map(p => p.tokens));
            
-           if (winnerTokensBefore === minTokens && players.some(p => p.tokens > winnerTokensBefore)) {
+           // COMEBACK HOPE: only if you started the round as the *sole* last-place player
+           // (not tied for last)
+           const playersAtMin = players.filter(p => p.tokens === minTokens);
+           if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && players.some(p => p.tokens > winnerTokensBefore)) {
                setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winnerName} stays in the fight!`), 1000);
                momentCount++;
            }
@@ -2245,10 +2248,6 @@ export default function Game() {
       }
     }
 
-    // Patch Notes Pending: 3+ flags in same round (shows after the other flags)
-    if (momentCount >= 3) {
-      addOverlay('hidden_patch_notes', 'PATCH NOTES PENDING', 'Triggered 3+ moment flags in one round.', 0);
-    }
 
     // Notify all activated abilities
     // Use newAbilities (local) for immediate trigger, update activeAbilities state above
@@ -2876,10 +2875,23 @@ export default function Game() {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-              <Button size="lg" onClick={() => setPhase('character_select')} className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 max-w-xs" data-testid="button-banner-single-player">
+              <Button
+                size="lg"
+                onClick={() => setPhase('character_select')}
+                className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 max-w-xs"
+                title="SINGLE PLAYER: Play against bots. Your time bank is your life."
+                data-testid="button-banner-single-player"
+              >
                  SINGLE PLAYER
               </Button>
-              <Button size="lg" variant="outline" onClick={() => setPhase('multiplayer_lobby')} className="text-xl px-12 py-6 border-red-500/50 hover:bg-red-500/20 text-red-400 hover:text-red-300 flex-1 max-w-xs transition-colors">
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => setPhase('multiplayer_lobby')}
+                className="text-xl px-12 py-6 border-red-500/50 hover:bg-red-500/20 text-red-400 hover:text-red-300 flex-1 max-w-xs transition-colors"
+                title="MULTIPLAYER: Create or join a lobby to play with friends."
+                data-testid="button-banner-multiplayer"
+              >
                  MULTIPLAYER
               </Button>
             </div>
@@ -3471,136 +3483,148 @@ export default function Game() {
       <MusicPlayer soundEnabled={soundEnabled} onToggleSound={toggleSound} />
 
       {/* Header Info */}
-      <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
-        <div className="flex items-center gap-2">
-          {phase !== 'intro' && (
-            <Button variant="ghost" size="icon" onClick={quitGame} className="mr-2 text-muted-foreground hover:text-white hover:bg-white/10" title="Quit to Menu">
-               <LogOut size={20} />
-            </Button>
-          )}
-          <img src={logoFuturistic} alt="Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-          <h1 className="font-display font-bold text-xl tracking-wider hidden sm:block">REDLINE AUCTION</h1>
-        </div>
-          <div className="flex items-center gap-6">
-            
-            {variant === 'BIO_FUEL' && (
-                <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-orange-950/40 border border-orange-500/30 rounded text-xs text-orange-300">
-                    <AlertTriangle size={12} className="text-orange-500" />
-                    <span className="font-bold tracking-widest">21+ ONLY</span>
-                </div>
+      <div className="mb-8 border-b border-white/5 pb-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-2 justify-center">
+            {phase !== 'intro' && (
+              <Button variant="ghost" size="icon" onClick={quitGame} className="mr-2 text-muted-foreground hover:text-white hover:bg-white/10" title="Quit to Menu">
+                 <LogOut size={20} />
+              </Button>
             )}
-
-            <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
-             
-             {/* CASUAL / COMPETITIVE (Difficulty) */}
-             <div className="flex items-center gap-2">
-                <Button 
-                   variant="ghost" 
-                   size="sm" 
-                   onClick={toggleDifficulty}
-                   className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
-                   title={difficulty === 'CASUAL' ? 'CASUAL: Everyone can see time banks.' : 'COMPETITIVE: Time banks are hidden until the end.'}
-                >
-                   {difficulty === 'CASUAL' ? <Eye size={12} className="text-emerald-400"/> : <EyeOff size={12} className="text-zinc-400"/>}
-                   <span className={difficulty === 'CASUAL' ? "text-emerald-400" : "text-zinc-400"}>
-                      {difficulty}
-                   </span>
-                </Button>
-             </div>
-
-             <Separator orientation="vertical" className="h-4 bg-white/10" />
-
-             {/* PROTOCOLS */}
-             <div className="flex items-center gap-2">
-                <Switch 
-                  id="protocols" 
-                  checked={protocolsEnabled} 
-                  onCheckedChange={setProtocolsEnabled} 
-                  className={cn(
-                    "scale-75 origin-right",
-                    "data-[state=checked]:bg-red-500",
-                    variant === 'SOCIAL_OVERDRIVE' && "data-[state=checked]:bg-purple-500",
-                    variant === 'BIO_FUEL' && "data-[state=checked]:bg-orange-500"
-                  )}
-                  data-testid="switch-protocols"
-                />
-                <Label
-                  htmlFor="protocols"
-                  className={cn(
-                    "text-sm cursor-pointer flex items-center gap-1",
-                    protocolsEnabled ? "text-zinc-100" : "text-zinc-400",
-                    variant === 'SOCIAL_OVERDRIVE' && protocolsEnabled && "text-purple-200",
-                    variant === 'BIO_FUEL' && protocolsEnabled && "text-orange-200"
-                  )}
-                >
-                  {variant === 'SOCIAL_OVERDRIVE' ? (
-                    <PartyPopper size={12} className={protocolsEnabled ? "text-purple-400" : "text-zinc-500"} />
-                  ) : variant === 'BIO_FUEL' ? (
-                    <Martini size={12} className={protocolsEnabled ? "text-orange-400" : "text-zinc-500"} />
-                  ) : (
-                    <AlertTriangle size={12} className={protocolsEnabled ? "text-zinc-200" : "text-zinc-500"} />
-                  )}
-                  Protocols
-                </Label>
-                <button onClick={() => setShowProtocolGuide(true)} className="text-zinc-500 hover:text-white transition-colors ml-1" title="Protocol Database">
-                   <BookOpen size={14} />
-                </button>
-             </div>
-
-             <Separator orientation="vertical" className="h-4 bg-white/10" />
-
-             {/* LIMIT BREAKS */}
-             <div className="flex items-center gap-2">
-                <Switch 
-                  id="abilities" 
-                  checked={abilitiesEnabled} 
-                  onCheckedChange={setAbilitiesEnabled} 
-                  className="data-[state=checked]:bg-blue-500 scale-75 origin-right"
-                />
-                <Label htmlFor="abilities" className={cn("text-sm cursor-pointer flex items-center gap-1", abilitiesEnabled ? "text-blue-400" : "text-zinc-400")} title="Limit Breaks: Driver-specific passive powers.">
-                  <Zap size={12}/>
-                  LIMIT BREAKS
-                </Label>
-             </div>
-
-             <Separator orientation="vertical" className="h-4 bg-white/10" />
-
-             {/* REALITY MODES VARIANT */}
-             <div className="flex items-center gap-2">
-                <Button 
-                   variant="ghost" 
-                   size="sm" 
-                   onClick={toggleVariant}
-                   className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
-                   title={
-                     variant === 'STANDARD'
-                       ? 'STANDARD: Pure auction, no social or drinking modifiers.'
-                       : variant === 'SOCIAL_OVERDRIVE'
-                         ? 'SOCIAL OVERDRIVE: Adds social dares and group prompts.'
-                         : 'BIO-FUEL: Adds drinking prompts and 21+ content.'
-                   }
-                >
-                   <span className={getVariantColor()}>{getVariantIcon()}</span>
-                   <span className={cn("tracking-widest", getVariantColor())}>
-                      {variant.replace('_', ' ')}
-                   </span>
-                </Button>
-             </div>
-
-             {/* MOMENT FLAGS BUTTON */}
-             <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-zinc-400 hover:text-white ml-2"
-                onClick={() => setShowPopupLibrary(true)}
-                title="Moment Flags"
-             >
-                <CircleHelp className="h-4 w-4" />
-             </Button>
+            <img src={logoFuturistic} alt="Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+            <h1 className="font-display font-bold text-xl tracking-wider hidden sm:block">REDLINE AUCTION</h1>
           </div>
-          <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5">
-            ROUND {round} / {totalRounds}
-          </Badge>
+
+          <div className="w-full flex items-center justify-center">
+            <div className="max-w-full overflow-x-auto px-2 [-webkit-overflow-scrolling:touch]">
+              <div className="inline-flex items-center gap-6 min-w-max">
+                {variant === 'BIO_FUEL' && (
+                  <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-orange-950/40 border border-orange-500/30 rounded text-xs text-orange-300">
+                      <AlertTriangle size={12} className="text-orange-500" />
+                      <span className="font-bold tracking-widest">21+ ONLY</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-4 bg-black/40 p-1.5 px-3 rounded-full border border-white/10">
+                 
+                 {/* CASUAL / COMPETITIVE (Difficulty) */}
+                 <div className="flex items-center gap-2">
+                    <Button 
+                       variant="ghost" 
+                       size="sm" 
+                       onClick={toggleDifficulty}
+                       className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
+                       title={difficulty === 'CASUAL' ? 'CASUAL: Everyone can see time banks.' : 'COMPETITIVE: Time banks are hidden until the end.'}
+                       data-testid="button-toggle-difficulty"
+                    >
+                       {difficulty === 'CASUAL' ? <Eye size={12} className="text-emerald-400"/> : <EyeOff size={12} className="text-zinc-400"/>}
+                       <span className={difficulty === 'CASUAL' ? "text-emerald-400" : "text-zinc-400"}>
+                          {difficulty}
+                       </span>
+                    </Button>
+                 </div>
+
+                 <Separator orientation="vertical" className="h-4 bg-white/10" />
+
+                 {/* PROTOCOLS */}
+                 <div className="flex items-center gap-2" title="Protocols: Round modifiers that add party/drinking prompts (in Reality Modes).">
+                    <Switch 
+                      id="protocols" 
+                      checked={protocolsEnabled} 
+                      onCheckedChange={setProtocolsEnabled} 
+                      className={cn(
+                        "scale-75 origin-right",
+                        "data-[state=checked]:bg-red-500",
+                        variant === 'SOCIAL_OVERDRIVE' && "data-[state=checked]:bg-purple-500",
+                        variant === 'BIO_FUEL' && "data-[state=checked]:bg-orange-500"
+                      )}
+                      data-testid="switch-protocols"
+                    />
+                    <Label
+                      htmlFor="protocols"
+                      className={cn(
+                        "text-sm cursor-pointer flex items-center gap-1",
+                        protocolsEnabled ? "text-zinc-100" : "text-zinc-400",
+                        variant === 'SOCIAL_OVERDRIVE' && protocolsEnabled && "text-purple-200",
+                        variant === 'BIO_FUEL' && protocolsEnabled && "text-orange-200"
+                      )}
+                      data-testid="label-protocols"
+                    >
+                      {variant === 'SOCIAL_OVERDRIVE' ? (
+                        <PartyPopper size={12} className={protocolsEnabled ? "text-purple-400" : "text-zinc-500"} />
+                      ) : variant === 'BIO_FUEL' ? (
+                        <Martini size={12} className={protocolsEnabled ? "text-orange-400" : "text-zinc-500"} />
+                      ) : (
+                        <AlertTriangle size={12} className={protocolsEnabled ? "text-zinc-200" : "text-zinc-500"} />
+                      )}
+                      Protocols
+                    </Label>
+                    <button onClick={() => setShowProtocolGuide(true)} className="text-zinc-500 hover:text-white transition-colors ml-1" title="Protocol Database" data-testid="button-protocol-database">
+                       <BookOpen size={14} />
+                    </button>
+                 </div>
+
+                 <Separator orientation="vertical" className="h-4 bg-white/10" />
+
+                 {/* LIMIT BREAKS */}
+                 <div className="flex items-center gap-2">
+                    <Switch 
+                      id="abilities" 
+                      checked={abilitiesEnabled} 
+                      onCheckedChange={setAbilitiesEnabled} 
+                      className="data-[state=checked]:bg-blue-500 scale-75 origin-right"
+                      data-testid="switch-limit-breaks"
+                    />
+                    <Label htmlFor="abilities" className={cn("text-sm cursor-pointer flex items-center gap-1", abilitiesEnabled ? "text-blue-400" : "text-zinc-400")} title="Limit Breaks: Driver-specific passive powers." data-testid="label-limit-breaks">
+                      <Zap size={12}/>
+                      LIMIT BREAKS
+                    </Label>
+                 </div>
+
+                 <Separator orientation="vertical" className="h-4 bg-white/10" />
+
+                 {/* REALITY MODES VARIANT */}
+                 <div className="flex items-center gap-2">
+                    <Button 
+                       variant="ghost" 
+                       size="sm" 
+                       onClick={toggleVariant}
+                       className="h-6 px-2 text-xs font-mono hover:bg-white/10 transition-colors flex items-center gap-2 border border-white/5"
+                       title={
+                         variant === 'STANDARD'
+                           ? 'STANDARD: Pure auction, no social or drinking modifiers.'
+                           : variant === 'SOCIAL_OVERDRIVE'
+                             ? 'SOCIAL OVERDRIVE: Adds social dares and group prompts.'
+                             : 'BIO-FUEL: Adds drinking prompts and 21+ content.'
+                       }
+                       data-testid="button-toggle-variant"
+                    >
+                       <span className={getVariantColor()}>{getVariantIcon()}</span>
+                       <span className={cn("tracking-widest", getVariantColor())}>
+                          {variant.replace('_', ' ')}
+                       </span>
+                    </Button>
+                 </div>
+
+                 {/* MOMENT FLAGS BUTTON */}
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-zinc-400 hover:text-white ml-2"
+                    onClick={() => setShowPopupLibrary(true)}
+                    title="Moment Flags"
+                    data-testid="button-moment-flags"
+                 >
+                    <CircleHelp className="h-4 w-4" />
+                 </Button>
+                </div>
+
+                <Badge variant="outline" className="font-mono text-lg px-4 py-1 border-white/10 bg-white/5" data-testid="badge-round">
+                  ROUND {round} / {totalRounds}
+                </Badge>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

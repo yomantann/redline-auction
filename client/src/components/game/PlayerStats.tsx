@@ -14,6 +14,7 @@ interface Player {
   isHolding?: boolean; // Added for Peek Logic
   roundImpact?: string; // New field for limit break impact
   impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // Structured logs
+  totalImpactReceived?: number;
 }
 
 interface PlayerStatsProps {
@@ -96,9 +97,9 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
             {player.name}
           </span>
           {/* IMPACT TAKEN BADGE - New */}
-          {player.totalImpactReceived > 0 && (
+          {(player.totalImpactReceived ?? 0) > 0 && (
               <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-950/40 border border-red-500/20" title="Total Impact Taken">
-                  <span className="text-[9px] text-red-400 font-mono font-bold">-{player.totalImpactReceived.toFixed(1)}s</span>
+                  <span className="text-[9px] text-red-400 font-mono font-bold">-{(player.totalImpactReceived ?? 0).toFixed(1)}s</span>
               </div>
           )}
         </div>
