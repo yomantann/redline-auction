@@ -172,6 +172,7 @@ export interface GameState {
   gameLog: GameLogEntry[];
   isDoubleTokensRound: boolean;
   molePlayerId: string | null;
+  allHumansHoldingStartTime: number | null; // Track when all humans started holding
 }
 
 // Active games storage
@@ -281,6 +282,7 @@ export function createGame(
     gameLog: [],
     isDoubleTokensRound: false,
     molePlayerId: null,
+    allHumansHoldingStartTime: null,
   };
   
   activeGames.set(lobbyCode, gameState);
@@ -985,9 +987,27 @@ function startWaitingForReady(lobbyCode: string) {
     const allHumansHolding = humanPlayers.every(p => p.isHolding);
     
     if (allHumansHolding && humanPlayers.length > 0) {
-      clearInterval(readyCheckInterval);
-      log(`All human players ready in lobby ${lobbyCode}, starting countdown`, "game");
-      startCountdown(lobbyCode);
+      // Track when all humans started holding
+      if (g.allHumansHoldingStartTime === null) {
+        g.allHumansHoldingStartTime = Date.now();
+        log(`All human players holding, starting 3-second countdown in lobby ${lobbyCode}`, "game");
+        broadcastGameState(lobbyCode);
+      }
+      
+      // Check if they've been holding for 3 seconds
+      const holdDuration = (Date.now() - g.allHumansHoldingStartTime) / 1000;
+      if (holdDuration >= 3) {
+        clearInterval(readyCheckInterval);
+        g.allHumansHoldingStartTime = null;
+        log(`All human players held for 3 seconds in lobby ${lobbyCode}, starting countdown`, "game");
+        startCountdown(lobbyCode);
+      }
+    } else {
+      // Reset the timer if someone let go
+      if (g.allHumansHoldingStartTime !== null) {
+        g.allHumansHoldingStartTime = null;
+        broadcastGameState(lobbyCode);
+      }
     }
   }, 100);
   
@@ -1184,12 +1204,15 @@ function broadcastGameState(lobbyCode: string) {
       currentBid: p.currentBid,
       isHolding: p.isHolding,
       roundEndAcknowledged: (p as any).roundEndAcknowledged || false,
+      roundImpact: p.roundImpact,
+      abilityUsed: p.abilityUsed,
     })),
     roundWinner: game.roundWinner,
     eliminatedThisRound: game.eliminatedThisRound,
     gameLog: game.gameLog,
     activeProtocol: game.activeProtocol,
     settings: game.settings,
+    allHumansHoldingStartTime: game.allHumansHoldingStartTime,
   };
   
   emitToLobby(lobbyCode, 'game_state', stateForClients);

@@ -743,6 +743,7 @@ export default function Game() {
       isHolding: boolean;
       totalTimeBid: number;
       abilityUsed: boolean;
+      roundImpact?: { type: string; value: number; source: string };
     }>;
     roundWinner: { id: string; name: string; bid: number } | null;
     eliminatedThisRound: string[];
@@ -765,6 +766,7 @@ export default function Game() {
     }>;
     isDoubleTokensRound: boolean;
     molePlayerId: string | null;
+    allHumansHoldingStartTime: number | null;
   } | null>(null);
   
   // Socket connection
@@ -2902,8 +2904,9 @@ export default function Game() {
         currentBid: mp.currentBid,
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,
-        totalImpactGiven: (mp as any).roundImpact?.value > 0 ? (mp as any).roundImpact.value : 0,
-        totalImpactReceived: (mp as any).roundImpact?.value < 0 ? Math.abs((mp as any).roundImpact.value) : 0,
+        totalImpactGiven: mp.roundImpact?.value && mp.roundImpact.value > 0 ? mp.roundImpact.value : 0,
+        totalImpactReceived: mp.roundImpact?.value && mp.roundImpact.value < 0 ? Math.abs(mp.roundImpact.value) : 0,
+        roundImpact: mp.roundImpact ? `${mp.roundImpact.value > 0 ? '+' : ''}${mp.roundImpact.value.toFixed(1)}s (${mp.roundImpact.source})` : undefined,
         specialEvents: [],
         eventDatabasePopups: [],
         protocolsTriggered: [],
@@ -3127,17 +3130,19 @@ export default function Game() {
         <div className="flex flex-col items-center justify-center h-[450px]">
           <div className="h-[100px] flex flex-col items-center justify-center space-y-2">
             <h2 className="text-3xl font-display">ROUND {multiplayerGameState?.round || 1} / {multiplayerGameState?.totalRounds || totalRounds}</h2>
-            {/* Ready Progress Bar - shows when all humans are holding */}
+            {/* Ready Progress Bar - shows when all humans are holding for 3 seconds */}
             <div className="h-6 flex items-center justify-center">
-              {allHumansReady ? (
+              {allHumansReady && multiplayerGameState?.allHumansHoldingStartTime ? (
                 <div className="w-64 h-2 bg-zinc-800 rounded-full overflow-hidden">
                   <motion.div 
-                    className="h-full bg-primary"
+                    className="h-full bg-yellow-400"
                     initial={{ width: 0 }}
                     animate={{ width: '100%' }}
-                    transition={{ duration: 1, ease: 'linear' }}
+                    transition={{ duration: 3, ease: 'linear' }}
                   />
                 </div>
+              ) : allHumansReady ? (
+                <p className="text-yellow-400 text-sm">Hold for 3 seconds to start...</p>
               ) : (
                 <p className="text-muted-foreground text-sm">All players must hold button to start</p>
               )}
@@ -3370,10 +3375,10 @@ export default function Game() {
                 {gameDuration === 'long' && "MARATHON: 10 Minutes | 18 Rounds"}
               </span>
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left bg-card/50 p-4 sm:p-6 rounded border border-white/5">
-               <div className="space-y-2">
-                <h3 className="text-primary font-bold text-sm sm:text-base">Rules</h3>
-                <ul className="list-disc list-inside text-xs sm:text-sm text-zinc-400 space-y-1">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 text-left bg-card/50 p-3 sm:p-6 rounded border border-white/5">
+               <div className="space-y-1 sm:space-y-2">
+                <h3 className="text-primary font-bold text-xs sm:text-base">Rules</h3>
+                <ul className="list-disc list-inside text-[10px] sm:text-sm text-zinc-400 space-y-0.5 sm:space-y-1">
                   <li>Hold button to start.</li>
                   <li>Release to bid time.</li>
                   <li>Longest time wins token.</li>
@@ -3381,10 +3386,10 @@ export default function Game() {
                   <li>Max Bid: Your Remaining Time.</li>
                 </ul>
               </div>
-              <div className="space-y-2 flex flex-col justify-between">
+              <div className="space-y-1 sm:space-y-2 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-destructive font-bold text-sm sm:text-base">Winning</h3>
-                  <ul className="list-disc list-inside text-xs sm:text-sm text-zinc-400 space-y-1">
+                  <h3 className="text-destructive font-bold text-xs sm:text-base">Winning</h3>
+                  <ul className="list-disc list-inside text-[10px] sm:text-sm text-zinc-400 space-y-0.5 sm:space-y-1">
                     <li>Most tokens wins game.</li>
                     <li>Tiebreaker: Remaining Time.</li>
                   </ul>
@@ -4400,18 +4405,22 @@ export default function Game() {
              {/* Timer Area */}
              <div className="h-[100px] flex items-center justify-center mb-4">
                 {isMultiplayer ? (
-                  // Multiplayer: Show auction time box same as singleplayer
-                  <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
-                    <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
-                      {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
-                    </span>
-                    <div className={cn("text-5xl font-mono font-bold", isBlackout ? "text-destructive/50" : "text-primary")}>
-                      {isBlackout ? "ERROR" : `${displayTime.toFixed(1)}s`}
+                  // Multiplayer: Match singleplayer - show time for first 10 seconds, then ??
+                  displayTime <= 10 && !isBlackout ? (
+                    <TimerDisplay time={displayTime} isRunning={true} />
+                  ) : (
+                    <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
+                      <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
+                        {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
+                      </span>
+                      <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : "")}>
+                        {isBlackout ? "ERROR" : "??:??.?"}
+                      </div>
+                      {!currentPlayerIsHolding && !isBlackout && (
+                        <span className="text-xs text-green-400 mt-1">BID LOCKED</span>
+                      )}
                     </div>
-                    {!currentPlayerIsHolding && !isBlackout && (
-                      <span className="text-xs text-green-400 mt-1">BID LOCKED</span>
-                    )}
-                  </div>
+                  )
                 ) : showDetails && !isBlackout && currentTime <= 10 ? (
                   <TimerDisplay time={currentTime} isRunning={true} />
                 ) : (
