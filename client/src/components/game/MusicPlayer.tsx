@@ -10,7 +10,7 @@ export function MusicPlayer({
   onToggleSound: () => void;
 }) {
   return (
-    <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+    <div className="fixed top-14 right-4 z-50 flex items-center gap-2">
       <Button
         data-testid="button-toggle-sound"
         variant="outline"
