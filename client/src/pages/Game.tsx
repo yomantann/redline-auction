@@ -1176,21 +1176,30 @@ export default function Game() {
     if (protocolsEnabled && Math.random() < protocolTriggerChance) {
       
       // Build Protocol Pool
-      // Build two pools:
-      // - Standard (selected Standard protocols)
-      // - Mode-specific (selected Social/Bio protocols for the active variant)
+      // STANDARD IS MASTER:
+      // - Standard selection is the global allow-list.
+      // - Mode-specific selection further filters ONLY the mode pool.
+      //   (So: Standard off => disabled everywhere.)
+      //
+      // When both pools exist, selection is 50/50 between:
+      // - Standard pool (selected Standard protocols)
+      // - Mode pool (selected Standard protocols that are ALSO enabled in the current mode)
       const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','PRIVATE_CHANNEL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX'];
       const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
 
+      const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
+
       const standardPool: ProtocolType[] = (allowedProtocols || []).filter(p => STANDARD_SET.includes(p as any));
-      const modePool: ProtocolType[] = (variant === 'SOCIAL_OVERDRIVE')
+
+      // Mode pool must ALSO be allowed by Standard (master allow-list)
+      const modeCandidates: ProtocolType[] = (variant === 'SOCIAL_OVERDRIVE')
         ? (allowedProtocols || []).filter(p => SOCIAL_SET.includes(p as any))
         : (variant === 'BIO_FUEL')
           ? (allowedProtocols || []).filter(p => BIO_SET.includes(p as any))
           : [];
 
-      const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
+      const modePool: ProtocolType[] = modeCandidates.filter(p => standardPool.includes(p));
 
       const hasStandard = standardPool.length > 0;
       const hasMode = modePool.length > 0;
@@ -1233,8 +1242,10 @@ export default function Game() {
           const target = Math.random() > 0.5 ? 'YOU' : getRandomPlayer();
           const targetId = target === 'YOU' ? 'p1' : players.find(p => p.name === target)?.id || null;
           setMoleTarget(targetId);
-          msg = "THE MOLE";
-          sub = target === 'YOU' ? "YOU are the Mole! Lose secretly." : "A Mole is active..."; 
+          msg = target === 'YOU' ? "THE MOLE" : "SECRET PROTOCOL ACTIVE";
+          sub = target === 'YOU'
+            ? "You are the Mole. Goal: push the time up, but try NOT to get 1st. If you DO win, you only lose a trophy if you win by MORE than 7.0s."
+            : "A hidden role is in play. Someone is pushing time without wanting 1st. If the Mole wins by MORE than 7.0s, they lose a trophy.";
           break;
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break; // Secret
@@ -2423,8 +2434,9 @@ export default function Game() {
     if (round >= totalRounds || remainingActivePlayers.length <= 1) {
        // Game End condition
        setTimeout(() => {
+        // Keep any end-of-round overlays (moment flags / protocol notices) visible into game over.
+        // We only switch phase; overlays are dismissed by the player.
         setPhase('game_end');
-        setOverlay({ type: "game_over", message: "GAME OVER" });
       }, 3000);
     }
   };
