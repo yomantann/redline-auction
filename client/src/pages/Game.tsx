@@ -1094,6 +1094,72 @@ export default function Game() {
     lastRoundEndProcessedRef.current = multiplayerGameState.round;
   }, [isMultiplayer, multiplayerGameState, socket, addOverlay]);
 
+  // Multiplayer Protocol Announcement - trigger when a new protocol is active
+  const lastMpProtocolRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isMultiplayer || !multiplayerGameState) return;
+    
+    const mpProtocol = multiplayerGameState.activeProtocol;
+    const mpVariant = multiplayerGameState.settings?.variant || 'STANDARD';
+    
+    // Only announce when protocol changes and we're in countdown phase
+    if (mpProtocol && mpProtocol !== lastMpProtocolRef.current && multiplayerGameState.phase === 'countdown') {
+      lastMpProtocolRef.current = mpProtocol;
+      
+      // Determine message based on protocol
+      let msg = "PROTOCOL ACTIVE";
+      let sub = "";
+      let showPopup = true;
+      
+      switch(mpProtocol) {
+        case 'DATA_BLACKOUT': msg = "DATA BLACKOUT"; sub = "Timers Hidden"; break;
+        case 'DOUBLE_STAKES': msg = "HIGH STAKES"; sub = "Double Tokens for Winner"; break;
+        case 'SYSTEM_FAILURE': msg = "SYSTEM FAILURE"; sub = "HUD Glitches & Timer Scramble"; break;
+        case 'OPEN_HAND': msg = "OPEN HAND"; sub = "Someone must declare no bid!"; break;
+        case 'MUTE_PROTOCOL': msg = "MUTE PROTOCOL"; sub = "All players must remain silent!"; break;
+        case 'PRIVATE_CHANNEL': msg = "PRIVATE CHANNEL"; sub = "Two players discuss strategy!"; break;
+        case 'NO_LOOK': msg = "BLIND BIDDING"; sub = "Do not look at screens until drop!"; break;
+        case 'THE_MOLE': msg = "SECRET PROTOCOL ACTIVE"; sub = "Someone has a hidden role..."; break;
+        case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
+        case 'UNDERDOG_VICTORY': showPopup = false; break;
+        case 'TIME_TAX': showPopup = false; break;
+        case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Social challenge this round!"; break;
+        case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change positions now!"; break;
+        case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = "Someone must hum a song!"; break;
+        case 'LOCK_ON': msg = "LOCK ON"; sub = "Two players maintain eye contact!"; break;
+        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Stay silent to avoid penalty!"; break;
+        case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone take a sip!"; break;
+        case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser finishes their drink!"; break;
+        case 'PARTNER_DRINK': msg = "LINKED SYSTEMS"; sub = "Two players are drinking buddies!"; break;
+        case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water only this round!"; break;
+        default: msg = "PROTOCOL ACTIVE"; sub = mpProtocol; break;
+      }
+      
+      const SOCIAL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+      const BIO_SET = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
+      
+      if (showPopup) {
+        if (SOCIAL_SET.includes(mpProtocol)) {
+          addOverlay("social_event", msg, sub);
+        } else if (BIO_SET.includes(mpProtocol)) {
+          addOverlay("bio_event", msg, sub);
+        } else {
+          addOverlay("protocol_alert", msg, sub);
+        }
+      } else {
+        // Secret protocols - show hint
+        if (mpProtocol === 'UNDERDOG_VICTORY' || mpProtocol === 'TIME_TAX') {
+          addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
+        }
+      }
+    }
+    
+    // Reset when no active protocol
+    if (!mpProtocol) {
+      lastMpProtocolRef.current = null;
+    }
+  }, [isMultiplayer, multiplayerGameState, addOverlay]);
+
   // --- Game Loop Logic ---
 
   // Ready Phase Logic (3s Hold)
