@@ -443,7 +443,7 @@ export default function Game() {
   useEffect(() => {
     audioRef.current = new Audio();
     audioRef.current.loop = true;
-    audioRef.current.volume = 0.4;
+    audioRef.current.volume = 0.12; // Reduced by 70% (was 0.4)
     
     // SFX is created per trigger so it can replay reliably
 
@@ -512,7 +512,7 @@ export default function Game() {
               const pick = SFX_POOL[Math.floor(Math.random() * SFX_POOL.length)];
 
               const sound = new Audio(pick + `?t=${now}`);
-              sound.volume = 0.6;
+              sound.volume = 0.18; // Reduced by 70% (was 0.6)
               sfxInFlightRef.current = sound;
               sound.play().catch(() => {});
 
@@ -795,6 +795,8 @@ export default function Game() {
     const handleGameStarted = (data: { lobbyCode: string; players: any[]; totalRounds: number; initialTime: number }) => {
       console.log('[Game] Started:', data);
       setIsMultiplayer(true);
+      eliminationPopupShownRef.current = false; // Reset elimination popup tracking for new games
+      lastRoundEndProcessedRef.current = 0; // Reset round processing for new games
       // Don't set phase here - let the server game_state dictate the phase
       // The server starts in 'waiting_for_ready' phase
     };
@@ -877,7 +879,7 @@ export default function Game() {
           audioRef.current.src = track;
         }
         audioRef.current.loop = true;
-        audioRef.current.volume = 0.4;
+        audioRef.current.volume = 0.12; // Reduced by 70% (was 0.4)
         audioRef.current.play().catch(() => console.log('Audio play blocked'));
       } else {
         audioRef.current.pause();
@@ -897,7 +899,7 @@ export default function Game() {
         const track = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
         audioRef.current.src = track;
         audioRef.current.loop = true;
-        audioRef.current.volume = 0.4;
+        audioRef.current.volume = 0.12; // Reduced by 70% (was 0.4)
         audioRef.current.play().catch(() => console.log('Audio play blocked'));
       }
       return;
@@ -964,6 +966,7 @@ export default function Game() {
 
   // Multiplayer Moment Flags - trigger when round ends
   const lastRoundEndProcessedRef = useRef<number>(0);
+  const eliminationPopupShownRef = useRef<boolean>(false); // Track if elimination popup already shown
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -977,8 +980,12 @@ export default function Game() {
     const currentPlayer = multiplayerGameState.players.find(p => p.socketId === socket.id);
     const currentPlayerId = currentPlayer?.id;
     
-    // Check if current player was eliminated this round - show eliminated flag
-    if (currentPlayerId && multiplayerGameState.eliminatedThisRound?.includes(currentPlayerId)) {
+    // Check if current player was eliminated this round - show eliminated flag ONLY ONCE
+    // Don't show if elimination popup was already shown (player was eliminated in a previous round)
+    if (currentPlayerId && multiplayerGameState.eliminatedThisRound?.includes(currentPlayerId) && !eliminationPopupShownRef.current) {
+      // Mark as shown first to prevent duplicates
+      eliminationPopupShownRef.current = true;
+      
       // Show eliminated moment flag for this player
       const mpVariant = multiplayerGameState.settings?.variant;
       if (mpVariant === 'BIO_FUEL') {
@@ -987,6 +994,12 @@ export default function Game() {
         addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!");
       }
       // Mark as processed and return - eliminated players don't get win moment flags
+      lastRoundEndProcessedRef.current = multiplayerGameState.round;
+      return;
+    }
+    
+    // If player is already eliminated, just mark as processed and skip moment flags
+    if (currentPlayer?.isEliminated) {
       lastRoundEndProcessedRef.current = multiplayerGameState.round;
       return;
     }
@@ -3182,6 +3195,7 @@ export default function Game() {
      setMultiplayerGameState(null);
      setCurrentLobby(null);
      setLobbyCode("");
+     eliminationPopupShownRef.current = false; // Reset elimination popup tracking for new games
      
      setPhase('intro');
      setRound(1);
