@@ -945,7 +945,20 @@ export default function Game() {
     };
     const protocolInfo = protocolNames[protocol];
     if (protocolInfo) {
-      addOverlay("protocol_alert", protocolInfo.name, protocolInfo.desc);
+      // Use variant-specific overlay types like singleplayer
+      const socialProtocols = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+      const bioProtocols = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
+      const secretProtocols = ['UNDERDOG_VICTORY', 'TIME_TAX'];
+      
+      if (secretProtocols.includes(protocol)) {
+        addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
+      } else if (socialProtocols.includes(protocol)) {
+        addOverlay("social_event", protocolInfo.name, protocolInfo.desc);
+      } else if (bioProtocols.includes(protocol)) {
+        addOverlay("bio_event", protocolInfo.name, protocolInfo.desc);
+      } else {
+        addOverlay("protocol_alert", protocolInfo.name, protocolInfo.desc);
+      }
     }
   }, [isMultiplayer, multiplayerGameState, addOverlay]);
 
@@ -960,11 +973,28 @@ export default function Game() {
     // Prevent duplicate triggers for same round - only update ref after processing
     if (lastRoundEndProcessedRef.current === multiplayerGameState.round) return;
     
+    // Find current player
+    const currentPlayer = multiplayerGameState.players.find(p => p.socketId === socket.id);
+    const currentPlayerId = currentPlayer?.id;
+    
+    // Check if current player was eliminated this round - show eliminated flag
+    if (currentPlayerId && multiplayerGameState.eliminatedThisRound?.includes(currentPlayerId)) {
+      // Show eliminated moment flag for this player
+      const mpVariant = multiplayerGameState.settings?.variant;
+      if (mpVariant === 'BIO_FUEL') {
+        addOverlay("bio_event", "ELIMINATED! CONSUME BIO-FUEL.", "Out of time!");
+      } else {
+        addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!");
+      }
+      // Mark as processed and return - eliminated players don't get win moment flags
+      lastRoundEndProcessedRef.current = multiplayerGameState.round;
+      return;
+    }
+    
     const winner = multiplayerGameState.roundWinner;
     if (!winner) return;
     
-    // Find current player and check if they won
-    const currentPlayerId = multiplayerGameState.players.find(p => p.socketId === socket.id)?.id;
+    // Check if current player won
     const isCurrentPlayerWinner = winner.id === currentPlayerId;
     
     if (!isCurrentPlayerWinner) return;
@@ -4630,9 +4660,36 @@ export default function Game() {
 
             {isMultiplayer ? (() => {
               const mpHumanPlayers = displayPlayers.filter(p => !p.isBot && !p.isEliminated);
+              const isCurrentPlayerEliminated = myMultiplayerPlayer?.isEliminated;
               const myAck = mpHumanPlayers.find(p => p.id === myMultiplayerPlayer?.id);
               const hasAcknowledged = (myAck as any)?.roundEndAcknowledged;
               const readyCount = mpHumanPlayers.filter(p => (p as any).roundEndAcknowledged).length;
+              
+              // Eliminated players just spectate - no button needed
+              if (isCurrentPlayerEliminated) {
+                return (
+                  <div className="space-y-2 text-center">
+                    <div className="text-zinc-400 text-sm italic">Spectating...</div>
+                    <div className="flex justify-center gap-2">
+                      {mpHumanPlayers.map(p => (
+                        <div 
+                          key={p.id} 
+                          className={cn(
+                            "w-3 h-3 rounded-full transition-colors duration-300",
+                            (p as any).roundEndAcknowledged 
+                              ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" 
+                              : "bg-zinc-700"
+                          )} 
+                          title={`${p.name}: ${(p as any).roundEndAcknowledged ? 'Ready' : 'Waiting'}`} 
+                        />
+                      ))}
+                    </div>
+                    <p className="text-xs text-zinc-500">
+                      Waiting for {mpHumanPlayers.length - readyCount} player(s)
+                    </p>
+                  </div>
+                );
+              }
               
               return (
                 <div className="space-y-2">

@@ -269,9 +269,10 @@ export function createGame(
   
   // Merge lobby settings with defaults
   // Map duration: server receives 'sprint' from client, but also accept 'short' for compatibility
-  const mappedDuration: GameDuration = (lobbySettings?.gameDuration === 'sprint' || lobbySettings?.gameDuration === 'short') 
+  const rawDuration = lobbySettings?.gameDuration as string | undefined;
+  const mappedDuration: GameDuration = (rawDuration === 'sprint' || rawDuration === 'short') 
     ? 'short' 
-    : (lobbySettings?.gameDuration === 'long' ? 'long' : 'standard');
+    : (rawDuration === 'long' ? 'long' : 'standard');
   
   const settings: GameSettings = {
     difficulty: lobbySettings?.difficulty || 'CASUAL',
