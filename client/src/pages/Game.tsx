@@ -1171,14 +1171,8 @@ export default function Game() {
     if (protocolsEnabled && Math.random() < protocolTriggerChance) {
       
       // Build Protocol Pool
-      // STANDARD IS MASTER:
-      // - Standard selection is the global allow-list.
-      // - Mode-specific selection further filters ONLY the mode pool.
-      //   (So: Standard off => disabled everywhere.)
-      //
-      // When both pools exist, selection is 50/50 between:
-      // - Standard pool (selected Standard protocols)
-      // - Mode pool (selected Standard protocols that are ALSO enabled in the current mode)
+      // Standard protocols and Reality Mode protocols are configured separately.
+      // Goal: any enabled options should trigger uniformly.
       const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','PRIVATE_CHANNEL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX'];
       const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
@@ -1186,27 +1180,16 @@ export default function Game() {
       const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
 
       const standardPool: ProtocolType[] = (allowedProtocols || []).filter(p => STANDARD_SET.includes(p as any));
-
-      // Mode pool must ALSO be allowed by Standard (master allow-list)
-      const modeCandidates: ProtocolType[] = (variant === 'SOCIAL_OVERDRIVE')
+      const modePool: ProtocolType[] = (variant === 'SOCIAL_OVERDRIVE')
         ? (allowedProtocols || []).filter(p => SOCIAL_SET.includes(p as any))
         : (variant === 'BIO_FUEL')
           ? (allowedProtocols || []).filter(p => BIO_SET.includes(p as any))
           : [];
 
-      const modePool: ProtocolType[] = modeCandidates.filter(p => standardPool.includes(p));
+      const combinedPool: ProtocolType[] = [...standardPool, ...modePool];
+      if (combinedPool.length === 0) return;
 
-      const hasStandard = standardPool.length > 0;
-      const hasMode = modePool.length > 0;
-
-      if (!hasStandard && !hasMode) return;
-
-      // Equally likely between Standard and Mode pools (when both exist)
-      const chosenPool = (hasStandard && hasMode)
-        ? (Math.random() < 0.5 ? 'standard' : 'mode')
-        : (hasStandard ? 'standard' : 'mode');
-
-      const newProtocol = chosenPool === 'standard' ? pick(standardPool) : pick(modePool);
+      const newProtocol = pick(combinedPool);
       setActiveProtocol(newProtocol);
       
       let msg = "PROTOCOL INITIATED";
@@ -1843,6 +1826,9 @@ export default function Game() {
          // Show eliminated overlay for P1, then proceed to game over.
          // (Single player: p1 only)
          addOverlay("eliminated", "ELIMINATED", "Out of time.");
+
+         // Also show the moment-flag style elimination notice (this should persist into game over).
+         addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
 
          // Simulate remaining rounds simply by awarding tokens
          // (kept as-is; does not affect the overlay flow)
@@ -3874,10 +3860,10 @@ export default function Game() {
                     title: 'SECRET PROTOCOLS',
                     subtitle: 'Secret for some players',
                     items: [
-                      { name: "THE MOLE", desc: "One player is secretly assigned as a traitor role. The table may not know who it is.", type: "Hidden Role" },
+                      { name: "THE MOLE", desc: "A hidden role is assigned. The Mole wants to push time higher while avoiding 1st place. If the Mole wins by MORE than 7.0s, they lose a trophy.", type: "Hidden Role" },
                       { name: "PRIVATE CHANNEL", desc: "Two players are selected to privately coordinate strategy.", type: "Social" },
                       { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins token (kept secret until reveal).", type: "Secret" },
-                      { name: "TIME TAX", desc: "-10s to everyone (can be kept secret until reveal).", type: "Secret" },
+                      { name: "TIME TAX", desc: "-10s for everyone.", type: "Secret" },
                     ]
                   }
                 ].map((cat) => (
