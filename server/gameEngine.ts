@@ -1098,8 +1098,8 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     const penalty = getMinBidPenalty(game.gameDuration);
     player.remainingTime -= penalty;
     
-    // Track as a "failed" bid with penalty
-    player.currentBid = null;
+    // Track penalty as negative bid for display in bid history
+    player.currentBid = -penalty;
     
     addGameLogEntry(game, {
       type: 'impact',

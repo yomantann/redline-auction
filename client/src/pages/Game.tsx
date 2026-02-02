@@ -1537,10 +1537,19 @@ export default function Game() {
           console.log('[Game] Emitted player_release (waiting - not ready)');
         }
       } else if (currentPhase === 'countdown') {
-        // During countdown, releasing means abandon round
+        // During countdown, releasing means abandon round with penalty
         if (currentPlayerIsHolding) {
           socket.emit("player_release");
           console.log('[Game] Emitted player_release (countdown cancel)');
+          
+          // Show penalty toast immediately (server applies penalty)
+          const penalty = multiplayerGameState?.minBid || 2.0;
+          toast({
+            title: "EARLY RELEASE",
+            description: `Released before start! -${penalty.toFixed(1)}s penalty applied.`,
+            variant: "destructive",
+            duration: 3000
+          });
         }
       } else if (currentPhase === 'bidding') {
         // During bidding, button up means lock in bid
@@ -4522,19 +4531,22 @@ export default function Game() {
             <div className="w-full bg-card/50 p-4 rounded border border-white/5 space-y-2">
               <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Bid History</h4>
               {displayPlayers
-                .filter(p => p.currentBid !== null && p.currentBid > 0)
+                .filter(p => p.currentBid !== null && p.currentBid !== 0)
                 .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0))
                 .filter(p => {
                   if (showDetails) return true; 
                   if (!roundWinner) return true; 
-                  return p.name === roundWinner.name; 
+                  // In competitive, show winner and penalties
+                  return p.name === roundWinner.name || (p.currentBid || 0) < 0; 
                 })
                 .map(p => (
                 <div key={p.id} className="flex justify-between items-center text-sm">
-                  <span className={p.name === roundWinner?.name ? "text-primary font-bold" : "text-zinc-300"}>
+                  <span className={p.name === roundWinner?.name ? "text-primary font-bold" : (p.currentBid || 0) < 0 ? "text-red-400" : "text-zinc-300"}>
                     {p.name}
                   </span>
-                  <span className="font-mono">{formatTime(p.currentBid || 0)}</span>
+                  <span className={cn("font-mono", (p.currentBid || 0) < 0 && "text-red-400")}>
+                    {(p.currentBid || 0) < 0 ? `${p.currentBid?.toFixed(1)}s (PENALTY)` : formatTime(p.currentBid || 0)}
+                  </span>
                 </div>
               ))}
               {!showDetails && displayPlayers.filter(p => p.currentBid !== null && p.currentBid > 0).length > (roundWinner ? 1 : 0) && (

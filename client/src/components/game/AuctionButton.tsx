@@ -48,7 +48,6 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
         onContextMenu={(e) => e.preventDefault()}
         onMouseDown={!disabled ? onPress : undefined}
         onMouseUp={!disabled ? onRelease : undefined}
-        onMouseLeave={!disabled && isPressed ? onRelease : undefined}
         onTouchStart={!disabled ? onPress : undefined}
         onTouchEnd={!disabled ? onRelease : undefined}
         disabled={disabled}
