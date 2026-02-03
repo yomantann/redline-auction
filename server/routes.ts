@@ -17,6 +17,8 @@ import {
   confirmDriverInGame,
   type GameDuration
 } from "./gameEngine";
+import { recordGameSnapshot, createGameId } from "./snapshotDb";
+import { insertGameSnapshotSchema } from "@shared/schema";
 
 // Socket.IO instance - exported for later expansion
 export let io: SocketIOServer;
@@ -530,8 +532,27 @@ export async function registerRoutes(
 
   log("Socket.IO initialized with lobby and game system", "socket.io");
 
-  // API routes will go here
-  // prefix all routes with /api
+  // API routes - prefix all routes with /api
+  
+  // Singleplayer snapshot recording endpoint
+  app.post("/api/game/snapshot", async (req, res) => {
+    try {
+      const snapshot = insertGameSnapshotSchema.parse({
+        ...req.body,
+        isMultiplayer: 0, // Force singleplayer flag
+      });
+      await recordGameSnapshot(snapshot);
+      res.json({ success: true });
+    } catch (error) {
+      log(`Snapshot recording failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+  
+  // Generate unique game ID for singleplayer games
+  app.get("/api/game/new-id", (_req, res) => {
+    res.json({ gameId: createGameId() });
+  });
 
   return httpServer;
 }

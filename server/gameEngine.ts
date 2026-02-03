@@ -1,4 +1,5 @@
 import { log } from "./index";
+import { recordGameSnapshot, createGameId } from "./snapshotDb";
 
 // Game Constants
 const STANDARD_INITIAL_TIME = 300.0;
@@ -166,6 +167,7 @@ export interface GameSettings {
 }
 
 export interface GameState {
+  gameId: string; // Unique identifier for database snapshots
   lobbyCode: string;
   players: GamePlayer[];
   round: number;
@@ -286,6 +288,7 @@ export function createGame(
   };
   
   const gameState: GameState = {
+    gameId: createGameId(),
     lobbyCode,
     players: gamePlayers,
     round: 1,
@@ -946,6 +949,35 @@ function endRound(lobbyCode: string) {
     setTimeout(() => endGame(lobbyCode), 3000);
   }
   // Otherwise, wait for players to acknowledge round end (via player_ready_next event)
+  
+  // Record snapshot for this round
+  recordGameSnapshot({
+    gameId: game.gameId,
+    snapshotType: game.eliminatedThisRound.length > 0 ? 'elimination' : 'round_end',
+    roundNumber: game.round,
+    winnerPlayerId: game.roundWinner?.id || null,
+    winningHoldTime: game.roundWinner?.bid || null,
+    minBidSeconds: getMinBidPenalty(game.settings.gameDuration),
+    eliminatedPlayerIds: game.eliminatedThisRound,
+    momentFlagsTriggered: [],
+    protocolsTriggered: game.activeProtocol ? [game.activeProtocol] : [],
+    limitBreaksTriggered: [],
+    playerPositions: game.players.map(p => ({
+      playerId: p.id,
+      tokens: p.tokens,
+      remainingTime: p.remainingTime,
+      isEliminated: p.isEliminated,
+    })),
+    lobbyCode: game.lobbyCode,
+    gameSettings: {
+      difficulty: game.settings.difficulty,
+      variant: game.settings.variant,
+      gameDuration: game.settings.gameDuration,
+      protocolsEnabled: game.settings.protocolsEnabled,
+      abilitiesEnabled: game.settings.abilitiesEnabled,
+    },
+    isMultiplayer: 1,
+  });
 }
 
 // Select a random protocol for the round based on variant and settings
@@ -1100,6 +1132,35 @@ function endGame(lobbyCode: string) {
   log(`Game over for lobby ${lobbyCode}. Winner: ${game.players[0]?.name}`, "game");
   
   broadcastGameState(lobbyCode);
+  
+  // Record game over snapshot
+  recordGameSnapshot({
+    gameId: game.gameId,
+    snapshotType: 'game_over',
+    roundNumber: game.round,
+    winnerPlayerId: game.players[0]?.id || null,
+    winningHoldTime: null,
+    minBidSeconds: getMinBidPenalty(game.settings.gameDuration),
+    eliminatedPlayerIds: game.players.filter(p => p.isEliminated).map(p => p.id),
+    momentFlagsTriggered: [],
+    protocolsTriggered: game.protocolHistory.filter(p => p !== null) as string[],
+    limitBreaksTriggered: [],
+    playerPositions: game.players.map(p => ({
+      playerId: p.id,
+      tokens: p.tokens,
+      remainingTime: p.remainingTime,
+      isEliminated: p.isEliminated,
+    })),
+    lobbyCode: game.lobbyCode,
+    gameSettings: {
+      difficulty: game.settings.difficulty,
+      variant: game.settings.variant,
+      gameDuration: game.settings.gameDuration,
+      protocolsEnabled: game.settings.protocolsEnabled,
+      abilitiesEnabled: game.settings.abilitiesEnabled,
+    },
+    isMultiplayer: 1,
+  });
   
   // Cleanup
   clearGameIntervals(lobbyCode);

@@ -460,6 +460,8 @@ export default function Game() {
   const [round, setRound] = useState(1);
   const [gameDuration, setGameDuration] = useState<GameDuration>('standard');
   const [currentTime, setCurrentTime] = useState(0.0); // The central auction clock
+  const [singleplayerGameId, setSingleplayerGameId] = useState<string | null>(null);
+  const singleplayerGameIdRef = useRef<string | null>(null);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [protocolsEnabled, setProtocolsEnabled] = useState(false);
   const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
@@ -485,6 +487,55 @@ export default function Game() {
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[]>([]);
   
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<Player | null>(null);
+
+  // Singleplayer snapshot recording - write-only to database
+  const recordSingleplayerSnapshot = async (
+    snapshotType: 'round_end' | 'elimination' | 'game_over',
+    currentPlayers: Player[],
+    roundNumber: number,
+    winnerId?: string | null,
+    winningBid?: number | null,
+    eliminatedIds?: string[],
+    triggeredProtocol?: string | null
+  ) => {
+    const gameId = singleplayerGameIdRef.current;
+    if (!gameId || isMultiplayer) return;
+    
+    try {
+      await fetch('/api/game/snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameId,
+          snapshotType,
+          roundNumber,
+          winnerPlayerId: winnerId || null,
+          winningHoldTime: winningBid || null,
+          minBidSeconds: gameDuration === 'short' ? 1.0 : gameDuration === 'long' ? 4.0 : 2.0,
+          eliminatedPlayerIds: eliminatedIds || [],
+          momentFlagsTriggered: [],
+          protocolsTriggered: triggeredProtocol ? [triggeredProtocol] : [],
+          limitBreaksTriggered: [],
+          playerPositions: currentPlayers.map(p => ({
+            playerId: p.id,
+            tokens: p.tokens,
+            remainingTime: p.remainingTime,
+            isEliminated: p.isEliminated,
+          })),
+          lobbyCode: null,
+          gameSettings: {
+            difficulty,
+            variant,
+            gameDuration,
+            protocolsEnabled,
+            abilitiesEnabled,
+          },
+        }),
+      });
+    } catch (error) {
+      console.error('[Snapshot] Failed to record singleplayer snapshot:', error);
+    }
+  };
 
   // New Overlays State (Array for stacking)
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
@@ -2970,6 +3021,21 @@ export default function Game() {
 
     // Check game end conditions
     const remainingActivePlayers = updatedPlayers.filter(p => !p.isEliminated && p.remainingTime > 0);
+    const eliminatedThisRound = updatedPlayers.filter(p => p.isEliminated && !players.find(op => op.id === p.id)?.isEliminated).map(p => p.id);
+    
+    // Record singleplayer snapshot
+    if (!isMultiplayer) {
+      const snapshotType = eliminatedThisRound.length > 0 ? 'elimination' : 'round_end';
+      recordSingleplayerSnapshot(
+        snapshotType as 'round_end' | 'elimination',
+        updatedPlayers,
+        round,
+        winnerId,
+        winnerTime,
+        eliminatedThisRound,
+        activeProtocol
+      );
+    }
     
     if (round >= totalRounds || remainingActivePlayers.length <= 1) {
        // Game End condition
@@ -2977,6 +3043,11 @@ export default function Game() {
         // Keep any end-of-round overlays (moment flags / protocol notices) visible into game over.
         // We only switch phase; overlays are dismissed by the player.
         setPhase('game_end');
+        
+        // Record game over snapshot
+        if (!isMultiplayer) {
+          recordSingleplayerSnapshot('game_over', updatedPlayers, round, winnerId, winnerTime, eliminatedThisRound, activeProtocol);
+        }
       }, 3000);
     }
   };
@@ -3040,6 +3111,14 @@ export default function Game() {
       }
       return p;
     }));
+    
+    // Generate new singleplayer gameId when starting a game
+    if (!isMultiplayer) {
+      const newGameId = `sp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      setSingleplayerGameId(newGameId);
+      singleplayerGameIdRef.current = newGameId;
+    }
+    
     setPhase('ready');
   };
 
