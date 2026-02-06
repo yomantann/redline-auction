@@ -271,7 +271,7 @@ const CHARACTERS: Character[] = [
   { 
     id: 'winter', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'COLD SHOULDER', description: '25% chance: Ignore all social interactions (only you see this at prepare-to-bid).' },
+    socialAbility: { name: 'COLD SHOULDER', description: '50% chance: Ignore all social interactions (only you see this at prepare-to-bid).' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 random round: Force opponent to win or drink (only you and target notified).' }
   },
   { 
@@ -329,14 +329,14 @@ const CHARACTERS: Character[] = [
   { 
     id: 'gigachad', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, imageSocial: socialGigachad, imageBio: bioGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
     ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'MOG', description: '20% chance: 1 random player must drop if they lose stare challenge (both notified at start).' },
+    socialAbility: { name: 'MOG', description: '10% chance at end of round: 1 random player must do 10 pushups or ff next round (both notified).' },
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall (shown post-round).' }
   },
   { 
     id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules all game.' },
-    bioAbility: { name: 'BIG BRAIN', description: '15% chance at end of round: Option to have everyone pass drink to the left.' }
+    bioAbility: { name: 'BIG BRAIN', description: '5% chance at end of round: Option to have everyone pass drink to the left.' }
   },
   { 
     id: 'disaster', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
@@ -1963,12 +1963,6 @@ export default function Game() {
              }, 300);
         }
 
-        // GIGACHAD: MOG (Social)
-        if (selectedChar.id === 'gigachad' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.20) {
-             setTimeout(() => {
-                 addOverlay("social_event", "MOG CHECK", "Stare challenge! Loser drops button.", 0);
-             }, 400);
-        }
         
         // SADMAN: SAD REVEAL (Passive - PEEK Selection)
         if (selectedChar.id === 'pepe') {
