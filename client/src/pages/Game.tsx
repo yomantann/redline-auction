@@ -1050,10 +1050,10 @@ export default function Game() {
       'UNDERDOG_VICTORY': { name: 'UNDERDOG VICTORY', desc: 'Revealed at Round End' },
       'TIME_TAX': { name: 'TIME TAX', desc: 'Revealed at Round End' },
       'TRUTH_DARE': { name: 'TRUTH OR DARE', desc: 'Winner Asks, Loser Does' },
-      'SWITCH_SEATS': { name: 'SEAT SWAP', desc: 'Everyone Move Left' },
+      'SWITCH_SEATS': { name: 'SWITCH SEATS', desc: 'Change Positions Now' },
       'HUM_TUNE': { name: 'HUM A TUNE', desc: 'Loser Hums a Song' },
       'NOISE_CANCEL': { name: 'NOISE CANCEL', desc: 'Play in Silence' },
-      'HYDRATE': { name: 'HYDRATE', desc: 'Loser Drinks Water' },
+      'HYDRATE': { name: 'HYDRATION CHECK', desc: 'Everyone Take a Sip' },
       'BOTTOMS_UP': { name: 'BOTTOMS UP', desc: 'Loser Finishes Drink' },
       'PARTNER_DRINK': { name: 'PARTNER DRINK', desc: 'Choose a Drink Buddy' },
       'WATER_ROUND': { name: 'WATER ROUND', desc: 'No Alcohol This Round' },
@@ -1251,9 +1251,9 @@ export default function Game() {
         case 'UNDERDOG_VICTORY': showPopup = false; break;
         case 'TIME_TAX': showPopup = false; break;
         case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner Asks, Loser Does"; break;
-        case 'SWITCH_SEATS': msg = "SEAT SWAP"; sub = "Everyone Move Left!"; break;
+        case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change Positions Now!"; break;
         case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Play in Silence!"; break;
-        case 'HYDRATE': msg = "HYDRATE"; sub = "Loser Drinks Water!"; break;
+        case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone Take a Sip!"; break;
         case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser Finishes Drink!"; break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water Only This Round!"; break;
         default: if (!detailHandled.includes(mpProtocol)) { msg = "PROTOCOL ACTIVE"; sub = mpProtocol; } break;
@@ -1933,7 +1933,7 @@ export default function Game() {
         
         // ... SOCIAL PROTOCOLS ...
         case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner Asks, Loser Does"; break;
-        case 'SWITCH_SEATS': msg = "SEAT SWAP"; sub = "Everyone Move Left!"; break;
+        case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change Positions Now!"; break;
         case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
         case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Play in Silence!"; break;
         case 'LOCK_ON': {
@@ -1944,7 +1944,7 @@ export default function Game() {
         }
         
         // ... BIO PROTOCOLS ...
-        case 'HYDRATE': msg = "HYDRATE"; sub = "Loser Drinks Water!"; break;
+        case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone Take a Sip!"; break;
         case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser Finishes Drink!"; break;
         case 'PARTNER_DRINK': 
             const [b1, b2] = getTwoRandomPlayers();
