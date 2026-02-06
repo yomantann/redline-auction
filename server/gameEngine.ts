@@ -1316,7 +1316,7 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       if (target) {
         emitToLobby(game.lobbyCode, 'protocol_detail', {
           protocol: 'HUM_TUNE',
-          msg: 'HUM A TUNE',
+          msg: 'AUDIO SYNC',
           sub: `${target.name} must hum a song (others guess)!`,
           targetPlayerId: target.id,
         });
