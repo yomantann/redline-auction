@@ -859,7 +859,7 @@ function endRound(lobbyCode: string) {
   }
   
   if (game.activeProtocol === 'TIME_TAX') {
-    // Deduct 10s from all non-eliminated players
+    // Deduct 10s from all non-eliminated players (matches SP: FIRE WALL does NOT block secret protocols)
     game.players.forEach(p => {
       if (!p.isEliminated && p.remainingTime > 0) {
         p.remainingTime = Math.max(0, p.remainingTime - 10);
@@ -1282,6 +1282,23 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     // Only apply penalty once per round
     if (player.penaltyAppliedThisRound) {
       log(`${player.name} already received penalty this round, no additional penalty`, "game");
+      broadcastGameState(lobbyCode);
+      return;
+    }
+    
+    // JAWLINE (gigachad): No penalty during countdown
+    const ability = player.selectedDriver ? DRIVER_ABILITIES[player.selectedDriver] : null;
+    if (ability?.name === 'JAWLINE' && game.settings.abilitiesEnabled) {
+      player.penaltyAppliedThisRound = true;
+      player.currentBid = 0;
+      addGameLogEntry(game, {
+        type: 'ability',
+        playerId: player.id,
+        playerName: player.name,
+        message: `${player.name} used JAWLINE: no countdown penalty!`,
+        value: 0,
+      });
+      log(`${player.name} used JAWLINE in lobby ${lobbyCode}, no penalty`, "game");
       broadcastGameState(lobbyCode);
       return;
     }

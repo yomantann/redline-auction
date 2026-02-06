@@ -1126,12 +1126,22 @@ export default function Game() {
       momentCount++;
     }
     
-    // 8. Comeback Hope (Won with fewer tokens than others)
-    const currentPlayerStats = players.find(p => p.id === winner.id);
-    const otherTokens = players.filter(p => p.id !== winner.id && !p.isEliminated).map(p => p.tokens);
-    if (currentPlayerStats && otherTokens.length > 0 && currentPlayerStats.tokens < Math.max(...otherTokens)) {
-      setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winner.name} stays in the fight!`), 1000);
-      momentCount++;
+    // 8. Comeback Hope - match SP logic: must be sole minimum token holder BEFORE winning
+    const winnerStats = players.find(p => p.id === winner.id);
+    if (winnerStats) {
+      // Server already awarded tokens, so subtract to get pre-win count
+      const isDoubleRound = multiplayerGameState.activeProtocol === 'DOUBLE_STAKES' || multiplayerGameState.activeProtocol === 'PANIC_ROOM';
+      const tokensAwarded = isDoubleRound ? 2 : 1;
+      const winnerTokensBefore = winnerStats.tokens - tokensAwarded;
+      const allTokensBefore = players.map(p => p.id === winner.id ? winnerTokensBefore : p.tokens);
+      const minTokens = Math.min(...allTokensBefore);
+      const playersAtMin = allTokensBefore.filter(t => t === minTokens);
+      const someoneHadMore = allTokensBefore.some(t => t > winnerTokensBefore);
+      
+      if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && someoneHadMore) {
+        setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winner.name} stays in the fight!`), 1000);
+        momentCount++;
+      }
     }
     
     // 9. Last One Standing (Won final round with eliminations)
@@ -1528,34 +1538,65 @@ export default function Game() {
     }
   }, [currentTime, phase, botBids]);
 
-  // Round Start Logic extension for PEEK
+  // Round Start Logic extension for PEEK (handles both SP and MP)
   const [peekActive, setPeekActive] = useState(false);
+  const lastPeekRoundRef = useRef<number>(0);
   
   useEffect(() => {
       if (phase === 'countdown') {
+          // Determine the round number for dedup
+          const currentRound = isMultiplayer ? (multiplayerGameState?.round || 0) : round;
+          if (lastPeekRoundRef.current === currentRound) return;
+          lastPeekRoundRef.current = currentRound;
+          
           // 30% chance to activate PEEK ability if player has one
           if (selectedCharacter?.ability?.effect === 'PEEK') {
               const chance = Math.random();
-              setPeekActive(chance > 0.7); // 30% chance
-              if (chance > 0.7) {
+              const activated = chance > 0.7; // 30% chance
+              setPeekActive(activated);
+              if (activated) {
                   toast({
                       title: "INSIGHT ACTIVATED",
                       description: `${selectedCharacter.ability.name}: You can see opponent status this round!`,
                       className: "bg-green-950 border-green-500 text-green-100",
                       duration: 4000
                   });
+                  
+                  // Set peek targets for MP (SP targets are set in prepareToBid)
+                  if (isMultiplayer && multiplayerGameState && socket) {
+                    const currentPlayerId = multiplayerGameState.players.find(p => p.socketId === socket.id)?.id;
+                    if (currentPlayerId) {
+                      const opponents = multiplayerGameState.players.filter(p => p.id !== currentPlayerId && !p.isEliminated);
+                      
+                      if (selectedCharacter.id === 'pepe' && opponents.length > 0) {
+                        const target = opponents[Math.floor(Math.random() * opponents.length)];
+                        setPeekTargetId(target.id);
+                      } else if (selectedCharacter.id === 'bf' && opponents.length > 0) {
+                        const target = opponents[Math.floor(Math.random() * opponents.length)];
+                        setPeekTargetId(target.id);
+                        const others = opponents.filter(o => o.id !== target.id).map(o => o.id);
+                        setScrambledPlayers(others);
+                      }
+                    }
+                  }
+              } else {
+                  // Not activated this round - clear targets
+                  if (isMultiplayer) {
+                    setPeekTargetId(null);
+                    if (activeProtocol !== 'SYSTEM_FAILURE') {
+                      setScrambledPlayers([]);
+                    }
+                  }
               }
           } else {
               setPeekActive(false);
           }
       }
-  }, [phase, round]);
+  }, [phase, round, multiplayerGameState?.round]);
 
   // Low Flame Immunity Popup Check
   useEffect(() => {
     if (activeProtocol && activeProtocol !== 'THE_MOLE' && selectedCharacter?.id === 'fine') {
-        // Only show if not already showing a protocol alert
-        // Actually, just show it as a unique "immune" badge or overlay
         addOverlay("ability_trigger", "FIRE WALL ACTIVE", "Immune to active protocol effects!", 3000);
     }
   }, [activeProtocol, selectedCharacter?.id]);
@@ -4604,10 +4645,12 @@ export default function Game() {
                     // 4. Default: Show all.
                     
                     let isVisible = true;
-                    if (p.id !== 'p1') {
+                    const myId = isMultiplayer 
+                      ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id 
+                      : 'p1';
+                    if (p.id !== myId) {
                          if (scrambledPlayers.includes(p.id)) isVisible = false;
-                         // Wandering Eye Logic: Only visible if I AM HOLDING
-                         const amIHolding = players.find(me => me.id === 'p1')?.isHolding;
+                         const amIHolding = players.find(me => me.id === myId)?.isHolding;
                          if (!amIHolding) isVisible = false;
                     }
 
@@ -5579,7 +5622,7 @@ export default function Game() {
                 peekActive={(selectedCharacter?.id === 'pepe' || selectedCharacter?.id === 'bf') && peekTargetId === p.id}
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={activeProtocol === 'SYSTEM_FAILURE' || (p.id === 'p1' && selectedCharacter?.id === 'pepe')}
-                isScrambled={!isMultiplayer && ((p.id !== 'p1' && selectedCharacter?.id === 'bf' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id))}
+                isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'bf' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end' && !isMultiplayer) {
