@@ -122,8 +122,8 @@ const DRIVER_ABILITIES: Record<string, DriverAbility> = {
   'thinker': { name: 'CALCULATED', effect: 'PEEK', triggerCondition: 'ALWAYS', description: 'Immune to abilities' },
   'disaster': { name: 'BURN IT', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -1, description: '-1s from everyone else' },
   'buttons': { name: 'PANIC MASH', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: '50% +3s, 50% -3s' },
-  'primate': { name: 'CHEF SPECIAL', effect: 'TOKEN_BOOST', triggerCondition: 'CONDITIONAL', description: '+1 token if comeback win' },
-  'harold': { name: 'PAIN HIDE', effect: 'TIME_REFUND', triggerCondition: 'WIN', refundAmount: 0.5, description: '+0.5s per win' },
+  'primate': { name: 'CHEF\'S SPECIAL', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', refundAmount: 4, description: '+4s if win by >10s margin' },
+  'harold': { name: 'HIDE PAIN', effect: 'TIME_REFUND', triggerCondition: 'LOSE', refundAmount: 3, description: '+3s if you lose by >15s' },
   'tank': { name: 'IRON STOMACH', effect: 'TIME_REFUND', triggerCondition: 'ALWAYS', refundAmount: 0, description: 'Immune to drink penalties' },
 };
 
@@ -642,8 +642,17 @@ function processAbilities(game: GameState, winnerId: string | null) {
         
       case 'LOSE':
         if (!isWinner && winnerId) {
-          triggered = true;
-          targetId = winnerId;
+          // HIDE PAIN (harold): only triggers if lost by >15s margin
+          if (player.selectedDriver === 'harold') {
+            const winnerPlayer = game.players.find(p => p.id === winnerId);
+            const winnerBidVal = winnerPlayer?.currentBid || 0;
+            if (winnerBidVal - playerBid > 15) {
+              triggered = true;
+            }
+          } else {
+            triggered = true;
+            targetId = winnerId;
+          }
         }
         break;
         
@@ -667,9 +676,8 @@ function processAbilities(game: GameState, winnerId: string | null) {
           // Hyper Click: +1 token if win within 1.1s of 2nd place (requires valid 2nd place)
           triggered = true;
         } else if (player.selectedDriver === 'primate' && isWinner) {
-          // Chef Special: +1 token if comeback win (had fewer tokens)
-          const othersTokens = game.players.filter(p => p.id !== player.id && !p.isEliminated).map(p => p.tokens);
-          if (othersTokens.length > 0 && player.tokens < Math.max(...othersTokens)) {
+          // Chef's Special: +4s if win by >10s margin over 2nd place
+          if (sortedByBid.length >= 2 && winMargin > 10) {
             triggered = true;
           }
         }

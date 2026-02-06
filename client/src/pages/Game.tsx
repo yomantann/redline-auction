@@ -1830,10 +1830,20 @@ export default function Game() {
       let sub = "Unknown Effect";
       let showPopup = true;
       
-      // Helper to get random player name(s)
-      const getRandomPlayer = () => players[Math.floor(Math.random() * players.length)].name;
+      // Helper to get random player name(s) - FIRE WALL players excluded from protocol targeting
+      const fireWallExclude = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+      const getRandomPlayer = () => {
+        const pool = fireWallExclude ? players.filter(p => p.id !== 'p1') : players;
+        if (pool.length === 0) return players[Math.floor(Math.random() * players.length)].name;
+        return pool[Math.floor(Math.random() * pool.length)].name;
+      };
       const getTwoRandomPlayers = () => {
-        const shuffled = [...players].sort(() => 0.5 - Math.random());
+        const pool = fireWallExclude ? players.filter(p => p.id !== 'p1') : players;
+        const shuffled = [...pool].sort(() => 0.5 - Math.random());
+        if (shuffled.length < 2) {
+          const allShuffled = [...players].sort(() => 0.5 - Math.random());
+          return [allShuffled[0].name, allShuffled[1].name];
+        }
         return [shuffled[0].name, shuffled[1].name];
       };
       
@@ -2424,6 +2434,17 @@ export default function Game() {
                  impact += " +2.0s (Cheese Tax)";
                  impactLogs.push({ value: "+2.0s", reason: "Cheese Tax", type: 'gain' });
                  newAbilities.push({ playerId: p.id, ability: 'CHEESE TAX', effect: 'DISRUPT', targetId: winnerId, impactValue: "Steal 2s" });
+             }
+             if (playerChar?.ability?.name === 'HIDE PAIN') {
+                 const winnerBidVal = validParticipants.find(vp => vp.id === winnerId)?.currentBid || 0;
+                 const myBidVal = p.currentBid || 0;
+                 if (winnerBidVal - myBidVal > 15) {
+                     newTime += 3.0;
+                     roundNetImpactNum += 3.0;
+                     impact += " +3.0s (Hide Pain)";
+                     impactLogs.push({ value: "+3.0s", reason: "Hide Pain", type: 'gain' });
+                     newAbilities.push({ playerId: p.id, ability: 'HIDE PAIN', effect: 'TIME_REFUND', impactValue: "+3s" });
+                 }
              }
         }
         
@@ -4734,7 +4755,8 @@ export default function Game() {
         );
 
       case 'bidding':
-        const isBlackout = activeProtocol === 'DATA_BLACKOUT' || activeProtocol === 'SYSTEM_FAILURE';
+        const fireWallHudImmune = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+        const isBlackout = (activeProtocol === 'DATA_BLACKOUT' || activeProtocol === 'SYSTEM_FAILURE') && !fireWallHudImmune;
         const displayTime = isMultiplayer ? currentPlayerBid : currentTime;
         
         return (
@@ -4766,7 +4788,7 @@ export default function Game() {
                        {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
                      </span>
                      <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : "")}>
-                       {activeProtocol === 'SYSTEM_FAILURE' 
+                       {activeProtocol === 'SYSTEM_FAILURE' && !fireWallHudImmune
                           // System failure: mostly scrambled, 25% chance of real time (increased from 5%)
                           ? (Math.random() > 0.75 ? currentTime.toFixed(1) : `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`) 
                           : isBlackout ? "ERROR" : "??:??.?"}
@@ -5627,7 +5649,7 @@ export default function Game() {
                 formatTime={formatTime}
                 peekActive={(selectedCharacter?.id === 'pepe' || selectedCharacter?.id === 'bf') && peekTargetId === p.id}
                 isDoubleTokens={isDoubleTokens}
-                isSystemFailure={activeProtocol === 'SYSTEM_FAILURE' || (p.id === 'p1' && selectedCharacter?.id === 'pepe')}
+                isSystemFailure={(activeProtocol === 'SYSTEM_FAILURE' && !(selectedCharacter?.id === 'fine' && abilitiesEnabled)) || (p.id === 'p1' && selectedCharacter?.id === 'pepe')}
                 isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'bf' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
