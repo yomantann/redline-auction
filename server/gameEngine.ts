@@ -488,7 +488,9 @@ function startBidding(lobbyCode: string) {
       return;
     }
     
-    const elapsed = (Date.now() - (g.roundStartTime || Date.now())) / 1000;
+    const rawElapsed = (Date.now() - (g.roundStartTime || Date.now())) / 1000;
+    const panicMultiplier = g.activeProtocol === 'PANIC_ROOM' ? 2 : 1;
+    const elapsed = rawElapsed * panicMultiplier;
     
     // Update bids for holding players (include min bid offset)
     const minBid = getMinBidPenalty(g.gameDuration);
@@ -528,7 +530,9 @@ function startBidding(lobbyCode: string) {
 }
 
 function processBotBids(game: GameState) {
-  const elapsed = (Date.now() - (game.roundStartTime || Date.now())) / 1000;
+  const rawElapsed = (Date.now() - (game.roundStartTime || Date.now())) / 1000;
+  const panicMultiplier = game.activeProtocol === 'PANIC_ROOM' ? 2 : 1;
+  const elapsed = rawElapsed * panicMultiplier;
   
   game.players.forEach(p => {
     if (p.isBot && p.isHolding && !p.isEliminated) {
@@ -913,22 +917,81 @@ function endRound(lobbyCode: string) {
         value: p.currentBid,
       });
       
-      p.remainingTime -= p.currentBid;
-      if (p.remainingTime <= 0) {
-        p.remainingTime = 0;
-        p.isEliminated = true;
-        if (!game.eliminatedThisRound.includes(p.id)) {
-          game.eliminatedThisRound.push(p.id);
-          addGameLogEntry(game, {
-            type: 'elimination',
-            playerId: p.id,
-            playerName: p.name,
-            message: `${p.name} was eliminated (ran out of time)`,
-          });
+      // THE_MOLE: Mole's bid is free (no time deduction)
+      if (game.activeProtocol === 'THE_MOLE' && p.id === game.molePlayerId) {
+        // Free bid - no time deduction, no netImpact change (matches singleplayer)
+        addGameLogEntry(game, {
+          type: 'protocol',
+          playerId: p.id,
+          playerName: p.name,
+          message: `${p.name}'s bid was FREE (Mole)`,
+          value: p.currentBid,
+        });
+      } else {
+        p.remainingTime -= p.currentBid;
+        if (p.remainingTime <= 0) {
+          p.remainingTime = 0;
+          p.isEliminated = true;
+          if (!game.eliminatedThisRound.includes(p.id)) {
+            game.eliminatedThisRound.push(p.id);
+            addGameLogEntry(game, {
+              type: 'elimination',
+              playerId: p.id,
+              playerName: p.name,
+              message: `${p.name} was eliminated (ran out of time)`,
+            });
+          }
         }
       }
     }
   });
+  
+  // Handle THE_MOLE protocol penalties (AFTER all deductions and ability effects)
+  if (game.activeProtocol === 'THE_MOLE' && game.molePlayerId) {
+    const molePlayer = game.players.find(p => p.id === game.molePlayerId);
+    
+    // Mole suicide check: if mole was eliminated this round (overbid/penalties), lose 1 token
+    if (molePlayer && game.eliminatedThisRound.includes(game.molePlayerId)) {
+      molePlayer.tokens = Math.max(0, molePlayer.tokens - 1);
+      addGameLogEntry(game, {
+        type: 'protocol',
+        playerId: molePlayer.id,
+        playerName: molePlayer.name,
+        message: `MOLE REVEALED: ${molePlayer.name} held too long and LOST a token!`,
+        value: -1,
+      });
+      log(`THE_MOLE suicide: ${molePlayer.name} eliminated and lost 1 token in lobby ${lobbyCode}`, "game");
+    }
+    // Mole wins check: if mole won by more than 7s margin, penalty
+    else if (winnerId === game.molePlayerId && molePlayer && participants.length > 1) {
+      const sortedBids = [...participants]
+        .filter(p => p.id !== winnerId)
+        .map(p => p.currentBid || 0)
+        .sort((a, b) => b - a);
+      const secondPlaceBid = sortedBids[0] || 0;
+      const margin = (molePlayer.currentBid || 0) - secondPlaceBid;
+      
+      if (margin > 7) {
+        molePlayer.tokens = Math.max(0, molePlayer.tokens - 2);
+        addGameLogEntry(game, {
+          type: 'protocol',
+          playerId: molePlayer.id,
+          playerName: molePlayer.name,
+          message: `MOLE REVEALED: ${molePlayer.name} won by ${margin.toFixed(1)}s and LOST tokens!`,
+          value: -2,
+        });
+        log(`THE_MOLE penalty: ${molePlayer.name} won by ${margin.toFixed(1)}s (>7s) and lost 2 tokens in lobby ${lobbyCode}`, "game");
+      } else {
+        addGameLogEntry(game, {
+          type: 'protocol',
+          playerId: molePlayer.id,
+          playerName: molePlayer.name,
+          message: `MOLE REVEALED: ${molePlayer.name} was the mole but won safely (margin ${margin.toFixed(1)}s)`,
+        });
+        log(`THE_MOLE safe: ${molePlayer.name} won within 7s margin in lobby ${lobbyCode}`, "game");
+      }
+    }
+  }
   
   broadcastGameState(lobbyCode);
   
@@ -1352,8 +1415,9 @@ function broadcastGameState(lobbyCode: string) {
   // Calculate elapsed time since round start for bidding phase
   // Add timer offset based on game pace (starts at min bid time, not 0)
   const minBid = getMinBidPenalty(game.gameDuration);
+  const panicMultiplier = game.activeProtocol === 'PANIC_ROOM' ? 2 : 1;
   const rawElapsed = game.roundStartTime && game.phase === 'bidding' 
-    ? (Date.now() - game.roundStartTime) / 1000 
+    ? ((Date.now() - game.roundStartTime) / 1000) * panicMultiplier
     : 0;
   const elapsedTime = rawElapsed + minBid; // Timer starts at min bid value
   
@@ -1385,6 +1449,7 @@ function broadcastGameState(lobbyCode: string) {
     eliminatedThisRound: game.eliminatedThisRound,
     gameLog: game.gameLog,
     activeProtocol: game.activeProtocol,
+    molePlayerId: game.molePlayerId, // Send mole assignment to clients
     settings: game.settings,
     allHumansHoldingStartTime: game.allHumansHoldingStartTime,
     gameDuration: game.gameDuration,

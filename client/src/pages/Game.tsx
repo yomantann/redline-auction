@@ -872,6 +872,13 @@ export default function Game() {
           setActiveProtocol(null);
         }
         
+        // Sync mole assignment from server
+        if (state.molePlayerId) {
+          setMoleTarget(state.molePlayerId);
+        } else {
+          setMoleTarget(null);
+        }
+        
         // totalRounds is handled by multiplayer state directly
         
         if (state.phase === 'driver_selection') {
