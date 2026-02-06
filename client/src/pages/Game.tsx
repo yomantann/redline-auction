@@ -1250,12 +1250,12 @@ export default function Game() {
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break;
         case 'TIME_TAX': showPopup = false; break;
-        case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Social challenge this round!"; break;
-        case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change positions now!"; break;
-        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Stay silent to avoid penalty!"; break;
-        case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone take a sip!"; break;
-        case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser finishes their drink!"; break;
-        case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water only this round!"; break;
+        case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner Asks, Loser Does"; break;
+        case 'SWITCH_SEATS': msg = "SEAT SWAP"; sub = "Everyone Move Left!"; break;
+        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Play in Silence!"; break;
+        case 'HYDRATE': msg = "HYDRATE"; sub = "Loser Drinks Water!"; break;
+        case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser Finishes Drink!"; break;
+        case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water Only This Round!"; break;
         default: if (!detailHandled.includes(mpProtocol)) { msg = "PROTOCOL ACTIVE"; sub = mpProtocol; } break;
       }
       
@@ -1932,10 +1932,10 @@ export default function Game() {
         case 'TIME_TAX': showPopup = false; break; // Secret
         
         // ... SOCIAL PROTOCOLS ...
-        case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Social challenge this round!"; break;
-        case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change positions now!"; break;
+        case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner Asks, Loser Does"; break;
+        case 'SWITCH_SEATS': msg = "SEAT SWAP"; sub = "Everyone Move Left!"; break;
         case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
-        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Stay silent to avoid penalty!"; break;
+        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Play in Silence!"; break;
         case 'LOCK_ON': {
             const [lockA, lockB] = getTwoRandomPlayers();
             msg = "LOCK ON";
@@ -1944,8 +1944,8 @@ export default function Game() {
         }
         
         // ... BIO PROTOCOLS ...
-        case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone take a sip!"; break;
-        case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser of this round finishes drink!"; break;
+        case 'HYDRATE': msg = "HYDRATE"; sub = "Loser Drinks Water!"; break;
+        case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser Finishes Drink!"; break;
         case 'PARTNER_DRINK': 
             const [b1, b2] = getTwoRandomPlayers();
             msg = "LINKED SYSTEMS"; sub = `${b1} & ${b2} are drinking buddies this round!`; 
