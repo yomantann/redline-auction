@@ -917,16 +917,55 @@ export default function Game() {
       addOverlay(overlayType, title, data.description, 0);
     };
 
+    const handleProtocolDetail = (data: {
+      protocol: string;
+      msg: string;
+      sub: string;
+      targetPlayerId: string | null;
+      targetPlayerId2?: string | null;
+    }) => {
+      const SOCIAL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+      const BIO_SET = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
+      
+      if (data.protocol === 'THE_MOLE' && data.targetPlayerId) {
+        setMoleTarget(data.targetPlayerId);
+      }
+      
+      if (!data.msg || data.msg === '') return;
+      
+      if (SOCIAL_SET.includes(data.protocol)) {
+        addOverlay("social_event", data.msg, data.sub);
+      } else if (BIO_SET.includes(data.protocol)) {
+        addOverlay("bio_event", data.msg, data.sub);
+      } else {
+        addOverlay("protocol_alert", data.msg, data.sub);
+      }
+    };
+
+    const handleProtocolReveal = (data: {
+      protocol: string;
+      msg: string;
+      sub: string;
+    }) => {
+      setTimeout(() => {
+        addOverlay("protocol_alert", data.msg, data.sub);
+      }, 1500);
+    };
+
     socket.on('lobby_update', handleLobbyUpdate);
     socket.on('game_started', handleGameStarted);
     socket.on('game_state', handleGameState);
     socket.on('reality_mode_ability', handleRealityModeAbility);
+    socket.on('protocol_detail', handleProtocolDetail);
+    socket.on('protocol_reveal', handleProtocolReveal);
 
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
       socket.off('game_started', handleGameStarted);
       socket.off('game_state', handleGameState);
       socket.off('reality_mode_ability', handleRealityModeAbility);
+      socket.off('protocol_detail', handleProtocolDetail);
+      socket.off('protocol_reveal', handleProtocolReveal);
     };
   }, [socket]);
 
@@ -1196,28 +1235,28 @@ export default function Game() {
       let sub = "";
       let showPopup = true;
       
+      // Protocols handled by targeted protocol_detail event (skip generic popup)
+      const detailHandled = ['THE_MOLE', 'OPEN_HAND', 'PRIVATE_CHANNEL', 'LOCK_ON', 'HUM_TUNE', 'PARTNER_DRINK'];
+      if (detailHandled.includes(mpProtocol)) {
+        showPopup = false;
+      }
+      
       switch(mpProtocol) {
         case 'DATA_BLACKOUT': msg = "DATA BLACKOUT"; sub = "Timers Hidden"; break;
         case 'DOUBLE_STAKES': msg = "HIGH STAKES"; sub = "Double Tokens for Winner"; break;
         case 'SYSTEM_FAILURE': msg = "SYSTEM FAILURE"; sub = "HUD Glitches & Timer Scramble"; break;
-        case 'OPEN_HAND': msg = "OPEN HAND"; sub = "Someone must declare no bid!"; break;
         case 'MUTE_PROTOCOL': msg = "MUTE PROTOCOL"; sub = "All players must remain silent!"; break;
-        case 'PRIVATE_CHANNEL': msg = "PRIVATE CHANNEL"; sub = "Two players discuss strategy!"; break;
         case 'NO_LOOK': msg = "BLIND BIDDING"; sub = "Do not look at screens until drop!"; break;
-        case 'THE_MOLE': msg = "SECRET PROTOCOL ACTIVE"; sub = "Someone has a hidden role..."; break;
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break;
         case 'TIME_TAX': showPopup = false; break;
         case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Social challenge this round!"; break;
         case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change positions now!"; break;
-        case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = "Someone must hum a song!"; break;
-        case 'LOCK_ON': msg = "LOCK ON"; sub = "Two players maintain eye contact!"; break;
         case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Stay silent to avoid penalty!"; break;
         case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone take a sip!"; break;
         case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser finishes their drink!"; break;
-        case 'PARTNER_DRINK': msg = "LINKED SYSTEMS"; sub = "Two players are drinking buddies!"; break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water only this round!"; break;
-        default: msg = "PROTOCOL ACTIVE"; sub = mpProtocol; break;
+        default: if (!detailHandled.includes(mpProtocol)) { msg = "PROTOCOL ACTIVE"; sub = mpProtocol; } break;
       }
       
       const SOCIAL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
@@ -1893,10 +1932,10 @@ export default function Game() {
         case 'TIME_TAX': showPopup = false; break; // Secret
         
         // ... SOCIAL PROTOCOLS ...
-        // Some show up at end of round - HIDDEN START OF ROUND per user request
-        case 'TRUTH_DARE': showPopup = false; break;
-        case 'SWITCH_SEATS': showPopup = false; break;
+        case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Social challenge this round!"; break;
+        case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change positions now!"; break;
         case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
+        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Stay silent to avoid penalty!"; break;
         case 'LOCK_ON': {
             const [lockA, lockB] = getTwoRandomPlayers();
             msg = "LOCK ON";
@@ -2837,18 +2876,6 @@ export default function Game() {
     if (!winnerId && participants.length === 0) {
        // Everyone zero bid / abandoned?
        addOverlay("zero_bid", "AFK", "No one dared to bid!");
-    }
-
-    // Protocol Post-Round Popups
-    if (activeProtocol === 'TRUTH_DARE' || activeProtocol === 'SWITCH_SEATS') {
-        // Override overlay to show protocol requirement
-        let msg = "";
-        let sub = "";
-        if (activeProtocol === 'TRUTH_DARE') { msg = "TRUTH OR DARE"; sub = "Winner: Ask. Loser: Do."; }
-        if (activeProtocol === 'SWITCH_SEATS') { msg = "SEAT SWAP"; sub = "Everyone move left!"; }
-        
-        // Priority over win popup
-        setTimeout(() => addOverlay("social_event", msg, sub), 500);
     }
 
     // SECRET PROTOCOL REVEALS (Underdog / Time Tax)

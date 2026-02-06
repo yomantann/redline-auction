@@ -279,6 +279,7 @@ function processRealityModeAbilities(game: GameState, winnerId: string | null, t
   game.players.forEach(player => {
     if (player.isEliminated || player.isBot) return;
     
+    if (!player.selectedDriver) return;
     const ability = config[player.selectedDriver];
     if (!ability || ability.timing !== timing) return;
     
@@ -1059,6 +1060,9 @@ function endRound(lobbyCode: string) {
     log(`TIME_TAX: -10s to all survivors in lobby ${game.lobbyCode}`, "game");
   }
   
+  // Emit secret protocol reveal overlays to clients (like SP)
+  emitSecretProtocolReveal(game);
+  
   // Process abilities before time deduction (allows for refunds)
   processAbilities(game, winnerId);
   
@@ -1225,25 +1229,170 @@ function endRound(lobbyCode: string) {
   });
 }
 
+// Helper: pick random non-eliminated, non-bot players
+function getRandomPlayer(game: GameState, excludeIds: string[] = []): GamePlayer | null {
+  const pool = game.players.filter(p => !p.isEliminated && !p.isBot && !excludeIds.includes(p.id));
+  return pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+
+function getTwoRandomPlayers(game: GameState): [GamePlayer | null, GamePlayer | null] {
+  const pool = game.players.filter(p => !p.isEliminated && !p.isBot);
+  if (pool.length < 2) return [pool[0] || null, null];
+  const shuffled = [...pool].sort(() => 0.5 - Math.random());
+  return [shuffled[0], shuffled[1]];
+}
+
+// Emit targeted protocol details to specific players (matching SP popup behavior)
+function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
+  if (!protocol || !emitToPlayer || !emitToLobby) return;
+  
+  const fireWallExclude = (p: GamePlayer) => p.selectedDriver === 'fine' && game.settings.abilitiesEnabled;
+  
+  switch (protocol) {
+    case 'THE_MOLE': {
+      if (game.molePlayerId) {
+        const mole = game.players.find(p => p.id === game.molePlayerId);
+        if (mole?.socketId) {
+          emitToPlayer(mole.socketId, 'protocol_detail', {
+            protocol: 'THE_MOLE',
+            msg: 'THE MOLE',
+            sub: "You are the Mole. Goal: push the time up, but try NOT to get 1st. If you DO win, you only lose a trophy if you win by MORE than 7.0s.",
+            targetPlayerId: mole.id,
+          });
+        }
+        game.players.filter(p => !p.isBot && !p.isEliminated && p.id !== game.molePlayerId).forEach(p => {
+          if (p.socketId && emitToPlayer) {
+            emitToPlayer(p.socketId, 'protocol_detail', {
+              protocol: 'THE_MOLE',
+              msg: 'SECRET PROTOCOL ACTIVE',
+              sub: '',
+              targetPlayerId: null,
+            });
+          }
+        });
+      }
+      break;
+    }
+    case 'OPEN_HAND': {
+      const target = getRandomPlayer(game, game.players.filter(fireWallExclude).map(p => p.id));
+      if (target) {
+        emitToLobby(game.lobbyCode, 'protocol_detail', {
+          protocol: 'OPEN_HAND',
+          msg: 'OPEN HAND',
+          sub: `${target.name} must state they won't bid!`,
+          targetPlayerId: target.id,
+        });
+      }
+      break;
+    }
+    case 'PRIVATE_CHANNEL': {
+      const [p1, p2] = getTwoRandomPlayers(game);
+      if (p1 && p2) {
+        emitToLobby(game.lobbyCode, 'protocol_detail', {
+          protocol: 'PRIVATE_CHANNEL',
+          msg: 'PRIVATE CHANNEL',
+          sub: `${p1.name} & ${p2.name} discuss strategy now!`,
+          targetPlayerId: p1.id,
+          targetPlayerId2: p2.id,
+        });
+      }
+      break;
+    }
+    case 'LOCK_ON': {
+      const [a, b] = getTwoRandomPlayers(game);
+      if (a && b) {
+        emitToLobby(game.lobbyCode, 'protocol_detail', {
+          protocol: 'LOCK_ON',
+          msg: 'LOCK ON',
+          sub: `${a.name} & ${b.name} must maintain eye contact!`,
+          targetPlayerId: a.id,
+          targetPlayerId2: b.id,
+        });
+      }
+      break;
+    }
+    case 'HUM_TUNE': {
+      const target = getRandomPlayer(game);
+      if (target) {
+        emitToLobby(game.lobbyCode, 'protocol_detail', {
+          protocol: 'HUM_TUNE',
+          msg: 'AUDIO SYNC',
+          sub: `${target.name} must hum a song (others guess)!`,
+          targetPlayerId: target.id,
+        });
+      }
+      break;
+    }
+    case 'PARTNER_DRINK': {
+      const [b1, b2] = getTwoRandomPlayers(game);
+      if (b1 && b2) {
+        emitToLobby(game.lobbyCode, 'protocol_detail', {
+          protocol: 'PARTNER_DRINK',
+          msg: 'LINKED SYSTEMS',
+          sub: `${b1.name} & ${b2.name} are drinking buddies this round!`,
+          targetPlayerId: b1.id,
+          targetPlayerId2: b2.id,
+        });
+      }
+      break;
+    }
+  }
+}
+
+// Emit secret protocol reveal overlays at end of round (matching SP behavior)
+function emitSecretProtocolReveal(game: GameState) {
+  if (!emitToLobby) return;
+  
+  if (game.activeProtocol === 'UNDERDOG_VICTORY') {
+    const minBid = getMinBidPenalty(game.settings.gameDuration);
+    const eligible = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid >= minBid && !(p.selectedDriver === 'fine' && game.settings.abilitiesEnabled));
+    eligible.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0));
+    
+    if (eligible.length > 0) {
+      emitToLobby(game.lobbyCode, 'protocol_reveal', {
+        protocol: 'UNDERDOG_VICTORY',
+        msg: 'SECRET REVEALED',
+        sub: `UNDERDOG VICTORY: ${eligible[0].name} (+1 Token)`,
+      });
+    } else {
+      emitToLobby(game.lobbyCode, 'protocol_reveal', {
+        protocol: 'UNDERDOG_VICTORY',
+        msg: 'SECRET REVEALED',
+        sub: 'UNDERDOG VICTORY (No eligible winner)',
+      });
+    }
+  }
+  
+  if (game.activeProtocol === 'TIME_TAX') {
+    emitToLobby(game.lobbyCode, 'protocol_reveal', {
+      protocol: 'TIME_TAX',
+      msg: 'SECRET REVEALED',
+      sub: 'TIME TAX: Everyone loses 10s!',
+    });
+  }
+}
+
 // Select a random protocol for the round based on variant and settings
 function selectProtocolForRound(game: GameState): ProtocolType {
   if (!game.settings.protocolsEnabled) return null;
   
-  // 50% chance of no protocol for variety
-  if (Math.random() < 0.5) return null;
+  // Trigger chance based on game pace (matches SP):
+  // SPEED (short): 50% | STANDARD (medium): 40% | MARATHON (long): 30%
+  const triggerChance = game.settings.gameDuration === 'short' ? 0.5 
+    : game.settings.gameDuration === 'long' ? 0.3 
+    : 0.4;
+  if (Math.random() >= triggerChance) return null;
   
   let protocolPool: ProtocolType[] = [];
   
+  // Standard protocols always available; reality mode adds its own pool (matches SP)
+  protocolPool = [...STANDARD_PROTOCOLS];
   switch (game.settings.variant) {
     case 'SOCIAL_OVERDRIVE':
-      protocolPool = [...SOCIAL_PROTOCOLS];
+      protocolPool = [...protocolPool, ...SOCIAL_PROTOCOLS];
       break;
     case 'BIO_FUEL':
-      protocolPool = [...BIO_PROTOCOLS];
-      break;
-    case 'STANDARD':
-    default:
-      protocolPool = [...STANDARD_PROTOCOLS];
+      protocolPool = [...protocolPool, ...BIO_PROTOCOLS];
       break;
   }
   
@@ -1303,6 +1452,9 @@ function startWaitingForReady(lobbyCode: string) {
     }
     
     log(`Protocol ${protocol} activated for round ${game.round} in lobby ${lobbyCode}`, "game");
+    
+    // Emit targeted protocol details to specific players (like SP)
+    emitProtocolDetails(game, protocol);
   }
   
   // Reset all player holding/bid status and ability tracking for new round
@@ -1649,7 +1801,7 @@ function broadcastGameState(lobbyCode: string) {
     eliminatedThisRound: game.eliminatedThisRound,
     gameLog: game.gameLog,
     activeProtocol: game.activeProtocol,
-    molePlayerId: game.molePlayerId, // Send mole assignment to clients
+    molePlayerId: null, // Mole identity sent via targeted protocol_detail event only
     settings: game.settings,
     allHumansHoldingStartTime: game.allHumansHoldingStartTime,
     gameDuration: game.gameDuration,
