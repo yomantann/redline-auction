@@ -496,7 +496,9 @@ function startBidding(lobbyCode: string) {
     const minBid = getMinBidPenalty(g.gameDuration);
     g.players.forEach(p => {
       if (p.isHolding && !p.isEliminated) {
-        p.currentBid = elapsed + minBid; // Bid starts at min bid value
+        const playerHasFireWall = p.selectedDriver === 'fine' && g.settings.abilitiesEnabled;
+        const playerElapsed = (playerHasFireWall && g.activeProtocol === 'PANIC_ROOM') ? rawElapsed : elapsed;
+        p.currentBid = playerElapsed + minBid; // Bid starts at min bid value
         
         // Auto-eliminate if bid exceeds remaining time
         if (p.currentBid >= p.remainingTime) {
@@ -817,8 +819,9 @@ function endRound(lobbyCode: string) {
     winnerId = winner.id;
     game.roundWinner = { id: winner.id, name: winner.name, bid: winner.currentBid || 0 };
     
-    // Award token(s) - double if DOUBLE_STAKES protocol is active
-    const tokensAwarded = game.isDoubleTokensRound ? 2 : 1;
+    // Award token(s) - double if DOUBLE_STAKES protocol is active (FIRE WALL immune)
+    const winnerHasFireWall = winner.selectedDriver === 'fine' && game.settings.abilitiesEnabled;
+    const tokensAwarded = (game.isDoubleTokensRound && !winnerHasFireWall) ? 2 : 1;
     winner.tokens += tokensAwarded;
     
     addGameLogEntry(game, {
@@ -839,9 +842,9 @@ function endRound(lobbyCode: string) {
   
   // Handle SECRET PROTOCOLS (UNDERDOG_VICTORY, TIME_TAX) - revealed at round end
   if (game.activeProtocol === 'UNDERDOG_VICTORY') {
-    // Find lowest bidder with valid bid (>= min bid) who is not eliminated
+    // Find lowest bidder with valid bid (>= min bid) who is not eliminated (FIRE WALL players excluded)
     const minBid = getMinBidPenalty(game.settings.gameDuration);
-    const eligible = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid >= minBid);
+    const eligible = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid >= minBid && !(p.selectedDriver === 'fine' && game.settings.abilitiesEnabled));
     eligible.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0));
     
     if (eligible.length > 0) {
@@ -859,9 +862,10 @@ function endRound(lobbyCode: string) {
   }
   
   if (game.activeProtocol === 'TIME_TAX') {
-    // Deduct 10s from all non-eliminated players (matches SP: FIRE WALL does NOT block secret protocols)
+    // Deduct 10s from all non-eliminated players (FIRE WALL players immune)
     game.players.forEach(p => {
-      if (!p.isEliminated && p.remainingTime > 0) {
+      const hasFireWall = p.selectedDriver === 'fine' && game.settings.abilitiesEnabled;
+      if (!p.isEliminated && p.remainingTime > 0 && !hasFireWall) {
         p.remainingTime = Math.max(0, p.remainingTime - 10);
         p.netImpact -= 10; // Track protocol impact
         if (p.remainingTime === 0) {
@@ -1111,8 +1115,8 @@ function startWaitingForReady(lobbyCode: string) {
       game.isDoubleTokensRound = true;
     }
     if (protocol === 'THE_MOLE') {
-      // Randomly select a non-eliminated player as the mole
-      const activePlayers = game.players.filter(p => !p.isEliminated && !p.isBot);
+      // Randomly select a non-eliminated player as the mole (FIRE WALL players excluded)
+      const activePlayers = game.players.filter(p => !p.isEliminated && !p.isBot && !(p.selectedDriver === 'fine' && game.settings.abilitiesEnabled));
       if (activePlayers.length > 0) {
         game.molePlayerId = activePlayers[Math.floor(Math.random() * activePlayers.length)].id;
       }

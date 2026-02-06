@@ -1310,9 +1310,10 @@ export default function Game() {
         if (startTimeRef.current === null) startTimeRef.current = time;
         
         // Calculate deltaTime based on speed (Panic Room = 2x)
-        // Panic Room doubles timer drain speed only (everyone).
+        // Panic Room doubles timer drain speed (FIRE WALL immune)
         const rawDelta = (time - startTimeRef.current) / 1000;
-        const multiplier = activeProtocol === 'PANIC_ROOM' ? 2 : 1;
+        const isFireWallImmune = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+        const multiplier = (activeProtocol === 'PANIC_ROOM' && !isFireWallImmune) ? 2 : 1;
         
         // FIX: Start at minimum bid time (penalty)
         const startOffset = getTimerStart(); 
@@ -1549,10 +1550,9 @@ export default function Game() {
           if (lastPeekRoundRef.current === currentRound) return;
           lastPeekRoundRef.current = currentRound;
           
-          // 30% chance to activate PEEK ability if player has one
+          // Activate PEEK ability every round if player has one (pick new random target each round)
           if (selectedCharacter?.ability?.effect === 'PEEK') {
-              const chance = Math.random();
-              const activated = chance > 0.7; // 30% chance
+              const activated = true;
               setPeekActive(activated);
               if (activated) {
                   toast({
@@ -1596,8 +1596,8 @@ export default function Game() {
 
   // Low Flame Immunity Popup Check
   useEffect(() => {
-    if (activeProtocol && activeProtocol !== 'THE_MOLE' && selectedCharacter?.id === 'fine') {
-        addOverlay("ability_trigger", "FIRE WALL ACTIVE", "Immune to active protocol effects!", 3000);
+    if (activeProtocol && selectedCharacter?.id === 'fine' && abilitiesEnabled) {
+        addOverlay("ability_trigger", "FIRE WALL ACTIVE", "Immune to ALL protocol effects!", 3000);
     }
   }, [activeProtocol, selectedCharacter?.id]);
 
@@ -1851,7 +1851,9 @@ export default function Game() {
             break;
         case 'NO_LOOK': msg = "BLIND BIDDING"; sub = "Do not look at screens until drop!"; break;
         case 'THE_MOLE':
-          const target = Math.random() > 0.5 ? 'YOU' : getRandomPlayer();
+          // FIRE WALL: fine driver can never be the mole
+          const fireWallActive = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+          const target = fireWallActive ? getRandomPlayer() : (Math.random() > 0.5 ? 'YOU' : getRandomPlayer());
           const targetId = target === 'YOU' ? 'p1' : players.find(p => p.name === target)?.id || null;
           setMoleTarget(targetId);
           msg = target === 'YOU' ? "THE MOLE" : "SECRET PROTOCOL ACTIVE";
@@ -1890,7 +1892,7 @@ export default function Game() {
 
       // LOW FLAME IMMUNITY CHECK (Fire Wall)
       const isLowFlame = selectedCharacter?.id === 'fine';
-      const isImmune = isLowFlame && abilitiesEnabled && newProtocol !== 'THE_MOLE' && newProtocol !== 'UNDERDOG_VICTORY' && newProtocol !== 'TIME_TAX'; // Passive immunity (except secrets/role)
+      const isImmune = isLowFlame && abilitiesEnabled; // FIRE WALL: Immune to ALL protocol effects
 
       if (newProtocol && targetProtocols.includes(newProtocol)) {
          showPopup = false;
@@ -2333,7 +2335,8 @@ export default function Game() {
 
         if (p.id === winnerId) {
              let tokensToAdd = 1;
-             if (activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') {
+             const winnerIsFireWall = p.id === 'p1' && selectedCharacter?.id === 'fine' && abilitiesEnabled;
+             if ((activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') && !winnerIsFireWall) {
                 tokensToAdd = 2;
                 extraLogs.push(`>> HIGH STAKES: ${p.name} won ${tokensToAdd} trophies!`);
             }
@@ -2807,9 +2810,10 @@ export default function Game() {
 
     // SECRET PROTOCOL REVEALS (Underdog / Time Tax)
     if (activeProtocol === 'UNDERDOG_VICTORY') {
-        // Find lowest bidder > min bid and not eliminated
+        // Find lowest bidder > min bid and not eliminated (FIRE WALL players excluded)
         const minBid = MIN_BID;
-        const eligible = finalPlayers.filter(p => !p.isEliminated && (p.currentBid || 0) >= minBid);
+        const isFireWall = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+        const eligible = finalPlayers.filter(p => !p.isEliminated && (p.currentBid || 0) >= minBid && !(p.id === 'p1' && isFireWall));
         eligible.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0)); // Ascending
         
         if (eligible.length > 0) {
@@ -2837,10 +2841,12 @@ export default function Game() {
     }
 
     if (activeProtocol === 'TIME_TAX') {
-        // Deduct 10s from everyone not eliminated
+        // Deduct 10s from everyone not eliminated (FIRE WALL players immune)
+        const isFireWallPlayer = selectedCharacter?.id === 'fine' && abilitiesEnabled;
         let hitList: string[] = [];
         finalPlayers.forEach(p => {
-            if (!p.isEliminated && p.remainingTime > 0) {
+            const isFireWallImmune = p.id === 'p1' && isFireWallPlayer;
+            if (!p.isEliminated && p.remainingTime > 0 && !isFireWallImmune) {
                 p.remainingTime = Math.max(0, p.remainingTime - 10.0);
                 p.roundImpact = (p.roundImpact || "") + " -10.0s (Time Tax)";
                 if (p.impactLogs) p.impactLogs.push({ value: "-10.0s", reason: "Time Tax", type: 'loss' });
