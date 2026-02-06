@@ -484,7 +484,7 @@ export default function Game() {
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
   const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
   const [showPopupLibrary, setShowPopupLibrary] = useState(false);
-  const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string }[]>([]);
+  const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string, visibility?: string }[]>([]);
   
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<Player | null>(null);
 
@@ -902,14 +902,31 @@ export default function Game() {
       }
     };
 
+    const handleRealityModeAbility = (data: {
+      driverName: string;
+      driverId: string;
+      abilityName: string;
+      description: string;
+      type: 'social' | 'bio';
+      targetId: string | null;
+      targetName: string | null;
+      visibility: string;
+    }) => {
+      const overlayType: OverlayType = data.type === 'bio' ? 'bio_event' : 'social_event';
+      const title = `${data.driverName}: ${data.abilityName}`;
+      addOverlay(overlayType, title, data.description, 0);
+    };
+
     socket.on('lobby_update', handleLobbyUpdate);
     socket.on('game_started', handleGameStarted);
     socket.on('game_state', handleGameState);
+    socket.on('reality_mode_ability', handleRealityModeAbility);
 
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
       socket.off('game_started', handleGameStarted);
       socket.off('game_state', handleGameState);
+      socket.off('reality_mode_ability', handleRealityModeAbility);
     };
   }, [socket]);
 
@@ -1949,8 +1966,8 @@ export default function Game() {
              }, 100); 
         }
         
-        // WINTER: COLD SHOULDER (Social)
-        if (selectedChar.id === 'winter' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.25) {
+        // WINTER: COLD SHOULDER (Social) - 50% chance, driver only, start of round
+        if (selectedChar.id === 'winter' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.50) {
              setTimeout(() => {
                  addOverlay("social_event", "COLD SHOULDER", "Ignore all social interactions this round.", 0);
              }, 200);
@@ -2533,184 +2550,194 @@ export default function Game() {
         let abilityName = "";
         let abilityDesc = "";
         let specificTargetId: string | undefined = undefined;
+        let visibility: 'driver_only' | 'target_only' | 'driver_and_target' | 'all' = 'all';
 
         // BIO-FUEL LOGIC
         if (variant === 'BIO_FUEL' && char.bioAbility) {
             const bName = char.bioAbility.name;
-            const bDesc = char.bioAbility.description;
             const roll = Math.random();
+            const pickTarget = () => {
+                const targets = finalPlayers.filter(fp => fp.id !== p.id && !fp.isEliminated);
+                if (targets.length > 0) { const t = targets[Math.floor(Math.random() * targets.length)]; specificTargetId = t.id; return t; }
+                return null;
+            };
 
-            // SADMAN LOGIC: "DRINKING PARTNER" (Every Round)
             if (bName === 'DRINKING PARTNER') {
-                if (p.id === 'p1') {
-                    triggered = true; abilityName = bName; abilityDesc = "Sadman Logic: Drinking Partner: \"You can change your drinking partner\"";
-                }
+                triggered = true; abilityName = bName; abilityDesc = "You can change your drinking partner";
+                visibility = 'driver_only';
             }
-            // TANK: "ABSORB" (Passive/Reaction) - NO POPUP
-            // DANGER ZONE: "CHAIN REACTION" (On Drink Finish) - NO POPUP
-            
-            // IDOL CORE: "DEBUT" (On Drink - 20% chance)
             else if (bName === 'DEBUT' && roll < 0.2) {
                 triggered = true; abilityName = bName; abilityDesc = "Take a drink to reveal a secret!";
+                visibility = 'driver_only';
             }
-            // PROM KING: "CORONATION" (Group Toast - 10% chance)
             else if (bName === 'CORONATION' && roll < 0.1) {
                 triggered = true; abilityName = bName; abilityDesc = "Initiate Group Toast!";
+                visibility = 'all';
             }
-            // GUARDIAN H: "LIQUID AUTHORIZATION" (End of Round - Always Active)
-            // Removed pop() here as it is handled by newAbilities + generic popup
             else if (bName === 'LIQUID AUTHORIZATION') {
-                 triggered = true; abilityName = bName; abilityDesc = "Guardian H: Liquid Authorization: \"You cannot release your button next round until guardian finishes their sip\"";
+                triggered = true; abilityName = bName; abilityDesc = "You cannot release your button next round until guardian finishes their sip";
+                visibility = 'all';
             }
-            // CLICK-CLICK: "MOUTH POP" (1 Random Round - 10%)
             else if (bName === 'MOUTH POP' && roll < 0.1) {
-                 triggered = true; abilityName = bName; abilityDesc = "Pop mouth! Everyone sips!";
+                triggered = true; abilityName = bName; abilityDesc = "Pop mouth! Everyone sips!";
+                visibility = 'all';
             }
-            // FROSTBYTE: "BRAIN FREEZE" (1 Random Round - 10%)
             else if (bName === 'BRAIN FREEZE') {
-                 // Logic: Only 1 round per game
-                 if (!frostbyteAbilityUsed && roll < 0.1) {
-                     setFrostbyteAbilityUsed(true);
-                     // Show ONLY to Driver (p1) or if p1 is target (but here p1 is driver in this check)
-                     if (p.id === 'p1') {
-                         triggered = true; abilityName = bName; abilityDesc = "Force opponent to Win or Drink!";
-                     }
-                 }
+                if (!frostbyteAbilityUsed && roll < 0.1) {
+                    setFrostbyteAbilityUsed(true);
+                    const t = pickTarget();
+                    if (t) {
+                        triggered = true; abilityName = bName; abilityDesc = `Force ${t.name} to Win or Drink!`;
+                        visibility = 'driver_and_target';
+                    }
+                }
             }
-            // RAINBOW DASH: "RAINBOW SHOT" (10% chance)
             else if (bName === 'RAINBOW SHOT' && roll < 0.1) {
-                 triggered = true; abilityName = bName; abilityDesc = "Mix two drinks!";
+                const t = pickTarget();
+                if (t) {
+                    triggered = true; abilityName = bName; abilityDesc = `${t.name} mixes two drinks!`;
+                    visibility = 'all';
+                }
             }
-            // THE ACCUSER: "SPILL HAZARD" (25% chance)
             else if (bName === 'SPILL HAZARD' && roll < 0.25) {
-                 triggered = true; abilityName = bName; abilityDesc = "Accuse someone of spilling!";
+                triggered = true; abilityName = bName; abilityDesc = "Accuse someone of spilling!";
+                visibility = 'driver_only';
             }
-            // LOW FLAME: "ON FIRE" (When Winner)
             else if (bName === 'ON FIRE' && p.id === winnerId) {
-                 triggered = true; abilityName = bName; abilityDesc = "Everyone else drinks!";
+                triggered = true; abilityName = bName; abilityDesc = "Everyone else drinks!";
+                visibility = 'all';
             }
-            // WANDERING EYE: "THE EX" (10% chance)
             else if (bName === 'THE EX' && roll < 0.1) {
-                 triggered = true; abilityName = bName; abilityDesc = "Toast to an ex!";
+                const t = pickTarget();
+                if (t) {
+                    triggered = true; abilityName = bName; abilityDesc = "Toast to an ex!";
+                    visibility = 'target_only';
+                }
             }
-            // THE RIND: "SCAVENGE" (5% chance)
             else if (bName === 'SCAVENGE' && roll < 0.05) {
-                 const targets = finalPlayers.filter(fp => fp.id !== p.id && !fp.isEliminated);
-                 if (targets.length > 0) {
-                     const t = targets[Math.floor(Math.random() * targets.length)];
-                     specificTargetId = t.id;
-                     triggered = true; abilityName = bName; abilityDesc = "The Rind: Scavenge: \"You must finish someone elses drink\"";
-                 }
+                const t = pickTarget();
+                if (t) {
+                    triggered = true; abilityName = bName; abilityDesc = "You must finish someone else's drink!";
+                    visibility = 'target_only';
+                }
             }
-            // THE ANOINTED: "ROYAL CUP" (1 Random Round - 5% end)
             else if (bName === 'ROYAL CUP' && roll < 0.05) {
-                 triggered = true; abilityName = bName; abilityDesc = "Make a rule for the game!";
+                triggered = true; abilityName = bName; abilityDesc = "Make a rule for the game!";
+                visibility = 'all';
             }
-            // EXECUTIVE P: "REASSIGNED" (50% chance)
             else if (bName === 'REASSIGNED' && roll < 0.5) {
-                 triggered = true; abilityName = bName; abilityDesc = "Choose 1 player to drink!";
+                triggered = true; abilityName = bName; abilityDesc = "Choose 1 player to drink!";
+                visibility = 'all';
             }
-            // ALPHA PRIME: "PACE SETTER" (Every 3 rounds)
             else if (bName === 'PACE SETTER' && round % 3 === 0) {
-                 triggered = true; abilityName = bName; abilityDesc = "Alpha Prime: Pace Setter: \"Start a Waterfall!\"";
+                triggered = true; abilityName = bName; abilityDesc = "Start a Waterfall!";
+                visibility = 'all';
             }
-            // ROLL SAFE: "BIG BRAIN" (05% chance)
             else if (bName === 'BIG BRAIN' && roll < 0.05) {
-                 triggered = true; abilityName = bName; abilityDesc = "Pass drink to the left?";
+                triggered = true; abilityName = bName; abilityDesc = "Pass drink to the left?";
+                visibility = 'all';
             }
-            // HOTWIRED: "SPICY" (20% chance)
             else if (bName === 'SPICY' && roll < 0.2) {
-                 triggered = true; abilityName = bName; abilityDesc = "Everyone drinks!";
+                triggered = true; abilityName = bName; abilityDesc = "Everyone drinks!";
+                visibility = 'all';
             }
-            // PANIC BOT: "EMERGENCY MEETING" (25% chance)
             else if (bName === 'EMERGENCY MEETING' && roll < 0.25) {
-                 triggered = true; abilityName = bName; abilityDesc = "Gang up on someone!";
+                triggered = true; abilityName = bName; abilityDesc = "Gang up on someone!";
+                visibility = 'all';
             }
-            // PRIMATE PRIME: "GREEDY GRAB" (5% chance)
             else if (bName === 'GREEDY GRAB' && roll < 0.05) {
-                 triggered = true; abilityName = bName; abilityDesc = "Winner burns 40s or drinks!";
+                triggered = true; abilityName = bName; abilityDesc = "Winner burns 40s or drinks!";
+                visibility = 'all';
             }
-            // PAIN HIDER: "SUPPRESS" - NO POPUP
-            // TANK: "IRON STOMACH" - NO POPUP
-            // DANGER ZONE: "OVERPOUR" - NO POPUP
         }
         
         // SOCIAL OVERDRIVE LOGIC
         else if (variant === 'SOCIAL_OVERDRIVE' && char.socialAbility) {
             const sName = char.socialAbility.name;
             const roll = Math.random();
+            const pickTarget = () => {
+                const targets = finalPlayers.filter(fp => fp.id !== p.id && !fp.isEliminated);
+                if (targets.length > 0) { const t = targets[Math.floor(Math.random() * targets.length)]; specificTargetId = t.id; return t; }
+                return null;
+            };
 
-            // PROM KING: "PROM COURT" (1 Random Round - 10%)
             if (sName === 'PROM COURT' && roll < 0.1) {
                 triggered = true; abilityName = sName; abilityDesc = "Make a rule for the game!";
+                visibility = 'all';
             }
-            // IDOL CORE: "FANCAM" (10% chance)
             else if (sName === 'FANCAM' && roll < 0.1) {
-                triggered = true; abilityName = sName; abilityDesc = "Show talent or drop button!";
+                const t = pickTarget();
+                triggered = true; abilityName = sName; abilityDesc = t ? `${t.name} shows hidden talent or drops button!` : "Show talent or drop button!";
+                visibility = 'all';
             }
-            // TANK: "PEOPLE'S ELBOW" (Every round chance - 30%)
             else if (sName === 'PEOPLE\'S ELBOW' && roll < 0.3) {
                 triggered = true; abilityName = sName; abilityDesc = "Challenge to thumb war!";
+                visibility = 'all';
             }
-            // DANGER ZONE: "PRIVATE DANCE" (Every round chance - 30%)
             else if (sName === 'PRIVATE DANCE' && roll < 0.3) {
                 triggered = true; abilityName = sName; abilityDesc = "Give a command!";
+                visibility = 'all';
             }
-            // GUARDIAN H: "VIBE GUARD" (Start of round - maybe late trigger here for next)
-            // CLICK-CLICK: "MISCLICK" (25% chance)
             else if (sName === 'MISCLICK' && roll < 0.25) {
-                 triggered = true; abilityName = sName; abilityDesc = "Hold without hands!";
+                const t = pickTarget();
+                if (t) {
+                    triggered = true; abilityName = sName; abilityDesc = `${t.name} must hold bid without using hands!`;
+                    visibility = 'driver_and_target';
+                }
             }
-            // FROSTBYTE: "COLD SHOULDER" (50% chance)
-            else if (sName === 'COLD SHOULDER' && roll < 0.50) {
-                 triggered = true; abilityName = sName; abilityDesc = "Ignore social interactions!";
-            }
-            // SADMAN LOGIC: "SAD STORY" (5% chance)
             else if (sName === 'SAD STORY' && roll < 0.05) {
-                 triggered = true; abilityName = sName; abilityDesc = "Share a sad story.";
+                const t = pickTarget();
+                if (t) {
+                    triggered = true; abilityName = sName; abilityDesc = "Share a sad story.";
+                    visibility = 'target_only';
+                }
             }
-            // RAINBOW DASH: "SUGAR RUSH" (15% chance)
             else if (sName === 'SUGAR RUSH' && roll < 0.15) {
-                 triggered = true; abilityName = sName; abilityDesc = "Speak 2x speed!";
+                const t = pickTarget();
+                triggered = true; abilityName = sName; abilityDesc = t ? `${t.name} must speak 2x speed!` : "Speak 2x speed!";
+                visibility = 'all';
             }
-            // THE ACCUSER: "COMPLAINT" (15% chance)
             else if (sName === 'COMPLAINT' && roll < 0.15) {
-                 triggered = true; abilityName = sName; abilityDesc = "Vote on winner's punishment!";
+                triggered = true; abilityName = sName; abilityDesc = "Vote on winner's punishment!";
+                visibility = 'all';
             }
-            // LOW FLAME: "HOT SEAT" (25% chance)
             else if (sName === 'HOT SEAT' && roll < 0.25) {
-                 triggered = true; abilityName = sName; abilityDesc = "Choose player to answer Truth!";
+                triggered = true; abilityName = sName; abilityDesc = "Choose a player to answer a truth!";
+                visibility = 'driver_only';
             }
-            // WANDERING EYE: "DISTRACTION" (Start of round - maybe late reminder)
-            // THE RIND: "SNITCH" (5% chance)
             else if (sName === 'SNITCH' && roll < 0.05) {
-                 triggered = true; abilityName = sName; abilityDesc = "Reveal someone's tell!";
+                const t = pickTarget();
+                if (t) {
+                    triggered = true; abilityName = sName; abilityDesc = "Reveal someone's tell!";
+                    visibility = 'target_only';
+                }
             }
-            // THE ANOINTED: "COMMAND SILENCE" (50% chance)
             else if (sName === 'COMMAND SILENCE' && roll < 0.5) {
-                 triggered = true; abilityName = sName; abilityDesc = "Command silence!";
+                triggered = true; abilityName = sName; abilityDesc = "Command silence!";
+                visibility = 'all';
             }
-            // EXECUTIVE P: "CC'D" (20% chance)
             else if (sName === 'CC\'D' && roll < 0.2) {
-                 triggered = true; abilityName = sName; abilityDesc = "Player copies you next round!";
+                const t = pickTarget();
+                if (t) {
+                    triggered = true; abilityName = sName; abilityDesc = `${t.name} must copy your actions next round!`;
+                    visibility = 'driver_and_target';
+                }
             }
-            // ALPHA PRIME: "MOG" (10% chance)
             else if (sName === 'MOG' && roll < 0.1) {
-                 triggered = true; abilityName = sName; abilityDesc = "10 pushups or ff next round";
+                const t = pickTarget();
+                if (t) {
+                    triggered = true; abilityName = sName; abilityDesc = `${t.name}: 10 pushups or ff next round`;
+                    visibility = 'driver_and_target';
+                }
             }
-            // ROLL SAFE: "TECHNICALLY" - NO POPUP
-            
-            // HOTWIRED: "VIRAL MOMENT" (Random round - 10%)
             else if (sName === 'VIRAL MOMENT' && roll < 0.1) {
-                 triggered = true; abilityName = sName; abilityDesc = "Re-enact a meme!";
+                triggered = true; abilityName = sName; abilityDesc = "Re-enact a meme!";
+                visibility = 'all';
             }
-            // PANIC BOT: "SWEATING" - NO POPUP (Description updated, but silent trigger)
-            // "For sweating on panic bot, please take out the they drink verbiage since this is social game type not drinking."
-            // "For ... sweating ... no popup trigger is necessary at any point."
-            
-            // PRIMATE PRIME: "FRESH CUT" (10% chance)
             else if (sName === 'FRESH CUT' && roll < 0.1) {
-                 triggered = true; abilityName = sName; abilityDesc = "Compliment everyone! You look great today.";
+                const t = pickTarget();
+                triggered = true; abilityName = sName; abilityDesc = t ? `${t.name} must compliment everyone!` : "Compliment everyone!";
+                visibility = 'all';
             }
         }
 
@@ -2718,7 +2745,8 @@ export default function Game() {
             newAbilities.push({
                 player: p.name, playerId: p.id, ability: abilityName, effect: variant === 'BIO_FUEL' ? 'BIO_TRIGGER' : 'SOCIAL_TRIGGER', 
                 impactValue: abilityDesc,
-                targetId: specificTargetId
+                targetId: specificTargetId,
+                visibility: visibility
             });
         }
     });
@@ -2952,25 +2980,31 @@ export default function Game() {
                let variant: "default" | "destructive" | null = "default"; // blue/normal
                let className = "text-xl py-6 px-8 border-2 shadow-xl"; // Default larger styles
 
-               // Case 1: I cast it OR I am the target (Consistent Popups)
-               if (ability.playerId === 'p1') {
+               // REALITY MODE ABILITIES: Use visibility-based filtering
+               if (ability.effect === 'BIO_TRIGGER' || ability.effect === 'SOCIAL_TRIGGER') {
+                   const vis = ability.visibility || 'all';
+                   if (vis === 'all') show = true;
+                   else if (vis === 'driver_only' && ability.playerId === 'p1') show = true;
+                   else if (vis === 'target_only' && ability.targetId === 'p1') show = true;
+                   else if (vis === 'driver_and_target' && (ability.playerId === 'p1' || ability.targetId === 'p1')) show = true;
+
+                   if (show) {
+                       title = `${ability.player}: ${ability.ability}`;
+                       desc = `"${ability.impactValue}"`;
+                       if (ability.effect === 'BIO_TRIGGER') {
+                           className += " bg-orange-950 border-orange-500 text-orange-100";
+                       } else {
+                           className += " bg-purple-950 border-purple-500 text-purple-100";
+                       }
+                   }
+               }
+               // STANDARD ABILITIES: I cast it
+               else if (ability.playerId === 'p1') {
                    show = true;
                    if (ability.targetName) {
                        desc += ` on ${ability.targetName}`;
                    }
-                   
-                   // SELF-TRIGGER REALITY MODE FORMAT FIX
-                   if (ability.effect === 'BIO_TRIGGER' || ability.effect === 'SOCIAL_TRIGGER') {
-                        // For SELF, we want same format: "Driver: Ability Name" | "Description"
-                        title = `${ability.player}: ${ability.ability}`;
-                        desc = `"${ability.impactValue}"`; // Use the flavor text
-                        
-                        if (ability.effect === 'BIO_TRIGGER') {
-                            className += " bg-orange-950 border-orange-500 text-orange-100";
-                        } else {
-                            className += " bg-purple-950 border-purple-500 text-purple-100";
-                        }
-                   } else if (ability.effect === 'TIME_REFUND') {
+                   if (ability.effect === 'TIME_REFUND') {
                         desc += " (+TIME)";
                         className += " bg-emerald-950 border-emerald-500 text-emerald-100";
                    } else if (ability.effect === 'TOKEN_BOOST') {
@@ -2980,15 +3014,14 @@ export default function Game() {
                         className += " bg-blue-950 border-blue-500 text-blue-100";
                    }
                } 
-               // Case 2: I was hit
+               // STANDARD: I was hit
                else if (ability.targetId === 'p1') {
                    show = true;
                    title = `⚠️ WARNING: ${ability.player}`;
                    desc = `${ability.ability} HIT YOU! (-TIME)`;
-                   // variant = "destructive"; // User requested non-destructive style for "Reality Mode" (assumed to be this)
                    className += " bg-blue-950 border-blue-500 text-blue-100";
                } 
-               // Case 3: Global effect hitting everyone (including me)
+               // STANDARD: Global effect hitting everyone
                else if (ability.targetName === 'ALL OPPONENTS') {
                    show = true;
                    title = `⚠️ GLOBAL THREAT: ${ability.player}`;
@@ -2996,27 +3029,12 @@ export default function Game() {
                    variant = "destructive";
                    className += " bg-orange-950 border-orange-500 text-orange-100";
                }
-               // Case 4: Special Notification for Click-Click winning 2 tokens
+               // STANDARD: HYPER CLICK special
                else if (ability.ability === 'HYPER CLICK' && ability.effect === 'TOKEN_BOOST' && newAbilities.some(a => a.playerId === 'p1')) {
                    show = true;
                    title = `${ability.player} BONUS!`;
                    desc = "HYPER CLICK AWARDED +1 TOKEN!";
                    className += " bg-purple-950 border-purple-500 text-purple-100";
-               }
-               // Case 5: BIO/SOCIAL Trigger for others (Visible Event)
-               else if (ability.effect === 'BIO_TRIGGER' || ability.effect === 'SOCIAL_TRIGGER') {
-                   show = true;
-                   title = `${ability.player}: ${ability.ability}`; // Strict Format: Driver: Ability Name
-                   // CRITICAL: Use the impactValue (description) as the main text
-                   // Strict Format: "Description"
-                   desc = `"${ability.impactValue}"`;
-                   
-                   // Specific coloring for visibility
-                   if (ability.effect === 'BIO_TRIGGER') {
-                       className += " bg-orange-950 border-orange-500 text-orange-100";
-                   } else {
-                       className += " bg-purple-950 border-purple-500 text-purple-100";
-                   }
                }
 
                if (show) {

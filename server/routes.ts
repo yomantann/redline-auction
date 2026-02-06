@@ -13,6 +13,7 @@ import {
   removePlayerFromGame,
   cleanupGame,
   setEmitCallback,
+  setEmitToPlayerCallback,
   selectDriverInGame,
   confirmDriverInGame,
   type GameDuration
@@ -144,9 +145,12 @@ export async function registerRoutes(
     }
   });
 
-  // Set up game engine emit callback
+  // Set up game engine emit callbacks
   setEmitCallback((lobbyCode: string, event: string, data: any) => {
     io.to(lobbyCode).emit(event, data);
+  });
+  setEmitToPlayerCallback((socketId: string, event: string, data: any) => {
+    io.to(socketId).emit(event, data);
   });
 
   // Socket.IO connection handling

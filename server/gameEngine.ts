@@ -193,12 +193,176 @@ export interface GameState {
 const activeGames = new Map<string, GameState>();
 const gameIntervals = new Map<string, NodeJS.Timeout>();
 
-// Event emitter callback type
+// Event emitter callback types
 type EmitCallback = (lobbyCode: string, event: string, data: any) => void;
+type EmitToPlayerCallback = (socketId: string, event: string, data: any) => void;
 let emitToLobby: EmitCallback | null = null;
+let emitToPlayer: EmitToPlayerCallback | null = null;
 
 export function setEmitCallback(callback: EmitCallback) {
   emitToLobby = callback;
+}
+
+export function setEmitToPlayerCallback(callback: EmitToPlayerCallback) {
+  emitToPlayer = callback;
+}
+
+// Reality Mode Ability Definitions
+interface RealityAbilityConfig {
+  name: string;
+  triggerChance: number;
+  triggerType: 'random' | 'always' | 'on_win' | 'every_3_rounds' | 'once_per_game';
+  visibility: 'driver_only' | 'target_only' | 'driver_and_target' | 'all';
+  needsTarget: boolean;
+  description: string;
+  timing: 'start' | 'end';
+}
+
+const SOCIAL_ABILITY_CONFIG: Record<string, RealityAbilityConfig | null> = {
+  'promking': { name: 'PROM COURT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Make a rule for the game!', timing: 'end' },
+  'idolcore': { name: 'FANCAM', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'Show talent or drop button!', timing: 'end' },
+  'tank': { name: "PEOPLE'S ELBOW", triggerChance: 0.3, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Challenge to thumb war!', timing: 'end' },
+  'dangerzone': { name: 'PRIVATE DANCE', triggerChance: 0.3, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Give a command!', timing: 'end' },
+  'harambe': { name: 'VIBE GUARD', triggerChance: 1.0, triggerType: 'always', visibility: 'driver_only', needsTarget: false, description: 'Designate a player immune to social dares this round.', timing: 'start' },
+  'clickclick': { name: 'MISCLICK', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'Hold bid without using hands!', timing: 'end' },
+  'winter': { name: 'COLD SHOULDER', triggerChance: 0.5, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Ignore all social interactions this round.', timing: 'start' },
+  'pepe': { name: 'SAD STORY', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: 'Share a sad story.', timing: 'end' },
+  'rainbow': { name: 'SUGAR RUSH', triggerChance: 0.15, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'Speak 2x speed!', timing: 'end' },
+  'accuser': { name: 'COMPLAINT', triggerChance: 0.15, triggerType: 'random', visibility: 'all', needsTarget: false, description: "Vote on winner's punishment!", timing: 'end' },
+  'fine': { name: 'HOT SEAT', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Choose a player to answer a truth!', timing: 'end' },
+  'bf': { name: 'DISTRACTION', triggerChance: 0.35, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Point at something! Anyone who looks must drop buzzer.', timing: 'start' },
+  'rind': { name: 'SNITCH', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: "Reveal someone's tell!", timing: 'end' },
+  'anointed': { name: 'COMMAND SILENCE', triggerChance: 0.5, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Command silence!', timing: 'end' },
+  'sigma': { name: "CC'D", triggerChance: 0.2, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'Copy actions next round!', timing: 'end' },
+  'gigachad': { name: 'MOG', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: '10 pushups or ff next round', timing: 'end' },
+  'thinker': null,
+  'disaster': { name: 'VIRAL MOMENT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Re-enact a meme!', timing: 'end' },
+  'panicbot': null,
+  'primate': { name: 'FRESH CUT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'Compliment everyone!', timing: 'end' },
+  'harold': null,
+};
+
+const BIO_ABILITY_CONFIG: Record<string, RealityAbilityConfig | null> = {
+  'promking': { name: 'CORONATION', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Initiate Group Toast!', timing: 'end' },
+  'idolcore': { name: 'DEBUT', triggerChance: 0.2, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Take a drink to reveal a secret!', timing: 'end' },
+  'tank': null,
+  'dangerzone': null,
+  'harambe': { name: 'LIQUID AUTHORIZATION', triggerChance: 1.0, triggerType: 'always', visibility: 'all', needsTarget: false, description: 'Cannot release button until guardian finishes sip', timing: 'end' },
+  'clickclick': { name: 'MOUTH POP', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Pop mouth! Everyone sips!', timing: 'end' },
+  'winter': { name: 'BRAIN FREEZE', triggerChance: 0.1, triggerType: 'once_per_game', visibility: 'driver_and_target', needsTarget: true, description: 'Force opponent to Win or Drink!', timing: 'end' },
+  'pepe': { name: 'DRINKING PARTNER', triggerChance: 1.0, triggerType: 'always', visibility: 'driver_only', needsTarget: false, description: 'You can change your drinking partner', timing: 'end' },
+  'rainbow': { name: 'RAINBOW SHOT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'Mix two drinks!', timing: 'end' },
+  'accuser': { name: 'SPILL HAZARD', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Accuse someone of spilling!', timing: 'end' },
+  'fine': { name: 'ON FIRE', triggerChance: 1.0, triggerType: 'on_win', visibility: 'all', needsTarget: false, description: 'Everyone else drinks!', timing: 'end' },
+  'bf': { name: 'THE EX', triggerChance: 0.1, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: 'Toast to an ex!', timing: 'end' },
+  'rind': { name: 'SCAVENGE', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: "Finish someone else's drink!", timing: 'end' },
+  'anointed': { name: 'ROYAL CUP', triggerChance: 0.05, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Make a rule for the game!', timing: 'end' },
+  'sigma': { name: 'REASSIGNED', triggerChance: 0.5, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Choose 1 player to drink!', timing: 'end' },
+  'gigachad': { name: 'PACE SETTER', triggerChance: 1.0, triggerType: 'every_3_rounds', visibility: 'all', needsTarget: false, description: 'Start a Waterfall!', timing: 'end' },
+  'thinker': { name: 'BIG BRAIN', triggerChance: 0.05, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Pass drink to the left?', timing: 'end' },
+  'disaster': { name: 'SPICY', triggerChance: 0.2, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Everyone drinks!', timing: 'end' },
+  'panicbot': { name: 'EMERGENCY MEETING', triggerChance: 0.25, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Gang up on someone!', timing: 'end' },
+  'primate': { name: 'GREEDY GRAB', triggerChance: 0.05, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Winner burns 40s or drinks!', timing: 'end' },
+  'harold': null,
+};
+
+// Track once-per-game abilities per lobby
+const usedOnceAbilities = new Map<string, Set<string>>();
+
+function processRealityModeAbilities(game: GameState, winnerId: string | null, timing: 'start' | 'end') {
+  const variant = game.settings.variant;
+  if (variant === 'STANDARD') return;
+  
+  const config = variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_ABILITY_CONFIG : BIO_ABILITY_CONFIG;
+  const abilityType = variant === 'SOCIAL_OVERDRIVE' ? 'social' : 'bio';
+  
+  game.players.forEach(player => {
+    if (player.isEliminated || player.isBot) return;
+    
+    const ability = config[player.selectedDriver];
+    if (!ability || ability.timing !== timing) return;
+    
+    let triggered = false;
+    switch (ability.triggerType) {
+      case 'random':
+        triggered = Math.random() < ability.triggerChance;
+        break;
+      case 'always':
+        triggered = true;
+        break;
+      case 'on_win':
+        triggered = player.id === winnerId;
+        break;
+      case 'every_3_rounds':
+        triggered = game.round % 3 === 0;
+        break;
+      case 'once_per_game':
+        const key = `${game.lobbyCode}_${player.id}`;
+        if (!usedOnceAbilities.has(game.lobbyCode)) usedOnceAbilities.set(game.lobbyCode, new Set());
+        const used = usedOnceAbilities.get(game.lobbyCode)!;
+        if (!used.has(player.id) && Math.random() < ability.triggerChance) {
+          triggered = true;
+          used.add(player.id);
+        }
+        break;
+    }
+    
+    if (!triggered) return;
+    
+    let targetId: string | null = null;
+    let targetName: string | null = null;
+    if (ability.needsTarget) {
+      const targets = game.players.filter(p => p.id !== player.id && !p.isEliminated && !p.isBot);
+      if (targets.length > 0) {
+        const target = targets[Math.floor(Math.random() * targets.length)];
+        targetId = target.id;
+        targetName = target.name;
+      } else if (ability.visibility === 'target_only' || ability.visibility === 'driver_and_target') {
+        return;
+      }
+    }
+    
+    const descWithTarget = targetName 
+      ? ability.description.replace(/opponent|player/i, targetName)
+      : ability.description;
+    
+    const eventData = {
+      driverName: player.name,
+      driverId: player.id,
+      abilityName: ability.name,
+      description: targetName ? `${targetName}: ${ability.description}` : ability.description,
+      type: abilityType,
+      targetId,
+      targetName,
+      visibility: ability.visibility,
+    };
+    
+    switch (ability.visibility) {
+      case 'driver_only':
+        if (emitToPlayer && player.socketId) emitToPlayer(player.socketId, 'reality_mode_ability', eventData);
+        break;
+      case 'target_only':
+        if (emitToPlayer && targetId) {
+          const target = game.players.find(p => p.id === targetId);
+          if (target?.socketId) emitToPlayer(target.socketId, 'reality_mode_ability', eventData);
+        }
+        break;
+      case 'driver_and_target':
+        if (emitToPlayer && player.socketId) emitToPlayer(player.socketId, 'reality_mode_ability', eventData);
+        if (emitToPlayer && targetId) {
+          const target = game.players.find(p => p.id === targetId);
+          if (target?.socketId && target.socketId !== player.socketId) {
+            emitToPlayer(target.socketId, 'reality_mode_ability', eventData);
+          }
+        }
+        break;
+      case 'all':
+        if (emitToLobby) emitToLobby(game.lobbyCode, 'reality_mode_ability', eventData);
+        break;
+    }
+    
+    log(`Reality mode ability: ${player.name} triggered ${ability.name} (${ability.visibility}) in lobby ${game.lobbyCode}`, "game");
+  });
 }
 
 function getInitialTime(duration: GameDuration): number {
@@ -477,6 +641,9 @@ function startBidding(lobbyCode: string) {
   });
   
   broadcastGameState(lobbyCode);
+  
+  // Process start-of-round reality mode abilities (VIBE GUARD, COLD SHOULDER, DISTRACTION)
+  processRealityModeAbilities(game, null, 'start');
   
   log(`Round ${game.round} bidding started for lobby ${lobbyCode}`, "game");
   
@@ -1007,6 +1174,9 @@ function endRound(lobbyCode: string) {
   
   broadcastGameState(lobbyCode);
   
+  // Process reality mode abilities (social/bio) at end of round
+  processRealityModeAbilities(game, winnerId, 'end');
+  
   // Mark all players as not acknowledged for round end
   game.players.forEach(p => {
     if (!p.isBot && !p.isEliminated) {
@@ -1420,6 +1590,7 @@ export function removePlayerFromGame(socketId: string) {
 export function cleanupGame(lobbyCode: string) {
   clearGameIntervals(lobbyCode);
   activeGames.delete(lobbyCode);
+  usedOnceAbilities.delete(lobbyCode);
   log(`Game ${lobbyCode} cleaned up`, "game");
 }
 
