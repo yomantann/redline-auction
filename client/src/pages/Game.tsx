@@ -840,19 +840,33 @@ export default function Game() {
     url.searchParams.delete('join');
     window.history.replaceState({}, '', url.pathname);
     
-    setLobbyCode(joinCode.toUpperCase());
+    const upperCode = joinCode.toUpperCase();
+    setLobbyCode(upperCode);
     setPhase('multiplayer_lobby');
     
-    const name = playerName || `Player ${Math.floor(Math.random() * 900 + 100)}`;
-    if (!playerName) setPlayerName(name);
+    // Check localStorage for a stored name from a previous session with this lobby
+    const storedIdentity = localStorage.getItem(`redline_player_${upperCode}`);
+    let name: string;
+    if (storedIdentity) {
+      try {
+        const parsed = JSON.parse(storedIdentity);
+        name = parsed.playerName || playerName || `Player ${Math.floor(Math.random() * 900 + 100)}`;
+      } catch {
+        name = playerName || `Player ${Math.floor(Math.random() * 900 + 100)}`;
+      }
+    } else {
+      name = playerName || `Player ${Math.floor(Math.random() * 900 + 100)}`;
+    }
+    if (!playerName || playerName === 'Player') setPlayerName(name);
     
     // Try join_lobby first, if game already started try rejoin_game
     socket.emit("join_lobby", { code: joinCode, playerName: name }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Auto-Join] Joined lobby:', response.lobby.code);
         setCurrentLobby(response.lobby);
+        localStorage.setItem(`redline_player_${upperCode}`, JSON.stringify({ playerName: name }));
       } else if (response.error === "Game already in progress") {
-        // Try rejoin
+        // Try rejoin - use stored name for matching
         socket.emit("rejoin_game", { code: joinCode, playerName: name }, (rejoinResponse: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
           if (rejoinResponse.success && rejoinResponse.lobby) {
             console.log('[Auto-Join] Rejoined active game:', rejoinResponse.lobby.code);
@@ -2814,9 +2828,13 @@ export default function Game() {
     let momentCount = 0; // Track moment flags for triple play
 
     if (playersOut.length > 0) {
-      // Elimination moment flag is handled elsewhere (single source of truth).
-      // Keeping this block prevents other moment-flag logic from running when players are eliminated.
-      // (Intentionally no overlay added here to avoid duplicates.)
+      // Track elimination moment flags for all eliminated players
+      setPlayers(prev => prev.map(p => {
+        if (playersOut.includes(p.id)) {
+          return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), 'ELIMINATED'] };
+        }
+        return p;
+      }));
     } else if (winnerId) { 
        const winnerPlayer = participants[0]; // winner is first
        const secondPlayer = participants.length > 1 ? participants[1] : null;
@@ -2824,29 +2842,34 @@ export default function Game() {
        const secondBid = secondPlayer?.currentBid || 0;
        const margin = winnerBid - secondBid;
 
+       const roundMomentFlags: string[] = [];
+
        // 1. Smug Confidence (Round 1 Win)
        if (round === 1 && winnerId === 'p1') {
          addOverlay("smug_confidence", "SMUG CONFIDENCE", `${winnerName} starts strong!`);
          momentCount++;
+         roundMomentFlags.push('SMUG_CONFIDENCE');
        }
        
        // 2. Fake Calm (Margin >= 15s)
        if (secondPlayer && margin >= 15 && winnerId === 'p1') {
-         // Delay slightly if smug confidence also triggered
          setTimeout(() => addOverlay("fake_calm", "FAKE CALM", `Won by ${margin.toFixed(1)}s!`), 500);
          momentCount++;
+         roundMomentFlags.push('FAKE_CALM');
        }
        
        // 3. Genius Move (Margin <= 5s)
        if (secondPlayer && margin <= 5 && winnerId === 'p1') {
          setTimeout(() => addOverlay("genius_move", "GENIUS MOVE", `Won by just ${margin.toFixed(1)}s`), 500);
          momentCount++;
+         roundMomentFlags.push('GENIUS_MOVE');
        }
        
        // 4. Easy W (Bid < 20s)
        if (winnerBid < 20 && winnerId === 'p1') {
          setTimeout(() => addOverlay("easy_w", "EASY W", `Won with only ${winnerBid.toFixed(1)}s`), 1000);
          momentCount++;
+         roundMomentFlags.push('EASY_W');
        }
        
        // 5. Comeback Hope & Others
@@ -2860,30 +2883,54 @@ export default function Game() {
            if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && players.some(p => p.tokens > winnerTokensBefore)) {
                setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winnerName} stays in the fight!`), 1000);
                momentCount++;
+               roundMomentFlags.push('COMEBACK_HOPE');
            }
            
            // Precision
            if (winnerBid % 1 === 0) {
                setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
                momentCount++;
+               roundMomentFlags.push('PRECISION_STRIKE');
            }
            
            // Overkill
            if (winnerBid > 60) {
                setTimeout(() => addOverlay("overkill", "OVERKILL", "Massive bid!"), 1500);
                momentCount++;
+               roundMomentFlags.push('OVERKILL');
            }
            
            // Clutch
            if (winnerPlayer.remainingTime < 10) {
                setTimeout(() => addOverlay("clutch_play", "CLUTCH PLAY", "Almost out of time!"), 1500);
                momentCount++;
+               roundMomentFlags.push('CLUTCH_PLAY');
            }
            
            // Patch Notes Pending: 3+ moment flags in same round (shows after the other flags)
            if (momentCount >= 3) {
                setTimeout(() => addOverlay("hidden_patch_notes", "PATCH NOTES PENDING", "Triggered 3+ moment flags in one round."), 2500);
            }
+       }
+
+       // Track moment flags on the winner player
+       if (winnerId && roundMomentFlags.length > 0) {
+         setPlayers(prev => prev.map(p => {
+           if (p.id === winnerId) {
+             return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), ...roundMomentFlags] };
+           }
+           return p;
+         }));
+       }
+       
+       // Track protocol wins for the winner
+       if (winnerId && activeProtocol) {
+         setPlayers(prev => prev.map(p => {
+           if (p.id === winnerId) {
+             return { ...p, protocolWins: [...(p.protocolWins || []), activeProtocol] };
+           }
+           return p;
+         }));
        }
 
     } else {
@@ -3321,11 +3368,18 @@ export default function Game() {
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,
         netImpact: (mp as any).netImpact || 0,
-        roundImpact: mp.roundImpact ? `${mp.roundImpact.value > 0 ? '+' : ''}${mp.roundImpact.value.toFixed(1)}s (${mp.roundImpact.source})` : undefined,
+        roundImpact: (mp as any).roundImpacts?.length > 0 
+          ? (mp as any).roundImpacts.map((ri: any) => `${ri.value > 0 ? '+' : ''}${ri.value.toFixed(1)}s (${ri.source})`).join(', ')
+          : undefined,
+        impactLogs: (mp as any).roundImpacts?.map((ri: any) => ({
+          value: `${ri.value > 0 ? '+' : ''}${ri.value.toFixed(1)}s`,
+          reason: ri.source,
+          type: ri.value > 0 ? 'gain' as const : 'loss' as const,
+        })) || [],
         specialEvents: [],
-        eventDatabasePopups: [],
+        eventDatabasePopups: (mp as any).momentFlagsEarned || [],
         protocolsTriggered: [],
-        protocolWins: [],
+        protocolWins: (mp as any).protocolWinsEarned || [],
         totalDrinks: 0,
         socialDares: 0,
         selectedDriver: (mp as any).selectedDriver,
@@ -3421,6 +3475,9 @@ export default function Game() {
         console.log('[Lobby] Created:', response.code);
         setCurrentLobby(response.lobby);
         setLobbyCode(response.code || '');
+        if (response.code) {
+          localStorage.setItem(`redline_player_${response.code.toUpperCase()}`, JSON.stringify({ playerName }));
+        }
       } else {
         setLobbyError(response.error || "Failed to create lobby");
       }
@@ -3443,6 +3500,7 @@ export default function Game() {
       if (response.success && response.lobby) {
         console.log('[Lobby] Joined:', response.lobby.code);
         setCurrentLobby(response.lobby);
+        localStorage.setItem(`redline_player_${lobbyCode.toUpperCase()}`, JSON.stringify({ playerName }));
       } else {
         setLobbyError(response.error || "Failed to join lobby");
       }

@@ -141,10 +141,13 @@ export interface GamePlayer {
   isHolding: boolean;
   // Round statistics
   totalTimeBid: number;
-  roundImpact?: { type: string; value: number; source: string };
+  roundImpacts: { type: string; value: number; source: string }[];
   netImpact: number; // Cumulative time impact from abilities/protocols (not bids)
   abilityUsed: boolean;
   penaltyAppliedThisRound?: boolean; // Track if penalty was already applied this round
+  // Game-level accumulators for game over screen
+  momentFlagsEarned: string[];
+  protocolWinsEarned: string[];
 }
 
 export interface GameLogEntry {
@@ -405,8 +408,11 @@ export function createGame(
     currentBid: null,
     isHolding: false,
     totalTimeBid: 0,
+    roundImpacts: [],
     netImpact: 0,
     abilityUsed: false,
+    momentFlagsEarned: [],
+    protocolWinsEarned: [],
   }));
   
   // Auto-fill with bots if less than MIN_PLAYERS
@@ -425,8 +431,11 @@ export function createGame(
       currentBid: null,
       isHolding: false,
       totalTimeBid: 0,
+      roundImpacts: [],
       netImpact: 0,
       abilityUsed: false,
+      momentFlagsEarned: [],
+      protocolWinsEarned: [],
     });
     botIndex++;
   }
@@ -873,7 +882,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
         if (refundAmount !== 0) {
           player.remainingTime += refundAmount;
           player.netImpact += refundAmount; // Accumulate into total
-          player.roundImpact = { type: 'REFUND', value: refundAmount, source: ability.name };
+          player.roundImpacts.push({ type: 'REFUND', value: refundAmount, source: ability.name });
           abilityImpacts.push({
             playerId: player.id,
             ability: ability.name,
@@ -927,7 +936,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
               targets.forEach(t => {
                 t.remainingTime += refundAmount;
                 t.netImpact += refundAmount; // Accumulate into total
-                t.roundImpact = { type: 'DISRUPT', value: refundAmount, source: ability.name };
+                t.roundImpacts.push({ type: 'DISRUPT', value: refundAmount, source: ability.name });
                 abilityImpacts.push({
                   playerId: player.id,
                   targetId: t.id,
@@ -956,14 +965,14 @@ function processAbilities(game: GameState, winnerId: string | null) {
             if (player.selectedDriver === 'the_rind') {
               player.remainingTime += Math.abs(refundAmount);
               player.netImpact += Math.abs(refundAmount); // Accumulate into total
-              player.roundImpact = { type: 'STEAL', value: Math.abs(refundAmount), source: ability.name };
+              player.roundImpacts.push({ type: 'STEAL', value: Math.abs(refundAmount), source: ability.name });
               target.remainingTime -= Math.abs(refundAmount);
               target.netImpact -= Math.abs(refundAmount); // Accumulate into total
-              target.roundImpact = { type: 'STOLEN', value: -Math.abs(refundAmount), source: ability.name };
+              target.roundImpacts.push({ type: 'STOLEN', value: -Math.abs(refundAmount), source: ability.name });
             } else {
               target.remainingTime += refundAmount; // negative value
               target.netImpact += refundAmount; // Accumulate into total (negative)
-              target.roundImpact = { type: 'DISRUPT', value: refundAmount, source: ability.name };
+              target.roundImpacts.push({ type: 'DISRUPT', value: refundAmount, source: ability.name });
             }
             
             abilityImpacts.push({
@@ -1186,6 +1195,67 @@ function endRound(lobbyCode: string) {
     }
   }
   
+  // Track protocol wins and moment flags for the round winner
+  if (winnerId && game.activeProtocol) {
+    const winnerPlayer = game.players.find(p => p.id === winnerId);
+    if (winnerPlayer) {
+      winnerPlayer.protocolWinsEarned.push(game.activeProtocol);
+    }
+  }
+  
+  // Calculate moment flags for the round winner (server-side, mirrors client logic)
+  if (winnerId) {
+    const winnerPlayer = game.players.find(p => p.id === winnerId);
+    if (winnerPlayer) {
+      const winnerBid = winnerPlayer.currentBid || 0;
+      const sortedByBid = [...participants]
+        .filter(p => p.currentBid !== null)
+        .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+      const secondBid = sortedByBid.length > 1 ? sortedByBid[1].currentBid || 0 : 0;
+      const margin = winnerBid - secondBid;
+      
+      if (game.round === 1) {
+        winnerPlayer.momentFlagsEarned.push('SMUG_CONFIDENCE');
+      }
+      if (sortedByBid.length > 1 && margin >= 15) {
+        winnerPlayer.momentFlagsEarned.push('FAKE_CALM');
+      }
+      if (sortedByBid.length > 1 && margin <= 5 && margin > 0) {
+        winnerPlayer.momentFlagsEarned.push('GENIUS_MOVE');
+      }
+      if (winnerBid < 20) {
+        winnerPlayer.momentFlagsEarned.push('EASY_W');
+      }
+      if (winnerBid > 60) {
+        winnerPlayer.momentFlagsEarned.push('OVERKILL');
+      }
+      if (winnerPlayer.remainingTime < 10) {
+        winnerPlayer.momentFlagsEarned.push('CLUTCH_PLAY');
+      }
+      if (winnerBid % 1 === 0 && winnerBid > 0) {
+        winnerPlayer.momentFlagsEarned.push('PRECISION_STRIKE');
+      }
+      // Comeback Hope: winner was sole last-place before winning
+      const isDoubleRound = game.activeProtocol === 'DOUBLE_STAKES' || game.activeProtocol === 'PANIC_ROOM';
+      const tokensAwarded = isDoubleRound ? 2 : 1;
+      const winnerTokensBefore = winnerPlayer.tokens - tokensAwarded;
+      const allTokensBefore = game.players.filter(p => !p.isEliminated || p.id === winnerId).map(p => p.id === winnerId ? winnerTokensBefore : p.tokens);
+      const minTokens = Math.min(...allTokensBefore);
+      const playersAtMin = allTokensBefore.filter(t => t === minTokens);
+      if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && allTokensBefore.some(t => t > winnerTokensBefore)) {
+        winnerPlayer.momentFlagsEarned.push('COMEBACK_HOPE');
+      }
+    }
+  }
+  
+  // Track elimination moment flags for eliminated players
+  game.eliminatedThisRound.forEach(elimId => {
+    const elimPlayer = game.players.find(p => p.id === elimId);
+    if (elimPlayer) {
+      elimPlayer.momentFlagsEarned.push('ELIMINATED');
+    }
+  });
+  
   broadcastGameState(lobbyCode);
   
   // Process reality mode abilities (social/bio) at end of round
@@ -1235,7 +1305,7 @@ function endRound(lobbyCode: string) {
     winningHoldTime: game.roundWinner?.bid || null,
     minBidSeconds: getMinBidPenalty(game.settings.gameDuration),
     eliminatedPlayerIds: game.eliminatedThisRound,
-    momentFlagsTriggered: [],
+    momentFlagsTriggered: winnerId ? (game.players.find(p => p.id === winnerId)?.momentFlagsEarned.filter(f => f !== 'ELIMINATED').slice(-10) || []) : [],
     protocolsTriggered: game.activeProtocol ? [game.activeProtocol] : [],
     limitBreaksTriggered: [],
     playerPositions: game.players.map(p => ({
@@ -1542,7 +1612,7 @@ function startWaitingForReady(lobbyCode: string) {
     if (!p.isEliminated) {
       p.isHolding = false;
       p.currentBid = null;
-      p.roundImpact = undefined;
+      p.roundImpacts = [];
       p.abilityUsed = false;
       p.penaltyAppliedThisRound = false;
     }
@@ -1662,8 +1732,8 @@ function endGame(lobbyCode: string) {
       netImpact: p.netImpact,
       isEliminated: p.isEliminated,
       isBot: p.isBot,
-      momentFlags: 0,
-      protocolWins: 0,
+      momentFlags: p.momentFlagsEarned.length,
+      protocolWins: p.protocolWinsEarned.length,
       totalDrinks: 0,
       socialDares: 0,
     })),
@@ -1936,9 +2006,11 @@ function broadcastGameState(lobbyCode: string) {
       currentBid: p.currentBid,
       isHolding: p.isHolding,
       roundEndAcknowledged: (p as any).roundEndAcknowledged || false,
-      roundImpact: p.roundImpact,
+      roundImpacts: p.roundImpacts,
       netImpact: p.netImpact,
       abilityUsed: p.abilityUsed,
+      momentFlagsEarned: p.momentFlagsEarned,
+      protocolWinsEarned: p.protocolWinsEarned,
     })),
     roundWinner: game.roundWinner,
     eliminatedThisRound: game.eliminatedThisRound,
