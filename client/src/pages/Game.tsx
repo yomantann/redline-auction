@@ -2405,6 +2405,7 @@ export default function Game() {
                 playersState[moleIdx].roundImpact = (playersState[moleIdx].roundImpact || "") + " -1 Token (Mole Suicide)";
                 playersState[moleIdx].impactLogs!.push({ value: "-1 Token", reason: "Mole Suicide", type: 'loss' });
                 setRoundLog(prev => [`>> MOLE FAILURE: ${rawWinner.name} held too long and LOST a trophy!`, ...prev]);
+                setTimeout(() => addOverlay("protocol_alert", "MOLE REVEALED", `${rawWinner.name} was the Mole and got eliminated! -1 trophy.`), 1500);
             }
         }
     }
@@ -3245,8 +3246,10 @@ export default function Game() {
 
         if (margin > 7) {
           extraLogs.push(`>> MOLE FAILURE: ${winnerName} won by ${margin.toFixed(1)}s and LOST 2 trophies!`);
+          setTimeout(() => addOverlay("protocol_alert", "MOLE REVEALED", `${winnerName} won by ${margin.toFixed(1)}s and LOST 2 trophies!`), 1500);
         } else {
           extraLogs.push(`>> MOLE SAFE WIN: ${winnerName} won by ${margin.toFixed(1)}s (<= 7.0s). Trophy awarded as normal.`);
+          setTimeout(() => addOverlay("protocol_alert", "MOLE REVEALED", `${winnerName} was the Mole and won safely (${margin.toFixed(1)}s margin).`), 1500);
         }
     }
 

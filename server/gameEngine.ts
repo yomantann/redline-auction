@@ -1584,6 +1584,41 @@ function emitSecretProtocolReveal(game: GameState) {
     });
   }
   
+  if (game.activeProtocol === 'THE_MOLE' && game.molePlayerId) {
+    const molePlayer = game.players.find(p => p.id === game.molePlayerId);
+    if (molePlayer) {
+      if (game.eliminatedThisRound.includes(game.molePlayerId)) {
+        emitToLobby(game.lobbyCode, 'protocol_reveal', {
+          protocol: 'THE_MOLE',
+          msg: 'MOLE REVEALED',
+          sub: `${molePlayer.name} was the Mole and got eliminated! -1 trophy.`,
+        });
+      } else if (game.roundWinner && game.roundWinner.id === game.molePlayerId) {
+        const participants = game.players.filter(p => p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
+        const sortedBids = participants
+          .filter(p => p.id !== game.molePlayerId)
+          .map(p => p.currentBid || 0)
+          .sort((a, b) => b - a);
+        const secondPlaceBid = sortedBids[0] || 0;
+        const margin = (molePlayer.currentBid || 0) - secondPlaceBid;
+        
+        if (margin > 7) {
+          emitToLobby(game.lobbyCode, 'protocol_reveal', {
+            protocol: 'THE_MOLE',
+            msg: 'MOLE REVEALED',
+            sub: `${molePlayer.name} won by ${margin.toFixed(1)}s and LOST 2 trophies!`,
+          });
+        } else {
+          emitToLobby(game.lobbyCode, 'protocol_reveal', {
+            protocol: 'THE_MOLE',
+            msg: 'MOLE REVEALED',
+            sub: `${molePlayer.name} was the Mole and won safely (${margin.toFixed(1)}s margin).`,
+          });
+        }
+      }
+    }
+  }
+  
   if (game.activeProtocol === 'PRIVATE_CHANNEL' && game.privateChannelPlayerIds) {
     const pA = game.players.find(p => p.id === game.privateChannelPlayerIds![0]);
     const pB = game.players.find(p => p.id === game.privateChannelPlayerIds![1]);
