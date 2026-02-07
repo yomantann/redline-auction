@@ -813,6 +813,7 @@ export default function Game() {
       message: string;
       value?: number;
       timestamp: number;
+      basic?: boolean;
     }>;
     isDoubleTokensRound: boolean;
     molePlayerId: string | null;
@@ -2502,9 +2503,8 @@ export default function Game() {
              // Only lose a trophy if you win by MORE THAN 7 seconds.
              if (margin > 7) {
                newTokens -= 2;
-               impact += " -1 Token (Mole Win > 7s)";
-               impactLogs.push({ value: "-1 Token", reason: "Mole Win > 7s", type: 'loss' });
-               extraLogs.push(`>> MOLE FAILURE: ${p.name} won by ${margin.toFixed(1)}s and LOST a trophy!`);
+               impact += " -2 Tokens (Mole Win > 7s)";
+               impactLogs.push({ value: "-2 Tokens", reason: "Mole Win > 7s", type: 'loss' });
              } else {
                impact += " +0 (Mole Win Safe)";
                impactLogs.push({ value: "+0", reason: "Mole Win (<=7s)", type: 'neutral' });
@@ -3234,7 +3234,7 @@ export default function Game() {
     // Add extra logs for special events
     // Log array already initialized at start of function
     
-    // Mole Penalty Log
+    // Mole Penalty Log (only source - not duplicated in player map)
     if (activeProtocol === 'THE_MOLE' && winnerId === moleTarget) {
         const rawSorted = [...participants].sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
         const rawWinner = rawSorted[0];
@@ -3244,7 +3244,7 @@ export default function Game() {
         const margin = rawWinnerTime - rawSecondTime;
 
         if (margin > 7) {
-          extraLogs.push(`>> MOLE FAILURE: ${winnerName} won by ${margin.toFixed(1)}s and LOST a trophy.`);
+          extraLogs.push(`>> MOLE FAILURE: ${winnerName} won by ${margin.toFixed(1)}s and LOST 2 trophies!`);
         } else {
           extraLogs.push(`>> MOLE SAFE WIN: ${winnerName} won by ${margin.toFixed(1)}s (<= 7.0s). Trophy awarded as normal.`);
         }
@@ -5805,7 +5805,7 @@ export default function Game() {
                         </div>
                         <div className="bg-black/30 p-3 rounded">
                             <div className="text-[10px] text-zinc-500 uppercase">Time Left</div>
-                            <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== 'p1' && "blur-sm select-none")}>
+                            <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && phase !== 'game_end' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== (isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1') && "blur-sm select-none")}>
                                 {(() => {
                                     const isSelfSadman = selectedPlayerStats?.id === 'p1' && selectedCharacter?.id === 'sadman';
                                     const isScrambledOpponent = selectedCharacter?.id === 'wandering_eye' && selectedPlayerStats?.id !== 'p1' && selectedPlayerStats?.id !== peekTargetId;
@@ -5863,8 +5863,8 @@ export default function Game() {
                 isCurrentPlayer={isMultiplayer 
                   ? (multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id === p.id)
                   : p.id === 'p1'} 
-                showTime={showDetails || phase === 'game_end' || p.isEliminated || isMultiplayer} 
-                // Show time if: Easy Mode OR Game Over OR Player Eliminated OR Multiplayer
+                showTime={showDetails || phase === 'game_end' || p.isEliminated || (isMultiplayer && (multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id === p.id))} 
+                // Show time if: Casual Mode OR Game Over OR Player Eliminated OR (MP and it's your own stats)
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
                 peekActive={(selectedCharacter?.id === 'sadman' || selectedCharacter?.id === 'wandering_eye') && peekTargetId === p.id}
@@ -5873,8 +5873,9 @@ export default function Game() {
                 isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
-                    if (difficulty === 'COMPETITIVE' && phase !== 'game_end' && !isMultiplayer) {
-                         // Mask all stats
+                    const myMpId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
+                    const isSelf = p.id === myMpId;
+                    if (difficulty === 'COMPETITIVE' && phase !== 'game_end' && !isSelf) {
                          setSelectedPlayerStats({...p, remainingTime: -1, tokens: -1, netImpact: 0}); 
                     } else {
                          setSelectedPlayerStats(p);
@@ -5909,26 +5910,22 @@ export default function Game() {
             </h3>
             <div className="flex-1 overflow-y-auto space-y-2 font-mono text-xs text-zinc-500 custom-scrollbar">
               {(() => {
-                // Get logs with type information for filtering
                 const mpLogs = isMultiplayer && multiplayerGameState?.gameLog 
                   ? multiplayerGameState.gameLog : [];
                 const spLogs = !isMultiplayer ? roundLog : [];
                 
-                // Filter logs: show only important ones unless showAllLogs is true
-                // Basic mode shows: wins, eliminations, protocols, abilities - not individual bids
                 let logs: string[] = [];
                 if (isMultiplayer && mpLogs.length > 0) {
-                  const filtered = showAllLogs ? mpLogs : mpLogs.filter(log => 
-                    log.type === 'win' || log.type === 'elimination' || 
-                    log.type === 'protocol' || log.type === 'ability'
-                  );
+                  const filtered = showAllLogs ? mpLogs : mpLogs.filter(log => log.basic === true);
                   logs = filtered.map(l => l.message);
                 } else {
                   logs = showAllLogs ? spLogs : spLogs.filter(log => {
                     const upper = log.toUpperCase();
-                    return log.includes('>>') || upper.includes('ROUND') || upper.includes('WON') || 
-                           upper.includes('WINNER') || upper.includes('PROTOCOL') || 
-                           upper.includes('ELIMINATED') || upper.includes('TOKEN');
+                    return upper.includes('ROUND') || upper.includes('WON') || 
+                           upper.includes('WINNER') || upper.includes('ELIMINATED') || 
+                           upper.includes('TOKEN') || upper.includes('TROPHY') ||
+                           upper.includes('MOLE FAILURE') || upper.includes('HIGH STAKES') ||
+                           upper.includes('UNDERDOG VICTORY') || upper.includes('TIME TAX');
                   });
                 }
                 if (logs.length === 0) return <p className="italic opacity-50">Game started...</p>;

@@ -158,6 +158,7 @@ export interface GameLogEntry {
   message: string;
   value?: number;
   timestamp: number;
+  basic?: boolean;
 }
 
 export interface GameSettings {
@@ -913,6 +914,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
           playerName: player.name,
           message: `${player.name} triggered ${ability.name}: +1 token`,
           value: 1,
+          basic: true,
         });
         break;
         
@@ -1025,6 +1027,7 @@ function endRound(lobbyCode: string) {
       playerName: winner.name,
       message: `${winner.name} won round ${game.round} with ${winner.currentBid?.toFixed(1)}s bid${game.isDoubleTokensRound ? ' (2x tokens!)' : ''}`,
       value: winner.currentBid || 0,
+      basic: true,
     });
     
     log(`Round ${game.round} winner: ${winner.name} with bid of ${winner.currentBid?.toFixed(1)}s${game.isDoubleTokensRound ? ' (DOUBLE STAKES)' : ''}`, "game");
@@ -1032,6 +1035,7 @@ function endRound(lobbyCode: string) {
     addGameLogEntry(game, {
       type: 'win',
       message: `Round ${game.round} had no winner`,
+      basic: true,
     });
   }
   
@@ -1051,6 +1055,7 @@ function endRound(lobbyCode: string) {
         playerName: underdog.name,
         message: `SECRET REVEALED: UNDERDOG VICTORY! ${underdog.name} wins +1 token for lowest bid!`,
         value: 1,
+        basic: true,
       });
       log(`UNDERDOG_VICTORY: ${underdog.name} awarded +1 token for lowest bid in lobby ${game.lobbyCode}`, "game");
     }
@@ -1075,6 +1080,7 @@ function endRound(lobbyCode: string) {
       type: 'protocol',
       message: `SECRET REVEALED: TIME TAX! -10s to all survivors!`,
       value: -10,
+      basic: true,
     });
     log(`TIME_TAX: -10s to all survivors in lobby ${game.lobbyCode}`, "game");
   }
@@ -1099,6 +1105,7 @@ function endRound(lobbyCode: string) {
           playerId: p.id,
           playerName: p.name,
           message: `${p.name} was eliminated (ability effect)`,
+          basic: true,
         });
         log(`${p.name} eliminated by ability effect in lobby ${game.lobbyCode}`, "game");
       }
@@ -1141,6 +1148,7 @@ function endRound(lobbyCode: string) {
               playerId: p.id,
               playerName: p.name,
               message: `${p.name} was eliminated (ran out of time)`,
+              basic: true,
             });
           }
         }
@@ -1161,6 +1169,7 @@ function endRound(lobbyCode: string) {
         playerName: molePlayer.name,
         message: `MOLE REVEALED: ${molePlayer.name} held too long and LOST a token!`,
         value: -1,
+        basic: true,
       });
       log(`THE_MOLE suicide: ${molePlayer.name} eliminated and lost 1 token in lobby ${lobbyCode}`, "game");
     }
@@ -1179,8 +1188,9 @@ function endRound(lobbyCode: string) {
           type: 'protocol',
           playerId: molePlayer.id,
           playerName: molePlayer.name,
-          message: `MOLE REVEALED: ${molePlayer.name} won by ${margin.toFixed(1)}s and LOST tokens!`,
+          message: `MOLE REVEALED: ${molePlayer.name} won by ${margin.toFixed(1)}s and LOST 2 tokens!`,
           value: -2,
+          basic: true,
         });
         log(`THE_MOLE penalty: ${molePlayer.name} won by ${margin.toFixed(1)}s (>7s) and lost 2 tokens in lobby ${lobbyCode}`, "game");
       } else {
@@ -1270,6 +1280,10 @@ function endRound(lobbyCode: string) {
       const tiedPlayers = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.05);
       if (tiedPlayers.length >= 2) {
         tiedPlayers.forEach(p => p.momentFlagsEarned.push('DEADLOCK_SYNC'));
+        addGameLogEntry(game, {
+          type: 'protocol',
+          message: `DEADLOCK SYNC: ${tiedPlayers.map(p => p.name).join(' & ')} tied at ${topBid.toFixed(1)}s`,
+        });
       }
     }
   }
@@ -1353,6 +1367,7 @@ function endRound(lobbyCode: string) {
           playerName: randomWinner.name,
           message: `Fast-forward R${game.round + r + 1}: ${randomWinner.name} wins +1 token`,
           value: 1,
+          basic: true,
         });
         
         log(`Fast-forward round ${game.round + r + 1}: ${randomWinner.name} wins 1 token`, "game");
@@ -1914,6 +1929,7 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
         playerId: player.id,
         playerName: player.name,
         message: `${player.name} was eliminated (countdown penalty)`,
+        basic: true,
       });
     }
     
