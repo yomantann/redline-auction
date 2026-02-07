@@ -71,23 +71,23 @@ export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
 export type ProtocolType = 
   | 'DATA_BLACKOUT' | 'DOUBLE_STAKES' | 'SYSTEM_FAILURE' 
   | 'OPEN_HAND' | 'MUTE_PROTOCOL' 
-  | 'PRIVATE_CHANNEL' | 'NO_LOOK' | 'LOCK_ON' 
+  | 'NO_LOOK' | 'LOCK_ON' 
   | 'THE_MOLE' | 'PANIC_ROOM' 
   | 'UNDERDOG_VICTORY' | 'TIME_TAX'
-  | 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'NOISE_CANCEL'
+  | 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE'
   | 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND'
   | null;
 
 // Protocol pools by variant
 const STANDARD_PROTOCOLS: ProtocolType[] = [
   'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
-  'OPEN_HAND', 'MUTE_PROTOCOL', 'PRIVATE_CHANNEL', 
+  'OPEN_HAND', 'MUTE_PROTOCOL', 
   'NO_LOOK', 'THE_MOLE', 'PANIC_ROOM',
   'UNDERDOG_VICTORY', 'TIME_TAX'
 ];
 
 const SOCIAL_PROTOCOLS: ProtocolType[] = [
-  'TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'
+  'TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'
 ];
 
 const BIO_PROTOCOLS: ProtocolType[] = [
@@ -178,14 +178,15 @@ export interface GameState {
   initialTime: number;
   roundWinner: { id: string; name: string; bid: number } | null;
   eliminatedThisRound: string[];
-  // New fields for multiplayer parity
   settings: GameSettings;
   activeProtocol: ProtocolType;
   protocolHistory: ProtocolType[];
   gameLog: GameLogEntry[];
   isDoubleTokensRound: boolean;
   molePlayerId: string | null;
-  allHumansHoldingStartTime: number | null; // Track when all humans started holding
+  allHumansHoldingStartTime: number | null;
+  isMultiplayer: boolean;
+  botTargetBids: Record<string, number>;
 }
 
 // Active games storage
@@ -471,6 +472,8 @@ export function createGame(
     isDoubleTokensRound: false,
     molePlayerId: null,
     allHumansHoldingStartTime: null,
+    isMultiplayer: true,
+    botTargetBids: {},
   };
   
   activeGames.set(lobbyCode, gameState);
@@ -626,19 +629,16 @@ function startBidding(lobbyCode: string) {
   game.phase = 'bidding';
   game.roundStartTime = Date.now();
   
-  // Preserve holding state from countdown/waiting phase
-  // Human players who were holding continue holding (must release to lock bid)
-  // Bots auto-hold during bidding phase
   game.players.forEach(p => {
     if (!p.isEliminated) {
-      // Bots always start holding in bidding phase
       if (p.isBot) {
         p.isHolding = true;
       }
-      // Humans preserve their holding state (they must have been holding through countdown)
       p.currentBid = 0;
     }
   });
+  
+  game.botTargetBids = calculateBotTargetBids(game);
   
   broadcastGameState(lobbyCode);
   
@@ -698,72 +698,81 @@ function startBidding(lobbyCode: string) {
   gameIntervals.set(`${lobbyCode}_bidding`, interval);
 }
 
+function calculateBotTargetBids(game: GameState): Record<string, number> {
+  const bids: Record<string, number> = {};
+  const isPanicRoom = game.activeProtocol === 'PANIC_ROOM';
+  const isNoLook = game.activeProtocol === 'NO_LOOK';
+  const isMute = game.activeProtocol === 'MUTE_PROTOCOL';
+  const isMole = game.activeProtocol === 'THE_MOLE';
+  const isLastRound = game.round >= game.totalRounds;
+  const minBidTime = getMinBidPenalty(game.gameDuration);
+
+  game.players.forEach(p => {
+    if (!p.isBot || p.isEliminated) return;
+
+    const lowTime = p.remainingTime <= 8;
+    const midTime = p.remainingTime > 8 && p.remainingTime <= 20;
+
+    const riskDown =
+      (isPanicRoom ? 0.35 : 0) +
+      (isNoLook ? 0.1 : 0) +
+      (isMute ? 0.1 : 0) +
+      (isLastRound ? 0.2 : 0) +
+      (lowTime ? 0.35 : midTime ? 0.15 : 0);
+
+    const maxBid = Math.max(minBidTime, p.remainingTime);
+    let bid = minBidTime;
+
+    switch (p.personality) {
+      case 'aggressive': {
+        const base = 18 + Math.random() * 28;
+        const cautious = 6 + Math.random() * 10;
+        const chooseHigh = Math.random() > (0.25 + riskDown);
+        bid = chooseHigh ? base : cautious;
+        break;
+      }
+      case 'conservative': {
+        const base = 1.5 + Math.random() * 10;
+        bid = base;
+        if (isLastRound || isPanicRoom || lowTime) bid = 1.0 + Math.random() * 6;
+        break;
+      }
+      case 'random':
+      default: {
+        const base = 1 + Math.random() * 40;
+        bid = base * (1 - Math.min(0.55, riskDown));
+        break;
+      }
+    }
+
+    if (isMole) {
+      bid = bid * 0.85;
+    }
+
+    bid += Math.random() * 0.8;
+    bid = Math.min(maxBid, Math.max(minBidTime, bid));
+    bids[p.id] = parseFloat(bid.toFixed(1));
+  });
+
+  return bids;
+}
+
 function processBotBids(game: GameState) {
   const rawElapsed = (Date.now() - (game.roundStartTime || Date.now())) / 1000;
   const panicMultiplier = game.activeProtocol === 'PANIC_ROOM' ? 2 : 1;
   const elapsed = rawElapsed * panicMultiplier;
+  const minBid = getMinBidPenalty(game.gameDuration);
   
   game.players.forEach(p => {
     if (p.isBot && p.isHolding && !p.isEliminated) {
-      const shouldRelease = decideBotRelease(p, elapsed, game);
-      if (shouldRelease) {
+      const targetBid = game.botTargetBids[p.id];
+      if (targetBid !== undefined && (elapsed + minBid) >= targetBid) {
         p.isHolding = false;
-        p.currentBid = elapsed;
-        log(`Bot ${p.name} released at ${elapsed.toFixed(1)}s in lobby ${game.lobbyCode}`, "game");
+        p.currentBid = elapsed + minBid;
+        log(`Bot ${p.name} released at ${p.currentBid.toFixed(1)}s (target ${targetBid}s) in lobby ${game.lobbyCode}`, "game");
       }
     }
   });
-}
-
-function decideBotRelease(bot: GamePlayer, elapsed: number, game: GameState): boolean {
-  const maxBid = bot.remainingTime * 0.8; // Don't bid more than 80% of remaining time
-  const otherPlayers = game.players.filter(p => p.id !== bot.id && !p.isEliminated);
-  const holdingOthers = otherPlayers.filter(p => p.isHolding).length;
-  
-  // Random base chance increases with time - with more variance
-  const baseChance = elapsed / 30; // 3.3% per second base
-  
-  // Add per-bot random offset to make timing less predictable
-  const botVariance = (Math.random() - 0.5) * 2; // -1 to +1 random offset each check
-  const varianceMultiplier = 0.5 + Math.random(); // 0.5x to 1.5x multiplier
-  
-  // Minimum wait time before bots consider releasing (2-6 seconds based on personality)
-  const minWaitByPersonality = {
-    aggressive: 6 + Math.random() * 4,
-    conservative: 2 + Math.random() * 2,
-    random: 1 + Math.random() * 5,
-    balanced: 3 + Math.random() * 3,
-  };
-  const minWait = minWaitByPersonality[bot.personality || 'balanced'];
-  
-  // Don't even consider releasing before minimum wait
-  if (elapsed < minWait) return false;
-  
-  switch (bot.personality) {
-    case 'aggressive':
-      // Hold longer, only release if really pushed - with more variance
-      if (elapsed > maxBid) return true;
-      if (holdingOthers === 0 && Math.random() > 0.3) return true; // 70% chance to release when alone
-      return Math.random() < (baseChance * 0.3 * varianceMultiplier);
-      
-    case 'conservative':
-      // Release early - with variance
-      if (elapsed > 5 + botVariance * 2) return Math.random() < baseChance * 2 * varianceMultiplier;
-      if (elapsed > maxBid * 0.5) return Math.random() > 0.3; // 70% chance
-      return Math.random() < (baseChance * 1.5 * varianceMultiplier);
-      
-    case 'random':
-      // Unpredictable - maximum variance
-      if (elapsed > maxBid) return true;
-      return Math.random() < (baseChance * (0.3 + Math.random() * 1.4)); // Very wide range
-      
-    case 'balanced':
-    default:
-      // Moderate strategy - with some variance
-      if (elapsed > maxBid) return true;
-      if (holdingOthers === 0 && Math.random() > 0.4) return true; // 60% chance
-      return Math.random() < (baseChance * varianceMultiplier);
-  }
 }
 
 // Process driver abilities at end of round
@@ -1190,10 +1199,27 @@ function endRound(lobbyCode: string) {
     }
   });
   
-  // Check for game over - wait for player acknowledgment instead of auto-advancing
+  // Check for game over conditions
   const activePlayers = game.players.filter(p => !p.isEliminated);
+  const activeHumans = activePlayers.filter(p => !p.isBot);
+  
   if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
-    // For game over, we can still auto-advance after a short delay
+    setTimeout(() => endGame(lobbyCode), 3000);
+  } else if (activeHumans.length === 0 && game.isMultiplayer) {
+    // All real players eliminated - fast-forward remaining rounds with random CPU trophies
+    const activeBots = activePlayers.filter(p => p.isBot);
+    const remainingRounds = game.totalRounds - game.round;
+    
+    log(`All human players eliminated in lobby ${lobbyCode}. Fast-forwarding ${remainingRounds} remaining rounds for CPUs.`, "game");
+    
+    for (let r = 0; r < remainingRounds; r++) {
+      if (activeBots.length > 0) {
+        const randomWinner = activeBots[Math.floor(Math.random() * activeBots.length)];
+        randomWinner.tokens += 1;
+        log(`Fast-forward round ${game.round + r + 1}: ${randomWinner.name} wins 1 token`, "game");
+      }
+    }
+    game.round = game.totalRounds;
     setTimeout(() => endGame(lobbyCode), 3000);
   }
   // Otherwise, wait for players to acknowledge round end (via player_ready_next event)
@@ -1280,19 +1306,6 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
           msg: 'OPEN HAND',
           sub: `${target.name} must state they won't bid!`,
           targetPlayerId: target.id,
-        });
-      }
-      break;
-    }
-    case 'PRIVATE_CHANNEL': {
-      const [p1, p2] = getTwoRandomPlayers(game);
-      if (p1 && p2) {
-        emitToLobby(game.lobbyCode, 'protocol_detail', {
-          protocol: 'PRIVATE_CHANNEL',
-          msg: 'PRIVATE CHANNEL',
-          sub: `${p1.name} & ${p2.name} discuss strategy now!`,
-          targetPlayerId: p1.id,
-          targetPlayerId2: p2.id,
         });
       }
       break;

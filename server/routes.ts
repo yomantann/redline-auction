@@ -223,7 +223,7 @@ export async function registerRoutes(
         code,
         hostSocketId: socket.id,
         players: [player],
-        maxPlayers: 8,
+        maxPlayers: 16,
         createdAt: Date.now(),
         status: 'waiting',
         settings: { ...defaultSettings, ...hostSettings, gameDuration: mappedDuration }

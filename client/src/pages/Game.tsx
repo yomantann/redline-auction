@@ -152,14 +152,14 @@ type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'mp_driver
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
-    type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'LOCK_ON' | 'NOISE_CANCEL';
+    type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'LOCK_ON';
 type BioProtocol = 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND';
 
 // Extended Protocol Type
 type ProtocolType = 
   | 'DATA_BLACKOUT' | 'DOUBLE_STAKES' | 'SYSTEM_FAILURE' 
   | 'OPEN_HAND' | 'MUTE_PROTOCOL' 
-  | 'PRIVATE_CHANNEL' | 'NO_LOOK' | 'LOCK_ON' 
+  | 'NO_LOOK' | 'LOCK_ON' 
   | 'THE_MOLE' | 'PANIC_ROOM' 
   | 'UNDERDOG_VICTORY' | 'TIME_TAX'
   | SocialProtocol
@@ -477,7 +477,7 @@ export default function Game() {
   const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
         'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
         'OPEN_HAND', 'MUTE_PROTOCOL', 
-        'PRIVATE_CHANNEL', 'NO_LOOK', 
+        'NO_LOOK', 
         'THE_MOLE', 'PANIC_ROOM',
         'UNDERDOG_VICTORY', 'TIME_TAX'
   ]);
@@ -554,21 +554,25 @@ export default function Game() {
           return [...prev, { id, type, message, subMessage, duration }];
       });
       
-      // Play SFX (one per "burst" even if multiple overlays stack)
-      // Do NOT interrupt an in-flight sound; just block new ones briefly.
-      if (soundEnabled) {
+      const MOMENT_FLAG_TYPES: OverlayType[] = [
+          'fake_calm', 'undercut', 'genius_move', 'easy_w', 'time_out',
+          'comeback_hope', 'smug_confidence', 'bad_judgment', 'zero_bid',
+          'precision_strike', 'overkill', 'clutch_play', 'late_panic',
+          'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes',
+          'eliminated',
+      ];
+      if (soundEnabled && MOMENT_FLAG_TYPES.includes(type)) {
           const now = Date.now();
           if (now >= sfxBlockUntilRef.current) {
               const pick = SFX_POOL[Math.floor(Math.random() * SFX_POOL.length)];
 
               const sound = new Audio(pick + `?t=${now}`);
-              sound.volume = 0.18; // Reduced by 70% (was 0.6)
+              sound.volume = 0.18;
               sfxInFlightRef.current = sound;
               sound.play().catch(() => {});
 
-              // Block further overlay SFX for a short window so stacked popups only play once
               sfxLastPlayedAtRef.current = now;
-              sfxBlockUntilRef.current = now + 650;
+              sfxBlockUntilRef.current = now + 2000;
           }
       }
       
@@ -627,7 +631,7 @@ export default function Game() {
         setProtocolsEnabled(true);
         // Add social protocols if not already present (default ON)
         setAllowedProtocols(prev => {
-            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
             const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
             // Remove bio protocols, add social protocols
             const withoutBio = prev.filter(p => !bioProtocols.includes(p));
@@ -638,7 +642,7 @@ export default function Game() {
         setProtocolsEnabled(true);
         // Add bio protocols if not already present (default ON)
         setAllowedProtocols(prev => {
-            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
             const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
             // Remove social protocols, add bio protocols
             const withoutSocial = prev.filter(p => !socialProtocols.includes(p));
@@ -648,7 +652,7 @@ export default function Game() {
     } else {
         // Standard mode - remove mode-specific protocols
         setAllowedProtocols(prev => {
-            const modeSpecific: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL', 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
+            const modeSpecific: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
             return prev.filter(p => !modeSpecific.includes(p));
         });
     }
@@ -968,7 +972,7 @@ export default function Game() {
       targetPlayerId: string | null;
       targetPlayerId2?: string | null;
     }) => {
-      const SOCIAL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+      const SOCIAL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
       const BIO_SET = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
       
       if (data.protocol === 'THE_MOLE' && data.targetPlayerId) {
@@ -1086,7 +1090,6 @@ export default function Game() {
       'SYSTEM_FAILURE': { name: 'SYSTEM FAILURE', desc: 'Timers Scrambled' },
       'OPEN_HAND': { name: 'OPEN HAND', desc: 'All Bids Visible' },
       'MUTE_PROTOCOL': { name: 'MUTE PROTOCOL', desc: 'No Talking Allowed' },
-      'PRIVATE_CHANNEL': { name: 'PRIVATE CHANNEL', desc: 'Whisper to One Player' },
       'NO_LOOK': { name: 'NO LOOK', desc: 'Close Your Eyes' },
       'LOCK_ON': { name: 'LOCK ON', desc: 'Stare at Target Player' },
       'THE_MOLE': { name: 'THE MOLE', desc: 'Secret Saboteur' },
@@ -1096,7 +1099,6 @@ export default function Game() {
       'TRUTH_DARE': { name: 'TRUTH OR DARE', desc: 'Winner Asks, Loser Does' },
       'SWITCH_SEATS': { name: 'SWITCH SEATS', desc: 'Change Positions Now' },
       'HUM_TUNE': { name: 'HUM A TUNE', desc: 'Loser Hums a Song' },
-      'NOISE_CANCEL': { name: 'NOISE CANCEL', desc: 'Play in Silence' },
       'HYDRATE': { name: 'HYDRATION CHECK', desc: 'Everyone Take a Sip' },
       'BOTTOMS_UP': { name: 'BOTTOMS UP', desc: 'Loser Finishes Drink' },
       'PARTNER_DRINK': { name: 'PARTNER DRINK', desc: 'Choose a Drink Buddy' },
@@ -1105,7 +1107,7 @@ export default function Game() {
     const protocolInfo = protocolNames[protocol];
     if (protocolInfo) {
       // Use variant-specific overlay types like singleplayer
-      const socialProtocols = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+      const socialProtocols = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
       const bioProtocols = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
       const secretProtocols = ['UNDERDOG_VICTORY', 'TIME_TAX'];
       
@@ -1280,7 +1282,7 @@ export default function Game() {
       let showPopup = true;
       
       // Protocols handled by targeted protocol_detail event (skip generic popup)
-      const detailHandled = ['THE_MOLE', 'OPEN_HAND', 'PRIVATE_CHANNEL', 'LOCK_ON', 'HUM_TUNE', 'PARTNER_DRINK'];
+      const detailHandled = ['THE_MOLE', 'OPEN_HAND', 'LOCK_ON', 'HUM_TUNE', 'PARTNER_DRINK'];
       if (detailHandled.includes(mpProtocol)) {
         showPopup = false;
       }
@@ -1296,14 +1298,13 @@ export default function Game() {
         case 'TIME_TAX': showPopup = false; break;
         case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner Asks, Loser Does"; break;
         case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change Positions Now!"; break;
-        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Play in Silence!"; break;
         case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone Take a Sip!"; break;
         case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser Finishes Drink!"; break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water Only This Round!"; break;
         default: if (!detailHandled.includes(mpProtocol)) { msg = "PROTOCOL ACTIVE"; sub = mpProtocol; } break;
       }
       
-      const SOCIAL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+      const SOCIAL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
       const BIO_SET = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
       
       if (showPopup) {
@@ -1907,8 +1908,8 @@ export default function Game() {
       // Build Protocol Pool
       // Standard protocols and Reality Mode protocols are configured separately.
       // Goal: any enabled options should trigger uniformly.
-      const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','PRIVATE_CHANNEL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX'];
-      const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
+      const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX'];
+      const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
 
       const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
@@ -1955,10 +1956,6 @@ export default function Game() {
         case 'SYSTEM_FAILURE': msg = "SYSTEM FAILURE"; sub = "HUD Glitches & Timer Scramble"; break;
         case 'OPEN_HAND': msg = "OPEN HAND"; sub = `${getRandomPlayer()} must state they won't bid!`; break;
         case 'MUTE_PROTOCOL': msg = "MUTE PROTOCOL"; sub = "All players must remain silent!"; break;
-        case 'PRIVATE_CHANNEL': 
-            const [p1, p2] = getTwoRandomPlayers();
-            msg = "PRIVATE CHANNEL"; sub = `${p1} & ${p2} discuss strategy now!`; 
-            break;
         case 'NO_LOOK': msg = "BLIND BIDDING"; sub = "Do not look at screens until drop!"; break;
         case 'THE_MOLE':
           // FIRE WALL: fine driver can never be the mole
@@ -1979,7 +1976,6 @@ export default function Game() {
         case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner Asks, Loser Does"; break;
         case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change Positions Now!"; break;
         case 'HUM_TUNE': msg = "AUDIO SYNC"; sub = `${getRandomPlayer()} must hum a song (others guess)!`; break;
-        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "Play in Silence!"; break;
         case 'LOCK_ON': {
             const [lockA, lockB] = getTwoRandomPlayers();
             msg = "LOCK ON";
@@ -1998,7 +1994,7 @@ export default function Game() {
       }
       
       // Filter out popups that shouldn't be seen by the player
-      const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE', 'UNDERDOG_VICTORY', 'TIME_TAX'];
+      const targetProtocols = ['THE_MOLE', 'OPEN_HAND', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE', 'UNDERDOG_VICTORY', 'TIME_TAX'];
 
       // LOW FLAME IMMUNITY CHECK (Fire Wall)
       const isLowFlame = selectedCharacter?.id === 'low_flame';
@@ -2020,7 +2016,7 @@ export default function Game() {
                  addOverlay("protocol_alert", "IMMUNE", "Fire Wall blocked protocol!");
              }, 500);
          } else {
-             if (['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'].includes(newProtocol || '')) {
+             if (['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'].includes(newProtocol || '')) {
                  addOverlay("social_event", msg, sub);
              } else if (['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(newProtocol || '')) {
                  addOverlay("bio_event", msg, sub);
@@ -3602,17 +3598,19 @@ export default function Game() {
     
     // Handle multiplayer waiting_for_ready phase - uses same UI as singleplayer ready phase
     if (effectivePhase === 'waiting_for_ready' && isMultiplayer) {
-      const humanPlayers = displayPlayers.filter(p => !p.isBot);
-      const readyPlayers = humanPlayers.filter(p => p.isHolding);
-      const allHumansReady = humanPlayers.length > 0 && readyPlayers.length === humanPlayers.length;
+      const activeHumanPlayers = displayPlayers.filter(p => !p.isBot && !p.isEliminated);
+      const readyPlayers = activeHumanPlayers.filter(p => p.isHolding);
+      const allHumansReady = activeHumanPlayers.length > 0 && readyPlayers.length === activeHumanPlayers.length;
+      const currentPlayerEliminated = myMultiplayerPlayer?.isEliminated;
       
       return (
         <div className="flex flex-col items-center justify-center h-[450px]">
           <div className="h-[100px] flex flex-col items-center justify-center space-y-2">
             <h2 className="text-3xl font-display">ROUND {multiplayerGameState?.round || 1} / {multiplayerGameState?.totalRounds || totalRounds}</h2>
-            {/* Ready Progress Bar - shows when all humans are holding for 3 seconds */}
             <div className="h-6 flex items-center justify-center">
-              {allHumansReady && multiplayerGameState?.allHumansHoldingStartTime ? (
+              {currentPlayerEliminated ? (
+                <p className="text-zinc-500 text-sm">Spectating - waiting for other players</p>
+              ) : allHumansReady && multiplayerGameState?.allHumansHoldingStartTime ? (
                 <div className="w-64 h-2 bg-zinc-800 rounded-full overflow-hidden">
                   <motion.div 
                     className="h-full bg-yellow-400"
@@ -3630,17 +3628,21 @@ export default function Game() {
           </div>
           
           <div className="h-[280px] flex items-center justify-center">
-            <AuctionButton 
-              onPress={handlePress} 
-              onRelease={handleRelease} 
-              isPressed={currentPlayerIsHolding}
-              showPulse={!currentPlayerIsHolding}
-            />
+            {currentPlayerEliminated ? (
+              <div className="text-zinc-600 text-lg uppercase tracking-widest">ELIMINATED</div>
+            ) : (
+              <AuctionButton 
+                onPress={handlePress} 
+                onRelease={handleRelease} 
+                isPressed={currentPlayerIsHolding}
+                showPulse={!currentPlayerIsHolding}
+              />
+            )}
           </div>
           
           <div className="h-[50px] flex flex-col items-center justify-start gap-2">
             <div className="flex gap-2">
-              {humanPlayers.map(p => (
+              {activeHumanPlayers.map(p => (
                 <div 
                   key={p.id} 
                   className={cn(
@@ -3652,7 +3654,7 @@ export default function Game() {
               ))}
             </div>
             <p className="text-xs text-zinc-500 uppercase tracking-widest">
-              {readyPlayers.length} / {humanPlayers.length} READY
+              {readyPlayers.length} / {activeHumanPlayers.length} READY
             </p>
           </div>
         </div>
@@ -3690,7 +3692,7 @@ export default function Game() {
                               <AlertTriangle size={14} className="text-red-400" />
                               <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
                           </summary>
 
                           <div className="px-4 pb-4 space-y-3">
@@ -3730,7 +3732,6 @@ export default function Game() {
                                 subtitle: 'Secret for some players',
                                 items: [
                                   { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
-                                  { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: 'Secret strategy chat' },
                                   { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token (secret until end)' },
                                   { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone (can be secret until end)' },
                                 ]
@@ -3773,7 +3774,7 @@ export default function Game() {
                               <PartyPopper size={14} className="text-purple-400" />
                               <div className="text-sm font-bold text-purple-200 tracking-widest">SOCIAL OVERDRIVE</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-purple-400/70">{allowedProtocols.filter(p => ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-purple-400/70">{allowedProtocols.filter(p => ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON'].includes(p as any)).length} selected</div>
                           </summary>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
                             {[
@@ -3781,7 +3782,6 @@ export default function Game() {
                               { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Truth or Dare', type: 'social' },
                               { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Seat swap before next round', type: 'social' },
                               { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Hum while bidding', type: 'social' },
-                              { id: 'NOISE_CANCEL', label: 'NOISE CANCEL', desc: 'Make noise for 15s', type: 'social' },
                             ].map((p) => (
                               <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-purple-950/20 border border-purple-500/10" data-testid={`row-protocol-config-${p.id}`}> 
                                 <Switch 
