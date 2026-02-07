@@ -1275,7 +1275,7 @@ export default function Game() {
           addOverlay("protocol_alert", msg, sub);
         }
       } else {
-        if (mpProtocol === 'UNDERDOG_VICTORY' || mpProtocol === 'TIME_TAX' || mpProtocol === 'PRIVATE_CHANNEL') {
+        if (mpProtocol === 'UNDERDOG_VICTORY' || mpProtocol === 'TIME_TAX') {
           addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
         }
       }
@@ -5104,8 +5104,7 @@ export default function Game() {
                 .filter(p => {
                   if (showDetails) return true; 
                   if (!roundWinner) return true; 
-                  // In competitive, show winner and penalties
-                  return p.name === roundWinner.name || (p.currentBid || 0) < 0; 
+                  return p.name === roundWinner.name; 
                 })
                 .map(p => (
                 <div key={p.id} className="flex justify-between items-center text-sm">
@@ -5117,9 +5116,9 @@ export default function Game() {
                   </span>
                 </div>
               ))}
-              {!showDetails && displayPlayers.filter(p => p.currentBid !== null && p.currentBid > 0).length > (roundWinner ? 1 : 0) && (
+              {!showDetails && displayPlayers.filter(p => p.currentBid !== null && p.currentBid !== 0).length > (roundWinner ? 1 : 0) && (
                  <div className="text-center text-xs text-zinc-600 italic mt-2">
-                   + {displayPlayers.filter(p => p.currentBid !== null && p.currentBid > 0).length - (roundWinner ? 1 : 0)} other hidden bids
+                   + {displayPlayers.filter(p => p.currentBid !== null && p.currentBid !== 0).length - (roundWinner ? 1 : 0)} other hidden bids
                  </div>
               )}
             </div>
@@ -5863,8 +5862,8 @@ export default function Game() {
                 isCurrentPlayer={isMultiplayer 
                   ? (multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id === p.id)
                   : p.id === 'p1'} 
-                showTime={showDetails || phase === 'game_end' || p.isEliminated || (isMultiplayer && (multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id === p.id))} 
-                // Show time if: Casual Mode OR Game Over OR Player Eliminated OR (MP and it's your own stats)
+                showTime={showDetails || phase === 'game_end' || p.isEliminated} 
+                // Show time if: Casual Mode OR Game Over OR Player Eliminated
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
                 peekActive={(selectedCharacter?.id === 'sadman' || selectedCharacter?.id === 'wandering_eye') && peekTargetId === p.id}
@@ -5873,9 +5872,7 @@ export default function Game() {
                 isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
-                    const myMpId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
-                    const isSelf = p.id === myMpId;
-                    if (difficulty === 'COMPETITIVE' && phase !== 'game_end' && !isSelf) {
+                    if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
                          setSelectedPlayerStats({...p, remainingTime: -1, tokens: -1, netImpact: 0}); 
                     } else {
                          setSelectedPlayerStats(p);
@@ -5896,6 +5893,7 @@ export default function Game() {
 
           <Separator className="bg-white/10 my-6" />
 
+          {showDetails ? (
           <div className="bg-card/30 rounded p-4 border border-white/5 h-[300px] flex flex-col">
             <h3 className="font-display text-muted-foreground text-xs tracking-widest mb-2 flex items-center gap-2 justify-between">
               <span className="flex items-center gap-2"><SkipForward size={12} /> GAME LOG</span>
@@ -5935,6 +5933,12 @@ export default function Game() {
               })()}
             </div>
           </div>
+          ) : (
+          <div className="bg-card/30 rounded p-4 border border-white/5 h-[300px] flex flex-col items-center justify-center">
+            <h3 className="font-display text-muted-foreground text-xs tracking-widest mb-2">GAME LOG</h3>
+            <p className="text-zinc-600 text-xs italic">Hidden in Competitive Mode</p>
+          </div>
+          )}
         </div>
       </div>
     </GameLayout>
