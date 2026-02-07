@@ -152,7 +152,7 @@ type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'mp_driver
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
-    type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'LOCK_ON';
+    type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'LOCK_ON' | 'NOISE_CANCEL';
 type BioProtocol = 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND';
 
 // Extended Protocol Type
@@ -161,7 +161,7 @@ type ProtocolType =
   | 'OPEN_HAND' | 'MUTE_PROTOCOL' 
   | 'NO_LOOK' | 'LOCK_ON' 
   | 'THE_MOLE' | 'PANIC_ROOM' 
-  | 'UNDERDOG_VICTORY' | 'TIME_TAX'
+  | 'UNDERDOG_VICTORY' | 'TIME_TAX' | 'PRIVATE_CHANNEL'
   | SocialProtocol
   | BioProtocol
   | null;
@@ -479,7 +479,7 @@ export default function Game() {
         'OPEN_HAND', 'MUTE_PROTOCOL', 
         'NO_LOOK', 
         'THE_MOLE', 'PANIC_ROOM',
-        'UNDERDOG_VICTORY', 'TIME_TAX'
+        'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL'
   ]);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
   const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
@@ -629,30 +629,25 @@ export default function Game() {
   useEffect(() => {
     if (variant === 'SOCIAL_OVERDRIVE') {
         setProtocolsEnabled(true);
-        // Add social protocols if not already present (default ON)
         setAllowedProtocols(prev => {
-            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
             const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
-            // Remove bio protocols, add social protocols
             const withoutBio = prev.filter(p => !bioProtocols.includes(p));
             const toAdd = socialProtocols.filter(p => !withoutBio.includes(p));
             return [...withoutBio, ...toAdd];
         });
     } else if (variant === 'BIO_FUEL') {
         setProtocolsEnabled(true);
-        // Add bio protocols if not already present (default ON)
         setAllowedProtocols(prev => {
-            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
+            const socialProtocols: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
             const bioProtocols: ProtocolType[] = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
-            // Remove social protocols, add bio protocols
             const withoutSocial = prev.filter(p => !socialProtocols.includes(p));
             const toAdd = bioProtocols.filter(p => !withoutSocial.includes(p));
             return [...withoutSocial, ...toAdd];
         });
     } else {
-        // Standard mode - remove mode-specific protocols
         setAllowedProtocols(prev => {
-            const modeSpecific: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
+            const modeSpecific: ProtocolType[] = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL', 'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
             return prev.filter(p => !modeSpecific.includes(p));
         });
     }
@@ -1230,7 +1225,7 @@ export default function Game() {
       let showPopup = true;
       
       // Protocols handled by targeted protocol_detail event (skip generic popup)
-      const detailHandled = ['THE_MOLE', 'OPEN_HAND', 'LOCK_ON', 'HUM_TUNE', 'PARTNER_DRINK'];
+      const detailHandled = ['THE_MOLE', 'OPEN_HAND', 'LOCK_ON', 'HUM_TUNE', 'PARTNER_DRINK', 'PRIVATE_CHANNEL', 'NOISE_CANCEL'];
       if (detailHandled.includes(mpProtocol)) {
         showPopup = false;
       }
@@ -1244,6 +1239,7 @@ export default function Game() {
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break;
         case 'TIME_TAX': showPopup = false; break;
+        case 'PRIVATE_CHANNEL': showPopup = false; break;
         case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner Asks, Loser Does"; break;
         case 'SWITCH_SEATS': msg = "SWITCH SEATS"; sub = "Change Positions Now!"; break;
         case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone Take a Sip!"; break;
@@ -1252,7 +1248,7 @@ export default function Game() {
         default: if (!detailHandled.includes(mpProtocol)) { msg = "PROTOCOL ACTIVE"; sub = mpProtocol; } break;
       }
       
-      const SOCIAL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
+      const SOCIAL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
       
       if (showPopup) {
@@ -1264,8 +1260,7 @@ export default function Game() {
           addOverlay("protocol_alert", msg, sub);
         }
       } else {
-        // Secret protocols - show hint
-        if (mpProtocol === 'UNDERDOG_VICTORY' || mpProtocol === 'TIME_TAX') {
+        if (mpProtocol === 'UNDERDOG_VICTORY' || mpProtocol === 'TIME_TAX' || mpProtocol === 'PRIVATE_CHANNEL') {
           addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
         }
       }
@@ -1856,8 +1851,8 @@ export default function Game() {
       // Build Protocol Pool
       // Standard protocols and Reality Mode protocols are configured separately.
       // Goal: any enabled options should trigger uniformly.
-      const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX'];
-      const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON'];
+      const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX','PRIVATE_CHANNEL'];
+      const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
 
       const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
@@ -1919,6 +1914,17 @@ export default function Game() {
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break; // Secret
         case 'TIME_TAX': showPopup = false; break; // Secret
+        case 'PRIVATE_CHANNEL': {
+          const fireWallActivePC = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
+          const pcTarget = fireWallActivePC ? getRandomPlayer() : (Math.random() > 0.5 ? 'YOU' : getRandomPlayer());
+          const pcPartner = getRandomPlayer();
+          if (pcTarget === 'YOU') {
+            msg = "PRIVATE CHANNEL"; sub = `Secret link with ${pcPartner}! Coordinate your strategy.`;
+          } else {
+            showPopup = false;
+          }
+          break;
+        }
         
         // ... SOCIAL PROTOCOLS ...
         case 'TRUTH_DARE': msg = "TRUTH OR DARE"; sub = "Winner Asks, Loser Does"; break;
@@ -1930,6 +1936,7 @@ export default function Game() {
             sub = `${lockA} & ${lockB} must maintain eye contact!`;
             break;
         }
+        case 'NOISE_CANCEL': msg = "NOISE CANCEL"; sub = "No reacting to others! Stay in your own zone."; break;
         
         // ... BIO PROTOCOLS ...
         case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone Take a Sip!"; break;
@@ -1942,7 +1949,7 @@ export default function Game() {
       }
       
       // Filter out popups that shouldn't be seen by the player
-      const targetProtocols = ['THE_MOLE', 'OPEN_HAND', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE', 'UNDERDOG_VICTORY', 'TIME_TAX'];
+      const targetProtocols = ['THE_MOLE', 'OPEN_HAND', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE', 'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL'];
 
       // LOW FLAME IMMUNITY CHECK (Fire Wall)
       const isLowFlame = selectedCharacter?.id === 'low_flame';
@@ -1964,7 +1971,7 @@ export default function Game() {
                  addOverlay("protocol_alert", "IMMUNE", "Fire Wall blocked protocol!");
              }, 500);
          } else {
-             if (['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'].includes(newProtocol || '')) {
+             if (['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'].includes(newProtocol || '')) {
                  addOverlay("social_event", msg, sub);
              } else if (['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'].includes(newProtocol || '')) {
                  addOverlay("bio_event", msg, sub);
@@ -1973,7 +1980,7 @@ export default function Game() {
              }
          }
       } else {
-         if (newProtocol === 'UNDERDOG_VICTORY' || newProtocol === 'TIME_TAX') {
+         if (newProtocol === 'UNDERDOG_VICTORY' || newProtocol === 'TIME_TAX' || newProtocol === 'PRIVATE_CHANNEL') {
              addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
          }
       }
@@ -2947,6 +2954,24 @@ export default function Game() {
         }, 1500);
     }
 
+    if (activeProtocol === 'PRIVATE_CHANNEL') {
+        const pcPool = [...finalPlayers].filter(p => !p.isEliminated);
+        if (pcPool.length >= 2) {
+            const pcShuffled = pcPool.sort(() => 0.5 - Math.random());
+            const pcA = pcShuffled[0].name;
+            const pcB = pcShuffled[1].name;
+            extraLogs.push(`>> SECRET REVEALED: PRIVATE CHANNEL! ${pcA} & ${pcB} were secretly linked!`);
+            setTimeout(() => {
+                addOverlay("protocol_alert", "SECRET REVEALED", `PRIVATE CHANNEL: ${pcA} & ${pcB} were secretly linked!`);
+            }, 1500);
+        } else {
+            extraLogs.push(`>> SECRET REVEALED: PRIVATE CHANNEL (not enough players for link)`);
+            setTimeout(() => {
+                addOverlay("protocol_alert", "SECRET REVEALED", "PRIVATE CHANNEL: No eligible link this round.");
+            }, 1500);
+        }
+    }
+
     // LAST ONE STANDING MOMENT CHECK
     // Win final round AND at least one player eliminated in that round
     if (winnerId === 'p1' && round === totalRounds) {
@@ -3186,7 +3211,7 @@ export default function Game() {
                 gameId,
                 lobbyCode: null,
                 totalRounds: round,
-                gameSettings: { difficulty, variant, gameDuration, protocolsEnabled: protocolsActive, abilitiesEnabled },
+                gameSettings: { difficulty, variant, gameDuration, protocolsEnabled, abilitiesEnabled },
                 playerResults: sorted.map((p, i) => ({
                   playerId: p.id,
                   playerName: p.name,
@@ -3613,6 +3638,7 @@ export default function Game() {
     const renderPhase = isMultiplayer 
       ? (effectivePhase === 'driver_selection' ? 'mp_driver_select' 
         : effectivePhase === 'round_end' ? 'round_end' 
+        : effectivePhase === 'game_over' ? 'game_end'
         : effectivePhase)
       : phase;
     
@@ -3640,7 +3666,7 @@ export default function Game() {
                               <AlertTriangle size={14} className="text-red-400" />
                               <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
                           </summary>
 
                           <div className="px-4 pb-4 space-y-3">
@@ -3682,6 +3708,7 @@ export default function Game() {
                                   { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
                                   { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token (secret until end)' },
                                   { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone (can be secret until end)' },
+                                  { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: '2 players secretly linked (revealed at end)' },
                                 ]
                               }
                             ].map((cat) => (
@@ -3722,14 +3749,15 @@ export default function Game() {
                               <PartyPopper size={14} className="text-purple-400" />
                               <div className="text-sm font-bold text-purple-200 tracking-widest">SOCIAL OVERDRIVE</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-purple-400/70">{allowedProtocols.filter(p => ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-purple-400/70">{allowedProtocols.filter(p => ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'].includes(p as any)).length} selected</div>
                           </summary>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
                             {[
-                              { id: 'LOCK_ON', label: 'LOCK_ON', desc: 'Eye contact required', type: 'social' },
-                              { id: 'TRUTH_DARE', label: 'TRUTH_DARE', desc: 'Truth or Dare', type: 'social' },
-                              { id: 'SWITCH_SEATS', label: 'SWITCH_SEATS', desc: 'Seat swap before next round', type: 'social' },
-                              { id: 'HUM_TUNE', label: 'HUM_TUNE', desc: 'Hum while bidding', type: 'social' },
+                              { id: 'LOCK_ON', label: 'LOCK ON', desc: 'Eye contact required', type: 'social' },
+                              { id: 'TRUTH_DARE', label: 'TRUTH OR DARE', desc: 'Truth or Dare', type: 'social' },
+                              { id: 'SWITCH_SEATS', label: 'SWITCH SEATS', desc: 'Seat swap before next round', type: 'social' },
+                              { id: 'HUM_TUNE', label: 'HUM A TUNE', desc: 'Hum while bidding', type: 'social' },
+                              { id: 'NOISE_CANCEL', label: 'NOISE CANCEL', desc: 'No reacting to others', type: 'social' },
                             ].map((p) => (
                               <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-purple-950/20 border border-purple-500/10" data-testid={`row-protocol-config-${p.id}`}> 
                                 <Switch 
@@ -5081,8 +5109,8 @@ export default function Game() {
         );
 
       case 'game_end':
-        // Sort players by tokens (desc), then time (desc)
-        const sortedPlayers = [...players].sort((a, b) => {
+        // Sort players by tokens (desc), then time (desc) - use displayPlayers for MP data
+        const sortedPlayers = [...displayPlayers].sort((a, b) => {
           if (b.tokens !== a.tokens) return b.tokens - a.tokens;
           return b.remainingTime - a.remainingTime;
         });

@@ -73,8 +73,8 @@ export type ProtocolType =
   | 'OPEN_HAND' | 'MUTE_PROTOCOL' 
   | 'NO_LOOK' | 'LOCK_ON' 
   | 'THE_MOLE' | 'PANIC_ROOM' 
-  | 'UNDERDOG_VICTORY' | 'TIME_TAX'
-  | 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE'
+  | 'UNDERDOG_VICTORY' | 'TIME_TAX' | 'PRIVATE_CHANNEL'
+  | 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'NOISE_CANCEL'
   | 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND'
   | null;
 
@@ -83,11 +83,11 @@ const STANDARD_PROTOCOLS: ProtocolType[] = [
   'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
   'OPEN_HAND', 'MUTE_PROTOCOL', 
   'NO_LOOK', 'THE_MOLE', 'PANIC_ROOM',
-  'UNDERDOG_VICTORY', 'TIME_TAX'
+  'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL'
 ];
 
 const SOCIAL_PROTOCOLS: ProtocolType[] = [
-  'TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'
+  'TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'
 ];
 
 const BIO_PROTOCOLS: ProtocolType[] = [
@@ -184,6 +184,7 @@ export interface GameState {
   gameLog: GameLogEntry[];
   isDoubleTokensRound: boolean;
   molePlayerId: string | null;
+  privateChannelPlayerIds: [string, string] | null;
   allHumansHoldingStartTime: number | null;
   isMultiplayer: boolean;
   botTargetBids: Record<string, number>;
@@ -471,6 +472,7 @@ export function createGame(
     gameLog: [],
     isDoubleTokensRound: false,
     molePlayerId: null,
+    privateChannelPlayerIds: null,
     allHumansHoldingStartTime: null,
     isMultiplayer: true,
     botTargetBids: {},
@@ -1348,6 +1350,53 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       }
       break;
     }
+    case 'PRIVATE_CHANNEL': {
+      if (game.privateChannelPlayerIds) {
+        const [idA, idB] = game.privateChannelPlayerIds;
+        const pA = game.players.find(p => p.id === idA);
+        const pB = game.players.find(p => p.id === idB);
+        if (pA && pB) {
+          if (pA.socketId) {
+            emitToPlayer(pA.socketId, 'protocol_detail', {
+              protocol: 'PRIVATE_CHANNEL',
+              msg: 'PRIVATE CHANNEL',
+              sub: `Secret link with ${pB.name}! Coordinate your strategy.`,
+              targetPlayerId: pA.id,
+              targetPlayerId2: pB.id,
+            });
+          }
+          if (pB.socketId) {
+            emitToPlayer(pB.socketId, 'protocol_detail', {
+              protocol: 'PRIVATE_CHANNEL',
+              msg: 'PRIVATE CHANNEL',
+              sub: `Secret link with ${pA.name}! Coordinate your strategy.`,
+              targetPlayerId: pB.id,
+              targetPlayerId2: pA.id,
+            });
+          }
+          game.players.filter(p => !p.isBot && !p.isEliminated && p.id !== idA && p.id !== idB).forEach(p => {
+            if (p.socketId && emitToPlayer) {
+              emitToPlayer(p.socketId, 'protocol_detail', {
+                protocol: 'PRIVATE_CHANNEL',
+                msg: 'SECRET PROTOCOL ACTIVE',
+                sub: '',
+                targetPlayerId: null,
+              });
+            }
+          });
+        }
+      }
+      break;
+    }
+    case 'NOISE_CANCEL': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'NOISE_CANCEL',
+        msg: 'NOISE CANCEL',
+        sub: 'No reacting to others! Stay in your own zone.',
+        targetPlayerId: null,
+      });
+      break;
+    }
   }
 }
 
@@ -1380,6 +1429,16 @@ function emitSecretProtocolReveal(game: GameState) {
       protocol: 'TIME_TAX',
       msg: 'SECRET REVEALED',
       sub: 'TIME TAX: Everyone loses 10s!',
+    });
+  }
+  
+  if (game.activeProtocol === 'PRIVATE_CHANNEL' && game.privateChannelPlayerIds) {
+    const pA = game.players.find(p => p.id === game.privateChannelPlayerIds![0]);
+    const pB = game.players.find(p => p.id === game.privateChannelPlayerIds![1]);
+    emitToLobby(game.lobbyCode, 'protocol_reveal', {
+      protocol: 'PRIVATE_CHANNEL',
+      msg: 'SECRET REVEALED',
+      sub: `PRIVATE CHANNEL: ${pA?.name || '?'} & ${pB?.name || '?'} were secretly linked!`,
     });
   }
 }
@@ -1454,13 +1513,22 @@ function startWaitingForReady(lobbyCode: string) {
       game.isDoubleTokensRound = true;
     }
     if (protocol === 'THE_MOLE') {
-      // Randomly select a non-eliminated player as the mole (FIRE WALL players excluded)
       const activePlayers = game.players.filter(p => !p.isEliminated && !p.isBot && !(p.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled));
       if (activePlayers.length > 0) {
         game.molePlayerId = activePlayers[Math.floor(Math.random() * activePlayers.length)].id;
       }
     } else {
       game.molePlayerId = null;
+    }
+    if (protocol === 'PRIVATE_CHANNEL') {
+      const [pcA, pcB] = getTwoRandomPlayers(game);
+      if (pcA && pcB) {
+        game.privateChannelPlayerIds = [pcA.id, pcB.id];
+      } else {
+        game.privateChannelPlayerIds = null;
+      }
+    } else {
+      game.privateChannelPlayerIds = null;
     }
     
     log(`Protocol ${protocol} activated for round ${game.round} in lobby ${lobbyCode}`, "game");
