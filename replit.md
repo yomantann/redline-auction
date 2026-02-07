@@ -77,6 +77,21 @@ shared/           # Shared code between frontend and backend
 - Share link auto-join: `?join=CODE` URL parameter auto-joins lobby or attempts rejoin if game started
 - Voluntary `leave_lobby` still eliminates the player permanently
 
+### MP Bot AI System
+- Bots pre-calculate target bid times at round start via `calculateBotTargetBids()` in gameEngine.ts
+- Protocol-aware risk adjustment: Panic Room -35%, No Look -10%, Mute -10%, Last Round -20%, Low time -35%
+- Personality-based strategies: aggressive (high bids, backs off under risk), conservative (low bids, extra cautious late), random (wide range scaled by risk)
+- Mole protocol: all bots reduce bids by 15% to avoid huge winning margins
+- Target bids stored in `game.botTargetBids` (server-only, not sent to clients)
+- `processBotBids()` compares elapsed time against pre-calculated targets each 100ms tick
+- Matches SP bot logic exactly (same formulas, same risk factors)
+
+### MP Lobby & Eliminated Players
+- Lobby capacity: 16 players max
+- Eliminated players auto-acknowledge round ends (never block round progression)
+- When all human players eliminated: remaining rounds fast-forward with random CPU trophy awards
+- SFX restricted to moment flag overlays only (not round_start, protocol_alert, etc.), 2000ms blocking window
+
 ## External Dependencies
 
 ### Database
