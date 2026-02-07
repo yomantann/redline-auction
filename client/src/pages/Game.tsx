@@ -1069,59 +1069,7 @@ export default function Game() {
     audioRef.current.pause();
   }, [phase, soundEnabled, isMultiplayer, multiplayerGameState?.phase]);
 
-  // Multiplayer Protocol Overlay - trigger when a new protocol is activated
-  const lastProtocolRoundRef = useRef<number>(0);
-  useEffect(() => {
-    if (!isMultiplayer || !multiplayerGameState) return;
-    
-    // Only trigger when entering waiting_for_ready phase with a protocol
-    if (multiplayerGameState.phase !== 'waiting_for_ready') return;
-    if (!multiplayerGameState.activeProtocol) return;
-    
-    // Prevent duplicate triggers for same round
-    if (lastProtocolRoundRef.current === multiplayerGameState.round) return;
-    lastProtocolRoundRef.current = multiplayerGameState.round;
-    
-    // Trigger protocol overlay with simple mapping
-    const protocol = multiplayerGameState.activeProtocol;
-    const protocolNames: Record<string, { name: string; desc: string }> = {
-      'DATA_BLACKOUT': { name: 'DATA BLACKOUT', desc: 'Timers Hidden' },
-      'DOUBLE_STAKES': { name: 'DOUBLE STAKES', desc: 'Winner Gets 2 Tokens' },
-      'SYSTEM_FAILURE': { name: 'SYSTEM FAILURE', desc: 'Timers Scrambled' },
-      'OPEN_HAND': { name: 'OPEN HAND', desc: 'All Bids Visible' },
-      'MUTE_PROTOCOL': { name: 'MUTE PROTOCOL', desc: 'No Talking Allowed' },
-      'NO_LOOK': { name: 'NO LOOK', desc: 'Close Your Eyes' },
-      'LOCK_ON': { name: 'LOCK ON', desc: 'Stare at Target Player' },
-      'THE_MOLE': { name: 'THE MOLE', desc: 'Secret Saboteur' },
-      'PANIC_ROOM': { name: 'PANIC ROOM', desc: '2x Timer Speed' },
-      'UNDERDOG_VICTORY': { name: 'UNDERDOG VICTORY', desc: 'Revealed at Round End' },
-      'TIME_TAX': { name: 'TIME TAX', desc: 'Revealed at Round End' },
-      'TRUTH_DARE': { name: 'TRUTH OR DARE', desc: 'Winner Asks, Loser Does' },
-      'SWITCH_SEATS': { name: 'SWITCH SEATS', desc: 'Change Positions Now' },
-      'HUM_TUNE': { name: 'HUM A TUNE', desc: 'Loser Hums a Song' },
-      'HYDRATE': { name: 'HYDRATION CHECK', desc: 'Everyone Take a Sip' },
-      'BOTTOMS_UP': { name: 'BOTTOMS UP', desc: 'Loser Finishes Drink' },
-      'PARTNER_DRINK': { name: 'PARTNER DRINK', desc: 'Choose a Drink Buddy' },
-      'WATER_ROUND': { name: 'WATER ROUND', desc: 'No Alcohol This Round' },
-    };
-    const protocolInfo = protocolNames[protocol];
-    if (protocolInfo) {
-      // Use variant-specific overlay types like singleplayer
-      const socialProtocols = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON'];
-      const bioProtocols = ['HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'];
-      const secretProtocols = ['UNDERDOG_VICTORY', 'TIME_TAX'];
-      
-      if (secretProtocols.includes(protocol)) {
-        addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
-      } else if (socialProtocols.includes(protocol)) {
-        addOverlay("social_event", protocolInfo.name, protocolInfo.desc);
-      } else if (bioProtocols.includes(protocol)) {
-        addOverlay("bio_event", protocolInfo.name, protocolInfo.desc);
-      } else {
-        addOverlay("protocol_alert", protocolInfo.name, protocolInfo.desc);
-      }
-    }
-  }, [isMultiplayer, multiplayerGameState, addOverlay]);
+  // (Protocol popup handled by single useEffect below in countdown phase)
 
   // Multiplayer Moment Flags - trigger when round ends
   const lastRoundEndProcessedRef = useRef<number>(0);
