@@ -28,8 +28,8 @@ const BOT_PERSONALITIES = ['aggressive', 'conservative', 'random', 'balanced'] a
 // These match the client-side character definitions - all variants use base characters
 // plus variant-specific characters defined in SOCIAL_CHARACTERS and BIO_CHARACTERS
 const STANDARD_DRIVER_IDS = [
-  'harambe', 'popcat', 'winter', 'pepe', 'nyan', 'karen', 'fine', 'bf', 
-  'rat', 'baldwin', 'sigma', 'gigachad', 'thinker', 'disaster', 'buttons', 'primate', 'harold'
+  'guardian_h', 'click_click', 'frostbyte', 'sadman', 'rainbow_dash', 'accuser', 'low_flame', 'wandering_eye', 
+  'the_rind', 'anointed', 'executive_p', 'alpha_prime', 'roll_safe', 'hotwired', 'panic_bot', 'primate', 'pain_hider'
 ];
 // Social mode adds: prom_king, idol_core from SOCIAL_CHARACTERS
 const SOCIAL_DRIVER_IDS = [
@@ -42,23 +42,23 @@ const BIO_DRIVER_IDS = [
 
 // Driver ID to display name mapping (matches client-side character names)
 const DRIVER_NAMES: Record<string, string> = {
-  'harambe': 'Guardian H',
-  'popcat': 'Click-Click',
-  'winter': 'Frostbyte',
-  'pepe': 'Sadman Logic',
-  'nyan': 'Rainbow Dash',
-  'karen': 'The Accuser',
-  'fine': 'Low Flame',
-  'bf': 'Wandering Eye',
-  'rat': 'The Rind',
-  'baldwin': 'The Anointed',
-  'sigma': 'Executive P',
-  'gigachad': 'Alpha Prime',
-  'thinker': 'Roll Safe',
-  'disaster': 'Hotwired',
-  'buttons': 'Panic Bot',
+  'guardian_h': 'Guardian H',
+  'click_click': 'Click-Click',
+  'frostbyte': 'Frostbyte',
+  'sadman': 'Sadman Logic',
+  'rainbow_dash': 'Rainbow Dash',
+  'accuser': 'The Accuser',
+  'low_flame': 'Low Flame',
+  'wandering_eye': 'Wandering Eye',
+  'the_rind': 'The Rind',
+  'anointed': 'The Anointed',
+  'executive_p': 'Executive P',
+  'alpha_prime': 'Alpha Prime',
+  'roll_safe': 'Roll Safe',
+  'hotwired': 'Hotwired',
+  'panic_bot': 'Panic Bot',
   'primate': 'Primate Prime',
-  'harold': 'Pain Hider',
+  'pain_hider': 'Pain Hider',
   'prom_king': 'Prom King',
   'idol_core': 'Idol Core',
   'tank': 'The Tank',
@@ -106,24 +106,23 @@ interface DriverAbility {
 }
 
 const DRIVER_ABILITIES: Record<string, DriverAbility> = {
-  // Standard Mode Drivers - IDs match client character definitions
-  'harambe': { name: 'SPIRIT SHIELD', effect: 'TIME_REFUND', triggerCondition: 'WIN', refundAmount: 11, description: '+11s if you win Round 1' },
-  'popcat': { name: 'HYPER CLICK', effect: 'TOKEN_BOOST', triggerCondition: 'CONDITIONAL', description: '+1 token if close win (within 1.1s of 2nd)' },
-  'winter': { name: 'CYRO FREEZE', effect: 'TIME_REFUND', triggerCondition: 'ALWAYS', refundAmount: 1.0, description: '+1.0s every round' },
-  'pepe': { name: 'SAD REVEAL', effect: 'PEEK', triggerCondition: 'CONDITIONAL', description: 'See opponent holding' },
-  'nyan': { name: 'RAINBOW RUN', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', refundAmount: 3.5, description: '+3.5s if bid > 40s' },
-  'karen': { name: 'MANAGER CALL', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -2, description: '-2s from random opponent' },
-  'fine': { name: 'FIRE WALL', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: 'Immune to protocols' },
-  'bf': { name: 'SNEAK PEEK', effect: 'PEEK', triggerCondition: 'CONDITIONAL', description: 'See random opponent holding' },
-  'rat': { name: 'CHEESE TAX', effect: 'DISRUPT', triggerCondition: 'LOSE', refundAmount: 2, description: 'Steal 2s from winner' },
-  'baldwin': { name: 'ROYAL DECREE', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', refundAmount: 4, description: '+4s if bid near 20s' },
-  'sigma': { name: 'AXE SWING', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -2, description: '-2s from player with most time' },
-  'gigachad': { name: 'JAWLINE', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: 'No penalty during countdown' },
-  'thinker': { name: 'CALCULATED', effect: 'PEEK', triggerCondition: 'ALWAYS', description: 'Immune to abilities' },
-  'disaster': { name: 'BURN IT', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -1, description: '-1s from everyone else' },
-  'buttons': { name: 'PANIC MASH', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: '50% +3s, 50% -3s' },
+  'guardian_h': { name: 'SPIRIT SHIELD', effect: 'TIME_REFUND', triggerCondition: 'WIN', refundAmount: 11, description: '+11s if you win Round 1' },
+  'click_click': { name: 'HYPER CLICK', effect: 'TOKEN_BOOST', triggerCondition: 'CONDITIONAL', description: '+1 token if close win (within 1.1s of 2nd)' },
+  'frostbyte': { name: 'CYRO FREEZE', effect: 'TIME_REFUND', triggerCondition: 'ALWAYS', refundAmount: 1.0, description: '+1.0s every round' },
+  'sadman': { name: 'SAD REVEAL', effect: 'PEEK', triggerCondition: 'CONDITIONAL', description: 'See opponent holding' },
+  'rainbow_dash': { name: 'RAINBOW RUN', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', refundAmount: 3.5, description: '+3.5s if bid > 40s' },
+  'accuser': { name: 'MANAGER CALL', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -2, description: '-2s from random opponent' },
+  'low_flame': { name: 'FIRE WALL', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: 'Immune to protocols' },
+  'wandering_eye': { name: 'SNEAK PEEK', effect: 'PEEK', triggerCondition: 'CONDITIONAL', description: 'See random opponent holding' },
+  'the_rind': { name: 'CHEESE TAX', effect: 'DISRUPT', triggerCondition: 'LOSE', refundAmount: 2, description: 'Steal 2s from winner' },
+  'anointed': { name: 'ROYAL DECREE', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', refundAmount: 4, description: '+4s if bid near 20s' },
+  'executive_p': { name: 'AXE SWING', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -2, description: '-2s from player with most time' },
+  'alpha_prime': { name: 'JAWLINE', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: 'No penalty during countdown' },
+  'roll_safe': { name: 'CALCULATED', effect: 'PEEK', triggerCondition: 'ALWAYS', description: 'Immune to abilities' },
+  'hotwired': { name: 'BURN IT', effect: 'DISRUPT', triggerCondition: 'ALWAYS', refundAmount: -1, description: '-1s from everyone else' },
+  'panic_bot': { name: 'PANIC MASH', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', description: '50% +3s, 50% -3s' },
   'primate': { name: 'CHEF\'S SPECIAL', effect: 'TIME_REFUND', triggerCondition: 'CONDITIONAL', refundAmount: 4, description: '+4s if win by >10s margin' },
-  'harold': { name: 'HIDE PAIN', effect: 'TIME_REFUND', triggerCondition: 'LOSE', refundAmount: 3, description: '+3s if you lose by >15s' },
+  'pain_hider': { name: 'HIDE PAIN', effect: 'TIME_REFUND', triggerCondition: 'LOSE', refundAmount: 3, description: '+3s if you lose by >15s' },
   'tank': { name: 'IRON STOMACH', effect: 'TIME_REFUND', triggerCondition: 'ALWAYS', refundAmount: 0, description: 'Immune to drink penalties' },
 };
 
@@ -219,51 +218,51 @@ interface RealityAbilityConfig {
 }
 
 const SOCIAL_ABILITY_CONFIG: Record<string, RealityAbilityConfig | null> = {
-  'promking': { name: 'PROM COURT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Make a rule for the game!', timing: 'end' },
-  'idolcore': { name: 'FANCAM', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'shows hidden talent or drops button!', timing: 'start' },
+  'prom_king': { name: 'PROM COURT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Make a rule for the game!', timing: 'end' },
+  'idol_core': { name: 'FANCAM', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'shows hidden talent or drops button!', timing: 'start' },
   'tank': { name: "PEOPLE'S ELBOW", triggerChance: 0.3, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Challenge to thumb war!', timing: 'end' },
-  'dangerzone': { name: 'PRIVATE DANCE', triggerChance: 0.3, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Give a command!', timing: 'end' },
-  'harambe': { name: 'VIBE GUARD', triggerChance: 1.0, triggerType: 'always', visibility: 'driver_only', needsTarget: false, description: 'Designate a player immune to social dares this round.', timing: 'start' },
-  'clickclick': { name: 'MISCLICK', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'must hold bid without using hands!', timing: 'end' },
-  'winter': { name: 'COLD SHOULDER', triggerChance: 0.5, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Ignore all social interactions this round.', timing: 'start' },
-  'pepe': { name: 'SAD STORY', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: 'Share a sad story.', timing: 'end' },
-  'rainbow': { name: 'SUGAR RUSH', triggerChance: 0.15, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'must speak 2x speed!', timing: 'start' },
+  'danger_zone': { name: 'PRIVATE DANCE', triggerChance: 0.3, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Give a command!', timing: 'end' },
+  'guardian_h': { name: 'VIBE GUARD', triggerChance: 1.0, triggerType: 'always', visibility: 'driver_only', needsTarget: false, description: 'Designate a player immune to social dares this round.', timing: 'start' },
+  'click_click': { name: 'MISCLICK', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'must hold bid without using hands!', timing: 'end' },
+  'frostbyte': { name: 'COLD SHOULDER', triggerChance: 0.5, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Ignore all social interactions this round.', timing: 'start' },
+  'sadman': { name: 'SAD STORY', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: 'Share a sad story.', timing: 'end' },
+  'rainbow_dash': { name: 'SUGAR RUSH', triggerChance: 0.15, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'must speak 2x speed!', timing: 'start' },
   'accuser': { name: 'COMPLAINT', triggerChance: 0.15, triggerType: 'random', visibility: 'all', needsTarget: false, description: "Vote on winner's punishment!", timing: 'end' },
-  'fine': { name: 'HOT SEAT', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Choose a player to answer a truth!', timing: 'end' },
-  'bf': { name: 'DISTRACTION', triggerChance: 0.35, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Point at something! Anyone who looks must drop buzzer.', timing: 'start' },
-  'rind': { name: 'SNITCH', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: "Reveal someone's tell!", timing: 'end' },
+  'low_flame': { name: 'HOT SEAT', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Choose a player to answer a truth!', timing: 'end' },
+  'wandering_eye': { name: 'DISTRACTION', triggerChance: 0.35, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Point at something! Anyone who looks must drop buzzer.', timing: 'start' },
+  'the_rind': { name: 'SNITCH', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: "Reveal someone's tell!", timing: 'end' },
   'anointed': { name: 'COMMAND SILENCE', triggerChance: 0.5, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Command silence!', timing: 'start' },
-  'sigma': { name: "CC'D", triggerChance: 0.2, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'must copy your actions next round!', timing: 'end' },
-  'gigachad': { name: 'MOG', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: '10 pushups or ff next round!', timing: 'end' },
-  'thinker': null,
-  'disaster': { name: 'VIRAL MOMENT', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'must re-enact a meme!', timing: 'end' },
-  'panicbot': null,
+  'executive_p': { name: "CC'D", triggerChance: 0.2, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'must copy your actions next round!', timing: 'end' },
+  'alpha_prime': { name: 'MOG', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: '10 pushups or ff next round!', timing: 'end' },
+  'roll_safe': null,
+  'hotwired': { name: 'VIRAL MOMENT', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'must re-enact a meme!', timing: 'end' },
+  'panic_bot': null,
   'primate': { name: 'FRESH CUT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'must compliment everyone!', timing: 'end' },
-  'harold': null,
+  'pain_hider': null,
 };
 
 const BIO_ABILITY_CONFIG: Record<string, RealityAbilityConfig | null> = {
-  'promking': { name: 'CORONATION', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Initiate Group Toast!', timing: 'end' },
-  'idolcore': { name: 'DEBUT', triggerChance: 0.2, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Take a drink to reveal a secret!', timing: 'end' },
+  'prom_king': { name: 'CORONATION', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Initiate Group Toast!', timing: 'end' },
+  'idol_core': { name: 'DEBUT', triggerChance: 0.2, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Take a drink to reveal a secret!', timing: 'end' },
   'tank': null,
-  'dangerzone': null,
-  'harambe': { name: 'LIQUID AUTHORIZATION', triggerChance: 1.0, triggerType: 'always', visibility: 'all', needsTarget: false, description: 'Cannot release button until guardian finishes sip', timing: 'end' },
-  'clickclick': { name: 'MOUTH POP', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Pop mouth! Everyone sips!', timing: 'end' },
-  'winter': { name: 'BRAIN FREEZE', triggerChance: 0.1, triggerType: 'once_per_game', visibility: 'driver_and_target', needsTarget: true, description: 'must Win round or Drink!', timing: 'end' },
-  'pepe': { name: 'DRINKING PARTNER', triggerChance: 1.0, triggerType: 'always', visibility: 'driver_only', needsTarget: false, description: 'You can change your drinking partner', timing: 'end' },
-  'rainbow': { name: 'RAINBOW SHOT', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'mixes two drinks!', timing: 'end' },
+  'danger_zone': null,
+  'guardian_h': { name: 'LIQUID AUTHORIZATION', triggerChance: 1.0, triggerType: 'always', visibility: 'all', needsTarget: false, description: 'Cannot release button until guardian finishes sip', timing: 'end' },
+  'click_click': { name: 'MOUTH POP', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Pop mouth! Everyone sips!', timing: 'end' },
+  'frostbyte': { name: 'BRAIN FREEZE', triggerChance: 0.1, triggerType: 'once_per_game', visibility: 'driver_and_target', needsTarget: true, description: 'must Win round or Drink!', timing: 'end' },
+  'sadman': { name: 'DRINKING PARTNER', triggerChance: 1.0, triggerType: 'always', visibility: 'driver_only', needsTarget: false, description: 'You can change your drinking partner', timing: 'end' },
+  'rainbow_dash': { name: 'RAINBOW SHOT', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'mixes two drinks!', timing: 'end' },
   'accuser': { name: 'SPILL HAZARD', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Accuse someone of spilling — they drink!', timing: 'end' },
-  'fine': { name: 'ON FIRE', triggerChance: 1.0, triggerType: 'on_win', visibility: 'all', needsTarget: false, description: 'Everyone else drinks!', timing: 'end' },
-  'bf': { name: 'THE EX', triggerChance: 0.1, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: 'Toast to an ex!', timing: 'end' },
-  'rind': { name: 'SCAVENGE', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: "Finish someone else's drink!", timing: 'end' },
+  'low_flame': { name: 'ON FIRE', triggerChance: 1.0, triggerType: 'on_win', visibility: 'all', needsTarget: false, description: 'Everyone else drinks!', timing: 'end' },
+  'wandering_eye': { name: 'THE EX', triggerChance: 0.1, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: 'Toast to an ex!', timing: 'end' },
+  'the_rind': { name: 'SCAVENGE', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: "Finish someone else's drink!", timing: 'end' },
   'anointed': { name: 'ROYAL CUP', triggerChance: 0.05, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Make a rule for the game!', timing: 'end' },
-  'sigma': { name: 'REASSIGNED', triggerChance: 0.25, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Choose 1 player to drink!', timing: 'end' },
-  'gigachad': { name: 'PACE SETTER', triggerChance: 1.0, triggerType: 'every_3_rounds', visibility: 'all', needsTarget: false, description: 'Start a Waterfall!', timing: 'end' },
-  'thinker': { name: 'BIG BRAIN', triggerChance: 0.05, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Pass drink to the left?', timing: 'end' },
-  'disaster': { name: 'SPICY', triggerChance: 0.2, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Everyone drinks!', timing: 'end' },
-  'panicbot': { name: 'EMERGENCY MEETING', triggerChance: 0.25, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Gang up on someone!', timing: 'end' },
+  'executive_p': { name: 'REASSIGNED', triggerChance: 0.25, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Choose 1 player to drink!', timing: 'end' },
+  'alpha_prime': { name: 'PACE SETTER', triggerChance: 1.0, triggerType: 'every_3_rounds', visibility: 'all', needsTarget: false, description: 'Start a Waterfall!', timing: 'end' },
+  'roll_safe': { name: 'BIG BRAIN', triggerChance: 0.05, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Pass drink to the left?', timing: 'end' },
+  'hotwired': { name: 'SPICY', triggerChance: 0.2, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Everyone drinks!', timing: 'end' },
+  'panic_bot': { name: 'EMERGENCY MEETING', triggerChance: 0.25, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Gang up on someone!', timing: 'end' },
   'primate': { name: 'GREEDY GRAB', triggerChance: 0.05, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Winner burns 40s or drinks!', timing: 'end' },
-  'harold': null,
+  'pain_hider': null,
 };
 
 // Track once-per-game abilities per lobby
@@ -664,7 +663,7 @@ function startBidding(lobbyCode: string) {
     const minBid = getMinBidPenalty(g.gameDuration);
     g.players.forEach(p => {
       if (p.isHolding && !p.isEliminated) {
-        const playerHasFireWall = p.selectedDriver === 'fine' && g.settings.abilitiesEnabled;
+        const playerHasFireWall = p.selectedDriver === 'low_flame' && g.settings.abilitiesEnabled;
         const playerElapsed = (playerHasFireWall && g.activeProtocol === 'PANIC_ROOM') ? rawElapsed : elapsed;
         p.currentBid = playerElapsed + minBid; // Bid starts at min bid value
         
@@ -774,7 +773,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
   const abilityImpacts: Array<{ playerId: string; targetId?: string; ability: string; effect: string; value: number }> = [];
   
   // Find the "Thinker" player who is immune to abilities
-  const thinkerPlayer = game.players.find(p => p.selectedDriver === 'thinker' && !p.isEliminated);
+  const thinkerPlayer = game.players.find(p => p.selectedDriver === 'roll_safe' && !p.isEliminated);
   const immunePlayerIds = thinkerPlayer ? [thinkerPlayer.id] : [];
   
   // Find winner and 2nd place for HYPER CLICK check
@@ -803,7 +802,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
       case 'WIN':
         if (isWinner) {
           // Special case for Spirit Shield (harambe) - only Round 1
-          if (player.selectedDriver === 'harambe' && game.round !== 1) break;
+          if (player.selectedDriver === 'guardian_h' && game.round !== 1) break;
           triggered = true;
         }
         break;
@@ -811,7 +810,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
       case 'LOSE':
         if (!isWinner && winnerId) {
           // HIDE PAIN (harold): only triggers if lost by >15s margin
-          if (player.selectedDriver === 'harold') {
+          if (player.selectedDriver === 'pain_hider') {
             const winnerPlayer = game.players.find(p => p.id === winnerId);
             const winnerBidVal = winnerPlayer?.currentBid || 0;
             if (winnerBidVal - playerBid > 15) {
@@ -830,17 +829,17 @@ function processAbilities(game: GameState, winnerId: string | null) {
         
       case 'CONDITIONAL':
         // Handle specific conditional abilities with correct driver IDs
-        if (player.selectedDriver === 'nyan' && playerBid > 40) {
+        if (player.selectedDriver === 'rainbow_dash' && playerBid > 40) {
           // Rainbow Run: +3.5s if bid > 40s
           triggered = true;
-        } else if (player.selectedDriver === 'baldwin' && Math.abs(playerBid - 20) <= 0.5) {
+        } else if (player.selectedDriver === 'anointed' && Math.abs(playerBid - 20) <= 0.5) {
           // Royal Decree: +4s if bid near 20s
           triggered = true;
-        } else if (player.selectedDriver === 'buttons') {
+        } else if (player.selectedDriver === 'panic_bot') {
           // Panic Mash: 50% chance +3s or -3s
           triggered = true;
           refundAmount = Math.random() < 0.5 ? 3 : -3;
-        } else if (player.selectedDriver === 'popcat' && isWinner && sortedByBid.length >= 2 && winMargin <= 1.1 && winMargin > 0) {
+        } else if (player.selectedDriver === 'click_click' && isWinner && sortedByBid.length >= 2 && winMargin <= 1.1 && winMargin > 0) {
           // Hyper Click: +1 token if win within 1.1s of 2nd place (requires valid 2nd place)
           triggered = true;
         } else if (player.selectedDriver === 'primate' && isWinner) {
@@ -902,17 +901,17 @@ function processAbilities(game: GameState, winnerId: string | null) {
           // Find target based on ability type
           let target: GamePlayer | undefined;
           
-          if (player.selectedDriver === 'rat' && targetId) {
+          if (player.selectedDriver === 'the_rind' && targetId) {
             // Cheese Tax: target the winner
             target = game.players.find(p => p.id === targetId);
-          } else if (player.selectedDriver === 'sigma') {
+          } else if (player.selectedDriver === 'executive_p') {
             // Axe Swing: target player with most time
             const nonEliminated = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
             target = nonEliminated.reduce((max, p) => p.remainingTime > (max?.remainingTime || 0) ? p : max, undefined as GamePlayer | undefined);
-          } else if (player.selectedDriver === 'karen' || player.selectedDriver === 'disaster') {
+          } else if (player.selectedDriver === 'accuser' || player.selectedDriver === 'hotwired') {
             // Manager Call / Burn It: random opponents or all
             const targets = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
-            if (player.selectedDriver === 'disaster') {
+            if (player.selectedDriver === 'hotwired') {
               // Burn It: affects all others
               targets.forEach(t => {
                 t.remainingTime += refundAmount;
@@ -943,7 +942,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
           
           if (target && !immunePlayerIds.includes(target.id)) {
             // For Cheese Tax (LOSE trigger), we ADD to self and REMOVE from target
-            if (player.selectedDriver === 'rat') {
+            if (player.selectedDriver === 'the_rind') {
               player.remainingTime += Math.abs(refundAmount);
               player.netImpact += Math.abs(refundAmount); // Accumulate into total
               player.roundImpact = { type: 'STEAL', value: Math.abs(refundAmount), source: ability.name };
@@ -996,7 +995,7 @@ function endRound(lobbyCode: string) {
     game.roundWinner = { id: winner.id, name: winner.name, bid: winner.currentBid || 0 };
     
     // Award token(s) - double if DOUBLE_STAKES protocol is active (FIRE WALL immune)
-    const winnerHasFireWall = winner.selectedDriver === 'fine' && game.settings.abilitiesEnabled;
+    const winnerHasFireWall = winner.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled;
     const tokensAwarded = (game.isDoubleTokensRound && !winnerHasFireWall) ? 2 : 1;
     winner.tokens += tokensAwarded;
     
@@ -1020,7 +1019,7 @@ function endRound(lobbyCode: string) {
   if (game.activeProtocol === 'UNDERDOG_VICTORY') {
     // Find lowest bidder with valid bid (>= min bid) who is not eliminated (FIRE WALL players excluded)
     const minBid = getMinBidPenalty(game.settings.gameDuration);
-    const eligible = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid >= minBid && !(p.selectedDriver === 'fine' && game.settings.abilitiesEnabled));
+    const eligible = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid >= minBid && !(p.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled));
     eligible.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0));
     
     if (eligible.length > 0) {
@@ -1040,7 +1039,7 @@ function endRound(lobbyCode: string) {
   if (game.activeProtocol === 'TIME_TAX') {
     // Deduct 10s from all non-eliminated players (FIRE WALL players immune)
     game.players.forEach(p => {
-      const hasFireWall = p.selectedDriver === 'fine' && game.settings.abilitiesEnabled;
+      const hasFireWall = p.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled;
       if (!p.isEliminated && p.remainingTime > 0 && !hasFireWall) {
         p.remainingTime = Math.max(0, p.remainingTime - 10);
         p.netImpact -= 10; // Track protocol impact
@@ -1246,7 +1245,7 @@ function getTwoRandomPlayers(game: GameState): [GamePlayer | null, GamePlayer | 
 function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
   if (!protocol || !emitToPlayer || !emitToLobby) return;
   
-  const fireWallExclude = (p: GamePlayer) => p.selectedDriver === 'fine' && game.settings.abilitiesEnabled;
+  const fireWallExclude = (p: GamePlayer) => p.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled;
   
   switch (protocol) {
     case 'THE_MOLE': {
@@ -1345,7 +1344,7 @@ function emitSecretProtocolReveal(game: GameState) {
   
   if (game.activeProtocol === 'UNDERDOG_VICTORY') {
     const minBid = getMinBidPenalty(game.settings.gameDuration);
-    const eligible = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid >= minBid && !(p.selectedDriver === 'fine' && game.settings.abilitiesEnabled));
+    const eligible = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid >= minBid && !(p.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled));
     eligible.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0));
     
     if (eligible.length > 0) {
@@ -1443,7 +1442,7 @@ function startWaitingForReady(lobbyCode: string) {
     }
     if (protocol === 'THE_MOLE') {
       // Randomly select a non-eliminated player as the mole (FIRE WALL players excluded)
-      const activePlayers = game.players.filter(p => !p.isEliminated && !p.isBot && !(p.selectedDriver === 'fine' && game.settings.abilitiesEnabled));
+      const activePlayers = game.players.filter(p => !p.isEliminated && !p.isBot && !(p.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled));
       if (activePlayers.length > 0) {
         game.molePlayerId = activePlayers[Math.floor(Math.random() * activePlayers.length)].id;
       }

@@ -6,6 +6,13 @@ Redline Auction is a real-time multiplayer bidding game where players compete by
 
 The application is built as a full-stack TypeScript project with a React frontend and Express backend, designed to run on Replit with PostgreSQL database support.
 
+### Character ID System
+All character IDs use canonical driver names (not meme references). The mapping:
+- guardian_h, click_click, frostbyte, sadman, rainbow_dash, accuser, low_flame, wandering_eye, the_rind, anointed, executive_p, alpha_prime, roll_safe, hotwired, panic_bot, primate, pain_hider
+- Social-only: prom_king, idol_core
+- Bio-only: tank, danger_zone
+- Server configs (DRIVER_ABILITIES, SOCIAL_ABILITY_CONFIG, BIO_ABILITY_CONFIG) all use matching canonical IDs
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

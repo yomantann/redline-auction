@@ -257,37 +257,37 @@ interface Character {
 
 const CHARACTERS: Character[] = [
   { 
-    id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
     ability: { name: 'SPIRIT SHIELD', description: '+11s if you win Round 1.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Designate a player immune to social dares this round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Tell others they cannot release button until you finish a sip.' }
   },
   { 
-    id: 'popcat', name: 'Click-Click', title: 'The Glitch', image: charPopcat, imageSocial: socialPopcat, imageBio: bioPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
+    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charPopcat, imageSocial: socialPopcat, imageBio: bioPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
     ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'MISCLICK', description: '25% chance: 1 player must hold bid without using hands (only they and you are notified).' },
     bioAbility: { name: 'MOUTH POP', description: '1 random round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
-    id: 'winter', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: '50% chance: Ignore all social interactions (only you see this at prepare-to-bid).' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 random round: Force opponent to win or drink (only you and target notified).' }
   },
   { 
-    id: 'pepe', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, imageSocial: socialSadmanOption3, imageBio: bioPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, imageSocial: socialSadmanOption3, imageBio: bioPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'SAD STORY', description: '5% chance after round: 1 random player shares a sad story (shown to that player only).' },
     bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you are notified you can change your drinking buddy.' }
   },
   { 
-    id: 'nyan', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, imageSocial: socialRainbowDashOption1, imageBio: bioNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, imageSocial: socialRainbowDashOption1, imageBio: bioNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: '15% chance: 1 random opponent must speak 2x speed (shown at start of round).' },
     bioAbility: { name: 'RAINBOW SHOT', description: '10% chance: 1 random player mixes two drinks (shown at end of round).' }
   },
   { 
-    id: 'karen', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialAccuserOption1,
+    id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialAccuserOption1,
     imageBio: bioAccuserOption1,
     description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
@@ -295,25 +295,25 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'SPILL HAZARD', description: '25% chance: Accuse someone of spilling; they drink (shown to driver post-round).' }
   },
   { 
-    id: 'fine', name: 'Low Flame', title: 'The Survivor', image: charFine, imageSocial: socialFine, imageBio: bioFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charFine, imageSocial: socialFine, imageBio: bioFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
     ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: '25% chance: Choose a player to answer a truth (shown to driver after round).' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks (shown to all after your winning round).' }
   },
   { 
-    id: 'bf', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, imageSocial: socialBf, imageBio: bioBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
+    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, imageSocial: socialBf, imageBio: bioBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
     ability: { name: 'SNEAK PEEK', description: 'See 1 random player holding. All other banks scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'DISTRACTION', description: '35% chance at start: Point at something; anyone who looks must drop buzzer (shown to driver).' },
     bioAbility: { name: 'THE EX', description: '10% chance: 1 random player toasts to an ex (shown to them at end of round).' }
   },
   { 
-    id: 'rat', name: 'The Rind', title: 'The Time Thief', image: charRat, imageSocial: socialRat, imageBio: bioRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRat, imageSocial: socialRat, imageBio: bioRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: '5% chance: 1 random player must reveal someone\'s tell (shown to them after round).' },
     bioAbility: { name: 'SCAVENGE', description: '5% chance: 1 random player finishes someone else\'s drink (shown to them after round).' }
   },
   { 
-    id: 'baldwin', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin,
+    id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin,
     imageBio: bioBaldwin,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 4s refund if you bid within 0.1s of exactly 20s.', effect: 'TIME_REFUND' },
@@ -321,31 +321,31 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'ROYAL CUP', description: '1 random round at end: Make a rule for remainder of game.' }
   },
   { 
-    id: 'sigma', name: 'Executive P', title: 'The Psycho', image: charSigma, imageSocial: socialExecutivePOption1, imageBio: bioSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charSigma, imageSocial: socialExecutivePOption1, imageBio: bioSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
     ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
     socialAbility: { name: 'CC\'D', description: '20% chance: 1 random player must copy your actions next round (both notified at end).' },
     bioAbility: { name: 'REASSIGNED', description: '50% chance: Choose 1 player to take a drink (shown to driver at end of round).' }
   },
   { 
-    id: 'gigachad', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, imageSocial: socialGigachad, imageBio: bioGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
+    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, imageSocial: socialGigachad, imageBio: bioGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
     ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'MOG', description: '10% chance at end of round: 1 random player must do 10 pushups or ff next round (both notified).' },
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall (shown post-round).' }
   },
   { 
-    id: 'thinker', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules all game.' },
     bioAbility: { name: 'BIG BRAIN', description: '5% chance at end of round: Option to have everyone pass drink to the left.' }
   },
   { 
-    id: 'disaster', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
     ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
     socialAbility: { name: 'VIRAL MOMENT', description: '1 random round: Re-enact a meme. Best performance wins.' },
     bioAbility: { name: 'SPICY', description: '20% chance post-round: Everyone drinks (all notified).' }
   },
   { 
-    id: 'buttons', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialPanicBotOption1,
+    id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialPanicBotOption1,
     imageBio: bioPanicBotOption3,
     description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
@@ -359,7 +359,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'GREEDY GRAB', description: '5% chance post-round: Previous winner must burn 40s next round or finish drink.' }
   },
   { 
-    id: 'harold', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialPainHiderOption1,
+    id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialPainHiderOption1,
     imageBio: bioHarold,
     description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
@@ -1368,7 +1368,7 @@ export default function Game() {
         // Calculate deltaTime based on speed (Panic Room = 2x)
         // Panic Room doubles timer drain speed (FIRE WALL immune)
         const rawDelta = (time - startTimeRef.current) / 1000;
-        const isFireWallImmune = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+        const isFireWallImmune = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
         const multiplier = (activeProtocol === 'PANIC_ROOM' && !isFireWallImmune) ? 2 : 1;
         
         // FIX: Start at minimum bid time (penalty)
@@ -1578,8 +1578,8 @@ export default function Game() {
         }));
       }
       
-      // PEEK Logic: If I am 'pepe' (Sadman Logic), I can see if others are holding
-      // Or 'bf' (Sneak Peek)
+      // PEEK Logic: If I am Sadman Logic, I can see if others are holding
+      // Or Wandering Eye (Sneak Peek)
       // Check if player has this ability
       const playerChar = selectedCharacter; // Or find player p1 char
       if (playerChar?.ability?.effect === 'PEEK') {
@@ -1624,10 +1624,10 @@ export default function Game() {
                     if (currentPlayerId) {
                       const opponents = multiplayerGameState.players.filter(p => p.id !== currentPlayerId && !p.isEliminated);
                       
-                      if (selectedCharacter.id === 'pepe' && opponents.length > 0) {
+                      if (selectedCharacter.id === 'sadman' && opponents.length > 0) {
                         const target = opponents[Math.floor(Math.random() * opponents.length)];
                         setPeekTargetId(target.id);
-                      } else if (selectedCharacter.id === 'bf' && opponents.length > 0) {
+                      } else if (selectedCharacter.id === 'wandering_eye' && opponents.length > 0) {
                         const target = opponents[Math.floor(Math.random() * opponents.length)];
                         setPeekTargetId(target.id);
                         const others = opponents.filter(o => o.id !== target.id).map(o => o.id);
@@ -1652,7 +1652,7 @@ export default function Game() {
 
   // Low Flame Immunity Popup Check
   useEffect(() => {
-    if (activeProtocol && selectedCharacter?.id === 'fine' && abilitiesEnabled) {
+    if (activeProtocol && selectedCharacter?.id === 'low_flame' && abilitiesEnabled) {
         addOverlay("ability_trigger", "FIRE WALL ACTIVE", "Immune to ALL protocol effects!", 3000);
     }
   }, [activeProtocol, selectedCharacter?.id]);
@@ -1887,7 +1887,7 @@ export default function Game() {
       let showPopup = true;
       
       // Helper to get random player name(s) - FIRE WALL players excluded from protocol targeting
-      const fireWallExclude = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+      const fireWallExclude = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
       const getRandomPlayer = () => {
         const pool = fireWallExclude ? players.filter(p => p.id !== 'p1') : players;
         if (pool.length === 0) return players[Math.floor(Math.random() * players.length)].name;
@@ -1918,7 +1918,7 @@ export default function Game() {
         case 'NO_LOOK': msg = "BLIND BIDDING"; sub = "Do not look at screens until drop!"; break;
         case 'THE_MOLE':
           // FIRE WALL: fine driver can never be the mole
-          const fireWallActive = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+          const fireWallActive = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
           const target = fireWallActive ? getRandomPlayer() : (Math.random() > 0.5 ? 'YOU' : getRandomPlayer());
           const targetId = target === 'YOU' ? 'p1' : players.find(p => p.name === target)?.id || null;
           setMoleTarget(targetId);
@@ -1957,7 +1957,7 @@ export default function Game() {
       const targetProtocols = ['THE_MOLE', 'PRIVATE_CHANNEL', 'OPEN_HAND', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE', 'UNDERDOG_VICTORY', 'TIME_TAX'];
 
       // LOW FLAME IMMUNITY CHECK (Fire Wall)
-      const isLowFlame = selectedCharacter?.id === 'fine';
+      const isLowFlame = selectedCharacter?.id === 'low_flame';
       const isImmune = isLowFlame && abilitiesEnabled; // FIRE WALL: Immune to ALL protocol effects
 
       if (newProtocol && targetProtocols.includes(newProtocol)) {
@@ -1998,7 +1998,7 @@ export default function Game() {
     const selectedChar = selectedCharacter;
     if (selectedChar) {
         // GUARDIAN H: VIBE GUARD (Social)
-        if (selectedChar.id === 'harambe' && variant === 'SOCIAL_OVERDRIVE') {
+        if (selectedChar.id === 'guardian_h' && variant === 'SOCIAL_OVERDRIVE') {
              // Stack event instead of override
              setTimeout(() => {
                  addOverlay("social_event", "VIBE GUARD ACTIVE", "Designate a player immune to social dares this round.", 0);
@@ -2006,14 +2006,14 @@ export default function Game() {
         }
         
         // WINTER: COLD SHOULDER (Social) - 50% chance, driver only, start of round
-        if (selectedChar.id === 'winter' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.50) {
+        if (selectedChar.id === 'frostbyte' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.50) {
              setTimeout(() => {
                  addOverlay("social_event", "COLD SHOULDER", "Ignore all social interactions this round.", 0);
              }, 200);
         }
 
         // WANDERING EYE: DISTRACTION (Social)
-        if (selectedChar.id === 'bf' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.35) {
+        if (selectedChar.id === 'wandering_eye' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.35) {
              setTimeout(() => {
                  addOverlay("social_event", "DISTRACTION", "Point at something! Anyone who looks must drop buzzer.", 0);
              }, 300);
@@ -2029,7 +2029,7 @@ export default function Game() {
         }
 
         // RAINBOW DASH: SUGAR RUSH (Social) - 15% chance, start of round
-        if (selectedChar.id === 'nyan' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.15) {
+        if (selectedChar.id === 'rainbow_dash' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.15) {
              const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
              const t = opponents.length > 0 ? opponents[Math.floor(Math.random() * opponents.length)] : null;
              setTimeout(() => {
@@ -2045,7 +2045,7 @@ export default function Game() {
         }
 
         // SADMAN: SAD REVEAL (Passive - PEEK Selection)
-        if (selectedChar.id === 'pepe') {
+        if (selectedChar.id === 'sadman') {
              const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
              if (opponents.length > 0) {
                  const target = opponents[Math.floor(Math.random() * opponents.length)];
@@ -2056,7 +2056,7 @@ export default function Game() {
         }
 
         // WANDERING EYE: SNEAK PEEK (Passive - See 1 holding, scramble everyone else)
-        if (selectedChar.id === 'bf') {
+        if (selectedChar.id === 'wandering_eye') {
              const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
              if (opponents.length > 0) {
                  // Reveal ONE person randomly
@@ -2104,7 +2104,7 @@ export default function Game() {
     // 2. CALCULATE PRELIMINARY TIME & ELIMINATION (Pre-Winner)
     
     // First, identify Roll Safe (Thinker) if present - immune to all abilities
-    const rollSafeId = players.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'thinker') || (!p.isBot && selectedCharacter?.id === 'thinker'))?.id;
+    const rollSafeId = players.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'roll_safe') || (!p.isBot && selectedCharacter?.id === 'roll_safe'))?.id;
 
     const disruptEffects: { targetId: string, amount: number, source: string, ability: string }[] = [];
     let playersOut: string[] = [];
@@ -2419,7 +2419,7 @@ export default function Game() {
 
         if (p.id === winnerId) {
              let tokensToAdd = 1;
-             const winnerIsFireWall = p.id === 'p1' && selectedCharacter?.id === 'fine' && abilitiesEnabled;
+             const winnerIsFireWall = p.id === 'p1' && selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
              if ((activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') && !winnerIsFireWall) {
                 tokensToAdd = 2;
                 extraLogs.push(`>> HIGH STAKES: ${p.name} won ${tokensToAdd} trophies!`);
@@ -2533,7 +2533,7 @@ export default function Game() {
                  if (playerChar?.ability?.name === 'CHEESE TAX') {
                      const w = finalPlayers.find(fp => fp.id === winnerId);
                      // Roll Safe Immunity Check
-                     const rollSafeId = finalPlayers.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'thinker') || (!p.isBot && selectedCharacter?.id === 'thinker'))?.id;
+                     const rollSafeId = finalPlayers.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'roll_safe') || (!p.isBot && selectedCharacter?.id === 'roll_safe'))?.id;
                      
                      if (w && w.id !== rollSafeId) {
                          w.remainingTime = Math.max(0, w.remainingTime - 2.0);
@@ -2905,7 +2905,7 @@ export default function Game() {
     if (activeProtocol === 'UNDERDOG_VICTORY') {
         // Find lowest bidder > min bid and not eliminated (FIRE WALL players excluded)
         const minBid = MIN_BID;
-        const isFireWall = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+        const isFireWall = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
         const eligible = finalPlayers.filter(p => !p.isEliminated && (p.currentBid || 0) >= minBid && !(p.id === 'p1' && isFireWall));
         eligible.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0)); // Ascending
         
@@ -2935,7 +2935,7 @@ export default function Game() {
 
     if (activeProtocol === 'TIME_TAX') {
         // Deduct 10s from everyone not eliminated (FIRE WALL players immune)
-        const isFireWallPlayer = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+        const isFireWallPlayer = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
         let hitList: string[] = [];
         finalPlayers.forEach(p => {
             const isFireWallImmune = p.id === 'p1' && isFireWallPlayer;
@@ -4311,7 +4311,7 @@ export default function Game() {
                   subtitle: 'Timing & refunds',
                   className: 'border-emerald-500/20 hover:border-emerald-500/50',
                   headerText: 'text-emerald-300',
-                  filter: (c: Character) => (c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE') && !['RAINBOW RUN','CHEF\'S SPECIAL'].includes(c.ability?.name || '') && c.id !== 'fine'
+                  filter: (c: Character) => (c.ability?.effect === 'TIME_REFUND' || c.ability?.name === 'JAWLINE') && !['RAINBOW RUN','CHEF\'S SPECIAL'].includes(c.ability?.name || '') && c.id !== 'low_flame'
                 },
                 {
                   id: 'degens',
@@ -4353,39 +4353,39 @@ export default function Game() {
                   whileTap={{ scale: 0.97 }}
                   onClick={() => selectCharacter(char)}
                   data-testid={`card-driver-${char.id}`}
-                  className="flex flex-col items-center p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden"
+                  className="flex flex-col items-center p-3 sm:p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden min-w-0"
                 >
-                  <div className={cn("w-32 h-32 sm:w-40 sm:h-40 rounded-full mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10", char.color)}>
+                  <div className={cn("w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full mb-2 sm:mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10 flex-shrink-0", char.color)}>
                      <img src={getCharImage(char)} alt={char.name} className="w-full h-full object-cover" />
                   </div>
-                  <h3 className="font-bold text-lg sm:text-xl text-white mb-1" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
-                  <p className="text-sm sm:text-base text-primary/80 uppercase tracking-wider mb-2 font-display" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
-                  <p className="text-sm sm:text-base text-zinc-500 leading-tight line-clamp-2" data-testid={`text-driver-desc-${char.id}`}>{char.description}</p>
+                  <h3 className="font-bold text-base sm:text-lg md:text-xl text-white mb-0.5 sm:mb-1 truncate w-full" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
+                  <p className="text-xs sm:text-sm text-primary/80 uppercase tracking-wider mb-1 sm:mb-2 font-display truncate w-full" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
+                  <p className="text-xs sm:text-sm text-zinc-500 leading-tight line-clamp-2 w-full" data-testid={`text-driver-desc-${char.id}`}>{char.description}</p>
                   
                   {abilitiesEnabled && char.ability && (
-                    <div className="mt-3 pt-3 border-t border-white/5 w-full">
-                       <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">
-                          <Zap size={10} fill="currentColor" /> {char.ability.name}
+                    <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-white/5 w-full min-w-0">
+                       <div className="flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">
+                          <Zap size={10} fill="currentColor" className="flex-shrink-0" /> <span className="truncate">{char.ability.name}</span>
                        </div>
-                       <p className="text-[10px] text-zinc-400 leading-tight">{char.ability.description}</p>
+                       <p className="text-[9px] sm:text-[10px] text-zinc-400 leading-tight line-clamp-3">{char.ability.description}</p>
                     </div>
                   )}
 
                   {variant === 'SOCIAL_OVERDRIVE' && char.socialAbility && (
-                    <div className="mt-2 pt-2 border-t border-purple-500/20 w-full bg-purple-500/5 rounded p-1">
-                       <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">
-                          <PartyPopper size={10} /> {char.socialAbility.name}
+                    <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-purple-500/20 w-full bg-purple-500/5 rounded p-1 min-w-0">
+                       <div className="flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">
+                          <PartyPopper size={10} className="flex-shrink-0" /> <span className="truncate">{char.socialAbility.name}</span>
                        </div>
-                       <p className="text-[10px] text-purple-300/70 leading-tight">{char.socialAbility.description}</p>
+                       <p className="text-[9px] sm:text-[10px] text-purple-300/70 leading-tight line-clamp-3">{char.socialAbility.description}</p>
                     </div>
                   )}
 
                   {variant === 'BIO_FUEL' && char.bioAbility && (
-                    <div className="mt-2 pt-2 border-t border-orange-500/20 w-full bg-orange-500/5 rounded p-1">
-                       <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-1">
-                          <Martini size={10} /> {char.bioAbility.name}
+                    <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-orange-500/20 w-full bg-orange-500/5 rounded p-1 min-w-0">
+                       <div className="flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-1">
+                          <Martini size={10} className="flex-shrink-0" /> <span className="truncate">{char.bioAbility.name}</span>
                        </div>
-                       <p className="text-[10px] text-orange-300/70 leading-tight">{char.bioAbility.description}</p>
+                       <p className="text-[9px] sm:text-[10px] text-orange-300/70 leading-tight line-clamp-3">{char.bioAbility.description}</p>
                     </div>
                   )}
                 </motion.button>
@@ -4817,7 +4817,7 @@ export default function Game() {
         );
 
       case 'bidding':
-        const fireWallHudImmune = selectedCharacter?.id === 'fine' && abilitiesEnabled;
+        const fireWallHudImmune = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
         const isBlackout = (activeProtocol === 'DATA_BLACKOUT' || activeProtocol === 'SYSTEM_FAILURE') && !fireWallHudImmune;
         const displayTime = isMultiplayer ? currentPlayerBid : currentTime;
         
@@ -5649,8 +5649,8 @@ export default function Game() {
                             <div className="text-[10px] text-zinc-500 uppercase">Time Left</div>
                             <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== 'p1' && "blur-sm select-none")}>
                                 {(() => {
-                                    const isSelfSadman = selectedPlayerStats?.id === 'p1' && selectedCharacter?.id === 'pepe';
-                                    const isScrambledOpponent = selectedCharacter?.id === 'bf' && selectedPlayerStats?.id !== 'p1' && selectedPlayerStats?.id !== peekTargetId;
+                                    const isSelfSadman = selectedPlayerStats?.id === 'p1' && selectedCharacter?.id === 'sadman';
+                                    const isScrambledOpponent = selectedCharacter?.id === 'wandering_eye' && selectedPlayerStats?.id !== 'p1' && selectedPlayerStats?.id !== peekTargetId;
                                     
                                     if (isSelfSadman || isScrambledOpponent) {
                                         return `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`;
@@ -5709,10 +5709,10 @@ export default function Game() {
                 // Show time if: Easy Mode OR Game Over OR Player Eliminated OR Multiplayer
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
-                peekActive={(selectedCharacter?.id === 'pepe' || selectedCharacter?.id === 'bf') && peekTargetId === p.id}
+                peekActive={(selectedCharacter?.id === 'sadman' || selectedCharacter?.id === 'wandering_eye') && peekTargetId === p.id}
                 isDoubleTokens={isDoubleTokens}
-                isSystemFailure={(activeProtocol === 'SYSTEM_FAILURE' && !(selectedCharacter?.id === 'fine' && abilitiesEnabled)) || (p.id === 'p1' && selectedCharacter?.id === 'pepe')}
-                isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'bf' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}
+                isSystemFailure={(activeProtocol === 'SYSTEM_FAILURE' && !(selectedCharacter?.id === 'low_flame' && abilitiesEnabled)) || (p.id === 'p1' && selectedCharacter?.id === 'sadman')}
+                isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end' && !isMultiplayer) {
