@@ -11,6 +11,8 @@ import {
   playerAcknowledgeRoundEnd,
   getGameState, 
   removePlayerFromGame,
+  disconnectPlayerFromGame,
+  reconnectPlayerToGame,
   cleanupGame,
   setEmitCallback,
   setEmitToPlayerCallback,
@@ -18,8 +20,8 @@ import {
   confirmDriverInGame,
   type GameDuration
 } from "./gameEngine";
-import { recordGameSnapshot, createGameId } from "./snapshotDb";
-import { insertGameSnapshotSchema } from "@shared/schema";
+import { recordGameSnapshot, recordGameSummary, createGameId } from "./snapshotDb";
+import { insertGameSnapshotSchema, insertGameSummarySchema } from "@shared/schema";
 
 // Socket.IO instance - exported for later expansion
 export let io: SocketIOServer;
@@ -31,7 +33,8 @@ interface LobbyPlayer {
   name: string;
   isHost: boolean;
   isReady: boolean;
-  selectedDriver?: string; // Driver/character ID selected by the player
+  selectedDriver?: string;
+  disconnected?: boolean;
 }
 
 interface GameSettings {
@@ -95,7 +98,7 @@ function broadcastLobbyUpdate(lobbyCode: string) {
 }
 
 // Remove player from their current lobby
-function removePlayerFromLobby(socketId: string) {
+function removePlayerFromLobby(socketId: string, isDisconnect = false) {
   const lobbyCode = playerToLobby.get(socketId);
   if (!lobbyCode) return;
   
@@ -105,7 +108,30 @@ function removePlayerFromLobby(socketId: string) {
     return;
   }
   
-  // If game is in progress, handle player leaving game
+  if (lobby.status === 'in_game' && isDisconnect) {
+    const lobbyPlayer = lobby.players.find(p => p.socketId === socketId);
+    if (lobbyPlayer) {
+      lobbyPlayer.disconnected = true;
+      lobbyPlayer.socketId = '';
+      playerToLobby.delete(socketId);
+      log(`Player ${lobbyPlayer.name} disconnected from active game ${lobbyCode} - can rejoin`, "lobby");
+      
+      disconnectPlayerFromGame(lobbyCode, socketId);
+      
+      if (lobby.hostSocketId === socketId) {
+        const connected = lobby.players.find(p => !p.disconnected && p.socketId);
+        if (connected) {
+          lobby.hostSocketId = connected.socketId;
+          connected.isHost = true;
+          log(`New host assigned in lobby ${lobbyCode}: ${connected.socketId}`, "lobby");
+        }
+      }
+      
+      broadcastLobbyUpdate(lobbyCode);
+      return;
+    }
+  }
+  
   if (lobby.status === 'in_game') {
     removePlayerFromGame(socketId);
   }
@@ -115,16 +141,17 @@ function removePlayerFromLobby(socketId: string) {
   
   log(`Player ${socketId} left lobby ${lobbyCode}. ${lobby.players.length} players remaining.`, "lobby");
   
-  if (lobby.players.length === 0) {
+  const connectedPlayers = lobby.players.filter(p => !p.disconnected);
+  if (connectedPlayers.length === 0) {
     lobbies.delete(lobbyCode);
     cleanupGame(lobbyCode);
-    log(`Lobby ${lobbyCode} deleted (empty)`, "lobby");
+    log(`Lobby ${lobbyCode} deleted (no connected players)`, "lobby");
     return;
   }
   
-  if (lobby.hostSocketId === socketId && lobby.players.length > 0) {
-    lobby.hostSocketId = lobby.players[0].socketId;
-    lobby.players[0].isHost = true;
+  if (lobby.hostSocketId === socketId && connectedPlayers.length > 0) {
+    lobby.hostSocketId = connectedPlayers[0].socketId;
+    connectedPlayers[0].isHost = true;
     log(`New host assigned in lobby ${lobbyCode}: ${lobby.hostSocketId}`, "lobby");
   }
   
@@ -528,9 +555,64 @@ export async function registerRoutes(
     });
 
     // Handle disconnection
+    socket.on("rejoin_game", (data: { code: string; playerName: string }, callback) => {
+      const { code, playerName } = data;
+      const upperCode = code.toUpperCase();
+      
+      if (playerToLobby.has(socket.id)) {
+        callback({ success: false, error: "Already in a lobby" });
+        return;
+      }
+      
+      const lobby = lobbies.get(upperCode);
+      if (!lobby) {
+        callback({ success: false, error: "Lobby not found" });
+        return;
+      }
+      
+      if (lobby.status !== 'in_game') {
+        callback({ success: false, error: "No active game to rejoin" });
+        return;
+      }
+      
+      const disconnectedPlayer = lobby.players.find(
+        p => p.disconnected && p.name === playerName
+      );
+      
+      if (!disconnectedPlayer) {
+        callback({ success: false, error: "No matching disconnected player found" });
+        return;
+      }
+      
+      disconnectedPlayer.socketId = socket.id;
+      disconnectedPlayer.disconnected = false;
+      playerToLobby.set(socket.id, upperCode);
+      socket.join(upperCode);
+      
+      const reconnected = reconnectPlayerToGame(upperCode, disconnectedPlayer.id, socket.id);
+      
+      if (!reconnected) {
+        callback({ success: false, error: "Failed to reconnect to game" });
+        return;
+      }
+      
+      log(`${playerName} (${socket.id}) rejoined game in lobby ${upperCode}`, "lobby");
+      
+      callback({ success: true, lobby: {
+        code: lobby.code,
+        players: lobby.players,
+        hostSocketId: lobby.hostSocketId,
+        status: lobby.status,
+        maxPlayers: lobby.maxPlayers,
+        settings: lobby.settings
+      }});
+      
+      broadcastLobbyUpdate(upperCode);
+    });
+
     socket.on("disconnect", (reason) => {
       log(`Client disconnected: ${socket.id} (reason: ${reason})`, "socket.io");
-      removePlayerFromLobby(socket.id);
+      removePlayerFromLobby(socket.id, true);
     });
   });
 
@@ -553,6 +635,20 @@ export async function registerRoutes(
     }
   });
   
+  app.post("/api/game/summary", async (req, res) => {
+    try {
+      const summary = insertGameSummarySchema.parse({
+        ...req.body,
+        isMultiplayer: 0,
+      });
+      await recordGameSummary(summary);
+      res.json({ success: true });
+    } catch (error) {
+      log(`Game summary recording failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
   // Generate unique game ID for singleplayer games
   app.get("/api/game/new-id", (_req, res) => {
     res.json({ gameId: createGameId() });

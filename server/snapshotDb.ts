@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import { gameSnapshots, type InsertGameSnapshot } from "@shared/schema";
+import { gameSnapshots, gameSummaries, type InsertGameSnapshot, type InsertGameSummary } from "@shared/schema";
 
 const { Pool } = pg;
 
@@ -24,6 +24,16 @@ export async function recordGameSnapshot(snapshot: InsertGameSnapshot): Promise<
     console.log(`[Snapshot] Recorded ${snapshot.snapshotType} for game ${snapshot.gameId} round ${snapshot.roundNumber}`);
   } catch (error) {
     console.error(`[Snapshot] Failed to record snapshot:`, error);
+  }
+}
+
+export async function recordGameSummary(summary: InsertGameSummary): Promise<void> {
+  try {
+    const database = getDb();
+    await database.insert(gameSummaries).values(summary as any);
+    console.log(`[Summary] Recorded game summary for ${summary.gameId} - winner: ${summary.winnerName}`);
+  } catch (error) {
+    console.error(`[Summary] Failed to record game summary:`, error);
   }
 }
 

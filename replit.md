@@ -68,6 +68,15 @@ shared/           # Shared code between frontend and backend
 3. **Component Library**: shadcn/ui components in `client/src/components/ui/`
 4. **Game Components**: Custom game-specific components in `client/src/components/game/`
 
+### Player Reconnection System
+- When a player disconnects during an active game, they are marked as `disconnected` (not eliminated)
+- Their lobby slot and game state are preserved (tokens, time, driver selection)
+- Disconnected player's `isHolding` is set to false, `socketId` set to null
+- On reconnect via `rejoin_game` event: player matched by name + lobby code, socketId updated
+- `disconnectPlayerFromGame()` / `reconnectPlayerToGame()` in gameEngine.ts handle game state
+- Share link auto-join: `?join=CODE` URL parameter auto-joins lobby or attempts rejoin if game started
+- Voluntary `leave_lobby` still eliminates the player permanently
+
 ## External Dependencies
 
 ### Database

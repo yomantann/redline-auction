@@ -173,13 +173,13 @@ const SOCIAL_CHARACTERS: Character[] = [
   { 
     id: 'prom_king', name: 'Prom King', title: 'The Crowned', image: charPromKing, imageSocial: charPromKing, imageBio: bioPromKing, description: 'Royalty of the moment.', color: 'text-purple-500',
     ability: { name: 'SPOTLIGHT', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' },
-    socialAbility: { name: 'PROM COURT', description: '1 random round: Make a rule for remainder of game.' },
+    socialAbility: { name: 'PROM COURT', description: '1 round: Make a rule for remainder of game.' },
     bioAbility: { name: 'CORONATION', description: 'Initiate a group toast. Everyone drinks.' }
   },
   {
     id: 'idol_core', name: 'Idol Core', title: 'The Star', image: charIdolCore, imageSocial: charIdolCore, imageBio: bioIdolCore, description: 'Stage presence and perfect timing.', color: 'text-pink-500',
     ability: { name: 'COUNT IT IN', description: 'When you say "count it in", next person to talk must say "5678" or drop their button.', effect: 'PEEK' },
-    socialAbility: { name: 'FANCAM', description: '10% chance: 1 random player shows hidden talent at start of round or drops button.' },
+    socialAbility: { name: 'FANCAM', description: 'Chance 1 random player shows hidden talent or drops button.' },
     bioAbility: { name: 'DEBUT', description: 'Take a drink to reveal a "secret" (see an opponent\'s bid).' }
   }
 ];
@@ -189,13 +189,13 @@ const BIO_CHARACTERS: Character[] = [
   { 
     id: 'tank', name: 'The Tank', title: 'Iron Liver', image: charRockShush, imageSocial: socialTank, imageBio: charRockShush, description: 'Solid as a rock. Literally.', color: 'text-green-600',
     ability: { name: 'IRON STOMACH', description: 'Immune to "Drink" penalties (Lore only).', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'PEOPLE\'S ELBOW', description: 'Challenge someone to a thumb war for 0.5s.' },
+    socialAbility: { name: 'PEOPLE\'S ELBOW', description: 'Challenge someone to a thumb war.' },
     bioAbility: { name: 'ABSORB', description: 'Take a big sip to cancel out any drinking prompt.' }
   },
   {
     id: 'danger_zone', name: 'Danger Zone', title: 'Club Queen', image: charDangerZone, imageSocial: socialDangerZone, imageBio: charDangerZone, description: 'Works the pole, takes your soul.', color: 'text-pink-600',
     ability: { name: 'OVERPOUR', description: 'Decide before the game starts how big 1 sip really is.', effect: 'DISRUPT' },
-    socialAbility: { name: 'PRIVATE DANCE', description: 'Give a command. First to obey gets +0.5s.' },
+    socialAbility: { name: 'PRIVATE DANCE', description: 'Give a command.' },
     bioAbility: { name: 'CHAIN REACTION', description: 'If you finish your drink, person to your left must also finish theirs.' }
   }
 ];
@@ -336,7 +336,7 @@ const CHARACTERS: Character[] = [
     id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules all game.' },
-    bioAbility: { name: 'BIG BRAIN', description: '5% chance at end of round: Option to have everyone pass drink to the left.' }
+    bioAbility: { name: 'BIG BRAIN', description: 'Chance option to have everyone pass drink to the left.' }
   },
   { 
     id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
@@ -824,6 +824,50 @@ export default function Game() {
   
   // Socket connection
   const { socket, isConnected } = useSocket();
+  const autoJoinAttemptedRef = useRef(false);
+
+  // Auto-join from URL ?join= parameter
+  useEffect(() => {
+    if (!socket || !isConnected || autoJoinAttemptedRef.current) return;
+    
+    const params = new URLSearchParams(window.location.search);
+    const joinCode = params.get('join');
+    if (!joinCode) return;
+    
+    autoJoinAttemptedRef.current = true;
+    
+    // Clean URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete('join');
+    window.history.replaceState({}, '', url.pathname);
+    
+    setLobbyCode(joinCode.toUpperCase());
+    setPhase('multiplayer_lobby');
+    
+    const name = playerName || `Player ${Math.floor(Math.random() * 900 + 100)}`;
+    if (!playerName) setPlayerName(name);
+    
+    // Try join_lobby first, if game already started try rejoin_game
+    socket.emit("join_lobby", { code: joinCode, playerName: name }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+      if (response.success && response.lobby) {
+        console.log('[Auto-Join] Joined lobby:', response.lobby.code);
+        setCurrentLobby(response.lobby);
+      } else if (response.error === "Game already in progress") {
+        // Try rejoin
+        socket.emit("rejoin_game", { code: joinCode, playerName: name }, (rejoinResponse: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+          if (rejoinResponse.success && rejoinResponse.lobby) {
+            console.log('[Auto-Join] Rejoined active game:', rejoinResponse.lobby.code);
+            setCurrentLobby(rejoinResponse.lobby);
+            setIsMultiplayer(true);
+          } else {
+            setLobbyError(rejoinResponse.error || "Could not rejoin game");
+          }
+        });
+      } else {
+        setLobbyError(response.error || "Failed to join lobby");
+      }
+    });
+  }, [socket, isConnected]);
 
   // Helper for formatting time
   const formatTime = (seconds: number) => {
@@ -3181,9 +3225,45 @@ export default function Game() {
         // We only switch phase; overlays are dismissed by the player.
         setPhase('game_end');
         
-        // Record game over snapshot
+        // Record game over snapshot and summary
         if (!isMultiplayer) {
           recordSingleplayerSnapshot('game_over', updatedPlayers, round, winnerId, winnerTime, eliminatedThisRound, activeProtocol);
+          
+          const sorted = [...updatedPlayers].sort((a, b) => {
+            if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+            return b.remainingTime - a.remainingTime;
+          });
+          const gameId = singleplayerGameIdRef.current;
+          if (gameId) {
+            fetch('/api/game/summary', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                gameId,
+                lobbyCode: null,
+                totalRounds: round,
+                gameSettings: { difficulty, variant, gameDuration, protocolsEnabled: protocolsActive, abilitiesEnabled },
+                playerResults: sorted.map((p, i) => ({
+                  playerId: p.id,
+                  playerName: p.name,
+                  driverId: p.selectedDriver || selectedCharacter?.id || null,
+                  finalRank: i + 1,
+                  tokens: p.tokens,
+                  remainingTime: p.remainingTime,
+                  totalTimeBid: p.totalTimeBid,
+                  netImpact: p.netImpact,
+                  isEliminated: p.isEliminated,
+                  isBot: p.id !== 'p1',
+                  momentFlags: p.eventDatabasePopups?.length || 0,
+                  protocolWins: p.protocolWins?.length || 0,
+                  totalDrinks: p.totalDrinks || 0,
+                  socialDares: p.socialDares || 0,
+                })),
+                winnerId: sorted[0]?.id || null,
+                winnerName: sorted[0]?.name || null,
+              }),
+            }).catch(() => {});
+          }
         }
       }, 3000);
     }

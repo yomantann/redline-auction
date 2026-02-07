@@ -1,5 +1,5 @@
 import { log } from "./index";
-import { recordGameSnapshot, createGameId } from "./snapshotDb";
+import { recordGameSnapshot, recordGameSummary, createGameId } from "./snapshotDb";
 
 // Game Constants
 const STANDARD_INITIAL_TIME = 300.0;
@@ -1558,6 +1558,38 @@ function endGame(lobbyCode: string) {
     isMultiplayer: 1,
   });
   
+  recordGameSummary({
+    gameId: game.gameId,
+    lobbyCode: game.lobbyCode,
+    isMultiplayer: 1,
+    totalRounds: game.round,
+    gameSettings: {
+      difficulty: game.settings.difficulty,
+      variant: game.settings.variant,
+      gameDuration: game.settings.gameDuration,
+      protocolsEnabled: game.settings.protocolsEnabled,
+      abilitiesEnabled: game.settings.abilitiesEnabled,
+    },
+    playerResults: game.players.map((p, i) => ({
+      playerId: p.id,
+      playerName: p.name,
+      driverId: p.selectedDriver || null,
+      finalRank: i + 1,
+      tokens: p.tokens,
+      remainingTime: p.remainingTime,
+      totalTimeBid: p.totalTimeBid,
+      netImpact: p.netImpact,
+      isEliminated: p.isEliminated,
+      isBot: p.isBot,
+      momentFlags: 0,
+      protocolWins: 0,
+      totalDrinks: 0,
+      socialDares: 0,
+    })),
+    winnerId: game.players[0]?.id || null,
+    winnerName: game.players[0]?.name || null,
+  });
+  
   // Cleanup
   clearGameIntervals(lobbyCode);
 }
@@ -1728,7 +1760,6 @@ export function removePlayerFromGame(socketId: string) {
       log(`${player.name} left game ${lobbyCode}`, "game");
       broadcastGameState(lobbyCode);
       
-      // Check if game should end
       const activePlayers = game.players.filter((p: GamePlayer) => !p.isEliminated && !p.isBot);
       if (activePlayers.length === 0) {
         log(`All human players left game ${lobbyCode}, ending game`, "game");
@@ -1736,6 +1767,38 @@ export function removePlayerFromGame(socketId: string) {
       }
     }
   });
+}
+
+export function disconnectPlayerFromGame(lobbyCode: string, socketId: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
+  
+  const player = game.players.find((p: GamePlayer) => p.socketId === socketId);
+  if (!player) return;
+  
+  player.isHolding = false;
+  player.socketId = null;
+  log(`${player.name} disconnected from game ${lobbyCode} (preserving state)`, "game");
+  broadcastGameState(lobbyCode);
+  
+  const connectedHumans = game.players.filter((p: GamePlayer) => !p.isEliminated && !p.isBot && p.socketId !== null);
+  if (connectedHumans.length === 0) {
+    log(`All human players disconnected from game ${lobbyCode}, ending game`, "game");
+    endGame(lobbyCode);
+  }
+}
+
+export function reconnectPlayerToGame(lobbyCode: string, playerId: string, newSocketId: string): boolean {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return false;
+  
+  const player = game.players.find((p: GamePlayer) => p.id === playerId);
+  if (!player) return false;
+  
+  player.socketId = newSocketId;
+  log(`${player.name} reconnected to game ${lobbyCode} with socket ${newSocketId}`, "game");
+  broadcastGameState(lobbyCode);
+  return true;
 }
 
 export function cleanupGame(lobbyCode: string) {

@@ -55,3 +55,45 @@ export const insertGameSnapshotSchema = createInsertSchema(gameSnapshots).omit({
 
 export type InsertGameSnapshot = z.infer<typeof insertGameSnapshotSchema>;
 export type GameSnapshot = typeof gameSnapshots.$inferSelect;
+
+export const gameSummaries = pgTable("game_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  gameId: varchar("game_id").notNull(),
+  lobbyCode: varchar("lobby_code"),
+  isMultiplayer: integer("is_multiplayer").default(0),
+  totalRounds: integer("total_rounds").notNull(),
+  gameSettings: jsonb("game_settings").$type<{
+    difficulty: string;
+    variant: string;
+    gameDuration: string;
+    protocolsEnabled: boolean;
+    abilitiesEnabled: boolean;
+  }>(),
+  playerResults: jsonb("player_results").$type<{
+    playerId: string;
+    playerName: string;
+    driverId: string | null;
+    finalRank: number;
+    tokens: number;
+    remainingTime: number;
+    totalTimeBid: number;
+    netImpact: number;
+    isEliminated: boolean;
+    isBot: boolean;
+    momentFlags: number;
+    protocolWins: number;
+    totalDrinks: number;
+    socialDares: number;
+  }[]>().default([]),
+  winnerId: varchar("winner_id"),
+  winnerName: varchar("winner_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertGameSummarySchema = createInsertSchema(gameSummaries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertGameSummary = z.infer<typeof insertGameSummarySchema>;
+export type GameSummary = typeof gameSummaries.$inferSelect;
