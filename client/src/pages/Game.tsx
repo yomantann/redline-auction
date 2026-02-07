@@ -1923,7 +1923,7 @@ export default function Game() {
           setMoleTarget(targetId);
           msg = target === 'YOU' ? "THE MOLE" : "SECRET PROTOCOL ACTIVE";
           sub = target === 'YOU'
-            ? "You are the Mole. Goal: push the time up, but try NOT to get 1st. If you DO win, you only lose a trophy if you win by MORE than 7.0s."
+            ? "You are the Mole. Goal: push the time up, but try NOT to get 1st. If you DO win by MORE than 7.0s, you lose 2 trophies."
             : "";
           break;
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
@@ -5638,7 +5638,7 @@ export default function Game() {
                     title: 'SECRET PROTOCOLS',
                     subtitle: 'Secret for some players',
                     items: [
-                      { name: "THE MOLE", desc: "A hidden role is assigned. The Mole wants to push time higher while avoiding 1st place. If the Mole wins by MORE than 7.0s, they lose a trophy.", type: "Hidden Role" },
+                      { name: "THE MOLE", desc: "A hidden role is assigned. The Mole wants to push time higher while avoiding 1st place. If the Mole wins by MORE than 7.0s, they lose 2 trophies.", type: "Hidden Role" },
                       { name: "PRIVATE CHANNEL", desc: "Two players are selected to privately coordinate strategy.", type: "Social" },
                       { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins token (kept secret until reveal).", type: "Secret" },
                       { name: "TIME TAX", desc: "-10s for everyone.", type: "Secret" },
