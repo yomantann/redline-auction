@@ -102,7 +102,6 @@ import socialSigma from '../assets/generated_images/social_sigma.png';
 import socialGigachad from '../assets/generated_images/social_gigachad.png';
 import socialThinker from '../assets/generated_images/social_thinker.png';
 import socialDisaster from '../assets/generated_images/social_disaster.png';
-import socialButtons from '../assets/generated_images/social_buttons.png';
 import socialPrimate from '../assets/generated_images/social_primate.png';
 import socialHarold from '../assets/generated_images/social_harold.png';
 import socialPromKing from '../assets/generated_images/social_prom_king.png';
@@ -125,7 +124,6 @@ import bioSigma from '../assets/generated_images/bio_executive_p_axe_v5.png';
 import bioGigachad from '../assets/generated_images/bio_gigachad.png';
 import bioThinker from '../assets/generated_images/bio_thinker.png';
 import bioDisaster from '../assets/generated_images/bio_hotwired_bar_on_fire_v6.png';
-import bioButtons from '../assets/generated_images/bio_buttons.png';
 import bioPrimate from '../assets/generated_images/bio_primate.png';
 import bioHarold from '../assets/generated_images/bio_harold.png';
 import bioPromKing from '../assets/generated_images/bio_prom_king.png';
@@ -828,7 +826,7 @@ export default function Game() {
 
   // Auto-join from URL ?join= parameter
   useEffect(() => {
-    if (!socket || !isConnected || autoJoinAttemptedRef.current) return;
+    if (autoJoinAttemptedRef.current) return;
     
     const params = new URLSearchParams(window.location.search);
     const joinCode = params.get('join');
@@ -836,7 +834,6 @@ export default function Game() {
     
     autoJoinAttemptedRef.current = true;
     
-    // Clean URL
     const url = new URL(window.location.href);
     url.searchParams.delete('join');
     window.history.replaceState({}, '', url.pathname);
@@ -845,43 +842,16 @@ export default function Game() {
     setLobbyCode(upperCode);
     setPhase('multiplayer_lobby');
     
-    // Check localStorage for a stored name from a previous session with this lobby
     const storedIdentity = localStorage.getItem(`redline_player_${upperCode}`);
-    let name: string;
     if (storedIdentity) {
       try {
         const parsed = JSON.parse(storedIdentity);
-        name = parsed.playerName || playerName || `Player ${Math.floor(Math.random() * 900 + 100)}`;
-      } catch {
-        name = playerName || `Player ${Math.floor(Math.random() * 900 + 100)}`;
-      }
-    } else {
-      name = playerName || `Player ${Math.floor(Math.random() * 900 + 100)}`;
+        if (parsed.playerName && parsed.playerName !== 'Player') {
+          setPlayerName(parsed.playerName);
+        }
+      } catch {}
     }
-    if (!playerName || playerName === 'Player') setPlayerName(name);
-    
-    // Try join_lobby first, if game already started try rejoin_game
-    socket.emit("join_lobby", { code: joinCode, playerName: name }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
-      if (response.success && response.lobby) {
-        console.log('[Auto-Join] Joined lobby:', response.lobby.code);
-        setCurrentLobby(response.lobby);
-        localStorage.setItem(`redline_player_${upperCode}`, JSON.stringify({ playerName: name }));
-      } else if (response.error === "Game already in progress") {
-        // Try rejoin - use stored name for matching
-        socket.emit("rejoin_game", { code: joinCode, playerName: name }, (rejoinResponse: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
-          if (rejoinResponse.success && rejoinResponse.lobby) {
-            console.log('[Auto-Join] Rejoined active game:', rejoinResponse.lobby.code);
-            setCurrentLobby(rejoinResponse.lobby);
-            setIsMultiplayer(true);
-          } else {
-            setLobbyError(rejoinResponse.error || "Could not rejoin game");
-          }
-        });
-      } else {
-        setLobbyError(response.error || "Failed to join lobby");
-      }
-    });
-  }, [socket, isConnected]);
+  }, []);
 
   // Helper for formatting time
   const formatTime = (seconds: number) => {
@@ -891,6 +861,43 @@ export default function Game() {
     return `${m}:${s.toString().padStart(2, '0')}.${ms}`;
   };
 
+  // Auto-rejoin on socket reconnect
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleReconnect = () => {
+      if (!lobbyCode) return;
+      const storedIdentity = localStorage.getItem(`redline_player_${lobbyCode.toUpperCase()}`);
+      if (!storedIdentity) return;
+      
+      try {
+        const parsed = JSON.parse(storedIdentity);
+        const storedName = parsed.playerName;
+        if (!storedName) return;
+        
+        console.log('[Socket.IO] Attempting auto-rejoin after reconnect:', lobbyCode, storedName);
+        
+        socket.emit("rejoin_game", { code: lobbyCode, playerName: storedName }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+          if (response.success && response.lobby) {
+            console.log('[Socket.IO] Auto-rejoin successful');
+            setCurrentLobby(response.lobby);
+            setIsMultiplayer(true);
+          } else {
+            socket.emit("join_lobby", { code: lobbyCode, playerName: storedName }, (joinResponse: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+              if (joinResponse.success && joinResponse.lobby) {
+                console.log('[Socket.IO] Re-joined lobby after reconnect');
+                setCurrentLobby(joinResponse.lobby);
+              }
+            });
+          }
+        });
+      } catch {}
+    };
+    
+    window.addEventListener('socket_reconnected', handleReconnect);
+    return () => window.removeEventListener('socket_reconnected', handleReconnect);
+  }, [socket, lobbyCode]);
+  
   // Socket event listeners for lobby and game
   useEffect(() => {
     if (!socket) return;
@@ -937,7 +944,16 @@ export default function Game() {
           setMoleTarget(null);
         }
         
-        // totalRounds is handled by multiplayer state directly
+        // Sync selectedCharacter from MP state (needed for peek abilities, fire wall, etc.)
+        if (socket) {
+          const myPlayer = state.players.find(p => p.socketId === socket.id);
+          const myDriverId = (myPlayer as any)?.selectedDriver;
+          if (myDriverId && (!selectedCharacter || selectedCharacter.id !== myDriverId)) {
+            const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
+            const char = allChars.find(c => c.id === myDriverId);
+            if (char) setSelectedCharacter(char);
+          }
+        }
         
         if (state.phase === 'driver_selection') {
           setPhase('mp_driver_select');
@@ -3548,6 +3564,17 @@ export default function Game() {
         console.log('[Lobby] Joined:', response.lobby.code);
         setCurrentLobby(response.lobby);
         localStorage.setItem(`redline_player_${lobbyCode.toUpperCase()}`, JSON.stringify({ playerName }));
+      } else if (response.error === "Game already in progress") {
+        socket.emit("rejoin_game", { code: lobbyCode, playerName }, (rejoinResponse: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+          if (rejoinResponse.success && rejoinResponse.lobby) {
+            console.log('[Lobby] Rejoined active game:', rejoinResponse.lobby.code);
+            setCurrentLobby(rejoinResponse.lobby);
+            setIsMultiplayer(true);
+            localStorage.setItem(`redline_player_${lobbyCode.toUpperCase()}`, JSON.stringify({ playerName }));
+          } else {
+            setLobbyError("Game in progress. Make sure you're using the same name you joined with.");
+          }
+        });
       } else {
         setLobbyError(response.error || "Failed to join lobby");
       }
@@ -4887,30 +4914,18 @@ export default function Game() {
             
             <div className="h-[50px] flex flex-col items-center justify-start gap-2">
                 <div className="flex gap-2">
-                  {players.map(p => {
-                    // Visibilty Logic for Holding Dots
-                    // 1. P1 always visible
-                    // 2. If scrambled, show as not holding (or special state?) - User said "Display holding animation ONLY on that player"
-                    // 3. If peekTargetId is active, and p is that target, show.
-                    // 4. Default: Show all.
-                    
+                  {displayPlayers.map(p => {
                     let isVisible = true;
                     const myId = isMultiplayer 
                       ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id 
                       : 'p1';
                     if (p.id !== myId) {
                          if (scrambledPlayers.includes(p.id)) isVisible = false;
-                         const amIHolding = players.find(me => me.id === myId)?.isHolding;
+                         const amIHolding = displayPlayers.find(me => me.id === myId)?.isHolding;
                          if (!amIHolding) isVisible = false;
                     }
 
-                    // PEEK TARGET LOGIC: If this player is the peek target, they are ALWAYS visible
-                    // But if they are scrambled, we might want to show them differently?
-                    // "Sadman ... green dots on 1 random player ... liked when it said holding"
-                    // So if peekTargetId === p.id, we force visible, but render text instead of dot.
                     const isPeekTarget = peekTargetId === p.id;
-                    
-                    // Force visible if peek target
                     if (isPeekTarget) isVisible = true;
 
                     if (isPeekTarget) {
@@ -4933,7 +4948,7 @@ export default function Game() {
                   )})}
                 </div>
                 <p className="text-xs text-zinc-500 uppercase tracking-widest">
-                  {players.filter(p => p.isHolding).length} / {players.length} READY
+                  {displayPlayers.filter(p => p.isHolding).length} / {displayPlayers.filter(p => !p.isEliminated).length} READY
                 </p>
             </div>
           </div>

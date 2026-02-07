@@ -28,16 +28,26 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Create socket connection
     const socketInstance = io({
-      // In development, Vite proxies the connection
-      // In production, same origin
       path: '/socket.io',
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
     });
 
+    let hasConnectedBefore = false;
+    
     socketInstance.on('connect', () => {
       console.log('[Socket.IO] Connected to server:', socketInstance.id);
       setIsConnected(true);
+      
+      if (hasConnectedBefore) {
+        console.log('[Socket.IO] Reconnected - dispatching reconnect event');
+        window.dispatchEvent(new CustomEvent('socket_reconnected'));
+      }
+      hasConnectedBefore = true;
     });
 
     socketInstance.on('disconnect', (reason) => {
@@ -49,11 +59,20 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       console.error('[Socket.IO] Connection error:', error.message);
     });
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (!socketInstance.connected) {
+          console.log('[Socket.IO] Tab became visible, reconnecting...');
+          socketInstance.connect();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     setSocket(socketInstance);
 
-    // Cleanup on unmount
     return () => {
-      console.log('[Socket.IO] Cleaning up socket connection');
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       socketInstance.disconnect();
     };
   }, []);

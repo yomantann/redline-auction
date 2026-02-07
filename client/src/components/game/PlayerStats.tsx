@@ -90,7 +90,24 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
             isCurrentPlayer ? "border-primary/50" : ""
           )}>
             {typeof player.characterIcon === 'string' ? (
-               <img src={player.characterIcon} alt={player.name} className="w-full h-full object-cover" />
+               <img 
+                 src={player.characterIcon} 
+                 alt={player.name} 
+                 className="w-full h-full object-cover" 
+                 loading="lazy" 
+                 decoding="async"
+                 onError={(e) => { 
+                   const el = e.target as HTMLImageElement;
+                   el.style.display = 'none';
+                   const parent = el.parentElement;
+                   if (parent && !parent.querySelector('svg')) {
+                     const fallback = document.createElement('span');
+                     fallback.className = 'text-zinc-500 text-xs font-bold';
+                     fallback.textContent = player.name.charAt(0).toUpperCase();
+                     parent.appendChild(fallback);
+                   }
+                 }}
+               />
              ) : (
                player.characterIcon || (player.isBot ? <Cpu size={16} className="text-zinc-500"/> : <User size={16} className="text-zinc-500"/>)
              )}
