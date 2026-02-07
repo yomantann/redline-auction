@@ -220,25 +220,25 @@ interface RealityAbilityConfig {
 
 const SOCIAL_ABILITY_CONFIG: Record<string, RealityAbilityConfig | null> = {
   'promking': { name: 'PROM COURT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Make a rule for the game!', timing: 'end' },
-  'idolcore': { name: 'FANCAM', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'Show talent or drop button!', timing: 'end' },
+  'idolcore': { name: 'FANCAM', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'shows hidden talent or drops button!', timing: 'start' },
   'tank': { name: "PEOPLE'S ELBOW", triggerChance: 0.3, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Challenge to thumb war!', timing: 'end' },
   'dangerzone': { name: 'PRIVATE DANCE', triggerChance: 0.3, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Give a command!', timing: 'end' },
   'harambe': { name: 'VIBE GUARD', triggerChance: 1.0, triggerType: 'always', visibility: 'driver_only', needsTarget: false, description: 'Designate a player immune to social dares this round.', timing: 'start' },
-  'clickclick': { name: 'MISCLICK', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'Hold bid without using hands!', timing: 'end' },
+  'clickclick': { name: 'MISCLICK', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'must hold bid without using hands!', timing: 'end' },
   'winter': { name: 'COLD SHOULDER', triggerChance: 0.5, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Ignore all social interactions this round.', timing: 'start' },
   'pepe': { name: 'SAD STORY', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: 'Share a sad story.', timing: 'end' },
-  'rainbow': { name: 'SUGAR RUSH', triggerChance: 0.15, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'Speak 2x speed!', timing: 'end' },
+  'rainbow': { name: 'SUGAR RUSH', triggerChance: 0.15, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'must speak 2x speed!', timing: 'start' },
   'accuser': { name: 'COMPLAINT', triggerChance: 0.15, triggerType: 'random', visibility: 'all', needsTarget: false, description: "Vote on winner's punishment!", timing: 'end' },
   'fine': { name: 'HOT SEAT', triggerChance: 0.25, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Choose a player to answer a truth!', timing: 'end' },
   'bf': { name: 'DISTRACTION', triggerChance: 0.35, triggerType: 'random', visibility: 'driver_only', needsTarget: false, description: 'Point at something! Anyone who looks must drop buzzer.', timing: 'start' },
   'rind': { name: 'SNITCH', triggerChance: 0.05, triggerType: 'random', visibility: 'target_only', needsTarget: true, description: "Reveal someone's tell!", timing: 'end' },
-  'anointed': { name: 'COMMAND SILENCE', triggerChance: 0.5, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Command silence!', timing: 'end' },
-  'sigma': { name: "CC'D", triggerChance: 0.2, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'Copy actions next round!', timing: 'end' },
-  'gigachad': { name: 'MOG', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: '10 pushups or ff next round', timing: 'end' },
+  'anointed': { name: 'COMMAND SILENCE', triggerChance: 0.5, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Command silence!', timing: 'start' },
+  'sigma': { name: "CC'D", triggerChance: 0.2, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'must copy your actions next round!', timing: 'end' },
+  'gigachad': { name: 'MOG', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: '10 pushups or ff next round!', timing: 'end' },
   'thinker': null,
-  'disaster': { name: 'VIRAL MOMENT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: false, description: 'Re-enact a meme!', timing: 'end' },
+  'disaster': { name: 'VIRAL MOMENT', triggerChance: 0.1, triggerType: 'random', visibility: 'driver_and_target', needsTarget: true, description: 'must re-enact a meme!', timing: 'end' },
   'panicbot': null,
-  'primate': { name: 'FRESH CUT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'Compliment everyone!', timing: 'end' },
+  'primate': { name: 'FRESH CUT', triggerChance: 0.1, triggerType: 'random', visibility: 'all', needsTarget: true, description: 'must compliment everyone!', timing: 'end' },
   'harold': null,
 };
 
@@ -324,14 +324,14 @@ function processRealityModeAbilities(game: GameState, winnerId: string | null, t
     }
     
     const descWithTarget = targetName 
-      ? ability.description.replace(/opponent|player/i, targetName)
+      ? `${targetName} ${ability.description}`
       : ability.description;
     
     const eventData = {
       driverName: player.name,
       driverId: player.id,
       abilityName: ability.name,
-      description: targetName ? `${targetName}: ${ability.description}` : ability.description,
+      description: descWithTarget,
       type: abilityType,
       targetId,
       targetName,

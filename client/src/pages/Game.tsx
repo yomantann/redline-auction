@@ -258,8 +258,8 @@ interface Character {
 const CHARACTERS: Character[] = [
   { 
     id: 'harambe', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
-    ability: { name: 'SPIRIT SHIELD', description: 'Limit Break: +11s if you win Round 1.', effect: 'TIME_REFUND' },
-    socialAbility: { name: 'VIBE GUARD', description: 'Shown at prepare-to-bid: Designate a player immune to social dares this round.' },
+    ability: { name: 'SPIRIT SHIELD', description: '+11s if you win Round 1.', effect: 'TIME_REFUND' },
+    socialAbility: { name: 'VIBE GUARD', description: 'Designate a player immune to social dares this round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Tell others they cannot release button until you finish a sip.' }
   },
   { 
@@ -2015,11 +2015,35 @@ export default function Game() {
         // WANDERING EYE: DISTRACTION (Social)
         if (selectedChar.id === 'bf' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.35) {
              setTimeout(() => {
-                 addOverlay("social_event", "DISTRACTION OPPORTUNITY", "Point at something! Anyone who looks must drop buzzer.", 0);
+                 addOverlay("social_event", "DISTRACTION", "Point at something! Anyone who looks must drop buzzer.", 0);
              }, 300);
         }
 
-        
+        // IDOL CORE: FANCAM (Social) - 10% chance, start of round
+        if (selectedChar.id === 'idol_core' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.10) {
+             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
+             const t = opponents.length > 0 ? opponents[Math.floor(Math.random() * opponents.length)] : null;
+             setTimeout(() => {
+                 addOverlay("social_event", `${selectedChar.name}: FANCAM`, t ? `${t.name} shows hidden talent or drops button!` : "Shows hidden talent or drops button!", 0);
+             }, 400);
+        }
+
+        // RAINBOW DASH: SUGAR RUSH (Social) - 15% chance, start of round
+        if (selectedChar.id === 'nyan' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.15) {
+             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
+             const t = opponents.length > 0 ? opponents[Math.floor(Math.random() * opponents.length)] : null;
+             setTimeout(() => {
+                 addOverlay("social_event", `${selectedChar.name}: SUGAR RUSH`, t ? `${t.name} must speak 2x speed!` : "Speak 2x speed!", 0);
+             }, 400);
+        }
+
+        // ANOINTED: COMMAND SILENCE (Social) - 50% chance, start of round
+        if (selectedChar.id === 'anointed' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.50) {
+             setTimeout(() => {
+                 addOverlay("social_event", `${selectedChar.name}: COMMAND SILENCE`, "Command silence!", 0);
+             }, 400);
+        }
+
         // SADMAN: SAD REVEAL (Passive - PEEK Selection)
         if (selectedChar.id === 'pepe') {
              const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
@@ -2704,10 +2728,8 @@ export default function Game() {
                 triggered = true; abilityName = sName; abilityDesc = "Make a rule for the game!";
                 visibility = 'all';
             }
-            else if (sName === 'FANCAM' && roll < 0.1) {
-                const t = pickTarget();
-                triggered = true; abilityName = sName; abilityDesc = t ? `${t.name} shows hidden talent or drops button!` : "Show talent or drop button!";
-                visibility = 'all';
+            else if (sName === 'FANCAM') {
+                // Handled at start of round
             }
             else if (sName === 'PEOPLE\'S ELBOW' && roll < 0.3) {
                 triggered = true; abilityName = sName; abilityDesc = "Challenge to thumb war!";
@@ -2731,10 +2753,8 @@ export default function Game() {
                     visibility = 'target_only';
                 }
             }
-            else if (sName === 'SUGAR RUSH' && roll < 0.15) {
-                const t = pickTarget();
-                triggered = true; abilityName = sName; abilityDesc = t ? `${t.name} must speak 2x speed!` : "Speak 2x speed!";
-                visibility = 'all';
+            else if (sName === 'SUGAR RUSH') {
+                // Handled at start of round
             }
             else if (sName === 'COMPLAINT' && roll < 0.15) {
                 triggered = true; abilityName = sName; abilityDesc = "Vote on winner's punishment!";
@@ -2751,9 +2771,8 @@ export default function Game() {
                     visibility = 'target_only';
                 }
             }
-            else if (sName === 'COMMAND SILENCE' && roll < 0.5) {
-                triggered = true; abilityName = sName; abilityDesc = "Command silence!";
-                visibility = 'all';
+            else if (sName === 'COMMAND SILENCE') {
+                // Handled at start of round
             }
             else if (sName === 'CC\'D' && roll < 0.2) {
                 const t = pickTarget();
@@ -2765,13 +2784,16 @@ export default function Game() {
             else if (sName === 'MOG' && roll < 0.1) {
                 const t = pickTarget();
                 if (t) {
-                    triggered = true; abilityName = sName; abilityDesc = `${t.name}: 10 pushups or ff next round`;
+                    triggered = true; abilityName = sName; abilityDesc = `${t.name}: 10 pushups or ff next round!`;
                     visibility = 'driver_and_target';
                 }
             }
             else if (sName === 'VIRAL MOMENT' && roll < 0.1) {
-                triggered = true; abilityName = sName; abilityDesc = "Re-enact a meme!";
-                visibility = 'all';
+                const t = pickTarget();
+                if (t) {
+                    triggered = true; abilityName = sName; abilityDesc = `${t.name} must re-enact a meme!`;
+                    visibility = 'driver_and_target';
+                }
             }
             else if (sName === 'FRESH CUT' && roll < 0.1) {
                 const t = pickTarget();
