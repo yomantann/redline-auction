@@ -2650,7 +2650,8 @@ export default function Game() {
                     setFrostbyteAbilityUsed(true);
                     const t = pickTarget();
                     if (t) {
-                        triggered = true; abilityName = bName; abilityDesc = `Force ${t.name} to Win or Drink!`;
+
+                        triggered = true; abilityName = bName; abilityDesc = `${t.name} must Win round or Drink!`;
                         visibility = 'driver_and_target';
                     }
                 }
@@ -2659,11 +2660,11 @@ export default function Game() {
                 const t = pickTarget();
                 if (t) {
                     triggered = true; abilityName = bName; abilityDesc = `${t.name} mixes two drinks!`;
-                    visibility = 'all';
+                    visibility = 'driver_and_target';
                 }
             }
             else if (bName === 'SPILL HAZARD' && roll < 0.25) {
-                triggered = true; abilityName = bName; abilityDesc = "Accuse someone of spilling!";
+                triggered = true; abilityName = bName; abilityDesc = "Accuse someone of spilling — they drink!";
                 visibility = 'driver_only';
             }
             else if (bName === 'ON FIRE' && p.id === winnerId) {
@@ -2688,7 +2689,7 @@ export default function Game() {
                 triggered = true; abilityName = bName; abilityDesc = "Make a rule for the game!";
                 visibility = 'all';
             }
-            else if (bName === 'REASSIGNED' && roll < 0.5) {
+            else if (bName === 'REASSIGNED' && roll < 0.25) {
                 triggered = true; abilityName = bName; abilityDesc = "Choose 1 player to drink!";
                 visibility = 'all';
             }
