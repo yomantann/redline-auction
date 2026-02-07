@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -13,61 +13,9 @@ interface AuctionButtonProps {
 
 export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiting, showPulse = true }: AuctionButtonProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  const onPressRef = useRef(onPress);
-  const onReleaseRef = useRef(onRelease);
-  const disabledRef = useRef(disabled);
-  onPressRef.current = onPress;
-  onReleaseRef.current = onRelease;
-  disabledRef.current = disabled;
-
-  useEffect(() => {
-    const wrapper = wrapperRef.current;
-    if (!wrapper) return;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!disabledRef.current) onPressRef.current();
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!disabledRef.current) onReleaseRef.current();
-    };
-
-    const handleContextMenu = (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    };
-
-    wrapper.addEventListener('touchstart', handleTouchStart, { passive: false });
-    wrapper.addEventListener('touchend', handleTouchEnd, { passive: false });
-    wrapper.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-    wrapper.addEventListener('contextmenu', handleContextMenu, { capture: true });
-
-    return () => {
-      wrapper.removeEventListener('touchstart', handleTouchStart);
-      wrapper.removeEventListener('touchend', handleTouchEnd);
-      wrapper.removeEventListener('touchcancel', handleTouchEnd);
-      wrapper.removeEventListener('contextmenu', handleContextMenu, { capture: true });
-    };
-  }, []);
 
   return (
-    <div
-      ref={wrapperRef}
-      className="relative group w-64 h-64 flex items-center justify-center select-none"
-      style={{
-        WebkitTouchCallout: 'none',
-        WebkitUserSelect: 'none',
-        userSelect: 'none',
-        touchAction: 'manipulation',
-      }}
-    >
+    <div className="relative group w-64 h-64 flex items-center justify-center no-callout">
       <div className={cn(
         "absolute inset-0 rounded-full border-2 transition-all duration-500 pointer-events-none",
         isPressed ? "scale-90 opacity-50 border-primary/20" : 
@@ -84,9 +32,8 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
       <button
         ref={buttonRef}
         className={cn(
-          "relative z-10 w-48 h-48 rounded-full flex flex-col items-center justify-center transition-all duration-100 focus:outline-none",
+          "relative z-10 w-48 h-48 rounded-full flex flex-col items-center justify-center transition-all duration-100 focus:outline-none no-callout",
           "bg-gradient-to-b from-zinc-800 to-black border-4",
-          "select-none [touch-action:manipulation]",
           disabled && !isWaiting ? "border-zinc-800 opacity-50 cursor-not-allowed grayscale" : "cursor-pointer",
           isPressed 
             ? "border-primary shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] scale-95" 
@@ -94,14 +41,11 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
               ? "border-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.2)]" 
               : "border-zinc-700 shadow-[0_10px_20px_rgba(0,0,0,0.5),inset_0_2px_10px_rgba(255,255,255,0.1)] hover:border-primary/50 hover:shadow-[0_0_30px_rgba(255,215,0,0.2)]"
         )}
-        style={{
-          WebkitTouchCallout: 'none',
-          WebkitUserSelect: 'none',
-          userSelect: 'none',
-        }}
         onContextMenu={(e) => e.preventDefault()}
         onMouseDown={!disabled ? onPress : undefined}
         onMouseUp={!disabled ? onRelease : undefined}
+        onTouchStart={!disabled ? onPress : undefined}
+        onTouchEnd={!disabled ? onRelease : undefined}
         disabled={disabled}
         data-testid="button-auction"
       >
@@ -111,7 +55,7 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
         )} />
         
         <span className={cn(
-          "font-display text-2xl font-bold tracking-widest transition-colors duration-200 text-center px-2 pointer-events-none",
+          "font-display text-2xl font-bold tracking-widest transition-colors duration-200 text-center px-2 pointer-events-none select-none",
           isPressed ? "text-primary text-glow" : isWaiting ? "text-yellow-500 text-xl" : "text-zinc-400",
           disabled && !isWaiting && !isPressed && "text-zinc-600 text-lg"
         )}>
@@ -123,7 +67,7 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
                 ? "OTHERS CURRENTLY BIDDING" 
                 : "PRESS"}
         </span>
-        <span className="text-xs text-zinc-600 font-mono mt-2 uppercase tracking-wider pointer-events-none">
+        <span className="text-xs text-zinc-600 font-mono mt-2 uppercase tracking-wider pointer-events-none select-none">
           {isWaiting 
             ? "Waiting for others..." 
             : isPressed 

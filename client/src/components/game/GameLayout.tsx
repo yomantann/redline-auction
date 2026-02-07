@@ -16,14 +16,15 @@ export function GameLayout({ children, className, variant = "STANDARD" }: GameLa
   const background = variant === "SOCIAL_OVERDRIVE" ? bgSocial : variant === "BIO_FUEL" ? bgBio : bgStandard;
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground">
+    <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground no-callout">
       {/* Background Image with Overlay */}
       <div
         className={cn(
-          "fixed inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500",
+          "fixed inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500 pointer-events-none",
           variant === "STANDARD" ? "opacity-55" : "opacity-45"
         )}
         style={{ backgroundImage: `url(${background})` }}
+        aria-hidden="true"
         data-testid="img-background"
       />
 

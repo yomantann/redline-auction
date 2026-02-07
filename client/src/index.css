@@ -135,6 +135,16 @@
   }
 }
 
+/* Prevent mobile long-press callout (save image / copy) */
+.no-callout,
+.no-callout * {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
 /* Custom Effects */
 @layer utilities {
   .text-glow {
