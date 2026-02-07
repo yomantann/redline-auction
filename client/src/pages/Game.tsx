@@ -2236,10 +2236,11 @@ export default function Game() {
     // Let's re-run the logic for STEP A with this correction.
     
     tempPlayersState = players.map(p => {
-        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "" };
+        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "", impactLogs: [] as { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[], roundNetImpactNum: 0 };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
+        let roundNetImpactNum = 0;
         let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
 
         // Bid Deduction
@@ -2255,7 +2256,9 @@ export default function Game() {
         const pending = pendingPenalties[p.id] || 0;
         if (pending > 0) {
             newTime -= pending;
+            roundNetImpactNum -= pending;
             roundImpact += ` -${pending}s (Penalty)`;
+            impactLogs.push({ value: `-${pending.toFixed(1)}s`, reason: "Penalty", type: 'loss' });
         }
 
         // Apply Standard Disruptions (Manager Call, Burn It)
@@ -2265,14 +2268,13 @@ export default function Game() {
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
-                // Add to round impact for display
+                roundNetImpactNum -= d.amount;
                 roundImpact += ` -${d.amount}s (${d.ability})`;
-                // Add detailed log
                 impactLogs.push({ value: `-${d.amount.toFixed(1)}s`, reason: d.ability, type: 'loss' });
             });
         }
 
-        return { ...p, remainingTime: newTime, roundImpact };
+        return { ...p, remainingTime: newTime, roundImpact, impactLogs, roundNetImpactNum };
     });
 
     if (abilitiesEnabled) {
@@ -2826,6 +2828,7 @@ export default function Game() {
 
     // --- DETERMINE OVERLAY TYPE ---
     let momentCount = 0; // Track moment flags for triple play
+    const roundMomentFlags: string[] = [];
 
     if (playersOut.length > 0) {
       // Track elimination moment flags for all eliminated players
@@ -2841,8 +2844,6 @@ export default function Game() {
        const winnerBid = winnerPlayer.currentBid || 0;
        const secondBid = secondPlayer?.currentBid || 0;
        const margin = winnerBid - secondBid;
-
-       const roundMomentFlags: string[] = [];
 
        // 1. Smug Confidence (Round 1 Win)
        if (round === 1 && winnerId === 'p1') {
@@ -2936,11 +2937,37 @@ export default function Game() {
     } else {
        // No winner
        addOverlay("round_draw", "NO WINNER", "Tie or No Bids");
+       
+       // Track DEADLOCK_SYNC for all tied first-place players
+       if (participants.length >= 2) {
+         const validBidders = [...participants]
+           .filter(p => p.currentBid !== null && p.currentBid > 0)
+           .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+         if (validBidders.length >= 2) {
+           const topBid = validBidders[0].currentBid || 0;
+           const tiedIds = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.05).map(p => p.id);
+           if (tiedIds.length >= 2) {
+             setPlayers(prev => prev.map(p => {
+               if (tiedIds.includes(p.id)) {
+                 return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), 'DEADLOCK_SYNC'] };
+               }
+               return p;
+             }));
+           }
+         }
+       }
     }
 
-    if (!winnerId && participants.length === 0) {
+    if (!winnerId && participants.filter(p => p.currentBid && p.currentBid > 0).length === 0) {
        // Everyone zero bid / abandoned?
        addOverlay("zero_bid", "AFK", "No one dared to bid!");
+       // Track AFK flag for all non-eliminated players
+       setPlayers(prev => prev.map(p => {
+         if (!p.isEliminated) {
+           return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), 'AFK'] };
+         }
+         return p;
+       }));
     }
 
     // SECRET PROTOCOL REVEALS (Underdog / Time Tax)
@@ -3023,8 +3050,8 @@ export default function Game() {
     // Win final round AND at least one player eliminated in that round
     if (winnerId === 'p1' && round === totalRounds) {
          if (playersOut.length > 0) {
-             // LAST ONE STANDING
              setTimeout(() => addOverlay("genius_move", "LAST ONE STANDING", `Survivor Victory! (${playersOut.length} eliminated)`), 2000);
+             roundMomentFlags.push('LAST_ONE_STANDING');
          }
     }
 
@@ -3055,17 +3082,28 @@ export default function Game() {
       if (winnerStartApprox <= minStartApprox + 0.0001) {
         addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0);
         momentCount += 1;
+        roundMomentFlags.push('LATE_PANIC');
       }
     }
 
     // Hidden 67: ANY driver who bids within ±0.1 of 67s (does not need to win)
+    const hidden67Players: string[] = [];
     finalPlayers.forEach(p => {
       const bid = p.currentBid || 0;
       if (bid > 0 && Math.abs(bid - 67) <= 0.1) {
         addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±0.1).`, 0);
         momentCount += 1;
+        hidden67Players.push(p.id);
       }
     });
+    if (hidden67Players.length > 0) {
+      setPlayers(prev => prev.map(p => {
+        if (hidden67Players.includes(p.id)) {
+          return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), 'HIDDEN_67'] };
+        }
+        return p;
+      }));
+    }
 
     // Hidden Deja Bid: winner wins 2 rounds in a row with bid within ±0.2 of previous win
     const prevWinBid = roundLog.find(l => l.startsWith('>> WIN BID: '))?.split('>> WIN BID: ')[1];
@@ -3075,7 +3113,13 @@ export default function Game() {
       if (!Number.isNaN(prev) && Math.abs(winnerBid - prev) <= 0.2) {
         addOverlay('hidden_deja_bid', 'DEJA BID', 'Back-to-back wins with nearly identical bids.', 0);
         momentCount += 1;
+        roundMomentFlags.push('DEJA_BID');
       }
+    }
+    
+    // PATCH_NOTES_PENDING: 3+ moment flags in same round (tracked as a flag itself)
+    if (momentCount >= 3 && winnerId) {
+      roundMomentFlags.push('PATCH_NOTES_PENDING');
     }
 
 

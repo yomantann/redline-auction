@@ -1195,6 +1195,10 @@ function endRound(lobbyCode: string) {
     }
   }
   
+  // Snapshot flag counts before adding any this round (for PATCH_NOTES_PENDING detection)
+  const flagsBeforeCount = new Map<string, number>();
+  game.players.forEach(p => flagsBeforeCount.set(p.id, p.momentFlagsEarned.length));
+  
   // Track protocol wins and moment flags for the round winner
   if (winnerId && game.activeProtocol) {
     const winnerPlayer = game.players.find(p => p.id === winnerId);
@@ -1256,6 +1260,60 @@ function endRound(lobbyCode: string) {
     }
   });
   
+  // Track DEADLOCK_SYNC: tie for first place (no winner despite bids)
+  if (!winnerId && participants.length >= 2) {
+    const validBidders = [...participants]
+      .filter(p => p.currentBid !== null && p.currentBid > 0)
+      .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    if (validBidders.length >= 2) {
+      const topBid = validBidders[0].currentBid || 0;
+      const tiedPlayers = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.05);
+      if (tiedPlayers.length >= 2) {
+        tiedPlayers.forEach(p => p.momentFlagsEarned.push('DEADLOCK_SYNC'));
+      }
+    }
+  }
+  
+  // Track AFK: no winner and no participants (nobody bid)
+  if (!winnerId && participants.filter(p => p.currentBid && p.currentBid > 0).length === 0) {
+    game.players.filter(p => !p.isEliminated).forEach(p => {
+      p.momentFlagsEarned.push('AFK');
+    });
+  }
+  
+  // Track hidden flags on server: LATE_PANIC, LAST_ONE_STANDING
+  if (winnerId) {
+    const winnerPlayer = game.players.find(p => p.id === winnerId);
+    if (winnerPlayer) {
+      // LATE PANIC: winner started round with lowest time bank
+      const winnerBidVal = winnerPlayer.currentBid || 0;
+      const winnerStartApprox = winnerPlayer.remainingTime + winnerBidVal;
+      const allStartApprox = game.players.filter(p => !p.isEliminated || p.id === winnerId)
+        .map(p => p.remainingTime + (p.currentBid || 0));
+      const minStartApprox = Math.min(...allStartApprox);
+      if (winnerStartApprox <= minStartApprox + 0.0001) {
+        winnerPlayer.momentFlagsEarned.push('LATE_PANIC');
+      }
+      
+      // LAST ONE STANDING: won final round with eliminations
+      if (game.round >= game.totalRounds && game.eliminatedThisRound.length > 0) {
+        winnerPlayer.momentFlagsEarned.push('LAST_ONE_STANDING');
+      }
+    }
+  }
+  
+  // Track PATCH_NOTES_PENDING: 3+ moment flags in this round for the winner
+  // Count using the flagsBeforeCount snapshot taken before any flags were pushed
+  if (winnerId) {
+    const winnerPlayer = game.players.find(p => p.id === winnerId);
+    if (winnerPlayer) {
+      const flagsThisRound = winnerPlayer.momentFlagsEarned.length - (flagsBeforeCount.get(winnerId) || 0);
+      if (flagsThisRound >= 3) {
+        winnerPlayer.momentFlagsEarned.push('PATCH_NOTES_PENDING');
+      }
+    }
+  }
+  
   broadcastGameState(lobbyCode);
   
   // Process reality mode abilities (social/bio) at end of round
@@ -1282,12 +1340,21 @@ function endRound(lobbyCode: string) {
     const activeBots = activePlayers.filter(p => p.isBot);
     const remainingRounds = game.totalRounds - game.round;
     
-    log(`All human players eliminated in lobby ${lobbyCode}. Fast-forwarding ${remainingRounds} remaining rounds for CPUs.`, "game");
+    log(`All human players eliminated in lobby ${lobbyCode}. Fast-forwarding ${remainingRounds} remaining rounds for ${activeBots.length} CPUs.`, "game");
     
     for (let r = 0; r < remainingRounds; r++) {
       if (activeBots.length > 0) {
         const randomWinner = activeBots[Math.floor(Math.random() * activeBots.length)];
         randomWinner.tokens += 1;
+        
+        addGameLogEntry(game, {
+          type: 'win',
+          playerId: randomWinner.id,
+          playerName: randomWinner.name,
+          message: `Fast-forward R${game.round + r + 1}: ${randomWinner.name} wins +1 token`,
+          value: 1,
+        });
+        
         log(`Fast-forward round ${game.round + r + 1}: ${randomWinner.name} wins 1 token`, "game");
       }
     }
