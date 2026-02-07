@@ -4358,34 +4358,34 @@ export default function Game() {
                   <div className={cn("w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full mb-2 sm:mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10 flex-shrink-0", char.color)}>
                      <img src={getCharImage(char)} alt={char.name} className="w-full h-full object-cover" />
                   </div>
-                  <h3 className="font-bold text-base sm:text-lg md:text-xl text-white mb-0.5 sm:mb-1 truncate w-full" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
-                  <p className="text-xs sm:text-sm text-primary/80 uppercase tracking-wider mb-1 sm:mb-2 font-display truncate w-full" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
+                  <h3 className="font-bold text-sm sm:text-lg md:text-xl text-white mb-0.5 sm:mb-1 w-full leading-tight" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
+                  <p className="text-[10px] sm:text-sm text-primary/80 uppercase tracking-wider mb-1 sm:mb-2 font-display w-full leading-tight" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
                   <p className="text-xs sm:text-sm text-zinc-500 leading-tight line-clamp-2 w-full" data-testid={`text-driver-desc-${char.id}`}>{char.description}</p>
                   
                   {abilitiesEnabled && char.ability && (
                     <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-white/5 w-full min-w-0">
                        <div className="flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">
-                          <Zap size={10} fill="currentColor" className="flex-shrink-0" /> <span className="truncate">{char.ability.name}</span>
+                          <Zap size={10} fill="currentColor" className="flex-shrink-0" /> {char.ability.name}
                        </div>
-                       <p className="text-[9px] sm:text-[10px] text-zinc-400 leading-tight line-clamp-3">{char.ability.description}</p>
+                       <p className="text-[9px] sm:text-[10px] text-zinc-400 leading-tight">{char.ability.description}</p>
                     </div>
                   )}
 
                   {variant === 'SOCIAL_OVERDRIVE' && char.socialAbility && (
                     <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-purple-500/20 w-full bg-purple-500/5 rounded p-1 min-w-0">
                        <div className="flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">
-                          <PartyPopper size={10} className="flex-shrink-0" /> <span className="truncate">{char.socialAbility.name}</span>
+                          <PartyPopper size={10} className="flex-shrink-0" /> {char.socialAbility.name}
                        </div>
-                       <p className="text-[9px] sm:text-[10px] text-purple-300/70 leading-tight line-clamp-3">{char.socialAbility.description}</p>
+                       <p className="text-[9px] sm:text-[10px] text-purple-300/70 leading-tight">{char.socialAbility.description}</p>
                     </div>
                   )}
 
                   {variant === 'BIO_FUEL' && char.bioAbility && (
                     <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-orange-500/20 w-full bg-orange-500/5 rounded p-1 min-w-0">
                        <div className="flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-1">
-                          <Martini size={10} className="flex-shrink-0" /> <span className="truncate">{char.bioAbility.name}</span>
+                          <Martini size={10} className="flex-shrink-0" /> {char.bioAbility.name}
                        </div>
-                       <p className="text-[9px] sm:text-[10px] text-orange-300/70 leading-tight line-clamp-3">{char.bioAbility.description}</p>
+                       <p className="text-[9px] sm:text-[10px] text-orange-300/70 leading-tight">{char.bioAbility.description}</p>
                     </div>
                   )}
                 </motion.button>
