@@ -1435,7 +1435,7 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
           emitToPlayer(mole.socketId, 'protocol_detail', {
             protocol: 'THE_MOLE',
             msg: 'THE MOLE',
-            sub: "You are the Mole. Goal: push the time up, but try NOT to get 1st. If you DO win by MORE than 7.0s, you lose 2 trophies.",
+            sub: "You are the Mole. Your bid does not impact your time bank. If you win, you lose 2 trophies if you win by MORE than 7.0s.",
             targetPlayerId: mole.id,
           });
         }
