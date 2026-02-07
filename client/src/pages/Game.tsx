@@ -4461,7 +4461,7 @@ export default function Game() {
                           </div>
                           <div className="text-[10px] uppercase tracking-widest text-zinc-500" data-testid="text-driver-expanded-count">{active.drivers.length} drivers</div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3" data-testid="grid-driver-expanded">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" data-testid="grid-driver-expanded">
                           {active.drivers.map(renderDriverCard)}
                         </div>
                       </div>
