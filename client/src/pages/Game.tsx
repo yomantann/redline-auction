@@ -5884,7 +5884,7 @@ export default function Game() {
                 // Show time if: Casual Mode OR Game Over OR Player Eliminated
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
-                peekActive={(selectedCharacter?.id === 'sadman' || selectedCharacter?.id === 'wandering_eye') && peekTargetId === p.id}
+                peekActive={(selectedCharacter?.id === 'sadman' || selectedCharacter?.id === 'wandering_eye') && peekTargetId === p.id && (p as any).selectedDriver !== 'roll_safe'}
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={(activeProtocol === 'SYSTEM_FAILURE' && !(selectedCharacter?.id === 'low_flame' && abilitiesEnabled)) || (p.id === 'p1' && selectedCharacter?.id === 'sadman')}
                 isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}

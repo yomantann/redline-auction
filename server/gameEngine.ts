@@ -1007,7 +1007,7 @@ function endRound(lobbyCode: string) {
   game.phase = 'round_end';
   
   // Find winner (highest bid among non-eliminated)
-  const participants = game.players.filter(p => p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
+  const participants = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
   
   let winnerId: string | null = null;
   
@@ -1594,7 +1594,7 @@ function emitSecretProtocolReveal(game: GameState) {
           sub: `${molePlayer.name} was the Mole and got eliminated! -1 trophy.`,
         });
       } else if (game.roundWinner && game.roundWinner.id === game.molePlayerId) {
-        const participants = game.players.filter(p => p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
+        const participants = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
         const sortedBids = participants
           .filter(p => p.id !== game.molePlayerId)
           .map(p => p.currentBid || 0)
