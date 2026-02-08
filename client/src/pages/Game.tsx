@@ -1641,7 +1641,7 @@ export default function Game() {
                   if (isMultiplayer && multiplayerGameState && socket) {
                     const currentPlayerId = multiplayerGameState.players.find(p => p.socketId === socket.id)?.id;
                     if (currentPlayerId) {
-                      const opponents = multiplayerGameState.players.filter(p => p.id !== currentPlayerId && !p.isEliminated);
+                      const opponents = multiplayerGameState.players.filter(p => p.id !== currentPlayerId && !p.isEliminated && (p as any).selectedDriver !== 'roll_safe');
                       
                       if (selectedCharacter.id === 'sadman' && opponents.length > 0) {
                         const target = opponents[Math.floor(Math.random() * opponents.length)];
@@ -1672,7 +1672,7 @@ export default function Game() {
   // Low Flame Immunity Popup Check
   useEffect(() => {
     if (activeProtocol && selectedCharacter?.id === 'low_flame' && abilitiesEnabled) {
-        addOverlay("ability_trigger", "FIRE WALL ACTIVE", "Immune to ALL protocol effects!", 3000);
+        addOverlay("ability_trigger", "FIRE WALL ACTIVE", "Immune to ALL protocol effects!", 0);
     }
   }, [activeProtocol, selectedCharacter?.id]);
 
@@ -2072,7 +2072,7 @@ export default function Game() {
 
         // SADMAN: SAD REVEAL (Passive - PEEK Selection)
         if (selectedChar.id === 'sadman') {
-             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
+             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
              if (opponents.length > 0) {
                  const target = opponents[Math.floor(Math.random() * opponents.length)];
                  setPeekTargetId(target.id);
@@ -2083,7 +2083,7 @@ export default function Game() {
 
         // WANDERING EYE: SNEAK PEEK (Passive - See 1 holding, scramble everyone else)
         if (selectedChar.id === 'wandering_eye') {
-             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
+             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
              if (opponents.length > 0) {
                  // Reveal ONE person randomly
                  const target = opponents[Math.floor(Math.random() * opponents.length)];

@@ -647,6 +647,9 @@ function startBidding(lobbyCode: string) {
         p.isHolding = true;
       }
       p.currentBid = 0;
+    } else {
+      p.currentBid = null;
+      p.isHolding = false;
     }
   });
   
