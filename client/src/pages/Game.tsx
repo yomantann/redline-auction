@@ -5246,7 +5246,7 @@ export default function Game() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
                 {sortedPlayers.map((p, i) => (
-                  <div key={p.id} className={cn("p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden",  p.id === winner.id && "border-primary/50 bg-primary/5", p.id === loser.id ? "border-destructive/50 bg-destructive/5" : "border-white/10")}>
+                  <div key={p.id} className={cn("p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden",  p.id === winner.id && "border-primary/50 bg-primary/10", p.id === loser.id ? "border-destructive/50 bg-destructive/10" : "border-white/10")}>
                      {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
                      {p.id === loser.id && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
                      
