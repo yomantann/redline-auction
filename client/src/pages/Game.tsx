@@ -5519,7 +5519,7 @@ export default function Game() {
               </summary>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
                 {[ 
-                  { title: "SMUG CONFIDENCE", desc: "Win Round 1 immediately.", color: "text-purple-400 border-purple-500/20" },
+                  { title: "SMUG CONFIDENCE", desc: "Win Round 1.", color: "text-purple-400 border-purple-500/20" },
                   { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
                   { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
                   { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-blue-400 border-blue-500/20" },
