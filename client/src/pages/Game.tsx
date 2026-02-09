@@ -171,7 +171,7 @@ const SOCIAL_CHARACTERS: Character[] = [
   { 
     id: 'prom_king', name: 'Prom King', title: 'The Crowned', image: charPromKing, imageSocial: charPromKing, imageBio: bioPromKing, description: 'Royalty of the moment.', color: 'text-purple-500',
     ability: { name: 'SPOTLIGHT', description: 'If you win, everyone else cheers (no effect, just vibes).', effect: 'TOKEN_BOOST' },
-    socialAbility: { name: 'PROM COURT', description: '1 round: Make a rule for remainder of game.' },
+    socialAbility: { name: 'PROM COURT', description: 'Chance you may make a rule for remainder of game.' },
     bioAbility: { name: 'CORONATION', description: 'Initiate a group toast. Everyone drinks.' }
   },
   {
@@ -314,7 +314,7 @@ const CHARACTERS: Character[] = [
     id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin,
     imageBio: bioBaldwin,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
-    ability: { name: 'ROYAL DECREE', description: 'Get 4s refund if you bid within 0.1s of 20s.', effect: 'TIME_REFUND' },
+    ability: { name: 'ROYAL DECREE', description: 'Get 4s refund if you bid within 0.2s of 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: 'Chance everyone is commanded silent' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round: Make a rule for remainder of game.' }
   },
@@ -333,13 +333,13 @@ const CHARACTERS: Character[] = [
   { 
     id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
-    socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules all game.' },
+    socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules.' },
     bioAbility: { name: 'BIG BRAIN', description: 'Chance option to have everyone pass drink to the left.' }
   },
   { 
     id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
     ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
-    socialAbility: { name: 'VIRAL MOMENT', description: '1 random round target must Re-enact a meme.' },
+    socialAbility: { name: 'VIRAL MOMENT', description: '1 random round target must re-enact a meme.' },
     bioAbility: { name: 'SPICY', description: 'Chance everyone drinks.' }
   },
   { 
@@ -440,7 +440,7 @@ export default function Game() {
   useEffect(() => {
     audioRef.current = new Audio();
     audioRef.current.loop = true;
-    audioRef.current.volume = 0.12; // Reduced by 70% (was 0.4)
+    audioRef.current.volume = 0.07; // Reduced by 70% (was 0.4)
     
     // SFX is created per trigger so it can replay reliably
 
@@ -565,7 +565,7 @@ export default function Game() {
               const pick = SFX_POOL[Math.floor(Math.random() * SFX_POOL.length)];
 
               const sound = new Audio(pick + `?t=${now}`);
-              sound.volume = 0.18;
+              sound.volume = 0.08;
               sfxInFlightRef.current = sound;
               sound.play().catch(() => {});
 
@@ -2059,14 +2059,14 @@ export default function Game() {
              const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated);
              const t = opponents.length > 0 ? opponents[Math.floor(Math.random() * opponents.length)] : null;
              setTimeout(() => {
-                 addOverlay("social_event", `${selectedChar.name}: SUGAR RUSH`, t ? `${t.name} must speak 2x speed!` : "Speak 2x speed!", 0);
+                 addOverlay("social_event", `${selectedChar.name}: SUGAR RUSH`, t ? `${t.name} must speak 2x speed this round!` : "Speak 2x speed this round!", 0);
              }, 400);
         }
 
         // ANOINTED: COMMAND SILENCE (Social) - 50% chance, start of round
         if (selectedChar.id === 'anointed' && variant === 'SOCIAL_OVERDRIVE' && Math.random() < 0.50) {
              setTimeout(() => {
-                 addOverlay("social_event", `${selectedChar.name}: COMMAND SILENCE`, "Command silence!", 0);
+                 addOverlay("social_event", `${selectedChar.name}: COMMAND SILENCE`, "Your silence is commanded!", 0);
              }, 400);
         }
 
@@ -2350,7 +2350,7 @@ export default function Game() {
             
             if (p.currentBid !== null && p.currentBid > 0) {
                  if (ab.name === 'RAINBOW RUN' && p.currentBid > 40) refund = 3.5;
-                 if (ab.name === 'ROYAL DECREE' && Math.abs(p.currentBid - 20) <= 0.1) refund = 4.0;
+                 if (ab.name === 'ROYAL DECREE' && Math.abs(p.currentBid - 20) <= 0.2) refund = 4.0;
             }
             
             if (refund !== 0) {
@@ -2463,8 +2463,7 @@ export default function Game() {
                     let refund = 0;
                     if (ab.name === 'SPIRIT SHIELD' && round === 1) refund = 11.0;
                     // RAINBOW RUN handled in refund pass
-                    if (ab.name === 'PAY DAY') refund = 0.5;
-                    if (ab.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) <= 0.1) refund = 4.0;
+                    if (ab.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) <= 0.2) refund = 4.0;
                     if (ab.name === 'CHEF\'S SPECIAL') {
                          const sortedBids = validParticipants.filter(vp => vp.id !== winnerId).map(vp => vp.currentBid || 0);
                          const secondPlace = sortedBids[0] || 0;
@@ -2666,7 +2665,7 @@ export default function Game() {
                 visibility = 'all';
             }
             else if (bName === 'LIQUID AUTHORIZATION') {
-                triggered = true; abilityName = bName; abilityDesc = "You cannot release your button next round until guardian finishes their sip";
+                triggered = true; abilityName = bName; abilityDesc = "You cannot release your button next round until Guardian H finishes their sip";
                 visibility = 'all';
             }
             else if (bName === 'MOUTH POP' && roll < 0.1) {
@@ -2696,7 +2695,7 @@ export default function Game() {
                 visibility = 'driver_only';
             }
             else if (bName === 'ON FIRE' && p.id === winnerId) {
-                triggered = true; abilityName = bName; abilityDesc = "Everyone else drinks!";
+                triggered = true; abilityName = bName; abilityDesc = "Everyone except Low Flame drinks!";
                 visibility = 'all';
             }
             else if (bName === 'THE EX' && roll < 0.1) {
@@ -2714,15 +2713,15 @@ export default function Game() {
                 }
             }
             else if (bName === 'ROYAL CUP' && roll < 0.05) {
-                triggered = true; abilityName = bName; abilityDesc = "Make a rule for the game!";
+                triggered = true; abilityName = bName; abilityDesc = "The Annointed may make a rule for the game!";
                 visibility = 'all';
             }
             else if (bName === 'REASSIGNED' && roll < 0.25) {
-                triggered = true; abilityName = bName; abilityDesc = "Choose 1 player to drink!";
+                triggered = true; abilityName = bName; abilityDesc = "Executive P may choose 1 player to drink!";
                 visibility = 'all';
             }
             else if (bName === 'PACE SETTER' && round % 3 === 0) {
-                triggered = true; abilityName = bName; abilityDesc = "Start a Waterfall!";
+                triggered = true; abilityName = bName; abilityDesc = "Alpha Prime starts a Waterfall!";
                 visibility = 'all';
             }
             else if (bName === 'BIG BRAIN' && roll < 0.05) {
@@ -2754,7 +2753,7 @@ export default function Game() {
             };
 
             if (sName === 'PROM COURT' && roll < 0.1) {
-                triggered = true; abilityName = sName; abilityDesc = "Make a rule for the game!";
+                triggered = true; abilityName = sName; abilityDesc = "Prom King may make a rule for the game!";
                 visibility = 'all';
             }
             else if (sName === 'FANCAM') {
