@@ -314,7 +314,7 @@ const CHARACTERS: Character[] = [
     id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin,
     imageBio: bioBaldwin,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
-    ability: { name: 'ROYAL DECREE', description: 'Get 4s refund if you bid within 0.2s of 20s.', effect: 'TIME_REFUND' },
+    ability: { name: 'ROYAL DECREE', description: 'Get 20s refund if you bid within 0.2s of 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: 'Chance everyone is commanded silent' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round: Make a rule for remainder of game.' }
   },
@@ -2350,7 +2350,7 @@ export default function Game() {
             
             if (p.currentBid !== null && p.currentBid > 0) {
                  if (ab.name === 'RAINBOW RUN' && p.currentBid > 40) refund = 3.5;
-                 if (ab.name === 'ROYAL DECREE' && Math.abs(p.currentBid - 20) <= 0.2) refund = 4.0;
+                 if (ab.name === 'ROYAL DECREE' && Math.abs(p.currentBid - 20) <= 0.2) refund = 20.0;
             }
             
             if (refund !== 0) {
@@ -2462,8 +2462,7 @@ export default function Game() {
                 if (ab) {
                     let refund = 0;
                     if (ab.name === 'SPIRIT SHIELD' && round === 1) refund = 11.0;
-                    // RAINBOW RUN handled in refund pass
-                    if (ab.name === 'ROYAL DECREE' && Math.abs((p.currentBid || 0) - 20) <= 0.2) refund = 4.0;
+                    // RAINBOW RUN & ROYAL DECREE handled in refund pass
                     if (ab.name === 'CHEF\'S SPECIAL') {
                          const sortedBids = validParticipants.filter(vp => vp.id !== winnerId).map(vp => vp.currentBid || 0);
                          const secondPlace = sortedBids[0] || 0;
@@ -4179,8 +4178,9 @@ export default function Game() {
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
               <Button
                 size="lg"
+                variant="outline"
                 onClick={() => setPhase('character_select')}
-                className="text-xl px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 max-w-xs"
+                className="text-xl px-12 py-6 border-primary/50 text-primary hover:bg-primary/20 flex-1 max-w-xs"
                 title="SINGLE PLAYER: Play against bots. Your time bank is your life."
                 data-testid="button-banner-single-player"
               >
