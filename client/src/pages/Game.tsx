@@ -126,7 +126,7 @@ import bioThinker from '../assets/generated_images/bio_thinker.png';
 import bioDisaster from '../assets/generated_images/bio_hotwired_bar_on_fire_v6.png';
 import bioPrimate from '../assets/generated_images/bio_primate.png';
 import bioHarold from '../assets/generated_images/bio_harold.png';
-import bioPromKing from '../assets/generated_images/bio_prom_king.png';
+import bioPromKing from '../assets/generated_images/social_prom_king.png';
 import bioIdolCore from '../assets/generated_images/bio_idol_core.png';
 import bioTank from '../assets/generated_images/bio_tank.png';
 import bioDangerZone from '../assets/generated_images/bio_danger_zone.png';
@@ -4998,32 +4998,36 @@ export default function Game() {
         
         return (
           <div className="flex flex-col items-center justify-center h-[450px]">
-             {/* Timer Area */}
-             <div className="h-[100px] flex items-center justify-center mb-4">
-                {isMultiplayer ? (
-                  // Multiplayer: Match singleplayer - show time for first 10 seconds, then ??
-                  displayTime <= 10 && !isBlackout ? (
-                    <TimerDisplay time={displayTime} isRunning={true} />
-                  ) : (
-                    <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
-                      <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
-                        {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
-                      </span>
-                      <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : "")}>
-                        {isBlackout ? "ERROR" : "??:??.?"}
-                      </div>
-                      {!currentPlayerIsHolding && !isBlackout && (
-                        <span className="text-xs text-green-400 mt-1">BID LOCKED</span>
-                      )}
-                    </div>
-                  )
-                ) : showDetails && !isBlackout && currentTime <= 10 ? (
-                  <TimerDisplay time={currentTime} isRunning={true} />
-                ) : (
-                  <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
-                     <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
-                       {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
-                     </span>
+                        {/* Timer Area */}
+                         <div className="h-[120px] flex items-center justify-center mb-0">
+                            {isMultiplayer ? (
+                              // Multiplayer: Match singleplayer - show time for first 10 seconds, then ??
+                              displayTime <= 10 && !isBlackout ? (
+                                <div className="scale-75">
+                                <TimerDisplay time={displayTime} isRunning={true} />
+                                   </div>
+                              ) : (
+                                <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
+                                  <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
+                                    {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
+                                  </span>
+                                  <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : "")}>
+                                    {isBlackout ? "ERROR" : "??:??.?"}
+                                  </div>
+                                  {!currentPlayerIsHolding && !isBlackout && (
+                                    <span className="text-xs text-green-400 mt-1">BID LOCKED</span>
+                                  )}
+                                </div>
+                              )
+                            ) : showDetails && !isBlackout && currentTime <= 10 ? (
+            <div className="scale-75">
+                              <TimerDisplay time={currentTime} isRunning={true} />
+              </div>
+                            ) : (
+                              <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
+                                 <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
+                                   {isBlackout ? "SYSTEM ERROR" : "AUCTION TIME"}
+                                 </span>
                      <div className={cn("text-4xl font-mono text-zinc-700", isBlackout ? "text-destructive/50" : "")}>
                        {activeProtocol === 'SYSTEM_FAILURE' && !fireWallHudImmune
                           // System failure: mostly scrambled, 25% chance of real time (increased from 5%)
