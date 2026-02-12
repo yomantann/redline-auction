@@ -2697,14 +2697,14 @@ export default function Game() {
                 triggered = true; abilityName = bName; abilityDesc = "Everyone except Low Flame drinks!";
                 visibility = 'all';
             }
-            else if (bName === 'THE EX' && roll < 0.1) {
+            else if (bName === 'THE EX' && roll < 0.05) {
                 const t = pickTarget();
                 if (t) {
                     triggered = true; abilityName = bName; abilityDesc = "Toast to an ex!";
                     visibility = 'target_only';
                 }
             }
-            else if (bName === 'SCAVENGE' && roll < 0.05) {
+            else if (bName === 'SCAVENGE' && roll < 0.02) {
                 const t = pickTarget();
                 if (t) {
                     triggered = true; abilityName = bName; abilityDesc = "You must finish someone else's drink!";
