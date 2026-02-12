@@ -19,7 +19,7 @@ export function TimerDisplay({ time, isRunning, label = "AUCTION TIME" }: TimerD
   const { m, s, ms } = formatTime(time);
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 rounded-lg glass-panel border-accent/20 bg-black/40 shadow-[0_0_30px_rgba(0,0,0,0.5)] min-w-[320px]">
+    <div className="flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 shadow-[0_0_30px_rgba(0,0,0,0.5)] w-[320px]">
       <span className="text-muted-foreground text-sm tracking-[0.2em] font-display mb-2">{label}</span>
       <div className="relative flex items-baseline gap-1">
         <motion.div 
@@ -27,11 +27,11 @@ export function TimerDisplay({ time, isRunning, label = "AUCTION TIME" }: TimerD
           animate={{ opacity: isRunning ? [1, 0.9, 1] : 1 }}
           transition={{ duration: 1, repeat: isRunning ? Infinity : 0 }}
         >
-          <span className="text-7xl md:text-8xl">{m}</span>
+          <span className="text-5xl">{m}</span>
           <span className="text-4xl md:text-5xl text-muted-foreground mx-1">:</span>
-          <span className="text-7xl md:text-8xl">{s}</span>
+          <span className="text-5xl">{s}</span>
           <span className="text-4xl md:text-5xl text-muted-foreground mx-1">.</span>
-          <span className="text-6xl md:text-7xl">{ms}</span>
+          <span className="text-5xl">{ms}</span>
         </motion.div>
       </div>
       {isRunning && (

@@ -5005,7 +5005,7 @@ export default function Game() {
                               displayTime <= 10 && !isBlackout ? (
                                 <div className="scale-75">
                                 <TimerDisplay time={displayTime} isRunning={true} />
-                                   </div>
+                                  </div>
                               ) : (
                                 <div className={cn("flex flex-col items-center justify-center p-4 rounded-lg glass-panel border-accent/20 bg-black/40 w-[320px]", isBlackout && "border-destructive/20")}>
                                   <span className={cn("text-muted-foreground text-xs tracking-[0.2em] font-display mb-1", isBlackout && "text-destructive")}>
