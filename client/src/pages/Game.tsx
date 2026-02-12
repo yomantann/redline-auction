@@ -1939,7 +1939,7 @@ export default function Game() {
           setMoleTarget(targetId);
           msg = target === 'YOU' ? "THE MOLE" : "SECRET PROTOCOL ACTIVE";
           sub = target === 'YOU'
-            ? "You are the Mole. Your bid does not impact your time bank. Do NOT win the round by more than 7.0s to avoid losing 2 trophies."
+            ? "You are the Mole. Your bid does not impact your time bank. Do NOT win the round by more than 7.0s."
             : "";
           break;
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
@@ -5659,7 +5659,7 @@ export default function Game() {
                     title: 'SECRET PROTOCOLS',
                     subtitle: 'Secret for some players',
                     items: [
-                      { name: "THE MOLE", desc: "A hidden role is assigned. The Mole's bid does not impact their time bank. If the Mole wins by MORE than 7.0s, they lose 2 trophies.", type: "Hidden Role" },
+                      { name: "THE MOLE", desc: "A hidden role is assigned. The Mole's bid does not impact their time bank. If the Mole wins by MORE than 7.0s, they lose the won trophy.", type: "Hidden Role" },
                       { name: "PRIVATE CHANNEL", desc: "Two players are selected to privately coordinate strategy.", type: "Team" },
                       { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins token (kept secret until reveal).", type: "Secret" },
                       { name: "TIME TAX", desc: "-10s for everyone.", type: "Secret" },
