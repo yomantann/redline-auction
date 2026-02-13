@@ -2080,26 +2080,26 @@ export default function Game() {
         } else {
              setPeekTargetId(null);
         }
+      
+      // WANDERING EYE: SNEAK PEEK (Passive - See 1 holding, scramble everyone else)
+      if (selectedChar.id === 'wandering_eye') {
+        const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
+        if (opponents.length > 0) {
+          // Show ONE person is holding (but DON'T reveal their time bank)
+          const target = opponents[Math.floor(Math.random() * opponents.length)];
+          setPeekTargetId(target.id); 
 
-        // WANDERING EYE: SNEAK PEEK (Passive - See 1 holding, scramble everyone else)
-        if (selectedChar.id === 'wandering_eye') {
-             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
-             if (opponents.length > 0) {
-                 // Reveal ONE person randomly
-                 const target = opponents[Math.floor(Math.random() * opponents.length)];
-                 setPeekTargetId(target.id); 
-
-                 // SCRAMBLE EVERYONE ELSE (Opponents time bank scrambled for viewer)
-                 const others = opponents.filter(o => o.id !== target.id).map(o => o.id);
-                 setScrambledPlayers(others);
-             }
-        } else {
-             // For non-BF characters, ensure scrambled is empty unless system failure
-             if (activeProtocol !== 'SYSTEM_FAILURE') {
-                setScrambledPlayers([]);
-             }
+          // SCRAMBLE EVERYONE INCLUDING THE TARGET (all opponents' time banks are scrambled)
+          const allOpponentIds = opponents.map(o => o.id);
+          setScrambledPlayers(allOpponentIds);
         }
-    }
+      } else {
+        // For non-Wandering Eye characters, ensure scrambled is empty unless system failure
+        if (activeProtocol !== 'SYSTEM_FAILURE') {
+          setScrambledPlayers([]);
+        }
+      }
+      }
 
     // Start timer at minimum bid time (penalty value)
     const minBidTime = getTimerStart();
@@ -5828,7 +5828,7 @@ export default function Game() {
                             <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && phase !== 'game_end' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== (isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1') && "blur-sm select-none")}>
                                 {(() => {
                                     const isSelfSadman = selectedPlayerStats?.id === 'p1' && selectedCharacter?.id === 'sadman';
-                                    const isScrambledOpponent = selectedCharacter?.id === 'wandering_eye' && selectedPlayerStats?.id !== 'p1' && selectedPlayerStats?.id !== peekTargetId;
+                      const isScrambledOpponent = selectedCharacter?.id === 'wandering_eye' && selectedPlayerStats?.id !== 'p1';
                                     
                                     if (isSelfSadman || isScrambledOpponent) {
                                         return `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`;
