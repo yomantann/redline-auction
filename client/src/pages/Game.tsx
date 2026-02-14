@@ -1626,9 +1626,9 @@ export default function Game() {
           lastPeekRoundRef.current = currentRound;
           
           // Activate PEEK ability every round if player has one (pick new random target each round)
-              if (selectedCharacter?.ability?.effect === 'PEEK') {
-                const activated = true;
-              setPeekActive(activated);
+                if (selectedCharacter?.ability?.effect === 'PEEK') {
+                  const activated = abilitiesEnabled;
+                  setPeekActive(activated);
               if (activated) {
                   toast({
                       title: "INSIGHT ACTIVATED",
