@@ -1657,7 +1657,7 @@ export default function Game() {
                           setPeekTargetId(target.id);
 
                           // Scramble all opponents EXCEPT peek target (self not scrambled)
-                          const scrambled = opponents.filter(o => o.id !== target.id).map(o => o.id);
+                          const scrambled = opponents.map(o => o.id);
                           setScrambledPlayers(scrambled);
                       }
                     }
@@ -5835,7 +5835,8 @@ export default function Game() {
                             <div className="text-[10px] text-zinc-500 uppercase">Time Left</div>
                             <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && phase !== 'game_end' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== (isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1') && "blur-sm select-none")}>
                                 {(() => {
-                                    const isSelfSadman = selectedPlayerStats?.id === 'p1' && selectedCharacter?.id === 'sadman';
+                      const currentPlayerId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
+                      const isSelfSadman = selectedPlayerStats?.id === currentPlayerId && selectedCharacter?.id === 'sadman';
                       const isScrambledOpponent = selectedCharacter?.id === 'wandering_eye' && selectedPlayerStats?.id !== 'p1';
                                     
                                     if (isSelfSadman || isScrambledOpponent) {
