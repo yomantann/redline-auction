@@ -1626,8 +1626,8 @@ export default function Game() {
           lastPeekRoundRef.current = currentRound;
           
           // Activate PEEK ability every round if player has one (pick new random target each round)
-          if (selectedCharacter?.ability?.effect === 'PEEK') {
-              const activated = true;
+              if (selectedCharacter?.ability?.effect === 'PEEK') {
+                const activated = true;
               setPeekActive(activated);
               if (activated) {
                   toast({
@@ -1643,14 +1643,22 @@ export default function Game() {
                     if (currentPlayerId) {
                       const opponents = multiplayerGameState.players.filter(p => p.id !== currentPlayerId && !p.isEliminated && (p as any).selectedDriver !== 'roll_safe');
                       
-                      if (selectedCharacter.id === 'sadman' && opponents.length > 0) {
-                        const target = opponents[Math.floor(Math.random() * opponents.length)];
-                        setPeekTargetId(target.id);
+                        if (selectedCharacter.id === 'sadman' && opponents.length > 0) {
+                            const target = opponents[Math.floor(Math.random() * opponents.length)];
+                            setPeekTargetId(target.id);
+
+                            // Scramble self (sadman's own card)
+                            const currentPlayerId = multiplayerGameState?.players.find(p => p.socketId === socket?.id)?.id;
+                            if (currentPlayerId) {
+                                setScrambledPlayers([currentPlayerId]);
+                            }
                       } else if (selectedCharacter.id === 'wandering_eye' && opponents.length > 0) {
-                        const target = opponents[Math.floor(Math.random() * opponents.length)];
-                        setPeekTargetId(target.id);
-                        const others = opponents.filter(o => o.id !== target.id).map(o => o.id);
-                        setScrambledPlayers(others);
+                          const target = opponents[Math.floor(Math.random() * opponents.length)];
+                          setPeekTargetId(target.id);
+
+                          // Scramble all opponents EXCEPT peek target (self not scrambled)
+                          const scrambled = opponents.filter(o => o.id !== target.id).map(o => o.id);
+                          setScrambledPlayers(scrambled);
                       }
                     }
                   }
