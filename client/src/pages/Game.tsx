@@ -1664,10 +1664,8 @@ export default function Game() {
                   }
                 } else {
                     // Not activated this round - clear targets
-                    if (isMultiplayer) {
-                      setPeekTargetId(null);
-                      setScrambledPlayers([]);
-                    }
+                    setPeekTargetId(null);
+                    setScrambledPlayers([]);
               }
           } else {
               setPeekActive(false);
@@ -2076,15 +2074,17 @@ export default function Game() {
              }, 400);
         }
         // SADMAN: SAD REVEAL (Passive - PEEK Selection)
-        if (selectedChar.id === 'sadman' && abilitiesEnabled) {
-             const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
-             if (opponents.length > 0) {
-                 const target = opponents[Math.floor(Math.random() * opponents.length)];
-                 setPeekTargetId(target.id);
-             }
-        } else {
-             setPeekTargetId(null);
-        }
+      if (selectedChar.id === 'sadman' && abilitiesEnabled) {
+         const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
+         if (opponents.length > 0) {
+             const target = opponents[Math.floor(Math.random() * opponents.length)];
+             setPeekTargetId(target.id);
+             setScrambledPlayers(['p1']);  // ← ADD THIS
+         }
+      } else {
+         setPeekTargetId(null);
+         setScrambledPlayers([]);  // ← ADD THIS
+      }
       
       // WANDERING EYE: SNEAK PEEK (Passive - See 1 holding, scramble everyone else)
       if (selectedChar.id === 'wandering_eye' && abilitiesEnabled) {
@@ -5893,8 +5893,8 @@ export default function Game() {
                 formatTime={formatTime}
                 peekActive={(selectedCharacter?.id === 'sadman' || selectedCharacter?.id === 'wandering_eye') && peekTargetId === p.id && (p as any).selectedDriver !== 'roll_safe' && abilitiesEnabled}
                 isDoubleTokens={isDoubleTokens}
-                isSystemFailure={(activeProtocol === 'SYSTEM_FAILURE' && !(selectedCharacter?.id === 'low_flame' && abilitiesEnabled)) || (p.id === 'p1' && selectedCharacter?.id === 'sadman')}
-                isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId && abilitiesEnabled) || (scrambledPlayers.includes(p.id) && abilitiesEnabled)}
+                isSystemFailure={(activeProtocol === 'SYSTEM_FAILURE' && !(selectedCharacter?.id === 'low_flame' && abilitiesEnabled)) || (p.id === 'p1' && selectedCharacter?.id === 'sadman' && abilitiesEnabled)}
+                isScrambled={(((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)) && abilitiesEnabled}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
