@@ -5832,8 +5832,7 @@ export default function Game() {
                                 {(() => {
                       const currentPlayerId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
                       const isSelfSadman = selectedPlayerStats?.id === currentPlayerId && selectedCharacter?.id === 'sadman' && abilitiesEnabled;
-                      const isScrambledOpponent = selectedCharacter?.id === 'wandering_eye' && selectedPlayerStats?.id !== 'p1' && abilitiesEnabled;
-                                    
+                      const isScrambledOpponent = selectedCharacter?.id === 'wandering_eye' && selectedPlayerStats?.id !== currentPlayerId && abilitiesEnabled;  
                                     if (isSelfSadman || isScrambledOpponent) {
                                         return `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`;
                                     }
