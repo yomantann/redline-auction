@@ -1662,14 +1662,12 @@ export default function Game() {
                       }
                     }
                   }
-              } else {
-                  // Not activated this round - clear targets
-                  if (isMultiplayer) {
-                    setPeekTargetId(null);
-                    if (activeProtocol !== 'SYSTEM_FAILURE') {
+                } else {
+                    // Not activated this round - clear targets
+                    if (isMultiplayer) {
+                      setPeekTargetId(null);
                       setScrambledPlayers([]);
                     }
-                  }
               }
           } else {
               setPeekActive(false);
@@ -2100,12 +2098,10 @@ export default function Game() {
           const allOpponentIds = opponents.map(o => o.id);
           setScrambledPlayers(allOpponentIds);
         }
-      } else {
-        // For non-Wandering Eye characters, ensure scrambled is empty unless system failure
-        if (activeProtocol !== 'SYSTEM_FAILURE') {
+        } else {
+          // Clear scrambling when abilities disabled
           setScrambledPlayers([]);
         }
-      }
     }
 
     // Start timer at minimum bid time (penalty value)
