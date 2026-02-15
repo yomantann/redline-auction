@@ -1944,7 +1944,8 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     player.remainingTime -= penalty;
     player.penaltyAppliedThisRound = true;
     
-    // Track penalty as negative bid for display in bid history
+    // Track in roundImpacts so it shows on player card
+    player.roundImpacts.push({ type: 'PENALTY', value: -penalty, source: 'Early Release' });
     player.currentBid = -penalty;
     
     addGameLogEntry(game, {
