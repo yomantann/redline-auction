@@ -5894,7 +5894,7 @@ export default function Game() {
                 peekActive={(selectedCharacter?.id === 'sadman' || selectedCharacter?.id === 'wandering_eye') && peekTargetId === p.id && (p as any).selectedDriver !== 'roll_safe' && abilitiesEnabled}
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={(activeProtocol === 'SYSTEM_FAILURE' && !(selectedCharacter?.id === 'low_flame' && abilitiesEnabled)) || (p.id === 'p1' && selectedCharacter?.id === 'sadman')}
-                isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)}
+                isScrambled={((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId && abilitiesEnabled) || (scrambledPlayers.includes(p.id) && abilitiesEnabled)}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
