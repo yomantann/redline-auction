@@ -1643,7 +1643,7 @@ export default function Game() {
                     if (currentPlayerId) {
                       const opponents = multiplayerGameState.players.filter(p => p.id !== currentPlayerId && !p.isEliminated && (p as any).selectedDriver !== 'roll_safe');
                       
-                        if (selectedCharacter.id === 'sadman' && opponents.length > 0) {
+                        if (selectedCharacter.id === 'sadman' && opponents.length > 0 && abilitiesEnabled) {
                             const target = opponents[Math.floor(Math.random() * opponents.length)];
                             setPeekTargetId(target.id);
 
@@ -1652,7 +1652,7 @@ export default function Game() {
                             if (currentPlayerId) {
                                 setScrambledPlayers([currentPlayerId]);
                             }
-                      } else if (selectedCharacter.id === 'wandering_eye' && opponents.length > 0) {
+                      } else if (selectedCharacter.id === 'wandering_eye' && opponents.length > 0 && abilitiesEnabled) {
                           const target = opponents[Math.floor(Math.random() * opponents.length)];
                           setPeekTargetId(target.id);
 
@@ -2077,9 +2077,8 @@ export default function Game() {
                  addOverlay("social_event", `${selectedChar.name}: COMMAND SILENCE`, "Your silence is commanded!", 0);
              }, 400);
         }
-
         // SADMAN: SAD REVEAL (Passive - PEEK Selection)
-        if (selectedChar.id === 'sadman') {
+        if (selectedChar.id === 'sadman' && abilitiesEnabled) {
              const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
              if (opponents.length > 0) {
                  const target = opponents[Math.floor(Math.random() * opponents.length)];
@@ -2090,7 +2089,7 @@ export default function Game() {
         }
       
       // WANDERING EYE: SNEAK PEEK (Passive - See 1 holding, scramble everyone else)
-      if (selectedChar.id === 'wandering_eye') {
+      if (selectedChar.id === 'wandering_eye' && abilitiesEnabled) {
         const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
         if (opponents.length > 0) {
           // Show ONE person is holding (but DON'T reveal their time bank)
@@ -2107,7 +2106,7 @@ export default function Game() {
           setScrambledPlayers([]);
         }
       }
-      }
+    }
 
     // Start timer at minimum bid time (penalty value)
     const minBidTime = getTimerStart();
@@ -5836,8 +5835,8 @@ export default function Game() {
                             <div className={cn("text-xl font-mono text-white", difficulty === 'COMPETITIVE' && phase !== 'game_end' && !selectedPlayerStats?.isBot && selectedPlayerStats?.id !== (isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1') && "blur-sm select-none")}>
                                 {(() => {
                       const currentPlayerId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
-                      const isSelfSadman = selectedPlayerStats?.id === currentPlayerId && selectedCharacter?.id === 'sadman';
-                      const isScrambledOpponent = selectedCharacter?.id === 'wandering_eye' && selectedPlayerStats?.id !== 'p1';
+                      const isSelfSadman = selectedPlayerStats?.id === currentPlayerId && selectedCharacter?.id === 'sadman' && abilitiesEnabled;
+                      const isScrambledOpponent = selectedCharacter?.id === 'wandering_eye' && selectedPlayerStats?.id !== 'p1' && abilitiesEnabled;
                                     
                                     if (isSelfSadman || isScrambledOpponent) {
                                         return `${Math.floor(Math.random()*99)}:${Math.floor(Math.random()*99)}.${Math.floor(Math.random()*9)}`;
