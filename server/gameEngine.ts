@@ -1093,6 +1093,45 @@ function endRound(lobbyCode: string) {
   
   // Process abilities before time deduction (allows for refunds)
   processAbilities(game, winnerId);
+
+  // Process roundImpacts (penalties from early release during countdown)
+  game.players.forEach(p => {
+    if (p.roundImpacts && p.roundImpacts.length > 0) {
+      p.roundImpacts.forEach(impact => {
+        if (impact.type === 'PENALTY') {
+          p.remainingTime += impact.value; // value is already negative (e.g., -5)
+          p.netImpact += impact.value; // Track for stats
+
+          addGameLogEntry(game, {
+            type: 'impact',
+            playerId: p.id,
+            playerName: p.name,
+            message: `${p.name} received ${impact.value.toFixed(1)}s penalty (${impact.source})`,
+            value: impact.value,
+          });
+        }
+      });
+
+      // Check for elimination from penalty
+      if (p.remainingTime <= 0 && !p.isEliminated) {
+        p.remainingTime = 0;
+        p.isEliminated = true;
+        if (!game.eliminatedThisRound.includes(p.id)) {
+          game.eliminatedThisRound.push(p.id);
+          addGameLogEntry(game, {
+            type: 'elimination',
+            playerId: p.id,
+            playerName: p.name,
+            message: `${p.name} was eliminated (countdown penalty)`,
+            basic: true,
+          });
+        }
+      }
+
+      // Clear roundImpacts after processing
+      p.roundImpacts = [];
+    }
+  });
   
   // Check for eliminations from ability effects (clamp and eliminate players with <= 0 time)
   game.players.forEach(p => {
@@ -1941,7 +1980,6 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     
     // Apply penalty based on game pace
     const penalty = getMinBidPenalty(game.gameDuration);
-    player.remainingTime -= penalty;
     player.penaltyAppliedThisRound = true;
     
     // Track in roundImpacts so it shows on player card
