@@ -62,14 +62,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import charHarambe from '@assets/generated_images/cyberpunk_gorilla_guardian.png';
 import charPopcat from '@assets/generated_images/cyberpunk_popcat.png';
 import charWinter from '@assets/generated_images/cyberpunk_winter_soldier.png';
-import charDoge from '@assets/generated_images/cyberpunk_shiba_inu_astronaut.png';
 import charPepe from '@assets/generated_images/cyberpunk_sad_green_alien_analyst.png';
 import charNyan from '@assets/generated_images/fast_cyberpunk_rainbow_rabbit_character.png';
 import charKaren from '@assets/generated_images/cyberpunk_yelling_commander.png';
 import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
 import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
-import charStonks from '@assets/generated_images/cyberpunk_stonks_man.png';
-import charFloyd from '@assets/generated_images/cyberpunk_boxer_money.png';
 import charRat from '@assets/generated_images/cyberpunk_rat_sniper_rooftop.png';
 import charBaldwin from '@assets/generated_images/cyberpunk_anointed_royal_masked_figure.png';
 import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
@@ -77,7 +74,6 @@ import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
 import charThinker from '@assets/generated_images/roll_safe_medium_shot.png';
 import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
-import charPepeSilvia from '@assets/generated_images/cyberpunk_pepe_silvia.png';
 import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
 
 import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
@@ -5233,7 +5229,8 @@ export default function Game() {
           </motion.div>
         );
 
-      case 'game_end':
+    case 'game_end':
+
         // Sort players by tokens (desc), then time (desc) - use displayPlayers for MP data
         const sortedPlayers = [...displayPlayers].sort((a, b) => {
           if (b.tokens !== a.tokens) return b.tokens - a.tokens;
@@ -5241,6 +5238,57 @@ export default function Game() {
         });
         const winner = sortedPlayers[0];
         const loser = sortedPlayers[sortedPlayers.length - 1];
+        const topThree = sortedPlayers.slice(0, 3);
+
+        // Helper to render full player stat card
+        const renderPlayerCard = (p: any, i: number) => (
+          <div key={p.id} className={cn(
+            "p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden",
+            p.id === winner.id && "border-primary/50 bg-primary/10",
+            p.id === loser.id ? "border-destructive/50 bg-destructive/10" : "border-white/10"
+          )}>
+            {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
+            {p.id === loser.id && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
+
+            <div className="flex items-center gap-2 mb-2">
+              <span className="font-bold text-xl text-zinc-500">#{i + 1}</span>
+              <span className="font-bold text-lg">{p.name}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-black/20 p-2 rounded">
+                <div className="text-zinc-500">Time Left</div>
+                <div className="font-mono text-white">{formatTime(p.remainingTime)}</div>
+              </div>
+              <div className={cn(
+                "p-2 rounded border",
+                (p.netImpact ?? 0) >= 0 
+                  ? "bg-emerald-950/30 border-emerald-500/20" 
+                  : "bg-red-950/30 border-red-500/20"
+              )}>
+                <div className={(p.netImpact ?? 0) >= 0 ? "text-emerald-400/70" : "text-red-400/70"}>Net Impact</div>
+                <div className={cn("font-mono", (p.netImpact ?? 0) >= 0 ? "text-emerald-300" : "text-red-300")}>
+                  {(p.netImpact ?? 0) >= 0 ? '+' : ''}{(p.netImpact ?? 0).toFixed(1)}s
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-xs mt-2">
+              <div className="bg-purple-950/30 p-2 rounded border border-purple-500/20" title={p.eventDatabasePopups?.join(', ') || 'None'}>
+                <div className="text-purple-400/70">Moment Flags</div>
+                <div className="font-mono text-purple-300">{p.eventDatabasePopups?.length || 0}</div>
+              </div>
+              <div className="bg-destructive/10 p-2 rounded border border-destructive/20" title={p.protocolWins?.join(', ') || 'None'}>
+                <div className="text-destructive/70">Protocol Wins</div>
+                <div className="font-mono text-destructive">{p.protocolWins?.length || 0}</div>
+              </div>
+              <div className="bg-yellow-950/30 p-2 rounded border border-yellow-500/20">
+                <div className="text-yellow-400/70">Trophies</div>
+                <div className="font-mono text-yellow-300">{p.tokens}</div>
+              </div>
+            </div>
+          </div>
+        );
 
         return (
           <div className="relative h-[550px] overflow-y-auto custom-scrollbar">
@@ -5248,65 +5296,102 @@ export default function Game() {
               <h1 className="text-5xl font-display font-bold text-white">GAME OVER</h1>
             </div>
 
-            <div className="relative z-0 flex flex-col items-center justify-start gap-8 px-0 pb-10">
+            <div className="relative z-0 flex flex-col items-center justify-start gap-8 px-4 pb-10">
               <GameOverlay overlays={overlays} onDismiss={removeOverlay} />
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
-                {sortedPlayers.map((p, i) => (
-                  <div key={p.id} className={cn("p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden",  p.id === winner.id && "border-primary/50 bg-primary/10", p.id === loser.id ? "border-destructive/50 bg-destructive/10" : "border-white/10")}>
-                     {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
-                     {p.id === loser.id && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
-                     
-                     <div className="flex items-center gap-2 mb-2">
-                         <span className="font-bold text-xl text-zinc-500">#{i + 1}</span>
-                         <span className="font-bold text-lg">{p.name}</span>
-                     </div>
-                   
-                   <div className="grid grid-cols-2 gap-2 text-xs">
-                       <div className="bg-black/20 p-2 rounded">
-                           <div className="text-zinc-500">Time Left</div>
-                           <div className="font-mono text-white">{formatTime(p.remainingTime)}</div>
-                       </div>
-                       <div className={cn(
-                         "p-2 rounded border",
-                         (p.netImpact ?? 0) >= 0 
-                           ? "bg-emerald-950/30 border-emerald-500/20" 
-                           : "bg-red-950/30 border-red-500/20"
-                       )}>
-                           <div className={(p.netImpact ?? 0) >= 0 ? "text-emerald-400/70" : "text-red-400/70"}>Net Impact</div>
-                           <div className={cn("font-mono", (p.netImpact ?? 0) >= 0 ? "text-emerald-300" : "text-red-300")}>
-                             {(p.netImpact ?? 0) >= 0 ? '+' : ''}{(p.netImpact ?? 0).toFixed(1)}s
-                           </div>
-                       </div>
-                   </div>
-                   
-                   <div className="grid grid-cols-3 gap-2 text-xs mt-2">
-                       <div className="bg-purple-950/30 p-2 rounded border border-purple-500/20" title={p.eventDatabasePopups?.join(', ') || 'None'}>
-                           <div className="text-purple-400/70">Moment Flags</div>
-                           <div className="font-mono text-purple-300">{p.eventDatabasePopups?.length || 0}</div>
-                       </div>
-                       <div className="bg-destructive/10 p-2 rounded border border-destructive/20" title={p.protocolWins?.join(', ') || 'None'}>
-                           <div className="text-destructive/70">Protocol Wins</div>
-                           <div className="font-mono text-destructive">{p.protocolWins?.length || 0}</div>
-                       </div>
-                       <div className="bg-yellow-950/30 p-2 rounded border border-yellow-500/20">
-                           <div className="text-yellow-400/70">Trophies</div>
-                           <div className="font-mono text-yellow-300">{p.tokens}</div>
-                       </div>
-                   </div>
-                </div>
-              ))}
-            </div>
+              {/* Compact Podium - Top 3 with driver images */}
+              <div className="w-full max-w-3xl">
+                <div className="flex items-end justify-center gap-2 sm:gap-4 mb-8">
+                  {/* 2nd Place - Left, lower */}
+                  {topThree[1] && (
+                    <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '30px' }}>
+                      <div className="text-2xl sm:text-3xl font-bold text-zinc-400">2nd</div>
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-zinc-400 overflow-hidden bg-zinc-800">
+                        {topThree[1].selectedDriver && CHARACTERS.find((c: any) => c.id === topThree[1].selectedDriver)?.image ? (
+                          <img 
+                            src={CHARACTERS.find((c: any) => c.id === topThree[1].selectedDriver)?.image} 
+                            alt={CHARACTERS.find((c: any) => c.id === topThree[1].selectedDriver)?.name}
+                            className="w-full h-full object-cover" 
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-zinc-600">
+                            {topThree[1].name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[1].name}</div>
+                      <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
+                        {topThree[1].selectedDriver ? CHARACTERS.find((c: any) => c.id === topThree[1].selectedDriver)?.name : 'No Driver'}
+                      </div>
+                    </div>
+                  )}
 
-            <Button onClick={() => window.location.reload()} variant="outline" size="lg" className="mt-8">
-              <RefreshCw className="mr-2 h-4 w-4" /> Play Again
-            </Button>
+                  {/* 1st Place - Center, highest */}
+                  {topThree[0] && (
+                    <div className="flex flex-col items-center gap-1 flex-1">
+                      <div className="text-3xl sm:text-5xl font-bold text-primary">1st</div>
+                      <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-primary overflow-hidden bg-primary/10 shadow-lg shadow-primary/50">
+                        {topThree[0].selectedDriver && CHARACTERS.find((c: any) => c.id === topThree[0].selectedDriver)?.image ? (
+                          <img 
+                            src={CHARACTERS.find((c: any) => c.id === topThree[0].selectedDriver)?.image} 
+                            alt={CHARACTERS.find((c: any) => c.id === topThree[0].selectedDriver)?.name}
+                            className="w-full h-full object-cover" 
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-primary/50">
+                            {topThree[0].name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-sm sm:text-base font-bold text-white text-center">{topThree[0].name}</div>
+                      <div className="text-xs sm:text-sm text-primary text-center">
+                        {topThree[0].selectedDriver ? CHARACTERS.find((c: any) => c.id === topThree[0].selectedDriver)?.name : 'No Driver'}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3rd Place - Right, lower */}
+                  {topThree[2] && (
+                    <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '50px' }}>
+                      <div className="text-xl sm:text-2xl font-bold text-amber-700">3rd</div>
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-amber-700 overflow-hidden bg-amber-900/30">
+                        {topThree[2].selectedDriver && CHARACTERS.find((c: any) => c.id === topThree[2].selectedDriver)?.image ? (
+                          <img 
+                            src={CHARACTERS.find((c: any) => c.id === topThree[2].selectedDriver)?.image} 
+                            alt={CHARACTERS.find((c: any) => c.id === topThree[2].selectedDriver)?.name}
+                            className="w-full h-full object-cover" 
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xl font-bold text-amber-700/50">
+                            {topThree[2].name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[2].name}</div>
+                      <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
+                        {topThree[2].selectedDriver ? CHARACTERS.find((c: any) => c.id === topThree[2].selectedDriver)?.name : 'No Driver'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Full Player Stats - All players in order */}
+              <div className="w-full max-w-3xl">
+                <h2 className="text-xl sm:text-2xl font-display font-bold text-zinc-400 mb-4 text-center">Full Results</h2>
+                <div className="flex flex-col gap-3">
+                  {sortedPlayers.map((p, i) => renderPlayerCard(p, i))}
+                </div>
+              </div>
+
+              <Button onClick={() => window.location.reload()} variant="outline" size="lg" className="mt-8">
+                <RefreshCw className="mr-2 h-4 w-4" /> Play Again
+              </Button>
             </div>
           </div>
         );
     }
   };
-
   const toggleSound = () => {
     setSoundEnabled((prev) => {
       const next = !prev;
