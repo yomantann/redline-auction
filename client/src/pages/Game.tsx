@@ -3957,7 +3957,7 @@ export default function Game() {
 
             <h1 className="text-4xl sm:text-6xl font-display text-primary text-glow font-bold">REDLINE AUCTION</h1>
             <p className="text-base sm:text-xl text-muted-foreground">
-              Bid time from your time bank to win tokens.<br/>
+              Bid time from your time bank to win trophies.<br/>
               <span className="text-xs sm:text-sm font-mono opacity-70">
                 {gameDuration === 'short' && "SPRINT: 2.5 Minutes | 9 Rounds"}
                 {gameDuration === 'standard' && "TEMPO: 5 Minutes | 9 Rounds"}
@@ -3970,7 +3970,7 @@ export default function Game() {
                 <ul className="list-disc list-inside text-[10px] sm:text-sm text-zinc-400 space-y-0.5 sm:space-y-1">
                   <li>Hold button to start.</li>
                   <li>Release to bid time.</li>
-                  <li>Longest time wins token.</li>
+                  <li>Longest time wins trophy</li>
                   <li>Min Bid: {gameDuration === 'short' ? '1.0s' : gameDuration === 'long' ? '4.0s' : '2.0s'}</li>
                   <li>Max Bid: Remaining Bank.</li>
                 </ul>
@@ -3979,7 +3979,7 @@ export default function Game() {
                 <div>
                   <h3 className="text-destructive font-bold text-xs sm:text-base">Winning</h3>
                   <ul className="list-disc list-inside text-[10px] sm:text-sm text-zinc-400 space-y-0.5 sm:space-y-1">
-                    <li>Most tokens wins game.</li>
+                    <li>Most trophies wins game.</li>
                     <li>Tiebreaker: Remaining Time.</li>
                   </ul>
                 </div>
