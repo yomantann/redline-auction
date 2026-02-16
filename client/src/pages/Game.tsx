@@ -5240,6 +5240,49 @@ export default function Game() {
         const loser = sortedPlayers[sortedPlayers.length - 1];
         const topThree = sortedPlayers.slice(0, 3);
 
+        // Helper to get the correct character image based on variant
+        const getCharacterImage = (selectedDriver: string | undefined) => {
+          if (!selectedDriver) return null;
+
+          // Search in all possible character arrays (base + variant-specific)
+          let char = CHARACTERS.find((c: any) => c.id === selectedDriver);
+
+          // If not found in base CHARACTERS, check variant-specific arrays if they exist
+          if (!char && typeof SOCIAL_CHARACTERS !== 'undefined') {
+            char = (SOCIAL_CHARACTERS as any[]).find((c: any) => c.id === selectedDriver);
+          }
+          if (!char && typeof BIO_CHARACTERS !== 'undefined') {
+            char = (BIO_CHARACTERS as any[]).find((c: any) => c.id === selectedDriver);
+          }
+
+          if (!char) return null;
+
+          // Return the correct image based on current variant
+          if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) {
+            return char.imageSocial;
+          } else if (variant === 'BIO_FUEL' && char.imageBio) {
+            return char.imageBio;
+          }
+
+          // Fallback to standard image
+          return char.image;
+        };
+
+        // Helper to get character name
+        const getCharacterName = (selectedDriver: string | undefined) => {
+          if (!selectedDriver) return 'No Driver';
+
+          let char = CHARACTERS.find((c: any) => c.id === selectedDriver);
+          if (!char && typeof SOCIAL_CHARACTERS !== 'undefined') {
+            char = (SOCIAL_CHARACTERS as any[]).find((c: any) => c.id === selectedDriver);
+          }
+          if (!char && typeof BIO_CHARACTERS !== 'undefined') {
+            char = (BIO_CHARACTERS as any[]).find((c: any) => c.id === selectedDriver);
+          }
+
+          return char?.name || 'Unknown';
+        };
+
         // Helper to render full player stat card
         const renderPlayerCard = (p: any, i: number) => (
           <div key={p.id} className={cn(
@@ -5291,9 +5334,28 @@ export default function Game() {
         );
 
         return (
-          <div className="relative h-[550px] overflow-y-auto custom-scrollbar">
+          <div className="relative h-[550px] overflow-y-scroll" style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(239, 68, 68, 0.5) rgba(0, 0, 0, 0.3)'
+          }}>
+            <style>{`
+              .game-over-scroll::-webkit-scrollbar {
+                width: 8px;
+              }
+              .game-over-scroll::-webkit-scrollbar-track {
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 4px;
+              }
+              .game-over-scroll::-webkit-scrollbar-thumb {
+                background: rgba(239, 68, 68, 0.5);
+                border-radius: 4px;
+              }
+              .game-over-scroll::-webkit-scrollbar-thumb:hover {
+                background: rgba(239, 68, 68, 0.7);
+              }
+            `}</style>
             <div className="sticky top-0 z-20 w-full pt-10 pb-4 flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-black/90 via-black/70 to-transparent backdrop-blur">
-              <h1 className="text-5xl font-display font-bold text-white">GAME OVER</h1>
+              <h1 className="text-4xl sm:text-5xl font-display font-bold text-white text-center">GAME OVER</h1>
             </div>
 
             <div className="relative z-0 flex flex-col items-center justify-start gap-8 px-4 pb-10">
@@ -5307,10 +5369,10 @@ export default function Game() {
                     <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '30px' }}>
                       <div className="text-2xl sm:text-3xl font-bold text-zinc-400">2nd</div>
                       <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-zinc-400 overflow-hidden bg-zinc-800">
-                        {topThree[1].selectedDriver && CHARACTERS.find((c: any) => c.id === topThree[1].selectedDriver)?.image ? (
+                        {topThree[1].selectedDriver && getCharacterImage(topThree[1].selectedDriver) ? (
                           <img 
-                            src={CHARACTERS.find((c: any) => c.id === topThree[1].selectedDriver)?.image} 
-                            alt={CHARACTERS.find((c: any) => c.id === topThree[1].selectedDriver)?.name}
+                            src={getCharacterImage(topThree[1].selectedDriver)!} 
+                            alt={getCharacterName(topThree[1].selectedDriver)}
                             className="w-full h-full object-cover" 
                           />
                         ) : (
@@ -5321,7 +5383,7 @@ export default function Game() {
                       </div>
                       <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[1].name}</div>
                       <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
-                        {topThree[1].selectedDriver ? CHARACTERS.find((c: any) => c.id === topThree[1].selectedDriver)?.name : 'No Driver'}
+                        {getCharacterName(topThree[1].selectedDriver)}
                       </div>
                     </div>
                   )}
@@ -5331,10 +5393,10 @@ export default function Game() {
                     <div className="flex flex-col items-center gap-1 flex-1">
                       <div className="text-3xl sm:text-5xl font-bold text-primary">1st</div>
                       <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-primary overflow-hidden bg-primary/10 shadow-lg shadow-primary/50">
-                        {topThree[0].selectedDriver && CHARACTERS.find((c: any) => c.id === topThree[0].selectedDriver)?.image ? (
+                        {topThree[0].selectedDriver && getCharacterImage(topThree[0].selectedDriver) ? (
                           <img 
-                            src={CHARACTERS.find((c: any) => c.id === topThree[0].selectedDriver)?.image} 
-                            alt={CHARACTERS.find((c: any) => c.id === topThree[0].selectedDriver)?.name}
+                            src={getCharacterImage(topThree[0].selectedDriver)!} 
+                            alt={getCharacterName(topThree[0].selectedDriver)}
                             className="w-full h-full object-cover" 
                           />
                         ) : (
@@ -5345,7 +5407,7 @@ export default function Game() {
                       </div>
                       <div className="text-sm sm:text-base font-bold text-white text-center">{topThree[0].name}</div>
                       <div className="text-xs sm:text-sm text-primary text-center">
-                        {topThree[0].selectedDriver ? CHARACTERS.find((c: any) => c.id === topThree[0].selectedDriver)?.name : 'No Driver'}
+                        {getCharacterName(topThree[0].selectedDriver)}
                       </div>
                     </div>
                   )}
@@ -5355,10 +5417,10 @@ export default function Game() {
                     <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '50px' }}>
                       <div className="text-xl sm:text-2xl font-bold text-amber-700">3rd</div>
                       <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-amber-700 overflow-hidden bg-amber-900/30">
-                        {topThree[2].selectedDriver && CHARACTERS.find((c: any) => c.id === topThree[2].selectedDriver)?.image ? (
+                        {topThree[2].selectedDriver && getCharacterImage(topThree[2].selectedDriver) ? (
                           <img 
-                            src={CHARACTERS.find((c: any) => c.id === topThree[2].selectedDriver)?.image} 
-                            alt={CHARACTERS.find((c: any) => c.id === topThree[2].selectedDriver)?.name}
+                            src={getCharacterImage(topThree[2].selectedDriver)!} 
+                            alt={getCharacterName(topThree[2].selectedDriver)}
                             className="w-full h-full object-cover" 
                           />
                         ) : (
@@ -5369,7 +5431,7 @@ export default function Game() {
                       </div>
                       <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[2].name}</div>
                       <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
-                        {topThree[2].selectedDriver ? CHARACTERS.find((c: any) => c.id === topThree[2].selectedDriver)?.name : 'No Driver'}
+                        {getCharacterName(topThree[2].selectedDriver)}
                       </div>
                     </div>
                   )}
