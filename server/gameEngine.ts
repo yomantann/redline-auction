@@ -1112,22 +1112,6 @@ function endRound(lobbyCode: string) {
         }
       });
 
-      // Check for elimination from penalty
-      if (p.remainingTime <= 0 && !p.isEliminated) {
-        p.remainingTime = 0;
-        p.isEliminated = true;
-        if (!game.eliminatedThisRound.includes(p.id)) {
-          game.eliminatedThisRound.push(p.id);
-          addGameLogEntry(game, {
-            type: 'elimination',
-            playerId: p.id,
-            playerName: p.name,
-            message: `${p.name} was eliminated (countdown penalty)`,
-            basic: true,
-          });
-        }
-      }
-
       // Clear roundImpacts after processing
       p.roundImpacts = [];
     }
@@ -1980,11 +1964,10 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     
     // Apply penalty based on game pace
     const penalty = getMinBidPenalty(game.gameDuration);
+    player.remainingTime -= penalty;
     player.penaltyAppliedThisRound = true;
     
-    // Track in roundImpacts so it shows on player card
-    player.roundImpacts.push({ type: 'PENALTY', value: -penalty, source: 'Early Release' });
-    player.currentBid = -penalty;
+    // Track penalty as negative bid for display in bid history
     
     addGameLogEntry(game, {
       type: 'impact',
