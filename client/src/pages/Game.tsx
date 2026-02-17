@@ -1234,6 +1234,39 @@ export default function Game() {
     lastRoundEndProcessedRef.current = multiplayerGameState.round;
   }, [isMultiplayer, multiplayerGameState, socket, addOverlay]);
 
+  // Multiplayer Ability Popups - trigger when impactLogs appear at round end
+  useEffect(() => {
+    if (!isMultiplayer || !multiplayerGameState || !socket) return;
+
+    // Only trigger on round_end phase
+    if (multiplayerGameState.phase !== 'round_end') return;
+
+    const currentPlayer = multiplayerGameState.players.find(p => p.socketId === socket.id);
+    if (!currentPlayer) return;
+
+    // Show popups for current player's impactLogs
+    const myImpactLogs = (currentPlayer as any).impactLogs || [];
+
+    myImpactLogs.forEach((log: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }, idx: number) => {
+      // Delay each popup slightly so they don't all appear at once
+      setTimeout(() => {
+        let popupType: OverlayType = "ability_trigger";
+        let title = log.reason; // Ability name
+        let desc = log.value; // Time change
+
+        // Determine popup type based on impact
+        if (log.type === 'gain') {
+          // Positive impact
+          addOverlay(popupType, title, `Gained ${desc}`, 0);
+        } else if (log.type === 'loss') {
+          // Negative impact
+          addOverlay(popupType, title, `Lost ${desc}`, 0);
+        }
+      }, idx * 300); // Stagger by 300ms
+    });
+
+  }, [isMultiplayer, multiplayerGameState?.phase, multiplayerGameState?.round, socket, addOverlay]);
+
   // Multiplayer Protocol Announcement - trigger when a new protocol is active
   const lastMpProtocolRef = useRef<string | null>(null);
   useEffect(() => {

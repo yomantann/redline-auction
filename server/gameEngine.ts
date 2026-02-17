@@ -1112,8 +1112,6 @@ function endRound(lobbyCode: string) {
         }
       });
 
-      // Clear roundImpacts after processing
-      p.roundImpacts = [];
     }
   });
   
