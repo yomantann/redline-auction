@@ -1109,10 +1109,25 @@ function endRound(lobbyCode: string) {
             message: `${p.name} received ${impact.value.toFixed(1)}s penalty (${impact.source})`,
             value: impact.value,
           });
-        };
-      })
-    }
-  });
+          // Check for elimination from penalty
+          if (p.remainingTime <= 0 && !p.isEliminated) {
+            p.remainingTime = 0;
+            p.isEliminated = true;
+            if (!game.eliminatedThisRound.includes(p.id)) {
+              game.eliminatedThisRound.push(p.id);
+              addGameLogEntry(game, {
+                type: 'elimination',
+                playerId: p.id,
+                playerName: p.name,
+                message: `${p.name} was eliminated (early release penalty)`,
+                basic: true,
+      });
+                }
+              }
+            }
+          });
+        }
+      });
   
   // Check for eliminations from ability effects (clamp and eliminate players with <= 0 time)
   game.players.forEach(p => {
@@ -2138,11 +2153,7 @@ function broadcastGameState(lobbyCode: string) {
       currentBid: p.currentBid,
       isHolding: p.isHolding,
       roundEndAcknowledged: (p as any).roundEndAcknowledged || false,
-      impactLogs: p.roundImpacts?.map(impact => ({
-        value: `${impact.value > 0 ? '+' : ''}${impact.value.toFixed(1)}s`,
-        reason: impact.source,
-        type: impact.value > 0 ? 'gain' : impact.value < 0 ? 'loss' : 'neutral'
-      })) || [],
+      roundImpacts: p.roundImpacts,
       netImpact: p.netImpact,
       abilityUsed: p.abilityUsed,
       momentFlagsEarned: p.momentFlagsEarned,
