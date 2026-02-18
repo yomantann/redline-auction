@@ -1234,7 +1234,7 @@ export default function Game() {
     lastRoundEndProcessedRef.current = multiplayerGameState.round;
   }, [isMultiplayer, multiplayerGameState, socket, addOverlay]);
 
-  // Multiplayer Ability Popups - trigger when impactLogs appear at round end
+  // Multiplayer Ability Popups - trigger when roundImpacts appear at round end
   const lastAbilityRoundProcessedRef = useRef<number>(0);
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
@@ -1248,30 +1248,28 @@ export default function Game() {
     const currentPlayer = multiplayerGameState.players.find(p => p.socketId === socket.id);
     if (!currentPlayer) return;
 
-    // Show popups for current player's impactLogs
-    const myImpactLogs = (currentPlayer as any).impactLogs || [];
-
-    if (myImpactLogs.length === 0) return;
+    // CHANGED: Use roundImpacts from server (raw format)
+    const myRoundImpacts = (currentPlayer as any).roundImpacts || [];
+    if (myRoundImpacts.length === 0) return;
 
     // Mark this round as processed BEFORE creating overlays
     lastAbilityRoundProcessedRef.current = multiplayerGameState.round;
 
-    myImpactLogs.forEach((log: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }, idx: number) => {
+    myRoundImpacts.forEach((impact: { type: string; value: number; source: string }, idx: number) => {
       // Delay each popup slightly so they don't all appear at once
       setTimeout(() => {
         let popupType: OverlayType = "ability_trigger";
-        let title = log.reason; // Ability name
-        let desc = log.value; // Time change
+        let title = impact.source; // CHANGED: source is the ability name
+        let desc = `${impact.value > 0 ? '+' : ''}${impact.value.toFixed(1)}s`; // CHANGED: format the value
 
         // Determine popup type based on impact
-        if (log.type === 'gain') {
+        if (impact.value > 0) {
           addOverlay(popupType, title, `Gained ${desc}`, 0);
-        } else if (log.type === 'loss') {
+        } else {
           addOverlay(popupType, title, `Lost ${desc}`, 0);
         }
       }, idx * 300); // Stagger by 300ms
     });
-
   }, [isMultiplayer, multiplayerGameState?.phase, multiplayerGameState?.round, socket]);
 
   // Multiplayer Protocol Announcement - trigger when a new protocol is active

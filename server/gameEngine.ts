@@ -1109,9 +1109,8 @@ function endRound(lobbyCode: string) {
             message: `${p.name} received ${impact.value.toFixed(1)}s penalty (${impact.source})`,
             value: impact.value,
           });
-        }
-      });
-
+        };
+      })
     }
   });
   
@@ -1935,14 +1934,14 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
   // During countdown: releasing means abandoning this round with penalty (once per round)
   if (game.phase === 'countdown') {
     player.isHolding = false;
-    
+
     // Only apply penalty once per round
     if (player.penaltyAppliedThisRound) {
       log(`${player.name} already received penalty this round, no additional penalty`, "game");
       broadcastGameState(lobbyCode);
       return;
     }
-    
+
     // JAWLINE (gigachad): No penalty during countdown
     const ability = player.selectedDriver ? DRIVER_ABILITIES[player.selectedDriver] : null;
     if (ability?.name === 'JAWLINE' && game.settings.abilitiesEnabled) {
@@ -1959,38 +1958,30 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
       broadcastGameState(lobbyCode);
       return;
     }
-    
+
     // Apply penalty based on game pace
     const penalty = getMinBidPenalty(game.gameDuration);
-    player.remainingTime -= penalty;
     player.penaltyAppliedThisRound = true;
-    
-    // Track penalty as negative bid for display in bid history
-    
+
+    // ADD PENALTY TO roundImpacts (will be processed at round end)
+    player.roundImpacts.push({ 
+      type: 'PENALTY', 
+      value: -penalty, 
+      source: 'Early Release' 
+    });
+
+    // DON'T deduct time yet - that happens at round end
+
     addGameLogEntry(game, {
       type: 'impact',
       playerId: player.id,
       playerName: player.name,
-      message: `${player.name} released during countdown: -${penalty.toFixed(1)}s penalty`,
+      message: `${player.name} will receive -${penalty.toFixed(1)}s penalty at round end`,
       value: -penalty,
     });
-    
-    log(`${player.name} released during countdown in lobby ${lobbyCode}, penalty: -${penalty}s`, "game");
-    
-    // Check for elimination
-    if (player.remainingTime <= 0) {
-      player.remainingTime = 0;
-      player.isEliminated = true;
-      game.eliminatedThisRound.push(player.id);
-      addGameLogEntry(game, {
-        type: 'elimination',
-        playerId: player.id,
-        playerName: player.name,
-        message: `${player.name} was eliminated (countdown penalty)`,
-        basic: true,
-      });
-    }
-    
+
+    log(`${player.name} released during countdown in lobby ${lobbyCode}, penalty queued: -${penalty}s`, "game");
+
     broadcastGameState(lobbyCode);
     return;
   }
@@ -2147,7 +2138,11 @@ function broadcastGameState(lobbyCode: string) {
       currentBid: p.currentBid,
       isHolding: p.isHolding,
       roundEndAcknowledged: (p as any).roundEndAcknowledged || false,
-      roundImpacts: p.roundImpacts,
+      impactLogs: p.roundImpacts?.map(impact => ({
+        value: `${impact.value > 0 ? '+' : ''}${impact.value.toFixed(1)}s`,
+        reason: impact.source,
+        type: impact.value > 0 ? 'gain' : impact.value < 0 ? 'loss' : 'neutral'
+      })) || [],
       netImpact: p.netImpact,
       abilityUsed: p.abilityUsed,
       momentFlagsEarned: p.momentFlagsEarned,
