@@ -1234,44 +1234,6 @@ export default function Game() {
     lastRoundEndProcessedRef.current = multiplayerGameState.round;
   }, [isMultiplayer, multiplayerGameState, socket, addOverlay]);
 
-  // Multiplayer Ability Popups - trigger when roundImpacts appear at round end
-  const lastAbilityRoundProcessedRef = useRef<number>(0);
-  useEffect(() => {
-    if (!isMultiplayer || !multiplayerGameState || !socket) return;
-
-    // Only trigger on round_end phase
-    if (multiplayerGameState.phase !== 'round_end') return;
-
-    // Prevent duplicate triggers for same round
-    if (lastAbilityRoundProcessedRef.current === multiplayerGameState.round) return;
-
-    const currentPlayer = multiplayerGameState.players.find(p => p.socketId === socket.id);
-    if (!currentPlayer) return;
-
-    // CHANGED: Use roundImpacts from server (raw format)
-    const myRoundImpacts = (currentPlayer as any).roundImpacts || [];
-    if (myRoundImpacts.length === 0) return;
-
-    // Mark this round as processed BEFORE creating overlays
-    lastAbilityRoundProcessedRef.current = multiplayerGameState.round;
-
-    myRoundImpacts.forEach((impact: { type: string; value: number; source: string }, idx: number) => {
-      // Delay each popup slightly so they don't all appear at once
-      setTimeout(() => {
-        let popupType: OverlayType = "ability_trigger";
-        let title = impact.source; // CHANGED: source is the ability name
-        let desc = `${impact.value > 0 ? '+' : ''}${impact.value.toFixed(1)}s`; // CHANGED: format the value
-
-        // Determine popup type based on impact
-        if (impact.value > 0) {
-          addOverlay(popupType, title, `Gained ${desc}`, 0);
-        } else {
-          addOverlay(popupType, title, `Lost ${desc}`, 0);
-        }
-      }, idx * 300); // Stagger by 300ms
-    });
-  }, [isMultiplayer, multiplayerGameState?.phase, multiplayerGameState?.round, socket]);
-
   // Multiplayer Protocol Announcement - trigger when a new protocol is active
   const lastMpProtocolRef = useRef<string | null>(null);
   useEffect(() => {
