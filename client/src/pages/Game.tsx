@@ -1785,48 +1785,45 @@ export default function Game() {
       }));
 
     } else if (phase === 'countdown') {
-       // If stopping during countdown, store penalty to apply at round end
-       // Only apply if the player actually held during countdown (i.e., they were "in" the countdown).
-       const p1 = players.find(p => p.id === 'p1');
-       if (!p1?.isHolding) {
-         return;
-       }
+         // SINGLEPLAYER ONLY: If stopping during countdown, store penalty to apply at round end
+         if (!isMultiplayer) {
+           const p1 = players.find(p => p.id === 'p1');
+           if (!p1?.isHolding) {
+             return;
+           }
+           let penalty = getPenalty();
 
-       let penalty = getPenalty();
-       
-       // ALPHA PRIME (Gigachad) EXCEPTION: "JAWLINE"
-       // "Can drop during countdown without penalty"
-       if (selectedCharacter?.ability?.name === 'JAWLINE') {
-           penalty = 0;
-           toast({
+           // ALPHA PRIME (Gigachad) EXCEPTION: "JAWLINE"
+           if (selectedCharacter?.ability?.name === 'JAWLINE') {
+             penalty = 0;
+             toast({
                title: "JAWLINE ACTIVATED",
                description: "No penalty for early drop!",
                className: "bg-zinc-800 border-zinc-500 text-zinc-100",
                duration: 2000
-           });
-       } else {
-           // Normal Penalty Toast
-           toast({
+             });
+           } else {
+             toast({
                title: "EARLY RELEASE",
                description: `Released before start! -${penalty}s penalty will apply at round end.`,
                variant: "destructive",
                duration: 3000
-           });
-       }
-       
-       // DEFERRED PENALTY - Store for round end, do NOT deduct immediately
-       if (penalty > 0) {
-            setPendingPenalties(prev => ({ ...prev, 'p1': (prev['p1'] || 0) + penalty }));
-       }
-       
-       setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
-            ...p, 
-            isHolding: false, 
-            currentBid: 0
-            // NO remainingTime change here - will apply at round end
-       } : p));
+             });
+           }
+
+           // DEFERRED PENALTY - Store for round end, do NOT deduct immediately
+           if (penalty > 0) {
+             setPendingPenalties(prev => ({ ...prev, 'p1': (prev['p1'] || 0) + penalty }));
+           }
+
+           setPlayers(prev => prev.map(p => p.id === 'p1' ? { 
+             ...p, 
+             isHolding: false, 
+             currentBid: 0
+           } : p));
+         }
     }
-  };
+  }
 
   // Constants for Penalty
   const getPenalty = () => {
@@ -2212,14 +2209,16 @@ export default function Game() {
              }
         }
 
-        // Pending Penalties (Applied regardless of bid) - tracked in netImpact
+      // SINGLEPLAYER ONLY: Pending Penalties (Applied regardless of bid) - tracked in netImpact
+      if (!isMultiplayer) {
         const pending = pendingPenalties[p.id] || 0;
         if (pending > 0) {
-            newTime -= pending;
-            roundNetImpactNum -= pending;
-            roundImpact += ` -${pending}s (Penalty)`;
-            impactLogs.push({ value: `-${pending.toFixed(1)}s`, reason: "Penalty", type: 'loss' });
+          newTime -= pending;
+          roundNetImpactNum -= pending;
+          roundImpact += ` -${pending}s (Penalty)`;
+          impactLogs.push({ value: `-${pending.toFixed(1)}s`, reason: "Penalty", type: 'loss' });
         }
+      }
 
         // Apply Standard Disruptions (Manager Call, Burn It) - tracked in netImpact
         // Fire Wall BLOCKS PROTOCOLS but NOT DISRUPTIONS (Abilities) per user request.
@@ -2268,14 +2267,16 @@ export default function Game() {
              }
         }
 
-        // Pending Penalties
+      // SINGLEPLAYER ONLY: Pending Penalties (Applied regardless of bid) - tracked in netImpact
+      if (!isMultiplayer) {
         const pending = pendingPenalties[p.id] || 0;
         if (pending > 0) {
-            newTime -= pending;
-            roundNetImpactNum -= pending;
-            roundImpact += ` -${pending}s (Penalty)`;
-            impactLogs.push({ value: `-${pending.toFixed(1)}s`, reason: "Penalty", type: 'loss' });
+          newTime -= pending;
+          roundNetImpactNum -= pending;
+          roundImpact += ` -${pending}s (Penalty)`;
+          impactLogs.push({ value: `-${pending.toFixed(1)}s`, reason: "Penalty", type: 'loss' });
         }
+      }
 
         // Apply Standard Disruptions (Manager Call, Burn It)
         // Fire Wall does NOT block character abilities per user request.
