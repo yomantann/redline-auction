@@ -142,6 +142,7 @@ export interface GamePlayer {
   // Round statistics
   totalTimeBid: number;
   roundImpacts: { type: string; value: number; source: string }[];
+  pendingRoundImpacts?: { type: string; value: number; source: string }[]; // ADD THIS LINE
   netImpact: number; // Cumulative time impact from abilities/protocols (not bids)
   abilityUsed: boolean;
   penaltyAppliedThisRound?: boolean; // Track if penalty was already applied this round
@@ -1090,6 +1091,14 @@ function endRound(lobbyCode: string) {
   
   // Emit secret protocol reveal overlays to clients (like SP)
   emitSecretProtocolReveal(game);
+
+  // Move pending impacts to roundImpacts (so they show on cards at round end)
+  game.players.forEach(p => {
+    if (p.pendingRoundImpacts && p.pendingRoundImpacts.length > 0) {
+      p.roundImpacts.push(...p.pendingRoundImpacts);
+      p.pendingRoundImpacts = [];
+    }
+  });
   
   // Process abilities before time deduction (allows for refunds)
   processAbilities(game, winnerId);
@@ -1978,8 +1987,11 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     const penalty = getMinBidPenalty(game.gameDuration);
     player.penaltyAppliedThisRound = true;
 
-    // ADD PENALTY TO roundImpacts (will be processed at round end)
-    player.roundImpacts.push({ 
+    // Store penalty in temporary field (will be moved to roundImpacts at round end)
+    if (!player.pendingRoundImpacts) {
+      player.pendingRoundImpacts = [];
+    }
+    player.pendingRoundImpacts.push({ 
       type: 'PENALTY', 
       value: -penalty, 
       source: 'Early Release' 

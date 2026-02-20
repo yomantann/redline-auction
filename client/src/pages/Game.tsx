@@ -3429,14 +3429,33 @@ export default function Game() {
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,
         netImpact: (mp as any).netImpact || 0,
-        roundImpact: (mp as any).roundImpacts?.length > 0 
-          ? (mp as any).roundImpacts.map((ri: any) => `${ri.value > 0 ? '+' : ''}${ri.value.toFixed(1)}s (${ri.source})`).join(', ')
-          : undefined,
-        impactLogs: (mp as any).roundImpacts?.map((ri: any) => ({
-          value: `${ri.value > 0 ? '+' : ''}${ri.value.toFixed(1)}s`,
-          reason: ri.source,
-          type: ri.value > 0 ? 'gain' as const : 'loss' as const,
-        })) || [],
+      roundImpact: (mp as any).roundImpacts?.length > 0 
+      ? (mp as any).roundImpacts
+          .filter((ri: any) => {
+            // Don't show PENALTY impacts on player cards until round_end
+            if (ri.type === 'PENALTY' && 
+                multiplayerGameState?.phase !== 'round_end' && 
+                multiplayerGameState?.phase !== 'game_over') {
+              return false;
+            }
+            return true;
+          })
+          .map((ri: any) => `${ri.value > 0 ? '+' : ''}${ri.value.toFixed(1)}s (${ri.source})`).join(', ') || undefined
+      : undefined,
+      impactLogs: (mp as any).roundImpacts
+      ?.filter((ri: any) => {
+        if (ri.type === 'PENALTY' && 
+            multiplayerGameState?.phase !== 'round_end' && 
+            multiplayerGameState?.phase !== 'game_over') {
+          return false;
+        }
+        return true;
+      })
+      .map((ri: any) => ({
+        value: `${ri.value > 0 ? '+' : ''}${ri.value.toFixed(1)}s`,
+        reason: ri.source,
+        type: ri.value > 0 ? 'gain' as const : 'loss' as const,
+      })) || [],
         specialEvents: [],
         eventDatabasePopups: (mp as any).momentFlagsEarned || [],
         protocolsTriggered: [],
