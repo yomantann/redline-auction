@@ -3425,7 +3425,11 @@ export default function Game() {
         tokens: mp.tokens,
         remainingTime: mp.remainingTime,
         isEliminated: mp.isEliminated,
-        currentBid: mp.currentBid,
+      currentBid: mp.isHolding
+      ? mp.currentBid
+      : (mp.currentBid !== null && mp.currentBid > 0)
+        ? mp.currentBid + (multiplayerGameState?.minBid ?? 0)
+        : mp.currentBid,
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,
         netImpact: (mp as any).netImpact || 0,
@@ -3509,10 +3513,10 @@ export default function Game() {
     
   // For multiplayer: use currentBid if released, or elapsedTime if still holding
   const currentPlayerBid = isMultiplayer
-    ? (myMultiplayerPlayer?.isHolding 
-        ? (multiplayerGameState?.elapsedTime ?? 0) 
-        : (myMultiplayerPlayer?.currentBid ?? 0))
-    : currentTime;
+  ? (myMultiplayerPlayer?.isHolding 
+      ? (multiplayerGameState?.elapsedTime ?? 0) 
+      : ((myMultiplayerPlayer?.currentBid ?? 0) + (multiplayerGameState?.minBid ?? 0)))
+  : currentTime;
     
   const currentPlayerEliminated = isMultiplayer
     ? (myMultiplayerPlayer?.isEliminated ?? false)

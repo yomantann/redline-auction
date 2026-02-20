@@ -1184,7 +1184,9 @@ function endRound(lobbyCode: string) {
           value: p.currentBid,
         });
       } else {
-        p.remainingTime -= p.currentBid;
+        const minBid = getMinBidPenalty(game.gameDuration);
+        const deduction = p.isBot ? p.currentBid : p.currentBid + minBid;
+        p.remainingTime -= deduction;
         if (p.remainingTime <= 0) {
           p.remainingTime = 0;
           p.isEliminated = true;
