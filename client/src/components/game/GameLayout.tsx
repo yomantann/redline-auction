@@ -21,7 +21,7 @@ export function GameLayout({ children, className, variant = "STANDARD" }: GameLa
       <div
         className={cn(
           "fixed inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500 pointer-events-none",
-          variant === "STANDARD" ? "opacity-55" : "opacity-45"
+          variant === "STANDARD" ? "opacity-75" : "opacity-75"
         )}
         style={{ backgroundImage: `url(${background})` }}
         aria-hidden="true"
