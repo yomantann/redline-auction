@@ -2712,7 +2712,7 @@ export default function Game() {
                 }
             }
             else if (bName === 'ROYAL CUP' && roll < 0.05) {
-                triggered = true; abilityName = bName; abilityDesc = "The Annointed may make a rule for the game!";
+                triggered = true; abilityName = bName; abilityDesc = "The Anointed may make a rule for the game!";
                 visibility = 'all';
             }
             else if (bName === 'REASSIGNED' && roll < 0.25) {
