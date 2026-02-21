@@ -857,9 +857,11 @@ function processAbilities(game: GameState, winnerId: string | null) {
         if (player.selectedDriver === 'rainbow_dash' && playerBid > 40) {
           // Rainbow Run: +3.5s if bid > 40s
           triggered = true;
-        } else if (player.selectedDriver === 'anointed' && Math.abs(playerBid - 20) <= 0.4) {
-          // Royal Decree: +20s if bid near 20s
-          triggered = true;
+          } else if (player.selectedDriver === 'anointed') {
+            const minBid = getMinBidPenalty(game.gameDuration);
+            if (Math.abs(playerBid - (20 - minBid)) <= 0.4) {
+              triggered = true;
+            }
         } else if (player.selectedDriver === 'panic_bot') {
           // Panic Mash: 50% chance +3s or -3s
           triggered = true;
