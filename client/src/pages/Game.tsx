@@ -4981,9 +4981,9 @@ export default function Game() {
           <div className="flex flex-col items-center justify-center h-[450px]"> 
              <div className="h-[100px] flex flex-col items-center justify-center space-y-2"> 
               <h2 className="text-3xl font-display text-destructive">PREPARE TO BID</h2>
-              <p className="text-muted-foreground">
-                {`Release now to abandon auction (-${getTimerStart().toFixed(1)}s)`}
-              </p>
+               <p className="text-muted-foreground">
+                 {`Release now to abandon auction (-${(isMultiplayer ? (multiplayerGameState?.minBid ?? 2) : getTimerStart()).toFixed(1)}s)`}
+               </p>
             </div>
             
             <div className="h-[280px] flex items-center justify-center relative"> 
