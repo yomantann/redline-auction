@@ -571,7 +571,7 @@ export default function Game() {
               sound.play().catch(() => {});
 
               sfxLastPlayedAtRef.current = now;
-              sfxBlockUntilRef.current = now + 2000;
+              sfxBlockUntilRef.current = now + 4000;
           }
       }
       
@@ -2931,6 +2931,7 @@ export default function Game() {
            // Patch Notes Pending: 3+ moment flags in same round (shows after the other flags)
            if (momentCount >= 3) {
                setTimeout(() => addOverlay("hidden_patch_notes", "PATCH NOTES PENDING", "Triggered 3+ moment flags in one round."), 2500);
+              roundMomentFlags.push('PATCH_NOTES_PENDING'); // SP tracking fix
            }
        }
 
