@@ -9,13 +9,11 @@ export type OverlayType =
   | "eliminated" 
   | "game_over" 
   | "fake_calm"
-  | "undercut"
   | "genius_move"
   | "easy_w"
   | "time_out"
   | "comeback_hope"
   | "smug_confidence"
-  | "bad_judgment"
   | "zero_bid"
   | "protocol_alert"
   | "ability_trigger"
@@ -56,13 +54,11 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "game_over": return <Trophy size={48} className="text-primary" />;
       
       case "fake_calm": return <Zap size={48} className="text-amber-400" />;
-      case "undercut": return <ShieldAlert size={48} className="text-orange-500" />;
       case "genius_move": return <BadgeCheck size={48} className="text-cyan-400" />;
       case "easy_w": return <Smile size={48} className="text-green-400" />;
       case "time_out": return <Skull size={48} className="text-destructive" />;
       case "comeback_hope": return <TrendingUp size={48} className="text-emerald-400" />;
       case "smug_confidence": return <Trophy size={48} className="text-purple-400" />;
-      case "bad_judgment": return <ThumbsDown size={48} className="text-red-400" />;
       case "zero_bid": return <AlertTriangle size={48} className="text-yellow-200" />;
       case "protocol_alert": return <AlertTriangle size={48} className="text-red-400" />;
       case "ability_trigger": return <Zap size={48} className="text-blue-400" />;
@@ -91,7 +87,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
         return "text-primary border-primary/20 bg-black/80";
         
       case "fake_calm": return "text-amber-400 border-amber-500/20 bg-black/80";
-      case "undercut": return "text-orange-500 border-orange-500/20 bg-black/80";
+      case "late_panic": return "text-fuchsia-400 border-fuchsia-500/20 bg-black/80";
       case "genius_move": return "text-cyan-400 border-cyan-500/20 bg-black/80";
       case "easy_w": return "text-green-400 border-green-500/20 bg-black/80";
       case "time_out": 
@@ -101,7 +97,6 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "ability_trigger": return "text-blue-400 border-blue-500/20 bg-black/80";
       case "comeback_hope": return "text-emerald-400 border-emerald-500/20 bg-black/80";
       case "smug_confidence": return "text-purple-400 border-purple-500/20 bg-black/80";
-      case "bad_judgment": return "text-red-400 border-red-500/20 bg-black/80";
       case "zero_bid": return "text-yellow-200 border-yellow-200/20 bg-black/80";
       
       case "precision_strike": return "text-blue-400 border-blue-500/20 bg-black/80";

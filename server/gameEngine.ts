@@ -1366,6 +1366,35 @@ function endRound(lobbyCode: string) {
     }
   }
   
+  //MP Server matching client for Redline Reversal:
+  if (winnerId && game.round >= game.totalRounds) {
+      const winnerPlayer = game.players.find(p => p.id === winnerId);
+      if (winnerPlayer) {
+          const isDoubleRound = game.activeProtocol === 'DOUBLE_STAKES' || game.activeProtocol === 'PANIC_ROOM';
+          const tokensAwarded = isDoubleRound ? 2 : 1;
+          const sortedBefore = [...game.players].sort((a, b) => {
+              const aTokens = a.id === winnerId ? a.tokens - tokensAwarded : a.tokens;
+              const bTokens = b.id === winnerId ? b.tokens - tokensAwarded : b.tokens;
+              if (bTokens !== aTokens) return bTokens - aTokens;
+              return b.remainingTime - a.remainingTime;
+          });
+          const rankBefore = sortedBefore.findIndex(p => p.id === winnerId);
+          const firstTokens = sortedBefore[0]?.tokens - (sortedBefore[0]?.id === winnerId ? tokensAwarded : 0);
+          const secondTokens = sortedBefore[1]?.tokens - (sortedBefore[1]?.id === winnerId ? tokensAwarded : 0);
+          const wasInSecond = rankBefore === 1 && firstTokens !== secondTokens;
+
+          const sortedAfter = [...game.players].sort((a, b) => {
+              if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+              return b.remainingTime - a.remainingTime;
+          });
+          const isNowFirst = sortedAfter[0]?.id === winnerId;
+
+          if (wasInSecond && isNowFirst) {
+              winnerPlayer.momentFlagsEarned.push('HIDDEN_REDLINE_REVERSAL');
+          }
+      }
+  }
+  
   // Track PATCH_NOTES_PENDING: 3+ moment flags in this round for the winner
   // Count using the flagsBeforeCount snapshot taken before any flags were pushed
   if (winnerId) {

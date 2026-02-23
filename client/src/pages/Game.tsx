@@ -1229,6 +1229,35 @@ export default function Game() {
       setTimeout(() => addOverlay("genius_move", "LAST ONE STANDING", `Survivor Victory!`), 2000);
       momentCount++;
     }
+
+    //MP Redline Reversal:
+    if (multiplayerGameState.round === mpTotalRounds) {
+        const isDoubleRound = multiplayerGameState.activeProtocol === 'DOUBLE_STAKES' || multiplayerGameState.activeProtocol === 'PANIC_ROOM';
+        const tokensAwarded = isDoubleRound ? 2 : 1;
+        const playersBeforeTokens = players.map(p => ({
+            ...p,
+            tokens: p.id === currentPlayerId ? p.tokens - tokensAwarded : p.tokens
+        }));
+        const sortedBefore = [...playersBeforeTokens].sort((a, b) => {
+            if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+            return b.remainingTime - a.remainingTime;
+        });
+        const rankBefore = sortedBefore.findIndex(p => p.id === currentPlayerId);
+        const firstTokens = sortedBefore[0]?.tokens;
+        const secondTokens = sortedBefore[1]?.tokens;
+        const wasInSecond = rankBefore === 1 && firstTokens !== secondTokens;
+
+        const sortedAfter = [...players].sort((a, b) => {
+            if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+            return b.remainingTime - a.remainingTime;
+        });
+        const isNowFirst = sortedAfter[0]?.id === currentPlayerId;
+
+        if (wasInSecond && isNowFirst) {
+            setTimeout(() => addOverlay('hidden_redline_reversal', 'REDLINE REVERSAL', 'Came from 2nd to claim the win on the final round!'), 2000);
+            momentCount++;
+        }
+    }
     
     // Patch Notes Pending: 3+ moment flags in same round
     if (momentCount >= 3) {
@@ -3136,6 +3165,29 @@ export default function Game() {
         momentCount += 1;
         roundMomentFlags.push('DEJA_BID');
       }
+    }
+
+    // Redline Reversal
+    if (winnerId === 'p1' && round === totalRounds) {
+        const sortedBefore = [...players].sort((a, b) => {
+            if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+            return b.remainingTime - a.remainingTime;
+        });
+        const playerRankBefore = sortedBefore.findIndex(p => p.id === 'p1');
+        const firstPlaceTokens = sortedBefore[0]?.tokens;
+        const secondPlaceTokens = sortedBefore[1]?.tokens;
+        const wasInSecond = playerRankBefore === 1 && firstPlaceTokens !== secondPlaceTokens;
+
+        const sortedAfter = [...finalPlayers].sort((a, b) => {
+            if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+            return b.remainingTime - a.remainingTime;
+        });
+        const isNowFirst = sortedAfter[0]?.id === 'p1';
+
+        if (wasInSecond && isNowFirst) {
+            addOverlay('hidden_redline_reversal', 'REDLINE REVERSAL', 'Came from 2nd to claim the win on the final round!', 0);
+            roundMomentFlags.push('HIDDEN_REDLINE_REVERSAL');
+        }
     }
     
     // PATCH_NOTES_PENDING: 3+ moment flags in same round (tracked as a flag itself)
