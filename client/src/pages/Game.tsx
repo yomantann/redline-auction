@@ -414,7 +414,12 @@ const LOBBY_TRACKS = [
   '/assets/lobby/hope-in-the-darkness-226465.mp3',
   '/assets/lobby/luxury-lounge-jazz-groove-hotel-lobby-ambience-342592.mp3',
   '/assets/lobby/night-detective-226857.mp3',
-  '/assets/lobby/ready-to-win-multiverse-fugitives-competitive-ost-269606.mp3'
+  '/assets/lobby/ready-to-win-multiverse-fugitives-competitive-ost-269606.mp3',
+  '/assets/lobby/mixkit-cyberpunk-city-2-141.mp3',
+  '/assets/lobby/mixkit-delirium-605.mp3',
+  '/assets/lobby/mixkit-mada-608.mp3',
+  '/assets/lobby/mixkit-see-line-funk-105.mp3',
+  '/assets/lobby/mixkit-vastness-184.mp3'
 ];
 
 export default function Game() {
