@@ -554,13 +554,13 @@ export default function Game() {
       });
       
       const MOMENT_FLAG_TYPES: OverlayType[] = [
-          'fake_calm', 'undercut', 'genius_move', 'easy_w', 'time_out',
-          'comeback_hope', 'smug_confidence', 'bad_judgment', 'zero_bid',
+          'fake_calm', 'genius_move', 'easy_w', 'time_out',
+          'comeback_hope', 'smug_confidence', 'zero_bid',
           'precision_strike', 'overkill', 'clutch_play', 'late_panic',
           'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes',
           'eliminated',
       ];
-      if (soundEnabled && MOMENT_FLAG_TYPES.includes(type)) {
+        if (soundEnabled && MOMENT_FLAG_TYPES.includes(type) && type !== 'hidden_patch_notes') {
           const now = Date.now();
           if (now >= sfxBlockUntilRef.current) {
               const pick = SFX_POOL[Math.floor(Math.random() * SFX_POOL.length)];
