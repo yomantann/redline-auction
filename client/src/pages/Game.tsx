@@ -5182,7 +5182,7 @@ export default function Game() {
                         </div>
                      )}
                      <div className="text-left">
-                        <h1 className="text-4xl font-bold text-white mb-1 leading-none">{roundWinner.name} WINS</h1>
+                        <h1 className="text-4xl font-bold text-white mb-1 leading-none">{roundWinner.name} WINS ROUND</h1>
                         <p className="text-xl font-mono text-primary">{formatTime(roundWinner.time)}</p>
                      </div>
                    </div>
