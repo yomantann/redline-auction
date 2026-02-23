@@ -554,7 +554,7 @@ export default function Game() {
       });
       
       const MOMENT_FLAG_TYPES: OverlayType[] = [
-          'fake_calm', 'genius_move', 'easy_w', 'time_out',
+          'fake_calm', 'genius_move', 'easy_w', 'time_out', 'deadlock_sync', 'last_one_standing',
           'comeback_hope', 'smug_confidence', 'zero_bid',
           'precision_strike', 'overkill', 'clutch_play', 'late_panic',
           'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes',
@@ -1226,7 +1226,7 @@ export default function Game() {
     const totalRoundsForMp = (mpDuration === 'short' || mpDuration === 'sprint') ? 9 
       : mpDuration === 'long' ? 18 : 9;
     if (multiplayerGameState.round === totalRoundsForMp && multiplayerGameState.eliminatedThisRound?.length > 0) {
-      setTimeout(() => addOverlay("genius_move", "LAST ONE STANDING", `Survivor Victory!`), 2000);
+      setTimeout(() => addOverlay("last_one_standing", "LAST ONE STANDING", `Survivor Victory!`), 2000);
       momentCount++;
     }
 
@@ -2433,8 +2433,8 @@ export default function Game() {
             winnerName = potentialWinner.name;
             winnerTime = potentialWinner.currentBid || 0;
         } else {
-             setOverlay({ type: "protocol_alert", message: "DEADLOCK SYNC", subMessage: "Exact Time Match! No Winner." });
-             setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
+          setOverlay({ type: "deadlock_sync", message: "DEADLOCK SYNC", subMessage: "Exact Time Match! No Winner." });
+          setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
         }
     } else {
         if (participants.length > 0) {
@@ -3100,7 +3100,7 @@ export default function Game() {
     // Win final round AND at least one player eliminated in that round
     if (winnerId === 'p1' && round === totalRounds) {
          if (playersOut.length > 0) {
-             setTimeout(() => addOverlay("genius_move", "LAST ONE STANDING", `Survivor Victory! (${playersOut.length} eliminated)`), 2000);
+           setTimeout(() => addOverlay("last_one_standing", "LAST ONE STANDING", `Survivor Victory!`), 2000);
              roundMomentFlags.push('LAST_ONE_STANDING');
          }
     }

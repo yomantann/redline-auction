@@ -12,6 +12,8 @@ export type OverlayType =
   | "genius_move"
   | "easy_w"
   | "time_out"
+  | "deadlock_sync"
+  | "last_one_standing"
   | "comeback_hope"
   | "smug_confidence"
   | "zero_bid"
@@ -57,6 +59,8 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "genius_move": return <BadgeCheck size={48} className="text-cyan-400" />;
       case "easy_w": return <Smile size={48} className="text-green-400" />;
       case "time_out": return <Skull size={48} className="text-destructive" />;
+      case "deadlock_sync": return <AlertTriangle size={48} className="text-zinc-200" />;
+      case "last_one_standing": return <Trophy size={48} className="text-blue-400" />;
       case "comeback_hope": return <TrendingUp size={48} className="text-emerald-400" />;
       case "smug_confidence": return <Trophy size={48} className="text-purple-400" />;
       case "zero_bid": return <AlertTriangle size={48} className="text-yellow-200" />;
@@ -91,6 +95,8 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "genius_move": return "text-cyan-400 border-cyan-500/20 bg-black/80";
       case "easy_w": return "text-green-400 border-green-500/20 bg-black/80";
       case "time_out": 
+      case "deadlock_sync": return "text-zinc-200 border-white/20 bg-black/80";
+      case "last_one_standing": return "text-blue-400 border-blue-500/20 bg-black/80";
       case "eliminated":
       case "protocol_alert":
         return "text-red-400 border-red-500/20 bg-black/80";
