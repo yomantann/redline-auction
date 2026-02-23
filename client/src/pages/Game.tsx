@@ -1142,8 +1142,27 @@ export default function Game() {
     if (!winner) return;
     
     // Check if current player won
-    const isCurrentPlayerWinner = winner.id === currentPlayerId;
-    
+    const isCurrentPlayerWinner = winner?.id === currentPlayerId;
+
+    const players = multiplayerGameState.players;
+
+    // DEADLOCK_SYNC and AFK - fire for all players when there is no winner
+    if (!winner && multiplayerGameState.phase === 'round_end') {
+      const validBidders = [...players]
+        .filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid > 0)
+        .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+
+      if (validBidders.length >= 2) {
+        const topBid = validBidders[0].currentBid || 0;
+        const tied = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.05);
+        if (tied.length >= 2 && tied.some(p => p.id === currentPlayerId)) {
+          addOverlay("deadlock_sync", "DEADLOCK SYNC", "Exact time match! No winner.");
+        }
+      } else if (validBidders.length === 0) {
+        addOverlay("zero_bid", "AFK", "No one dared to bid!");
+      }
+    }
+
     if (!isCurrentPlayerWinner) return;
     
     // Trigger moment flags for current player
@@ -1151,7 +1170,6 @@ export default function Game() {
     const winnerBid = winner.bid;
     
     // Get player data
-    const players = multiplayerGameState.players;
     const winnerPlayer = players.find(p => p.id === winner.id);
     
     // Find second place bid
