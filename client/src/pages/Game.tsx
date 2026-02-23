@@ -441,7 +441,7 @@ export default function Game() {
   useEffect(() => {
     audioRef.current = new Audio();
     audioRef.current.loop = true;
-    audioRef.current.volume = 0.07; // Reduced by 70% (was 0.4)
+    audioRef.current.volume = 0.03; 
     
     // SFX is created per trigger so it can replay reliably
 
@@ -566,7 +566,7 @@ export default function Game() {
               const pick = SFX_POOL[Math.floor(Math.random() * SFX_POOL.length)];
 
               const sound = new Audio(pick + `?t=${now}`);
-              sound.volume = 0.08;
+              sound.volume = 0.02;
               sfxInFlightRef.current = sound;
               sound.play().catch(() => {});
 
@@ -1067,7 +1067,7 @@ export default function Game() {
           audioRef.current.src = track;
         }
         audioRef.current.loop = true;
-        audioRef.current.volume = 0.12; // Reduced by 70% (was 0.4)
+        audioRef.current.volume = 0.05; 
         audioRef.current.play().catch(() => console.log('Audio play blocked'));
       } else {
         audioRef.current.pause();
@@ -1087,7 +1087,7 @@ export default function Game() {
         const track = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
         audioRef.current.src = track;
         audioRef.current.loop = true;
-        audioRef.current.volume = 0.12; // Reduced by 70% (was 0.4)
+        audioRef.current.volume = 0.05; 
         audioRef.current.play().catch(() => console.log('Audio play blocked'));
       }
       return;
