@@ -1231,7 +1231,7 @@ export default function Game() {
     }
 
     //MP Redline Reversal:
-    if (multiplayerGameState.round === mpTotalRounds) {
+      if (multiplayerGameState.round === totalRoundsForMp) {
         const isDoubleRound = multiplayerGameState.activeProtocol === 'DOUBLE_STAKES' || multiplayerGameState.activeProtocol === 'PANIC_ROOM';
         const tokensAwarded = isDoubleRound ? 2 : 1;
         const playersBeforeTokens = players.map(p => ({
