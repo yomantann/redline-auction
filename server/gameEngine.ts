@@ -1363,6 +1363,31 @@ function endRound(lobbyCode: string) {
       if (game.round >= game.totalRounds && game.eliminatedThisRound.length > 0) {
         winnerPlayer.momentFlagsEarned.push('LAST_ONE_STANDING');
       }
+      
+      // HIDDEN_67: any player (not just winner) who bids within ±0.1 of 67s
+      game.players.forEach(p => {
+        const bid = p.currentBid || 0;
+        if (bid > 0 && Math.abs(bid - 67) <= 0.1) {
+          p.momentFlagsEarned.push('HIDDEN_67');
+        }
+      });
+
+      // HIDDEN_DEJA_BID: winner bids within ±0.2 of their previous winning bid
+      if (winnerId) {
+        const winnerForDeja = game.players.find(p => p.id === winnerId);
+        if (winnerForDeja) {
+          // Find previous WIN BID log entry from a previous round
+          const prevWinEntry = [...game.gameLog]
+            .reverse()
+            .find(l => l.type === 'win' && l.playerId === winnerId && l.round < game.round && l.value && l.value > 0);
+          if (prevWinEntry && prevWinEntry.value) {
+            const currentBid = winnerForDeja.currentBid || 0;
+            if (Math.abs(currentBid - prevWinEntry.value) <= 0.2) {
+              winnerForDeja.momentFlagsEarned.push('HIDDEN_DEJA_BID');
+            }
+          }
+        }
+      }
     }
   }
   
@@ -1379,9 +1404,15 @@ function endRound(lobbyCode: string) {
               return b.remainingTime - a.remainingTime;
           });
           const rankBefore = sortedBefore.findIndex(p => p.id === winnerId);
-          const firstTokens = sortedBefore[0]?.tokens - (sortedBefore[0]?.id === winnerId ? tokensAwarded : 0);
-          const secondTokens = sortedBefore[1]?.tokens - (sortedBefore[1]?.id === winnerId ? tokensAwarded : 0);
-          const wasInSecond = rankBefore === 1 && firstTokens !== secondTokens;
+        // sortedBefore is already sorted by pre-token counts via the comparator above
+        // Read pre-token values consistently by re-applying the adjustment
+        const firstPlacePreTokens = sortedBefore[0]?.id === winnerId 
+          ? sortedBefore[0].tokens - tokensAwarded 
+          : sortedBefore[0]?.tokens;
+        const secondPlacePreTokens = sortedBefore[1]?.id === winnerId 
+          ? sortedBefore[1].tokens - tokensAwarded 
+          : sortedBefore[1]?.tokens;
+        const wasInSecond = rankBefore === 1 && firstPlacePreTokens !== secondPlacePreTokens;
 
           const sortedAfter = [...game.players].sort((a, b) => {
               if (b.tokens !== a.tokens) return b.tokens - a.tokens;

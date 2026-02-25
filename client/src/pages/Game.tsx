@@ -558,7 +558,6 @@ export default function Game() {
           'comeback_hope', 'smug_confidence', 'zero_bid',
           'precision_strike', 'overkill', 'clutch_play', 'late_panic',
           'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes',
-          'eliminated',
       ];
         if (soundEnabled && MOMENT_FLAG_TYPES.includes(type) && type !== 'hidden_patch_notes') {
           const now = Date.now();
@@ -1139,11 +1138,9 @@ export default function Game() {
     }
     
     const winner = multiplayerGameState.roundWinner;
-    if (!winner) return;
     
     // Check if current player won
     const isCurrentPlayerWinner = winner?.id === currentPlayerId;
-
     const players = multiplayerGameState.players;
 
     // DEADLOCK_SYNC and AFK - fire for all players when there is no winner
@@ -1162,7 +1159,7 @@ export default function Game() {
         addOverlay("zero_bid", "AFK", "No one dared to bid!");
       }
     }
-
+    if (!winner) return;
     if (!isCurrentPlayerWinner) return;
     
     // Trigger moment flags for current player
@@ -1275,6 +1272,23 @@ export default function Game() {
             setTimeout(() => addOverlay('hidden_redline_reversal', 'REDLINE REVERSAL', 'Came from 2nd to claim the win on the final round!'), 2000);
             momentCount++;
         }
+    }
+
+    // Hidden 67: anyone bids within ±0.1 of 67s
+    players.forEach(p => {
+      const bid = p.currentBid || 0;
+      if (bid > 0 && Math.abs(bid - 67) <= 0.1) {
+        addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±0.1).`, 0);
+        momentCount++;
+      }
+    });
+
+    // Hidden Deja Bid: back-to-back wins with ±0.2 bid (use server momentFlagsEarned)
+    const winnerMpPlayer = players.find(p => p.id === winner.id);
+    const mpFlagsEarned = (winnerMpPlayer as any)?.momentFlagsEarned || [];
+    if (mpFlagsEarned.includes('HIDDEN_DEJA_BID') && isCurrentPlayerWinner) {
+      setTimeout(() => addOverlay('hidden_deja_bid', 'DEJA BID', 'Back-to-back wins with nearly identical bids.', 0), 500);
+      momentCount++;
     }
     
     // Patch Notes Pending: 3+ moment flags in same round
@@ -2975,11 +2989,10 @@ export default function Game() {
                roundMomentFlags.push('CLUTCH_PLAY');
            }
            
-           // Patch Notes Pending: 3+ moment flags in same round (shows after the other flags)
-           if (momentCount >= 3) {
-               setTimeout(() => addOverlay("hidden_patch_notes", "PATCH NOTES PENDING", "Triggered 3+ moment flags in one round."), 2500);
-              roundMomentFlags.push('PATCH_NOTES_PENDING'); // SP tracking fix
-           }
+         // PATCH_NOTES_PENDING: 3+ moment flags in same round (tracked as a flag itself)
+         if (momentCount >= 3 && winnerId) {
+           roundMomentFlags.push('PATCH_NOTES_PENDING');
+         }
        }
 
        // Track moment flags on the winner player
@@ -3114,13 +3127,17 @@ export default function Game() {
         }
     }
 
-    // LAST ONE STANDING MOMENT CHECK
-    // Win final round AND at least one player eliminated in that round
+    // LAST ONE STANDING: win final round with at least one elimination this round
     if (winnerId === 'p1' && round === totalRounds) {
-         if (playersOut.length > 0) {
-           setTimeout(() => addOverlay("last_one_standing", "LAST ONE STANDING", `Survivor Victory!`), 2000);
-             roundMomentFlags.push('LAST_ONE_STANDING');
-         }
+      // eliminatedThisRound uses IDs; playersOut uses names - use finalPlayers to check
+      const eliminatedThisRound = finalPlayers.filter(p => 
+        p.isEliminated && !players.find(op => op.id === p.id)?.isEliminated
+      );
+      if (eliminatedThisRound.length > 0) {
+        setTimeout(() => addOverlay("last_one_standing", "LAST ONE STANDING", "Survivor Victory!"), 2000);
+        momentCount++;
+        roundMomentFlags.push('LAST_ONE_STANDING');
+      }
     }
 
     // BIO-FUEL Logic: Add drink prompt if applicable
@@ -3139,15 +3156,19 @@ export default function Game() {
 
     // Note: We are now adding overlays directly via addOverlay() above, not setting overlayType variable.
     // So we need to increment momentCount where we call addOverlay() for moment types.
-    // I will refactor the above blocks to increment momentCount correctly.
 
-    // LATE PANIC: if winner started the round with the lowest bank (approx)
-    if (winnerId === 'p1' && participants.length > 0) {
-      const winner = participants[0];
-      const winnerBid = winner.currentBid || 0;
-      const winnerStartApprox = winner.remainingTime + winnerBid;
-      const minStartApprox = Math.min(...finalPlayers.map(p => (p.remainingTime + (p.currentBid || 0))));
-      if (winnerStartApprox <= minStartApprox + 0.0001) {
+        // LATE PANIC: winner had lowest time bank at round START (reconstruct pre-bid time)
+        if (winnerId === 'p1' && participants.length > 0) {
+          const winner = participants[0];
+          const winnerBid = winner.currentBid || 0;
+          // Pre-round time = current remaining + bid they just spent (before deductions)
+          // Use players (pre-final state) not finalPlayers for accurate pre-round snapshot
+          const winnerPreRound = (players.find(p => p.id === 'p1')?.remainingTime || 0) + winnerBid;
+          const allPreRound = players
+            .filter(p => !p.isEliminated)
+            .map(p => p.remainingTime + (p.currentBid || 0));
+          const minPreRound = Math.min(...allPreRound);
+          if (winnerPreRound <= minPreRound + 0.0001) {
         addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0);
         momentCount += 1;
         roundMomentFlags.push('LATE_PANIC');
@@ -3174,14 +3195,14 @@ export default function Game() {
     }
 
     // Hidden Deja Bid: winner wins 2 rounds in a row with bid within ±0.2 of previous win
-    const prevWinBid = roundLog.find(l => l.startsWith('>> WIN BID: '))?.split('>> WIN BID: ')[1];
-    if (winnerId === 'p1' && prevWinBid && participants.length > 0) {
-      const winnerBid = participants[0].currentBid || 0;
-      const prev = parseFloat(prevWinBid);
-      if (!Number.isNaN(prev) && Math.abs(winnerBid - prev) <= 0.2) {
+    // roundLog is read BEFORE new entry added, so previous WIN BID entry is still top
+    const prevWinBidEntry = roundLog.find(l => l.startsWith('>> WIN BID: '));
+    const prevWinBid = prevWinBidEntry ? parseFloat(prevWinBidEntry.split('>> WIN BID: ')[1]) : NaN;
+    if (winnerId === 'p1' && !Number.isNaN(prevWinBid) && winnerTime > 0) {
+      if (Math.abs(winnerTime - prevWinBid) <= 0.2) {
         addOverlay('hidden_deja_bid', 'DEJA BID', 'Back-to-back wins with nearly identical bids.', 0);
         momentCount += 1;
-        roundMomentFlags.push('DEJA_BID');
+        roundMomentFlags.push('HIDDEN_DEJA_BID');
       }
     }
 
@@ -3321,6 +3342,13 @@ export default function Game() {
     const logMsg = winnerId 
       ? `Round ${round}: ${winnerName} won (${formatTime(winnerTime)})` 
       : `Round ${round}: No winner`;
+
+    // Track win bid for DEJA_BID detection next round
+    if (winnerId === 'p1' && winnerTime > 0) {
+      setRoundLog(prev => [`>> WIN BID: ${winnerTime.toFixed(1)}`, logMsg, ...prev]);
+    } else {
+      setRoundLog(prev => [logMsg, ...prev]);
+    }
     
     // Add extra logs for special events
     // Log array already initialized at start of function
@@ -3351,7 +3379,8 @@ export default function Game() {
         }
     });
 
-    setRoundLog(prev => [...extraLogs, logMsg, ...prev]);
+    const winBidEntry = (winnerId === 'p1' && winnerTime > 0) ? [`>> WIN BID: ${winnerTime.toFixed(1)}`] : [];
+    setRoundLog(prev => [...extraLogs, ...winBidEntry, logMsg, ...prev]);
 
     // Check game end conditions
     const remainingActivePlayers = updatedPlayers.filter(p => !p.isEliminated && p.remainingTime > 0);
