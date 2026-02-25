@@ -1367,7 +1367,7 @@ function endRound(lobbyCode: string) {
       // HIDDEN_67: any player (not just winner) who bids within ±0.1 of 67s
       game.players.forEach(p => {
         const bid = p.currentBid || 0;
-        if (bid > 0 && Math.abs(bid - 67) <= 0.1) {
+        if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
           p.momentFlagsEarned.push('HIDDEN_67');
         }
       });

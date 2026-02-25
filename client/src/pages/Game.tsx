@@ -1274,10 +1274,10 @@ export default function Game() {
         }
     }
 
-    // Hidden 67: anyone bids within ±0.1 of 67s
+    // Hidden 67: anyone bids within +1.0 of 67s
     players.forEach(p => {
       const bid = p.currentBid || 0;
-      if (bid > 0 && Math.abs(bid - 67) <= 0.1) {
+      if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
         addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±0.1).`, 0);
         momentCount++;
       }
@@ -3175,11 +3175,11 @@ export default function Game() {
       }
     }
 
-    // Hidden 67: ANY driver who bids within ±0.1 of 67s (does not need to win)
+    // Hidden 67: ANY driver who bids within +1.0 of 67s (does not need to win)
     const hidden67Players: string[] = [];
     finalPlayers.forEach(p => {
       const bid = p.currentBid || 0;
-      if (bid > 0 && Math.abs(bid - 67) <= 0.1) {
+      if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
         addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±0.1).`, 0);
         momentCount += 1;
         hidden67Players.push(p.id);
