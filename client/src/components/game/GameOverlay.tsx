@@ -5,18 +5,16 @@ import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp,
 export type OverlayType = 
   | "round_start" 
   | "round_win" 
-  | "round_draw" 
-  | "eliminated" 
   | "game_over" 
   | "fake_calm"
   | "genius_move"
   | "easy_w"
-  | "time_out"
+  | "time_out" // aka eliminated too
   | "deadlock_sync"
   | "last_one_standing"
   | "comeback_hope"
   | "smug_confidence"
-  | "zero_bid"
+  | "zero_bid" //aka AFK
   | "protocol_alert"
   | "ability_trigger"
   | "precision_strike"
@@ -27,8 +25,8 @@ export type OverlayType =
   | "hidden_redline_reversal"
   | "hidden_deja_bid"
   | "hidden_patch_notes"
-  | "social_event" // New
-  | "bio_event"    // New
+  | "social_event" 
+  | "bio_event"    
   | null;
 
 interface OverlayItem {
@@ -51,8 +49,6 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
     switch (type) {
       case "round_start": return <Play size={40} className="text-primary" />;
       case "round_win": return <Trophy size={40} className="text-primary" />;
-      case "round_draw": return <AlertTriangle size={48} className="text-muted-foreground" />;
-      case "eliminated": return <Skull size={48} className="text-destructive" />;
       case "game_over": return <Trophy size={48} className="text-primary" />;
       
       case "fake_calm": return <Zap size={48} className="text-amber-400" />;
@@ -97,7 +93,6 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "time_out": 
       case "deadlock_sync": return "text-zinc-200 border-white/20 bg-black/80";
       case "last_one_standing": return "text-blue-400 border-blue-500/20 bg-black/80";
-      case "eliminated":
       case "protocol_alert":
         return "text-red-400 border-red-500/20 bg-black/80";
       case "ability_trigger": return "text-blue-400 border-blue-500/20 bg-black/80";
@@ -119,7 +114,6 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "social_event": return "text-purple-400 border-purple-500/20 bg-black/90";
       case "bio_event": return "text-orange-400 border-orange-500/20 bg-black/90";
       
-      case "round_draw": 
       default: 
         return "text-muted-foreground border-white/10 bg-black/80";
     }

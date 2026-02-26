@@ -590,8 +590,8 @@ export default function Game() {
           // If the player is eliminated and they just dismissed the elimination overlay,
           // allow the game over screen to show.
           const p1 = players.find(p => p.id === 'p1');
-          const dismissedWasElim = prev.find(o => o.id === id)?.type === 'eliminated' || prev.find(o => o.id === id)?.type === 'time_out';
-          const stillHasElimOverlay = next.some(o => o.type === 'eliminated' || o.type === 'time_out');
+        const dismissedWasElim = prev.find(o => o.id === id)?.type === 'time_out';
+        const stillHasElimOverlay = next.some(o => o.type === 'time_out');
 
           if (p1?.isEliminated && dismissedWasElim && !stillHasElimOverlay) {
               setPhase('game_end');
@@ -1212,8 +1212,8 @@ export default function Game() {
       momentCount++;
     }
     
-    // 7. Precision Strike (Exact second bid)
-    if (winnerBid % 1 === 0) {
+    // Client MP Percision Strike (Exact second bid)
+    if (winnerBid > 0 && (Math.abs(winnerBid % 1) < 0.01 || Math.abs(winnerBid % 1 - 1) < 0.01)) {
       setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
       momentCount++;
     }
@@ -1248,7 +1248,21 @@ export default function Game() {
     //MP Redline Reversal:
       if (multiplayerGameState.round === totalRoundsForMp) {
         const isDoubleRound = multiplayerGameState.activeProtocol === 'DOUBLE_STAKES' || multiplayerGameState.activeProtocol === 'PANIC_ROOM';
-        const tokensAwarded = isDoubleRound ? 2 : 1;
+        let tokensAwarded = isDoubleRound ? 2 : 1;
+
+        // Account for CLICK_CLICK ability bonus
+        const currentPlayerData = players.find(p => p.id === currentPlayerId);
+        if (currentPlayerData?.selectedDriver === 'click_click') {
+          const sortedForAbility = [...players]
+            .filter(p => p.currentBid !== null && !p.isEliminated)
+            .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+          const topBid = sortedForAbility[0]?.currentBid || 0;
+          const secondBid = sortedForAbility[1]?.currentBid || 0;
+          const margin = topBid - secondBid;
+          if (sortedForAbility.length >= 2 && margin <= 1.1 && margin > 0) {
+            tokensAwarded += 1;
+          }
+        }
         const playersBeforeTokens = players.map(p => ({
             ...p,
             tokens: p.id === currentPlayerId ? p.tokens - tokensAwarded : p.tokens
@@ -1278,7 +1292,7 @@ export default function Game() {
     players.forEach(p => {
       const bid = p.currentBid || 0;
       if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
-        addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±0.1).`, 0);
+        addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±1.0).`, 0);
         momentCount++;
       }
     });
@@ -2465,7 +2479,7 @@ export default function Game() {
             winnerName = potentialWinner.name;
             winnerTime = potentialWinner.currentBid || 0;
         } else {
-          setOverlay({ type: "deadlock_sync", message: "DEADLOCK SYNC", subMessage: "Exact Time Match! No Winner." });
+          addOverlay("deadlock_sync", "DEADLOCK SYNC", "Exact Time Match! No Winner.");
           setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
         }
     } else {
@@ -2968,12 +2982,12 @@ export default function Game() {
                roundMomentFlags.push('COMEBACK_HOPE');
            }
            
-           // Precision
-           if (winnerBid % 1 === 0) {
-               setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
-               momentCount++;
-               roundMomentFlags.push('PRECISION_STRIKE');
-           }
+         // Client SP precision strike (exact second bid)
+         if (winnerBid > 0 && (Math.abs(winnerBid % 1) < 0.01 || Math.abs(winnerBid % 1 - 1) < 0.01)) {
+           setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
+           momentCount++;
+           roundMomentFlags.push('PRECISION_STRIKE');
+         }
            
            // Overkill
            if (winnerBid > 60) {
@@ -3016,8 +3030,6 @@ export default function Game() {
        }
 
     } else {
-       // No winner
-       addOverlay("round_draw", "NO WINNER", "Tie or No Bids");
        
        // Track DEADLOCK_SYNC for all tied first-place players
        if (participants.length >= 2) {
@@ -3146,14 +3158,6 @@ export default function Game() {
          setTimeout(() => addOverlay("bio_event", "ELIMINATED! CONSUME BIO-FUEL.", "", 0), 1000);
     }
 
-    // --- Moment Flags can stack (2+ in same round) ---
-    // Removed duplicate momentCount declaration
-    // Use the one declared at start of Overlay Logic
-
-    const isMomentOverlay = (t: OverlayType) => {
-      return t === 'time_out' || t === 'smug_confidence' || t === 'fake_calm' || t === 'genius_move' || t === 'easy_w' || t === 'comeback_hope' || t === 'precision_strike' || t === 'overkill' || t === 'clutch_play';
-    };
-
     // Note: We are now adding overlays directly via addOverlay() above, not setting overlayType variable.
     // So we need to increment momentCount where we call addOverlay() for moment types.
 
@@ -3171,7 +3175,7 @@ export default function Game() {
           if (winnerPreRound <= minPreRound + 0.0001) {
         addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0);
         momentCount += 1;
-        roundMomentFlags.push('LATE_PANIC');
+        roundMomentFlags.push('late_panic');
       }
     }
 
@@ -3180,7 +3184,7 @@ export default function Game() {
     finalPlayers.forEach(p => {
       const bid = p.currentBid || 0;
       if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
-        addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±0.1).`, 0);
+        addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±1.0).`, 0);
         momentCount += 1;
         hidden67Players.push(p.id);
       }

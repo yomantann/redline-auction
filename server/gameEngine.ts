@@ -1296,7 +1296,7 @@ function endRound(lobbyCode: string) {
       if (winnerPlayer.remainingTime < 10) {
         winnerPlayer.momentFlagsEarned.push('CLUTCH_PLAY');
       }
-      if (winnerBid % 1 === 0 && winnerBid > 0) {
+      if (winnerBid > 0 && (Math.abs(winnerBid % 1) < 0.01 || Math.abs(winnerBid % 1 - 1) < 0.01)) {
         winnerPlayer.momentFlagsEarned.push('PRECISION_STRIKE');
       }
       // Comeback Hope: winner was sole last-place before winning
@@ -1396,7 +1396,20 @@ function endRound(lobbyCode: string) {
       const winnerPlayer = game.players.find(p => p.id === winnerId);
       if (winnerPlayer) {
           const isDoubleRound = game.activeProtocol === 'DOUBLE_STAKES' || game.activeProtocol === 'PANIC_ROOM';
-          const tokensAwarded = isDoubleRound ? 2 : 1;
+        let tokensAwarded = isDoubleRound ? 2 : 1;
+
+        // Account for CLICK_CLICK ability bonus
+        if (winnerPlayer.selectedDriver === 'click_click') {
+          const sortedForAbility = [...game.players]
+            .filter(p => p.currentBid !== null && !p.isEliminated)
+            .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+          const topBid = sortedForAbility[0]?.currentBid || 0;
+          const secondBid = sortedForAbility[1]?.currentBid || 0;
+          const margin = topBid - secondBid;
+          if (sortedForAbility.length >= 2 && margin <= 1.1 && margin > 0) {
+            tokensAwarded += 1;
+          }
+        }
           const sortedBefore = [...game.players].sort((a, b) => {
               const aTokens = a.id === winnerId ? a.tokens - tokensAwarded : a.tokens;
               const bTokens = b.id === winnerId ? b.tokens - tokensAwarded : b.tokens;
