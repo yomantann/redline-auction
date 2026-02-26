@@ -3194,12 +3194,12 @@ export default function Game() {
       }));
     }
 
-    // Hidden Deja Bid: winner wins 2 rounds in a row with bid within ±0.2 of previous win
+    // Hidden Deja Bid: winner wins 2 rounds in a row with bid within ±1.0 of previous win
     // roundLog is read BEFORE new entry added, so previous WIN BID entry is still top
     const prevWinBidEntry = roundLog.find(l => l.startsWith('>> WIN BID: '));
     const prevWinBid = prevWinBidEntry ? parseFloat(prevWinBidEntry.split('>> WIN BID: ')[1]) : NaN;
     if (winnerId === 'p1' && !Number.isNaN(prevWinBid) && winnerTime > 0) {
-      if (Math.abs(winnerTime - prevWinBid) <= 0.2) {
+      if (Math.abs(winnerTime - prevWinBid) <= 1.0) {
         addOverlay('hidden_deja_bid', 'DEJA BID', 'Back-to-back wins with nearly identical bids.', 0);
         momentCount += 1;
         roundMomentFlags.push('HIDDEN_DEJA_BID');

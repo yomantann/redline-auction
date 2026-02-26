@@ -1372,7 +1372,7 @@ function endRound(lobbyCode: string) {
         }
       });
 
-      // HIDDEN_DEJA_BID: winner bids within ±0.2 of their previous winning bid
+      // HIDDEN_DEJA_BID: winner bids within ±1.0 of their previous winning bid
       if (winnerId) {
         const winnerForDeja = game.players.find(p => p.id === winnerId);
         if (winnerForDeja) {
@@ -1382,7 +1382,7 @@ function endRound(lobbyCode: string) {
             .find(l => l.type === 'win' && l.playerId === winnerId && l.round < game.round && l.value && l.value > 0);
           if (prevWinEntry && prevWinEntry.value) {
             const currentBid = winnerForDeja.currentBid || 0;
-            if (Math.abs(currentBid - prevWinEntry.value) <= 0.2) {
+            if (Math.abs(currentBid - prevWinEntry.value) <= 1.0) {
               winnerForDeja.momentFlagsEarned.push('HIDDEN_DEJA_BID');
             }
           }
