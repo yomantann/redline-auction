@@ -373,6 +373,44 @@ export async function registerRoutes(
       }
     });
 
+    // UPDATE PLAYER NAME (before game starts)
+    socket.on("update_player_name", (data: { newName: string }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+
+      const lobby = lobbies.get(lobbyCode);
+      if (!lobby) {
+        if (callback) callback({ success: false, error: "Lobby not found" });
+        return;
+      }
+
+      if (lobby.status !== 'waiting') {
+        if (callback) callback({ success: false, error: "Game already in progress" });
+        return;
+      }
+
+      const trimmedName = data.newName?.trim().slice(0, 20);
+      if (!trimmedName) {
+        if (callback) callback({ success: false, error: "Name cannot be empty" });
+        return;
+      }
+
+      const player = lobby.players.find(p => p.socketId === socket.id);
+      if (!player) {
+        if (callback) callback({ success: false, error: "Player not found" });
+        return;
+      }
+
+      player.name = trimmedName;
+      log(`${socket.id} changed name to ${trimmedName} in lobby ${lobbyCode}`, "lobby");
+
+      broadcastLobbyUpdate(lobbyCode);
+      if (callback) callback({ success: true });
+    });
+
     // SELECT DRIVER
     socket.on("select_driver", (data: { driverId: string }, callback?) => {
       const lobbyCode = playerToLobby.get(socket.id);

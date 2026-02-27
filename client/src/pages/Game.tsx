@@ -4419,6 +4419,53 @@ export default function Game() {
                 </div>
               )}
 
+              {/* Name Change Input - Only shown before game starts */}
+              {currentLobby.status === 'waiting' && (
+                <div className="w-full bg-card/30 rounded-lg border border-white/10 p-4">
+                  <Label className="text-xs text-zinc-500 mb-2 block">Your Display Name</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Enter your name" 
+                      className="bg-black/50 border-white/20"
+                      value={playerName}
+                      onChange={(e) => setPlayerName(e.target.value)}
+                      maxLength={20}
+                      data-testid="input-player-name-lobby"
+                    />
+                    <Button 
+                      size="sm"
+                      onClick={() => {
+                        if (!socket || !playerName.trim()) return;
+                        socket.emit("update_player_name", { newName: playerName }, (response: { success: boolean; error?: string }) => {
+                          if (response.success) {
+                            // Update local storage
+                            if (currentLobby?.code) {
+                              localStorage.setItem(`redline_player_${currentLobby.code.toUpperCase()}`, JSON.stringify({ playerName }));
+                            }
+                            toast({
+                              title: "Name Updated",
+                              description: `Your name has been changed to ${playerName}`,
+                              duration: 2000
+                            });
+                          } else {
+                            toast({
+                              title: "Error",
+                              description: response.error || "Failed to update name",
+                              variant: "destructive"
+                            });
+                          }
+                        });
+                      }}
+                      disabled={!playerName.trim()}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      Update
+                    </Button>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-2">You can change your name until the game starts</p>
+                </div>
+              )}
+              
               {/* Players List */}
               <div className="w-full bg-card/30 rounded-lg border border-white/10 p-4 space-y-3">
                 <div className="flex justify-between items-center text-sm text-zinc-400">
