@@ -50,8 +50,9 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle
+  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle, ChevronDown
 } from "lucide-react";
+
 import { 
   Tooltip,
   TooltipContent,
@@ -482,6 +483,7 @@ export default function Game() {
         'THE_MOLE', 'PANIC_ROOM',
         'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL'
   ]);
+  const [bannerExpanded, setBannerExpanded] = useState(false);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
   const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
   const [showPopupLibrary, setShowPopupLibrary] = useState(false);
@@ -1219,10 +1221,15 @@ export default function Game() {
       momentCount++;
     }
     
-    // Client MP Percision Strike (Exact second bid)
-    if (winnerBid > 0 && (Math.abs(winnerBid % 1) < 0.01 || Math.abs(winnerBid % 1 - 1) < 0.01)) {
-      setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
-      momentCount++;
+    // Client MP Precision Strike (Exact second bid)
+    if (winnerBid > 0) {
+      const decimal = winnerBid % 1;
+      // More forgiving: within 0.1 seconds of whole number
+      const isExactSecond = (decimal < 0.1 || decimal > 0.9);
+      if (isExactSecond) {
+        setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
+        momentCount++;
+      }
     }
     
     // 8. Comeback Hope - match SP logic: must be sole minimum token holder BEFORE winning
@@ -2990,10 +2997,15 @@ export default function Game() {
            }
            
          // Client SP precision strike (exact second bid)
-         if (winnerBid > 0 && (Math.abs(winnerBid % 1) < 0.01 || Math.abs(winnerBid % 1 - 1) < 0.01)) {
-           setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
-           momentCount++;
-           roundMomentFlags.push('PRECISION_STRIKE');
+         if (winnerBid > 0) {
+           const decimal = winnerBid % 1;
+           // More forgiving: within 0.1 seconds of whole number
+           const isExactSecond = (decimal < 0.1 || decimal > 0.9);
+           if (isExactSecond) {
+             setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
+             momentCount++;
+             roundMomentFlags.push('PRECISION_STRIKE');
+           }
          }
            
            // Overkill
@@ -3168,21 +3180,37 @@ export default function Game() {
     // Note: We are now adding overlays directly via addOverlay() above, not setting overlayType variable.
     // So we need to increment momentCount where we call addOverlay() for moment types.
 
-        // LATE PANIC: winner had lowest time bank at round START (reconstruct pre-bid time)
-        if (winnerId === 'p1' && participants.length > 0) {
-          const winner = participants[0];
-          const winnerBid = winner.currentBid || 0;
-          // Pre-round time = current remaining + bid they just spent (before deductions)
-          // Use players (pre-final state) not finalPlayers for accurate pre-round snapshot
-          const winnerPreRound = (players.find(p => p.id === 'p1')?.remainingTime || 0) + winnerBid;
-          const allPreRound = players
-            .filter(p => !p.isEliminated)
-            .map(p => p.remainingTime + (p.currentBid || 0));
-          const minPreRound = Math.min(...allPreRound);
-          if (winnerPreRound <= minPreRound + 0.0001) {
-        addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0);
-        momentCount += 1;
-        roundMomentFlags.push('late_panic');
+    // LATE PANIC: winner had lowest time bank at round START (reconstruct pre-bid time)
+    if (winnerId && participants.length > 0) {
+      const currentPlayerId = isMultiplayer 
+        ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id 
+        : 'p1';
+
+      // Get all players who participated (bid > 0) to reconstruct pre-round state
+      const allParticipants = isMultiplayer 
+        ? (multiplayerGameState?.players || [])
+        : players;
+
+      // Calculate pre-round time for each player (current time + their bid)
+      const preRoundTimes = allParticipants
+        .filter(p => !p.isEliminated)
+        .map(p => ({
+          id: p.id,
+          preRoundTime: p.remainingTime + (p.currentBid || 0)
+        }));
+
+      const minPreRoundTime = Math.min(...preRoundTimes.map(p => p.preRoundTime));
+      const winnerPreRound = preRoundTimes.find(p => p.id === winnerId);
+
+      if (winnerPreRound && Math.abs(winnerPreRound.preRoundTime - minPreRoundTime) < 0.001) {
+        // Winner started with lowest time bank
+        if (winnerId === currentPlayerId) {
+          setTimeout(() => {
+            addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0);
+          }, 2000); // Delay to ensure other overlays clear
+          momentCount += 1;
+        }
+        roundMomentFlags.push('LATE_PANIC');
       }
     }
 
