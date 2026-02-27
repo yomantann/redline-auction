@@ -1301,11 +1301,11 @@ export default function Game() {
       }
     });
 
-    // Hidden Deja Bid: back-to-back wins with ±0.2 bid (use server momentFlagsEarned)
+    // Hidden Deja Bid: prev player win was within ±1 bid (use server momentFlagsEarned)
     const winnerMpPlayer = players.find(p => p.id === winner.id);
     const mpFlagsEarned = (winnerMpPlayer as any)?.momentFlagsEarned || [];
     if (mpFlagsEarned.includes('HIDDEN_DEJA_BID') && isCurrentPlayerWinner) {
-      setTimeout(() => addOverlay('hidden_deja_bid', 'DEJA BID', 'Back-to-back wins with nearly identical bids.', 0), 500);
+      setTimeout(() => addOverlay('hidden_deja_bid', 'DEJA BID', 'Previous win was with a nearly identical bid.', 0), 500);
       momentCount++;
     }
     
@@ -3202,13 +3202,13 @@ export default function Game() {
       }));
     }
 
-    // Hidden Deja Bid: winner wins 2 rounds in a row with bid within ±1.0 of previous win
+    // Hidden Deja Bid: winner bid within ±1.0 of previous win
     // roundLog is read BEFORE new entry added, so previous WIN BID entry is still top
     const prevWinBidEntry = roundLog.find(l => l.startsWith('>> WIN BID: '));
     const prevWinBid = prevWinBidEntry ? parseFloat(prevWinBidEntry.split('>> WIN BID: ')[1]) : NaN;
     if (winnerId === 'p1' && !Number.isNaN(prevWinBid) && winnerTime > 0) {
       if (Math.abs(winnerTime - prevWinBid) <= 1.0) {
-        addOverlay('hidden_deja_bid', 'DEJA BID', 'Back-to-back wins with nearly identical bids.', 0);
+        addOverlay('hidden_deja_bid', 'DEJA BID', 'Previous win was with a nearly identical bid.', 0);
         momentCount += 1;
         roundMomentFlags.push('HIDDEN_DEJA_BID');
       }
