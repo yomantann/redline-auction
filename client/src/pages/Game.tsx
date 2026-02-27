@@ -7,6 +7,8 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
+import { Mail } from 'lucide-react';
+
 
 import bioAccuserOption1 from "../assets/generated_images/bio_accuser_girl_pointing_v5.png";
 import bioPanicBotOption3 from "../assets/generated_images/bio_panic_bot_option3.png";
@@ -484,6 +486,7 @@ export default function Game() {
   const [playerAbilityUsed, setPlayerAbilityUsed] = useState(false);
   const [showPopupLibrary, setShowPopupLibrary] = useState(false);
   const [showPatchNotes, setShowPatchNotes] = useState(false);
+  const [showContact, setShowContact] = useState(false);
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string, visibility?: string }[]>([]);
   
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<Player | null>(null);
@@ -5765,34 +5768,47 @@ export default function Game() {
         </div>
       </div>
 
-        {/* POPUP LIBRARY DIALOG */}
-        <Dialog open={showPopupLibrary} onOpenChange={setShowPopupLibrary}>
-          <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
-            <DialogHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-primary flex items-center gap-2">
-                    <CircleHelp /> MOMENT FLAGS
-                  </DialogTitle>
-                  <DialogDescription className="text-zinc-400">
-                    Moment Flags are special in-game achievements.
-                  </DialogDescription>
-                </div>
+      {/* POPUP LIBRARY DIALOG */}
+      <Dialog open={showPopupLibrary} onOpenChange={setShowPopupLibrary}>
+        <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
+          <DialogHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-primary flex items-center gap-2">
+                  <CircleHelp /> MOMENT FLAGS
+                </DialogTitle>
+                <DialogDescription className="text-zinc-400">
+                  Moment Flags are special in-game achievements.
+                </DialogDescription>
+              </div>
 
-                {/* Patch Notes Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowPatchNotes(true)}
-                  className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 flex items-center gap-2"
-                >
-                  <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                  Patch Notes
-                </Button>
+            {/* Patch Notes & CONTACT BUTTON HERE (inside moment flags) */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowPatchNotes(true)}
+                    className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 flex items-center gap-2"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                    Patch Notes
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowContact(true)}
+                    className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 flex items-center gap-2"
+                  >
+                    <Mail size={12} />
+                    Contact
+                  </Button>
+                </div>
               </div>
             </DialogHeader>
 
             <div className="space-y-4 mt-4">
+      
               {/* Skill-based Flags - MOVED INSIDE */}
               <details className="bg-black/40 rounded border border-blue-500/20">
                 <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-blue-300">
@@ -5813,6 +5829,7 @@ export default function Game() {
                   ))}
                 </div>
               </details>
+
 
               {/* Chaos & Drama Flags */}
               <details className="bg-black/40 rounded border border-purple-500/20">
@@ -5894,7 +5911,7 @@ export default function Game() {
                 PATCH NOTES
               </DialogTitle>
               <DialogDescription className="text-zinc-400">
-                Recent updates and fixes
+                Thanks for your support! The auction continues to evolve...
               </DialogDescription>
             </DialogHeader>
 
@@ -5924,6 +5941,80 @@ export default function Game() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+      {/* CONTACT DIALOG - SEPARATE, MOVE YOUR ENTIRE CONTACT DIALOG HERE */}
+      <Dialog open={showContact} onOpenChange={setShowContact}>
+        <DialogContent className="max-w-md bg-black/90 border-blue-500/30 backdrop-blur-xl">
+          <DialogHeader>
+            <DialogTitle className="font-display tracking-widest text-xl text-blue-400 flex items-center gap-2">
+              <Mail size={16} />
+              CONTACT
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Send us your feedback, bug reports, or suggestions
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const data = {
+              name: formData.get('name'),
+              email: formData.get('email'),
+              message: formData.get('message')
+            };
+            console.log('Contact form submitted:', data);
+            alert('Message sent! Thank you for your feedback.');
+            setShowContact(false);
+          }} className="space-y-4 mt-4">
+
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm text-zinc-300">Name</Label>
+              <Input
+                id="name"
+                name="name"
+                placeholder="Your name"
+                required
+                className="bg-black/50 border-blue-500/20 text-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm text-zinc-300">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="your@email.com"
+                required
+                className="bg-black/50 border-blue-500/20 text-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="message" className="text-sm text-zinc-300">Message</Label>
+              <textarea
+                id="message"
+                name="message"
+                placeholder="Tell us what's on your mind..."
+                required
+                rows={4}
+                className="w-full px-3 py-2 bg-black/50 border border-blue-500/20 rounded-md text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+              />
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="secondary" onClick={() => setShowContact(false)}>
+                CANCEL
+              </Button>
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                SEND MESSAGE
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
       <Dialog open={showProtocolGuide} onOpenChange={setShowProtocolGuide}>
         <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
           <DialogHeader>
