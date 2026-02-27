@@ -487,6 +487,9 @@ export default function Game() {
   const [showPopupLibrary, setShowPopupLibrary] = useState(false);
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [showContact, setShowContact] = useState(false);
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string, visibility?: string }[]>([]);
   
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<Player | null>(null);
@@ -6027,50 +6030,75 @@ export default function Game() {
               }
             }} className="space-y-4 mt-4">
 
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm text-zinc-300">Name</Label>
-              <Input
-                id="name"
-                name="name"
-                placeholder="Your name"
-                required
-                className="bg-black/50 border-blue-500/20 text-white"
-              />
-            </div>
+               <div className="space-y-2">
+                  <Label className="text-sm text-zinc-300">Name</Label>
+                  <Input
+                    placeholder="Your name"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    className="bg-black/50 border-blue-500/20 text-white"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm text-zinc-300">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="your@email.com"
-                required
-                className="bg-black/50 border-blue-500/20 text-white"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-zinc-300">Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="your@email.com"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    className="bg-black/50 border-blue-500/20 text-white"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="message" className="text-sm text-zinc-300">Message</Label>
-              <textarea
-                id="message"
-                name="message"
-                placeholder="Tell us what's on your mind..."
-                required
-                rows={4}
-                className="w-full px-3 py-2 bg-black/50 border border-blue-500/20 rounded-md text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-zinc-300">Message</Label>
+                  <textarea
+                    placeholder="Tell us what's on your mind..."
+                    rows={4}
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
+                    className="w-full px-3 py-2 bg-black/50 border border-blue-500/20 rounded-md text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                  />
+                </div>
 
-            <DialogFooter className="gap-2">
-              <Button type="button" variant="secondary" onClick={() => setShowContact(false)}>
-                CANCEL
-              </Button>
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                SEND MESSAGE
-              </Button>
-            </DialogFooter>
-          </form>
+                <DialogFooter className="gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setShowContact(false)}>
+                    CANCEL
+                  </Button>
+                  <Button 
+                    type="button" 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/contact', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            name: contactName,
+                            email: contactEmail,
+                            message: contactMessage
+                          })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          toast({ title: "Message Sent", description: "Thank you for your feedback!", duration: 3000 });
+                          setContactName('');
+                          setContactEmail('');
+                          setContactMessage('');
+                          setShowContact(false);
+                        } else {
+                          toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
+                        }
+                      } catch {
+                        toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
+                      }
+                    }}
+                  >
+                    SEND MESSAGE
+                  </Button>
+                </DialogFooter>
+              </form>
         </DialogContent>
       </Dialog>
       

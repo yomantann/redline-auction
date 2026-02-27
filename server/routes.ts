@@ -694,11 +694,14 @@ export async function registerRoutes(
 
   app.post("/api/contact", async (req, res) => {
     try {
+      console.log('[Contact] Request body:', req.body);
       const { insertContactSchema } = await import("@shared/schema");
       const message = insertContactSchema.parse(req.body);
+      console.log('[Contact] Parsed message:', message);
       await recordContactMessage(message);
       res.json({ success: true });
     } catch (error) {
+      console.error('[Contact] Full error:', error);
       log(`Contact form failed: ${error}`, "api");
       res.status(400).json({ success: false, error: String(error) });
     }
