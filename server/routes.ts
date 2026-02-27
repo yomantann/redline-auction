@@ -20,7 +20,7 @@ import {
   confirmDriverInGame,
   type GameDuration
 } from "./gameEngine";
-import { recordGameSnapshot, recordGameSummary, createGameId } from "./snapshotDb";
+import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
 import { insertGameSnapshotSchema, insertGameSummarySchema } from "@shared/schema";
 
 // Socket.IO instance - exported for later expansion
@@ -690,6 +690,18 @@ export async function registerRoutes(
   // Generate unique game ID for singleplayer games
   app.get("/api/game/new-id", (_req, res) => {
     res.json({ gameId: createGameId() });
+  });
+
+  app.post("/api/contact", async (req, res) => {
+    try {
+      const { insertContactSchema } = await import("@shared/schema");
+      const message = insertContactSchema.parse(req.body);
+      await recordContactMessage(message);
+      res.json({ success: true });
+    } catch (error) {
+      log(`Contact form failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
   });
 
   return httpServer;

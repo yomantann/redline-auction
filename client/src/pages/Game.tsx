@@ -6002,18 +6002,30 @@ export default function Game() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            const data = {
-              name: formData.get('name'),
-              email: formData.get('email'),
-              message: formData.get('message')
-            };
-            console.log('Contact form submitted:', data);
-            alert('Message sent! Thank you for your feedback.');
-            setShowContact(false);
-          }} className="space-y-4 mt-4">
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              try {
+                const res = await fetch('/api/contact', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: formData.get('name'),
+                    email: formData.get('email'),
+                    message: formData.get('message')
+                  })
+                });
+                const data = await res.json();
+                if (data.success) {
+                  toast({ title: "Message Sent", description: "Thank you for your feedback!", duration: 3000 });
+                  setShowContact(false);
+                } else {
+                  toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
+                }
+              } catch {
+                toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
+              }
+            }} className="space-y-4 mt-4">
 
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm text-zinc-300">Name</Label>

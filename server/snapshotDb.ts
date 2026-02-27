@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import { gameSnapshots, gameSummaries, type InsertGameSnapshot, type InsertGameSummary } from "@shared/schema";
+import { gameSnapshots, gameSummaries, contactMessages, type InsertGameSnapshot, type InsertGameSummary, type InsertContact } from "@shared/schema";
 
 const { Pool } = pg;
 
@@ -39,4 +39,14 @@ export async function recordGameSummary(summary: InsertGameSummary): Promise<voi
 
 export function createGameId(): string {
   return `game_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+}
+
+export async function recordContactMessage(data: InsertContact): Promise<void> {
+  try {
+    const database = getDb();
+    await database.insert(contactMessages).values(data);
+    console.log(`[Contact] Message from ${data.name} (${data.email}) recorded`);
+  } catch (error) {
+    console.error(`[Contact] Failed to record message:`, error);
+  }
 }
