@@ -1237,7 +1237,8 @@ export default function Game() {
             const roundedBid = Math.round(winnerBid * 10) / 10;
             const decimal = roundedBid % 1;
           // More forgiving: within 0.1 seconds of whole number
-          const isExactSecond = (decimal < 0.1 || decimal > 0.9);
+            // Match server's tolerance since winnerBid is raw float
+            const isExactSecond = (Math.abs(winnerBid % 1) < 0.05 || Math.abs(winnerBid % 1 - 1) < 0.05);
           if (isExactSecond) {
             setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
             momentCount++;
@@ -3003,10 +3004,8 @@ export default function Game() {
          if (winnerId === 'p1' && winnerBid > 0) {
            // Use the ORIGINAL bid value from the winner, not the rounded display value
            const winnerPlayer = participants.find(p => p.id === winnerId);
-           const originalBid = Math.round((winnerPlayer?.currentBid || 0) * 10) / 10;
-           const decimal = originalBid % 1;
-           // Within 0.1 seconds of whole number
-           const isExactSecond = (decimal < 0.1 || decimal > 0.9);
+           const originalBid = winnerPlayer?.currentBid || 0;
+           const isExactSecond = originalBid % 1 === 0; // Already clean from toFixed(1)
            if (isExactSecond) {
              setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
              momentCount++;
@@ -3208,12 +3207,11 @@ export default function Game() {
       const minPreRoundTime = Math.min(...preRoundTimes.map(p => p.preRoundTime));
       const winnerPreRound = preRoundTimes.find(p => p.id === winnerId);
 
-      if (winnerPreRound && Math.abs(winnerPreRound.preRoundTime - minPreRoundTime) < 0.001) {
-        // Winner started with lowest time bank
+      if (winnerPreRound && Math.abs(winnerPreRound.preRoundTime - minPreRoundTime) < 0.1) {
         if (winnerId === currentPlayerId) {
           setTimeout(() => {
             addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0);
-          }, 2500);  // Delay past other overlays
+          }, 2500);
           momentCount += 1;
         }
         roundMomentFlags.push('LATE_PANIC');
@@ -3253,8 +3251,8 @@ export default function Game() {
 
     // Hidden Deja Bid: winner bid within ±1.0 of previous win
     // roundLog is read BEFORE new entry added, so previous WIN BID entry is still top
-    const prevWinBidEntry = roundLog.find(l => l.startsWith('>> WIN BID: '));
-    const prevWinBid = prevWinBidEntry ? parseFloat(prevWinBidEntry.split('>> WIN BID: ')[1]) : NaN;
+    const prevWinBidEntry = roundLog.find(l => l.startsWith('>> P1_WIN_BID: '));
+    const prevWinBid = prevWinBidEntry ? parseFloat(prevWinBidEntry.split('>> P1_WIN_BID: ')[1]) : NaN;
     if (winnerId === 'p1' && !Number.isNaN(prevWinBid) && winnerTime > 0) {
       if (Math.abs(winnerTime - prevWinBid) <= 1.0) {
         addOverlay('hidden_deja_bid', 'DEJA BID', 'Previous win was with a nearly identical bid.', 0);
@@ -3401,8 +3399,8 @@ export default function Game() {
       : `Round ${round}: No winner`;
 
     // Track win bid for DEJA_BID detection next round
-    if (winnerId === 'p1' && winnerTime > 0) {
-      setRoundLog(prev => [`>> WIN BID: ${winnerTime.toFixed(1)}`, logMsg, ...prev]);
+      if (winnerId === 'p1' && winnerTime > 0) {
+        setRoundLog(prev => [`>> P1_WIN_BID: ${winnerTime.toFixed(1)}`, logMsg, ...prev]);
     } else {
       setRoundLog(prev => [logMsg, ...prev]);
     }
