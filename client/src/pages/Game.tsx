@@ -190,7 +190,7 @@ const BIO_CHARACTERS: Character[] = [
     bioAbility: { name: 'ABSORB', description: 'Take a big sip to cancel out any drinking prompt.' }
   },
   {
-    id: 'danger_zone', name: 'Danger Zone', title: 'Club Queen', image: charDangerZone, imageSocial: socialDangerZone, imageBio: charDangerZone, description: 'Works the pole, takes your soul.', color: 'text-pink-600',
+    id: 'danger_zone', name: 'Danger Zone', title: 'Club Queen', image: charDangerZone, imageSocial: socialDangerZone, imageBio: charDangerZone, description: 'Poles & Souls', color: 'text-pink-600',
     ability: { name: 'OVERPOUR', description: 'Decide before the game starts how big 1 sip really is.', effect: 'DISRUPT' },
     socialAbility: { name: 'PRIVATE DANCE', description: 'Give a command.' },
     bioAbility: { name: 'CHAIN REACTION', description: 'If you finish your drink, person to your left must also finish theirs.' }
@@ -350,7 +350,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'EMERGENCY MEETING', description: 'Chance everyone must point at another to gang up on next round.' }
   },
   { 
-    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, imageSocial: socialPrimate, imageBio: bioPrimate, description: 'Trust the process. He\'s cooking.', color: 'text-amber-600',
+    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, imageSocial: socialPrimate, imageBio: bioPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
     ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s over second place.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'FRESH CUT', description: 'Chance 1 random player must compliment everyone.' },
     bioAbility: { name: 'GREEDY GRAB', description: 'Chance previous winner must burn 40s next round or finish drink.' }
