@@ -1169,6 +1169,17 @@ export default function Game() {
       }
     }
     if (!winner) return;
+    
+    // Hidden 67: check BEFORE early return so non-winners can trigger it
+    players.forEach(p => {
+      const bid = (p.currentBid || 0) + (multiplayerGameState.minBid || 0);
+      if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
+        if (p.id === currentPlayerId) {
+          setTimeout(() => addOverlay('hidden_67', '67', `You hit 67.0s (±1.0).`, 0), 1000);
+        }
+      }
+    });
+
     if (!isCurrentPlayerWinner) return;
     
     // Trigger moment flags for current player
@@ -1221,16 +1232,17 @@ export default function Game() {
       momentCount++;
     }
     
-    // Client MP Precision Strike (Exact second bid)
-    if (winnerBid > 0) {
-      const decimal = winnerBid % 1;
-      // More forgiving: within 0.1 seconds of whole number
-      const isExactSecond = (decimal < 0.1 || decimal > 0.9);
-      if (isExactSecond) {
-        setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
-        momentCount++;
-      }
-    }
+        // Client MP Precision Strike (Exact second bid)
+          if (winnerBid > 0) {
+            const roundedBid = Math.round(winnerBid * 10) / 10;
+            const decimal = roundedBid % 1;
+          // More forgiving: within 0.1 seconds of whole number
+          const isExactSecond = (decimal < 0.1 || decimal > 0.9);
+          if (isExactSecond) {
+            setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
+            momentCount++;
+          }
+        }
     
     // 8. Comeback Hope - match SP logic: must be sole minimum token holder BEFORE winning
     const winnerStats = players.find(p => p.id === winner.id);
@@ -1301,15 +1313,6 @@ export default function Game() {
             momentCount++;
         }
     }
-
-    // Hidden 67: anyone bids within +1.0 of 67s
-    players.forEach(p => {
-      const bid = p.currentBid || 0;
-      if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
-        addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±1.0).`, 0);
-        momentCount++;
-      }
-    });
 
     // Hidden Deja Bid: prev player win was within ±1 bid (use server momentFlagsEarned)
     const winnerMpPlayer = players.find(p => p.id === winner.id);
@@ -2997,9 +3000,12 @@ export default function Game() {
            }
            
          // Client SP precision strike (exact second bid)
-         if (winnerBid > 0) {
-           const decimal = winnerBid % 1;
-           // More forgiving: within 0.1 seconds of whole number
+         if (winnerId === 'p1' && winnerBid > 0) {
+           // Use the ORIGINAL bid value from the winner, not the rounded display value
+           const winnerPlayer = participants.find(p => p.id === winnerId);
+           const originalBid = Math.round((winnerPlayer?.currentBid || 0) * 10) / 10;
+           const decimal = originalBid % 1;
+           // Within 0.1 seconds of whole number
            const isExactSecond = (decimal < 0.1 || decimal > 0.9);
            if (isExactSecond) {
              setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
@@ -3207,24 +3213,36 @@ export default function Game() {
         if (winnerId === currentPlayerId) {
           setTimeout(() => {
             addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0);
-          }, 2000); // Delay to ensure other overlays clear
+          }, 2500);  // Delay past other overlays
           momentCount += 1;
         }
         roundMomentFlags.push('LATE_PANIC');
       }
     }
 
-    // Hidden 67: ANY driver who bids within +1.0 of 67s (does not need to win)
+    // Hidden 67: ANY driver who bids within +1.0 of 67s (does not need to win) (should be sp and mp to work with server and overlay)
     const hidden67Players: string[] = [];
-    finalPlayers.forEach(p => {
+    const currentPlayerId = isMultiplayer 
+      ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id 
+      : 'p1';
+
+    // Use participants (original bids) instead of finalPlayers (processed bids)
+    participants.forEach(p => {
       const bid = p.currentBid || 0;
       if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
-        addOverlay('hidden_67', '67', `${p.name} hit 67.0s (±1.0).`, 0);
-        momentCount += 1;
+        console.log(`[Hidden 67] ${p.name} bid ${bid}, distance from 67: ${Math.abs(bid - 67)}`); // DEBUG
+        // Only show overlay if it's the current player
+        if (p.id === currentPlayerId) {
+          console.log(`[Hidden 67] Triggering overlay for current player`); // DEBUG
+          setTimeout(() => addOverlay('hidden_67', '67', `You hit 67.0s (±1.0).`, 0), 1000);
+          momentCount += 1;
+        }
         hidden67Players.push(p.id);
       }
     });
-    if (hidden67Players.length > 0) {
+
+    // Track the flag for all players who hit it (for stats) - SP only
+    if (!isMultiplayer && hidden67Players.length > 0) {
       setPlayers(prev => prev.map(p => {
         if (hidden67Players.includes(p.id)) {
           return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), 'HIDDEN_67'] };
