@@ -5692,48 +5692,64 @@ export default function Game() {
     <GameLayout variant={variant}>
       <MusicPlayer soundEnabled={soundEnabled} onToggleSound={toggleSound} />
 
-          {/* Header Info - Minimizable Banner */}
-          <div className={cn(
-            "mb-8 border-b border-white/5 pb-4 transition-all duration-300 overflow-hidden",
-            bannerExpanded ? "max-h-[500px]" : "max-h-[100px] sm:max-h-[60px]"
-          )}>
-            <div className="flex flex-col items-center gap-4">
-              {/* Always visible top row: Logo + Title + Lobby Code + Round + 21+ Badge */}
-              <div className="flex items-center gap-2 justify-center w-full flex-wrap">
-                <div 
-                  className="flex items-center gap-2 cursor-pointer hover:bg-white/5 transition-colors py-2 px-3 rounded flex-wrap justify-center"
-                  onClick={() => setBannerExpanded(!bannerExpanded)}
-                >
-                  {phase !== 'intro' && (
-                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); quitGame(); }} className="mr-2 text-white hover:text-white hover:bg-white/10" title="Quit to Menu" data-testid="button-quit-to-menu">
-                      <LogOut size={20} />
-                    </Button>
-                  )}
-                  <img src={logoFuturistic} alt="Logo" className="h-6 sm:h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                  <h1 className="font-display font-bold text-sm sm:text-xl tracking-wider">REDLINE AUCTION</h1>
-                  {isMultiplayer && currentLobby && phase !== 'multiplayer_lobby' && (
-                    <div className="ml-4 flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/30 rounded text-xs">
-                      <Users size={12} className="text-primary" />
-                      <span className="text-zinc-400">Room:</span>
-                      <span className="font-mono font-bold text-primary tracking-wider" data-testid="text-game-lobby-code">{currentLobby.code}</span>
-                    </div>
-                  )}
-                  <ChevronDown className={cn("w-4 h-4 text-white transition-transform duration-300 ml-2", bannerExpanded && "rotate-180")} />
+      {/* Logo - Outside Banner, Always Visible */}
+      <div className="flex items-center justify-center gap-3 mb-4">
+        {phase !== 'intro' && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={quitGame} 
+            className="text-white hover:text-white hover:bg-white/10" 
+            title="Quit to Menu" 
+            data-testid="button-quit-to-menu"
+          >
+            <LogOut size={20} />
+          </Button>
+        )}
+        <img 
+          src={logoFuturistic} 
+          alt="Logo" 
+          className="h-10 sm:h-12 md:h-16 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" 
+        />
+        <h1 className="font-display font-bold text-xl sm:text-2xl md:text-3xl tracking-wider">REDLINE AUCTION</h1>
+      </div>
+
+      {/* Header Info - Minimizable Banner */}
+      <div className={cn(
+        "mb-8 border-b border-white/5 pb-4 transition-all duration-300 overflow-hidden",
+        bannerExpanded ? "max-h-[500px]" : "max-h-[80px] sm:max-h-[50px]"
+      )}>
+        <div className="flex flex-col items-center gap-4">
+          {/* Always visible top row: Lobby Code + Round + 21+ Badge + Chevron */}
+          <div className="flex items-center gap-2 justify-center w-full flex-wrap">
+            <div 
+              className="flex items-center gap-2 cursor-pointer hover:bg-white/5 transition-colors py-2 px-3 rounded flex-wrap justify-center"
+              onClick={() => setBannerExpanded(!bannerExpanded)}
+            >
+              {isMultiplayer && currentLobby && phase !== 'multiplayer_lobby' && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/30 rounded text-xs">
+                  <Users size={12} className="text-primary" />
+                  <span className="text-zinc-400">Room:</span>
+                  <span className="font-mono font-bold text-primary tracking-wider" data-testid="text-game-lobby-code">{currentLobby.code}</span>
                 </div>
+              )}
 
-                {/* Round Badge - Always Visible */}
-                <Badge variant="outline" className="font-mono text-sm sm:text-lg px-3 sm:px-4 py-1 border-white/10 bg-white/5" data-testid="badge-round">
-                  ROUND {round} / {totalRounds}
-                </Badge>
+              {/* Round Badge - Always Visible */}
+              <Badge variant="outline" className="font-mono text-sm sm:text-lg px-3 sm:px-4 py-1 border-white/10 bg-white/5" data-testid="badge-round">
+                ROUND {round} / {totalRounds}
+              </Badge>
 
-                {/* 21+ Badge - Always Visible when BIO_FUEL */}
-                {variant === 'BIO_FUEL' && (
-                  <div className="flex items-center gap-2 px-3 py-1 bg-orange-950/40 border border-orange-500/30 rounded text-xs text-orange-300">
-                    <AlertTriangle size={12} className="text-orange-500" />
-                    <span className="font-bold tracking-widest">21+ ONLY</span>
-                  </div>
-                )}
-              </div>
+              {/* 21+ Badge - Always Visible when BIO_FUEL */}
+              {variant === 'BIO_FUEL' && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-orange-950/40 border border-orange-500/30 rounded text-xs text-orange-300">
+                  <AlertTriangle size={12} className="text-orange-500" />
+                  <span className="font-bold tracking-widest">21+ ONLY</span>
+                </div>
+              )}
+
+              <ChevronDown className={cn("w-4 h-4 text-white transition-transform duration-300 ml-2", bannerExpanded && "rotate-180")} />
+            </div>
+          </div>
 
           {/* Expandable content - all the settings */}
           {bannerExpanded && (
