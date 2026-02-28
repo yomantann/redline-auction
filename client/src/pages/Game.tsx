@@ -5706,11 +5706,8 @@ export default function Game() {
             <LogOut size={20} />
           </Button>
         )}
-        <img 
-          src={logoFuturistic} 
-          alt="Logo" 
-          className="h-10 sm:h-12 md:h-16 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" 
-        />
+        {/* <img src={logoFuturistic} alt="Logo" className="h-6 sm:h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" /> */} 
+        {/*not showing logo rn*/}
         <h1 className="font-display font-bold text-xl sm:text-2xl md:text-3xl tracking-wider">REDLINE AUCTION</h1>
       </div>
 
@@ -5880,7 +5877,7 @@ export default function Game() {
       <Dialog open={showPopupLibrary} onOpenChange={setShowPopupLibrary}>
         <DialogContent className="max-w-2xl bg-black/90 border-white/10 backdrop-blur-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
           <DialogHeader>
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-3">
               <div>
                 <DialogTitle className="font-display tracking-widest text-2xl mb-4 text-primary flex items-center gap-2">
                   <CircleHelp /> MOMENT FLAGS
@@ -5890,30 +5887,30 @@ export default function Game() {
                 </DialogDescription>
               </div>
 
-            {/* Patch Notes & CONTACT BUTTON HERE (inside moment flags) */}
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowPatchNotes(true)}
-                    className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 flex items-center gap-2"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                    Patch Notes
-                  </Button>
+              {/* Patch Notes & CONTACT BUTTON - Stacked */}
+              <div className="flex flex-col gap-2 w-full">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPatchNotes(true)}
+                  className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 flex items-center justify-center gap-2 w-full"
+                >
+                  <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                  Patch Notes
+                </Button>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowContact(true)}
-                    className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 flex items-center gap-2"
-                  >
-                    <Mail size={12} />
-                    Contact
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowContact(true)}
+                  className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 flex items-center justify-center gap-2 w-full"
+                >
+                  <Mail size={12} />
+                  Contact
+                </Button>
               </div>
-            </DialogHeader>
+            </div>
+          </DialogHeader>
 
             <div className="space-y-4 mt-4">
       
