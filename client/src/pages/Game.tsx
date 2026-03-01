@@ -1322,6 +1322,12 @@ export default function Game() {
       setTimeout(() => addOverlay('hidden_deja_bid', 'DEJA BID', 'Previous win was with a nearly identical bid.', 0), 500);
       momentCount++;
     }
+
+    // Late Panic: use server tracking instead of client reconstruction
+    if (mpFlagsEarned.includes('LATE_PANIC') && isCurrentPlayerWinner) {
+      setTimeout(() => addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0), 2500);
+      momentCount += 1;
+    }
     
     // Patch Notes Pending: 3+ moment flags in same round
     if (momentCount >= 3) {
@@ -3186,32 +3192,32 @@ export default function Game() {
     // So we need to increment momentCount where we call addOverlay() for moment types.
 
     // LATE PANIC: winner had lowest time bank at round START (reconstruct pre-bid time)
-    if (winnerId && participants.length > 0) {
-      const currentPlayerId = isMultiplayer 
-        ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id 
-        : 'p1';
+    // SP only - MP uses server-tracked momentFlagsEarned instead
+    if (!isMultiplayer && winnerId && participants.length > 0 && round > 1) {
+      // Include players eliminated this round, exclude previously eliminated
+      const enteredThisRound = players.filter(p =>
+        !p.isEliminated || playersOut.includes(p.name)
+      );
 
-      // Get all players who participated (bid > 0) to reconstruct pre-round state
-      const allParticipants = isMultiplayer 
-        ? (multiplayerGameState?.players || [])
-        : players;
+      const startApproximations = enteredThisRound.map(p => ({
+        id: p.id,
+        startTime: p.remainingTime + (p.currentBid || 0)
+      }));
 
-      // Calculate pre-round time for each player (current time + their bid)
-      const preRoundTimes = allParticipants
-        .filter(p => !p.isEliminated)
-        .map(p => ({
-          id: p.id,
-          preRoundTime: p.remainingTime + (p.currentBid || 0)
-        }));
+      const minStartApprox = Math.min(...startApproximations.map(s => s.startTime));
+      const playersAtMin = startApproximations.filter(s =>
+        Math.abs(s.startTime - minStartApprox) < 0.0001
+      );
 
-      const minPreRoundTime = Math.min(...preRoundTimes.map(p => p.preRoundTime));
-      const winnerPreRound = preRoundTimes.find(p => p.id === winnerId);
+      const winnerEntry = startApproximations.find(s => s.id === winnerId);
+      const winnerIsMin = winnerEntry && winnerEntry.startTime < minStartApprox + 0.0001;
+      const winnerIsSoleMin = winnerIsMin && playersAtMin.length === 1;
 
-      if (winnerPreRound && Math.abs(winnerPreRound.preRoundTime - minPreRoundTime) < 0.1) {
-        if (winnerId === currentPlayerId) {
+      if (winnerIsSoleMin) {
+        if (winnerId === 'p1') {
           setTimeout(() => {
             addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0);
-          }, 2500);
+          }, 800);
           momentCount += 1;
         }
         roundMomentFlags.push('LATE_PANIC');
