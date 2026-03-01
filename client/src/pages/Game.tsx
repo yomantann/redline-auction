@@ -1323,9 +1323,9 @@ export default function Game() {
       momentCount++;
     }
 
-    // Late Panic: use server tracking instead of client reconstruction
-    if (mpFlagsEarned.includes('LATE_PANIC') && isCurrentPlayerWinner) {
-      setTimeout(() => addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0), 2500);
+    // LATE_PANIC - only rounds > 1, use server tracking
+    if (mpFlagsEarned.includes('LATE_PANIC') && isCurrentPlayerWinner && multiplayerGameState.round > 1) {
+      setTimeout(() => addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0), 800);
       momentCount += 1;
     }
     
