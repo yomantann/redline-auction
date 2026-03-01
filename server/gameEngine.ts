@@ -1336,7 +1336,7 @@ function endRound(lobbyCode: string) {
       .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
     if (validBidders.length >= 2) {
       const topBid = validBidders[0].currentBid || 0;
-      const tiedPlayers = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.05);
+      const tiedPlayers = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.09);
       if (tiedPlayers.length >= 2) {
         tiedPlayers.forEach(p => p.momentFlagsEarned.push('DEADLOCK_SYNC'));
         addGameLogEntry(game, {

@@ -1160,7 +1160,7 @@ export default function Game() {
 
       if (validBidders.length >= 2) {
         const topBid = validBidders[0].currentBid || 0;
-        const tied = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.05);
+        const tied = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.09);
         if (tied.length >= 2 && tied.some(p => p.id === currentPlayerId)) {
           addOverlay("deadlock_sync", "DEADLOCK SYNC", "Exact time match! No winner.");
         }
@@ -2496,7 +2496,7 @@ export default function Game() {
 
     if (validParticipants.length > 0) {
         const potentialWinner = validParticipants[0];
-        const isTie = validParticipants.some(p => p.id !== potentialWinner.id && Math.abs((p.currentBid || 0) - (potentialWinner.currentBid || 0)) < 0.05);
+        const isTie = validParticipants.some(p => p.id !== potentialWinner.id && Math.abs((p.currentBid || 0) - (potentialWinner.currentBid || 0)) < 0.09);
         
         if (!isTie) {
             winnerId = potentialWinner.id;
@@ -3068,7 +3068,7 @@ export default function Game() {
            .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
          if (validBidders.length >= 2) {
            const topBid = validBidders[0].currentBid || 0;
-           const tiedIds = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.05).map(p => p.id);
+           const tiedIds = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.09).map(p => p.id);
            if (tiedIds.length >= 2) {
              setPlayers(prev => prev.map(p => {
                if (tiedIds.includes(p.id)) {
