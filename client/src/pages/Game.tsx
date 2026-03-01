@@ -1236,10 +1236,10 @@ export default function Game() {
     }
     
         // Client MP Precision Strike (Exact second bid)
-            if (winnerBid > 0 && isCurrentPlayerWinner) {
-              const adjustedBid = winnerBid + (multiplayerGameState.minBid || 0);
-              const isExactSecond = (Math.abs(adjustedBid % 1) < 0.05 || Math.abs(adjustedBid % 1 - 1) < 0.05);
-            if (isExactSecond) {
+              if (winnerBid > 0 && isCurrentPlayerWinner) {
+                const adjustedBid = winnerBid + (multiplayerGameState.minBid || 0);
+                const isExactSecond = (Math.round(adjustedBid * 10) / 10) % 1 === 0;
+              if (isExactSecond) {
             setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
             momentCount++;
           }
@@ -3011,7 +3011,7 @@ export default function Game() {
            // Use the ORIGINAL bid value from the winner, not the rounded display value
            const winnerPlayer = participants.find(p => p.id === winnerId);
            const originalBid = winnerPlayer?.currentBid || 0;
-           const isExactSecond = originalBid % 1 === 0; // Already clean from toFixed(1)
+           const isExactSecond = originalBid > 0 && (Math.round(originalBid * 10) / 10) % 1 === 0;
            if (isExactSecond) {
              setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
              momentCount++;
