@@ -1168,11 +1168,26 @@ export default function Game() {
         addOverlay("zero_bid", "AFK", "No one dared to bid!");
       }
     }
-    if (!winner) return;
     
+    lastRoundEndProcessedRef.current = multiplayerGameState.round;
+    if (!winner) return;
+
+    
+    // Hidden 67: check BEFORE early return so non-winners can trigger it
+    players.forEach(p => {
+      const bid = (p.currentBid || 0) + (multiplayerGameState.minBid || 0);
+        if (bid >= 67.0 && bid < 68.0) {
+        if (p.id === currentPlayerId) {
+          setTimeout(() => addOverlay('hidden_67', '67', `You hit 67.`, 0), 1000);
+        }
+      }
+    });
+
     // Trigger moment flags for current player
     let momentCount = 0;
     const winnerBid = winner.bid;
+
+    
     
     // Get player data
     const winnerPlayer = players.find(p => p.id === winner.id);
@@ -1185,43 +1200,43 @@ export default function Game() {
     const margin = winnerBid - secondBid;
     
     // 1. Smug Confidence (Round 1 Win)
-    if (multiplayerGameState.round === 1) {
+    if (multiplayerGameState.round === 1 && isCurrentPlayerWinner) {
       addOverlay("smug_confidence", "SMUG CONFIDENCE", `${winner.name} starts strong!`);
       momentCount++;
     }
     
     // 2. Fake Calm (Margin >= 15s)
-    if (sortedByBid.length > 1 && margin >= 15) {
+    if (sortedByBid.length > 1 && margin >= 15 && isCurrentPlayerWinner) {
       setTimeout(() => addOverlay("fake_calm", "FAKE CALM", `Won by ${margin.toFixed(1)}s!`), 500);
       momentCount++;
     }
     
     // 3. Genius Move (Margin <= 5s)
-    if (sortedByBid.length > 1 && margin <= 5 && margin > 0) {
+      if (sortedByBid.length > 1 && margin <= 5 && margin > 0 && isCurrentPlayerWinner) {
       setTimeout(() => addOverlay("genius_move", "GENIUS MOVE", `Won by just ${margin.toFixed(1)}s`), 500);
       momentCount++;
     }
     
     // 4. Easy W (Bid < 20s)
-    if (winnerBid < 20) {
+      if (winnerBid < 20 && isCurrentPlayerWinner) {
       setTimeout(() => addOverlay("easy_w", "EASY W", `Won with only ${winnerBid.toFixed(1)}s`), 1000);
       momentCount++;
     }
     
     // 5. Overkill (Bid > 60s)
-    if (winnerBid > 60) {
+      if (winnerBid > 60 && isCurrentPlayerWinner) {
       setTimeout(() => addOverlay("overkill", "OVERKILL", "Massive bid!"), 1500);
       momentCount++;
     }
     
     // 6. Clutch Play (Low remaining time)
-    if (winnerPlayer && winnerPlayer.remainingTime < 10) {
+      if (winnerPlayer && winnerPlayer.remainingTime < 10 && isCurrentPlayerWinner) {
       setTimeout(() => addOverlay("clutch_play", "CLUTCH PLAY", "Almost out of time!"), 1500);
       momentCount++;
     }
     
         // Client MP Precision Strike (Exact second bid)
-          if (winnerBid > 0) {
+            if (winnerBid > 0 && isCurrentPlayerWinner) {
             const roundedBid = Math.round(winnerBid * 10) / 10;
             const decimal = roundedBid % 1;
           // More forgiving: within 0.1 seconds of whole number
@@ -1245,7 +1260,7 @@ export default function Game() {
       const playersAtMin = allTokensBefore.filter(t => t === minTokens);
       const someoneHadMore = allTokensBefore.some(t => t > winnerTokensBefore);
       
-      if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && someoneHadMore) {
+        if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && someoneHadMore && isCurrentPlayerWinner) {
         setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winner.name} stays in the fight!`), 1000);
         momentCount++;
       }
@@ -1255,7 +1270,7 @@ export default function Game() {
     const mpDuration = multiplayerGameState.settings?.gameDuration;
     const totalRoundsForMp = (mpDuration === 'short' || mpDuration === 'sprint') ? 9 
       : mpDuration === 'long' ? 18 : 9;
-    if (multiplayerGameState.round === totalRoundsForMp && multiplayerGameState.eliminatedThisRound?.length > 0) {
+      if (multiplayerGameState.round === totalRoundsForMp && multiplayerGameState.eliminatedThisRound?.length > 0 && isCurrentPlayerWinner) {
       setTimeout(() => addOverlay("last_one_standing", "LAST ONE STANDING", `Survivor Victory!`), 2000);
       momentCount++;
     }
@@ -1321,16 +1336,6 @@ export default function Game() {
     if (momentCount >= 3) {
       setTimeout(() => addOverlay("hidden_patch_notes", "PATCH NOTES PENDING", "Triggered 3+ moment flags in one round."), 2500);
     }
-
-    // Hidden 67: check BEFORE early return so non-winners can trigger it
-    players.forEach(p => {
-      const bid = (p.currentBid || 0) + (multiplayerGameState.minBid || 0);
-        if (bid >= 67.0 && bid < 68.0) {
-        if (p.id === currentPlayerId) {
-          setTimeout(() => addOverlay('hidden_67', '67', `You hit 67.0s (±1.0).`, 0), 1000);
-        }
-      }
-    });
     
     // Mark this round as processed to prevent duplicate triggers
     lastRoundEndProcessedRef.current = multiplayerGameState.round;
@@ -3236,7 +3241,7 @@ export default function Game() {
         // Only show overlay if it's the current player
         if (p.id === currentPlayerId) {
           console.log(`[Hidden 67] Triggering overlay for current player`); // DEBUG
-          setTimeout(() => addOverlay('hidden_67', '67', `You hit 67.0s (±1.0).`, 0), 1000);
+          setTimeout(() => addOverlay('hidden_67', '67', `You hit 67.`, 0), 1000);
           momentCount += 1;
         }
         hidden67Players.push(p.id);
