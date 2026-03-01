@@ -1389,14 +1389,6 @@ function endRound(lobbyCode: string) {
       if (game.round >= game.totalRounds && game.eliminatedThisRound.length > 0) {
         winnerPlayer.momentFlagsEarned.push('LAST_ONE_STANDING');
       }
-      
-      // HIDDEN_67: any player (not just winner) who bids within ±0.1 of 67s
-      game.players.forEach(p => {
-        const bid = p.currentBid || 0;
-        if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
-          p.momentFlagsEarned.push('HIDDEN_67');
-        }
-      });
 
       // HIDDEN_DEJA_BID: winner bids within ±1.0 of their previous winning bid
       if (winnerId) {
@@ -1416,6 +1408,16 @@ function endRound(lobbyCode: string) {
       }
     }
   }
+
+  // HIDDEN_67: any player (not just winner) who bids within ±0.1 of 67s
+  game.players.forEach(p => {
+    const bid = p.currentBid || 0;
+    const minBid = getMinBidPenalty(game.gameDuration);
+    const effectiveBid = p.isBot ? bid : bid + minBid;
+    if (effectiveBid >= 67.0 && effectiveBid < 68.0) {
+      p.momentFlagsEarned.push('HIDDEN_67');
+    }
+  });
   
   //MP Server matching client for Redline Reversal:
   if (winnerId && game.round >= game.totalRounds) {

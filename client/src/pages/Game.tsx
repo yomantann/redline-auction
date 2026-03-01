@@ -1170,18 +1170,6 @@ export default function Game() {
     }
     if (!winner) return;
     
-    // Hidden 67: check BEFORE early return so non-winners can trigger it
-    players.forEach(p => {
-      const bid = (p.currentBid || 0) + (multiplayerGameState.minBid || 0);
-      if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
-        if (p.id === currentPlayerId) {
-          setTimeout(() => addOverlay('hidden_67', '67', `You hit 67.0s (±1.0).`, 0), 1000);
-        }
-      }
-    });
-
-    if (!isCurrentPlayerWinner) return;
-    
     // Trigger moment flags for current player
     let momentCount = 0;
     const winnerBid = winner.bid;
@@ -1333,6 +1321,16 @@ export default function Game() {
     if (momentCount >= 3) {
       setTimeout(() => addOverlay("hidden_patch_notes", "PATCH NOTES PENDING", "Triggered 3+ moment flags in one round."), 2500);
     }
+
+    // Hidden 67: check BEFORE early return so non-winners can trigger it
+    players.forEach(p => {
+      const bid = (p.currentBid || 0) + (multiplayerGameState.minBid || 0);
+        if (bid >= 67.0 && bid < 68.0) {
+        if (p.id === currentPlayerId) {
+          setTimeout(() => addOverlay('hidden_67', '67', `You hit 67.0s (±1.0).`, 0), 1000);
+        }
+      }
+    });
     
     // Mark this round as processed to prevent duplicate triggers
     lastRoundEndProcessedRef.current = multiplayerGameState.round;
@@ -3233,8 +3231,8 @@ export default function Game() {
     // Use participants (original bids) instead of finalPlayers (processed bids)
     participants.forEach(p => {
       const bid = p.currentBid || 0;
-      if (bid > 0 && Math.abs(bid - 67) <= 1.0) {
-        console.log(`[Hidden 67] ${p.name} bid ${bid}, distance from 67: ${Math.abs(bid - 67)}`); // DEBUG
+        if (bid >= 67.0 && bid < 68.0) {
+          console.log(`[Hidden 67] ${p.name} bid ${bid}, distance from 67: ${Math.abs(bid - 67)}`); // DEBUG
         // Only show overlay if it's the current player
         if (p.id === currentPlayerId) {
           console.log(`[Hidden 67] Triggering overlay for current player`); // DEBUG
