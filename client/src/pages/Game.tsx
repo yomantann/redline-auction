@@ -1237,12 +1237,9 @@ export default function Game() {
     
         // Client MP Precision Strike (Exact second bid)
             if (winnerBid > 0 && isCurrentPlayerWinner) {
-            const roundedBid = Math.round(winnerBid * 10) / 10;
-            const decimal = roundedBid % 1;
-          // More forgiving: within 0.1 seconds of whole number
-            // Match server's tolerance since winnerBid is raw float
-            const isExactSecond = (Math.abs(winnerBid % 1) < 0.05 || Math.abs(winnerBid % 1 - 1) < 0.05);
-          if (isExactSecond) {
+              const adjustedBid = winnerBid + (multiplayerGameState.minBid || 0);
+              const isExactSecond = (Math.abs(adjustedBid % 1) < 0.05 || Math.abs(adjustedBid % 1 - 1) < 0.05);
+            if (isExactSecond) {
             setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
             momentCount++;
           }
@@ -3235,8 +3232,8 @@ export default function Game() {
 
     // Use participants (original bids) instead of finalPlayers (processed bids)
     participants.forEach(p => {
-      const bid = p.currentBid || 0;
-        if (bid >= 67.0 && bid < 68.0) {
+          const bid = (p.currentBid || 0) + getPenalty(); // add minBid offset
+          if (bid >= 67.0 && bid < 68.0) {
           console.log(`[Hidden 67] ${p.name} bid ${bid}, distance from 67: ${Math.abs(bid - 67)}`); // DEBUG
         // Only show overlay if it's the current player
         if (p.id === currentPlayerId) {
@@ -3260,8 +3257,8 @@ export default function Game() {
 
     // Hidden Deja Bid: winner bid within ±1.0 of previous win
     // roundLog is read BEFORE new entry added, so previous WIN BID entry is still top
-    const prevWinBidEntry = roundLog.find(l => l.startsWith('>> P1_WIN_BID: '));
-    const prevWinBid = prevWinBidEntry ? parseFloat(prevWinBidEntry.split('>> P1_WIN_BID: ')[1]) : NaN;
+    const prevWinBidEntry = roundLog.find(l => l.startsWith(`>> P1_WIN_BID_R${round - 1}: `));
+    const prevWinBid = prevWinBidEntry ? parseFloat(prevWinBidEntry.split(`>> P1_WIN_BID_R${round - 1}: `)[1]) : NaN;
     if (winnerId === 'p1' && !Number.isNaN(prevWinBid) && winnerTime > 0) {
       if (Math.abs(winnerTime - prevWinBid) <= 1.0) {
         addOverlay('hidden_deja_bid', 'DEJA BID', 'Previous win was with a nearly identical bid.', 0);
@@ -3409,8 +3406,8 @@ export default function Game() {
 
     // Track win bid for DEJA_BID detection next round
       if (winnerId === 'p1' && winnerTime > 0) {
-        setRoundLog(prev => [`>> P1_WIN_BID: ${winnerTime.toFixed(1)}`, logMsg, ...prev]);
-    } else {
+      setRoundLog(prev => [`>> P1_WIN_BID_R${round}: ${winnerTime.toFixed(1)}`, logMsg, ...prev]);
+      } else {
       setRoundLog(prev => [logMsg, ...prev]);
     }
     

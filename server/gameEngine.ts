@@ -1305,9 +1305,10 @@ function endRound(lobbyCode: string) {
       if (winnerPlayer.remainingTime < 10) {
         winnerPlayer.momentFlagsEarned.push('CLUTCH_PLAY');
       }
-      if (winnerBid > 0 && (Math.abs(winnerBid % 1) < 0.01 || Math.abs(winnerBid % 1 - 1) < 0.01)) {
-        winnerPlayer.momentFlagsEarned.push('PRECISION_STRIKE');
-      }
+        const adjustedWinnerBid = winnerBid + getMinBidPenalty(game.gameDuration);
+        if (adjustedWinnerBid > 0 && (Math.abs(adjustedWinnerBid % 1) < 0.05 || Math.abs(adjustedWinnerBid % 1 - 1) < 0.05)) {
+          winnerPlayer.momentFlagsEarned.push('PRECISION_STRIKE');
+        }
       // Comeback Hope: winner was sole last-place before winning
       const isDoubleRound = game.activeProtocol === 'DOUBLE_STAKES' || game.activeProtocol === 'PANIC_ROOM';
       const tokensAwarded = isDoubleRound ? 2 : 1;
@@ -1397,7 +1398,7 @@ function endRound(lobbyCode: string) {
           // Find previous WIN BID log entry from a previous round
           const prevWinEntry = [...game.gameLog]
             .reverse()
-            .find(l => l.type === 'win' && l.playerId === winnerId && l.round < game.round && l.value && l.value > 0);
+          .find(l => l.type === 'win' && l.playerId === winnerId && l.round === game.round - 1 && l.value && l.value > 0);
           if (prevWinEntry && prevWinEntry.value) {
             const currentBid = winnerForDeja.currentBid || 0;
             if (Math.abs(currentBid - prevWinEntry.value) <= 1.0) {
