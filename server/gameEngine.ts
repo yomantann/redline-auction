@@ -1010,6 +1010,15 @@ function endRound(lobbyCode: string) {
   if (!game) return;
   
   game.phase = 'round_end';
+
+  // Snapshot time banks before any deductions (for LATE_PANIC check)
+  const startingTimeBanks = new Map<string, number>();
+  const minBid = getMinBidPenalty(game.gameDuration);
+  game.players.forEach(p => {
+    const bid = p.currentBid || 0;
+    const isHuman = !p.isBot;
+    startingTimeBanks.set(p.id, p.remainingTime + bid + (isHuman ? minBid : 0));
+  });
   
   // Find winner (highest bid among non-eliminated)
   const participants = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
@@ -1352,28 +1361,22 @@ function endRound(lobbyCode: string) {
       if (winnerId && game.round > 1) {
         const winnerPlayer = game.players.find(p => p.id === winnerId);
         if (winnerPlayer) {
-          const winnerBidVal = winnerPlayer.currentBid || 0;
-          const winnerStartApprox = winnerPlayer.remainingTime + winnerBidVal;
-
-          // Include ALL players who entered this round - previously eliminated have 0 time
-          // so reconstruct only for players active at round start (not eliminated before this round)
-          const enteredThisRound = game.players.filter(p => 
+          const enteredThisRound = game.players.filter(p =>
             !p.isEliminated || game.eliminatedThisRound.includes(p.id)
           );
 
           const startApproximations = enteredThisRound.map(p => ({
             id: p.id,
-            startTime: p.remainingTime + (p.currentBid || 0)
+            startTime: startingTimeBanks.get(p.id) ?? (p.remainingTime + (p.currentBid || 0))
           }));
 
           const minStartApprox = Math.min(...startApproximations.map(s => s.startTime));
-          const playersAtMin = startApproximations.filter(s => 
+          const playersAtMin = startApproximations.filter(s =>
             Math.abs(s.startTime - minStartApprox) < 0.0001
           );
 
-          // Winner must be the sole minimum - if an eliminated player also had the lowest
-          // bank, suppress the flag entirely
-          const winnerIsMin = winnerStartApprox < minStartApprox + 0.0001;
+          const winnerEntry = startApproximations.find(s => s.id === winnerId);
+          const winnerIsMin = winnerEntry && winnerEntry.startTime < minStartApprox + 0.0001;
           const winnerIsSoleMin = winnerIsMin && playersAtMin.length === 1;
 
           if (winnerIsSoleMin) {
