@@ -1013,11 +1013,9 @@ function endRound(lobbyCode: string) {
 
   // Snapshot time banks before any deductions (for LATE_PANIC check)
   const startingTimeBanks = new Map<string, number>();
-  const minBid = getMinBidPenalty(game.gameDuration);
   game.players.forEach(p => {
     const bid = p.currentBid || 0;
-    const isHuman = !p.isBot;
-    startingTimeBanks.set(p.id, p.remainingTime + bid + (isHuman ? minBid : 0));
+    startingTimeBanks.set(p.id, p.remainingTime + bid);
   });
   
   // Find winner (highest bid among non-eliminated)
@@ -1194,9 +1192,7 @@ function endRound(lobbyCode: string) {
           value: p.currentBid,
         });
       } else {
-        const minBid = getMinBidPenalty(game.gameDuration);
-        const deduction = p.isBot ? p.currentBid : p.currentBid + minBid;
-        p.remainingTime -= deduction;
+        p.remainingTime -= p.currentBid;
         if (p.remainingTime <= 0) {
           p.remainingTime = 0;
           p.isEliminated = true;
@@ -2120,11 +2116,15 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
   
   // During bidding: lock in the bid
   if (game.phase === 'bidding' && player.isHolding) {
-    const elapsed = (Date.now() - (game.roundStartTime || Date.now())) / 1000;
+    const rawElapsed = (Date.now() - (game.roundStartTime || Date.now())) / 1000;
+    const panicMultiplier = game.activeProtocol === 'PANIC_ROOM' ? 2 : 1;
+    const playerHasFireWall = player.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled;
+    const playerElapsed = (playerHasFireWall && game.activeProtocol === 'PANIC_ROOM') ? rawElapsed : rawElapsed * panicMultiplier;
+    const minBid = getMinBidPenalty(game.gameDuration);
     player.isHolding = false;
-    player.currentBid = elapsed;
+    player.currentBid = playerElapsed + minBid;
     
-    log(`${player.name} released at ${elapsed.toFixed(1)}s in lobby ${lobbyCode}`, "game");
+    log(`${player.name} released at ${player.currentBid.toFixed(1)}s (${playerElapsed.toFixed(1)}s hold + ${minBid}s minBid) in lobby ${lobbyCode}`, "game");
     
     // Broadcast immediately
     broadcastGameState(lobbyCode);
