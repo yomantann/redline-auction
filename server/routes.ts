@@ -63,6 +63,7 @@ interface Lobby {
   createdAt: number;
   status: 'waiting' | 'starting' | 'in_game';
   settings: GameSettings;
+  isPublic: boolean;
 }
 
 // In-memory lobby storage
@@ -93,7 +94,8 @@ function broadcastLobbyUpdate(lobbyCode: string) {
     hostSocketId: lobby.hostSocketId,
     status: lobby.status,
     maxPlayers: lobby.maxPlayers,
-    settings: lobby.settings
+    settings: lobby.settings,
+    isPublic: lobby.isPublic
   });
 }
 
@@ -188,8 +190,9 @@ export async function registerRoutes(
     socket.on("create_lobby", (data: { 
       playerName: string; 
       settings?: Partial<GameSettings>;
+      isPublic?: boolean;
     }, callback) => {
-      const { playerName, settings: hostSettings } = data;
+      const { playerName, settings: hostSettings, isPublic } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -226,7 +229,8 @@ export async function registerRoutes(
         maxPlayers: 16,
         createdAt: Date.now(),
         status: 'waiting',
-        settings: { ...defaultSettings, ...hostSettings, gameDuration: mappedDuration }
+        settings: { ...defaultSettings, ...hostSettings, gameDuration: mappedDuration },
+        isPublic: isPublic ?? false
       };
       
       lobbies.set(code, lobby);
@@ -241,7 +245,8 @@ export async function registerRoutes(
         hostSocketId: lobby.hostSocketId,
         status: lobby.status,
         maxPlayers: lobby.maxPlayers,
-        settings: lobby.settings
+        settings: lobby.settings,
+        isPublic: lobby.isPublic
       }});
       
       broadcastLobbyUpdate(code);
@@ -293,10 +298,58 @@ export async function registerRoutes(
         hostSocketId: lobby.hostSocketId,
         status: lobby.status,
         maxPlayers: lobby.maxPlayers,
-        settings: lobby.settings
+        settings: lobby.settings,
+        isPublic: lobby.isPublic
       }});
       
       broadcastLobbyUpdate(upperCode);
+    });
+
+    // JOIN RANDOM PUBLIC LOBBY
+    socket.on("join_random_lobby", (data: { playerName: string }, callback) => {
+      const { playerName } = data;
+      
+      if (playerToLobby.has(socket.id)) {
+        callback({ success: false, error: "Already in a lobby" });
+        return;
+      }
+      
+      const availableLobbies = Array.from(lobbies.values()).filter(
+        lobby => lobby.isPublic && lobby.status === 'waiting' && lobby.players.length < lobby.maxPlayers
+      );
+      
+      if (availableLobbies.length === 0) {
+        callback({ success: false, error: "No public lobbies available" });
+        return;
+      }
+      
+      const lobby = availableLobbies[Math.floor(Math.random() * availableLobbies.length)];
+      
+      const player: LobbyPlayer = {
+        id: `player_${Date.now()}`,
+        socketId: socket.id,
+        name: playerName || `Player ${lobby.players.length + 1}`,
+        isHost: false,
+        isReady: false
+      };
+      
+      lobby.players.push(player);
+      playerToLobby.set(socket.id, lobby.code);
+      socket.join(lobby.code);
+      
+      log(`${playerName} (${socket.id}) joined random public lobby ${lobby.code}. ${lobby.players.length} players now.`, "lobby");
+      
+      callback({ success: true, lobby: {
+        code: lobby.code,
+        players: lobby.players,
+        hostSocketId: lobby.hostSocketId,
+        status: lobby.status,
+        maxPlayers: lobby.maxPlayers,
+        settings: lobby.settings,
+        isPublic: lobby.isPublic
+      }});
+      
+      broadcastLobbyUpdate(lobby.code);
     });
 
     // LEAVE LOBBY

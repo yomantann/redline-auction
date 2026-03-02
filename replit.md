@@ -88,6 +88,11 @@ shared/           # Shared code between frontend and backend
 
 ### MP Lobby & Eliminated Players
 - Lobby capacity: 16 players max
+- Public vs Private lobbies: `isPublic` field on Lobby interface in server/routes.ts
+  - Private (default): only players with the room code can join
+  - Public: visible to "Join Random Room" — anyone can find and join up to max capacity
+  - `join_random_lobby` socket event picks a random public waiting lobby with available slots
+  - Lobby waiting room shows PUBLIC/PRIVATE badge next to room code
 - Eliminated players auto-acknowledge round ends (never block round progression)
 - When all human players eliminated: remaining rounds fast-forward with random CPU trophy awards
 - SFX restricted to moment flag overlays only (not round_start, protocol_alert, etc.), 2000ms blocking window

@@ -114,7 +114,6 @@ import bioPopcat from '../assets/generated_images/bio_popcat.png';
 import bioWinter from '../assets/generated_images/bio_frostbyte_v4.png';
 import bioPepe from '../assets/generated_images/bio_pepe.png';
 import bioNyan from '../assets/generated_images/bio_nyan.png';
-import bioKaren from '../assets/generated_images/bio_karen.png';
 import bioFine from '../assets/generated_images/bio_low_flame_no_text_v3.png';
 import bioBf from '../assets/generated_images/bio_bf.png';
 import bioRat from '../assets/generated_images/bio_rind_mouse_sniper_v4.png';
@@ -776,8 +775,10 @@ export default function Game() {
       gameDuration: 'sprint' | 'standard' | 'long' | 'short';
     };
     maxPlayers: number;
+    isPublic?: boolean;
   } | null>(null);
   const [lobbyError, setLobbyError] = useState<string | null>(null);
+  const [isPublicLobby, setIsPublicLobby] = useState(false);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
   const [multiplayerGameState, setMultiplayerGameState] = useState<{
     round: number;
@@ -3720,7 +3721,7 @@ export default function Game() {
       gameDuration: serverDuration
     };
     
-    socket.emit("create_lobby", { playerName, settings }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("create_lobby", { playerName, settings, isPublic: isPublicLobby }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Created:', response.code);
         setCurrentLobby(response.lobby);
@@ -3732,7 +3733,7 @@ export default function Game() {
         setLobbyError(response.error || "Failed to create lobby");
       }
     });
-  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration]);
+  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration, isPublicLobby]);
   
   const handleJoinRoom = useCallback(() => {
     if (!socket || !isConnected) {
@@ -3767,6 +3768,25 @@ export default function Game() {
       }
     });
   }, [socket, isConnected, lobbyCode, playerName]);
+
+  const handleJoinRandomRoom = useCallback(() => {
+    if (!socket || !isConnected) {
+      setLobbyError("Not connected to server");
+      return;
+    }
+    
+    setLobbyError(null);
+    socket.emit("join_random_lobby", { playerName }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+      if (response.success && response.lobby) {
+        console.log('[Lobby] Joined random:', response.lobby.code);
+        setCurrentLobby(response.lobby);
+        setLobbyCode(response.lobby.code);
+        localStorage.setItem(`redline_player_${response.lobby.code.toUpperCase()}`, JSON.stringify({ playerName }));
+      } else {
+        setLobbyError(response.error || "No public lobbies available");
+      }
+    });
+  }, [socket, isConnected, playerName]);
 
   const handleLeaveLobby = useCallback(() => {
     if (!socket) return;
@@ -4411,7 +4431,20 @@ export default function Game() {
                     {currentLobby.code}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-500">Share this code with friends to join</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  {currentLobby.isPublic ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 border border-green-500/30 text-green-400 font-medium flex items-center gap-1" data-testid="badge-lobby-public">
+                      <Globe size={10} /> PUBLIC
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-primary/20 border border-primary/30 text-primary font-medium flex items-center gap-1" data-testid="badge-lobby-private">
+                      <Lock size={10} /> PRIVATE
+                    </span>
+                  )}
+                  <span className="text-xs text-zinc-500">
+                    {currentLobby.isPublic ? "Anyone can find this lobby" : "Share this code with friends to join"}
+                  </span>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -4658,14 +4691,44 @@ export default function Game() {
                 {/* Create Room */}
                 <div className="bg-card/30 p-6 rounded-lg border border-white/10 hover:border-primary/50 transition-colors text-center space-y-4">
                    <h3 className="font-bold text-lg flex items-center justify-center gap-2"><Users size={20}/> Create Room</h3>
-                   <p className="text-xs text-zinc-500">Host a private match for friends.</p>
+                   <div className="flex items-center justify-center gap-3">
+                     <button
+                       onClick={() => setIsPublicLobby(false)}
+                       className={cn(
+                         "flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-all",
+                         !isPublicLobby 
+                           ? "bg-primary/20 border border-primary text-primary" 
+                           : "bg-black/30 border border-white/10 text-zinc-400 hover:text-white"
+                       )}
+                       data-testid="button-private-lobby"
+                     >
+                       <Lock size={14} /> Private
+                     </button>
+                     <button
+                       onClick={() => setIsPublicLobby(true)}
+                       className={cn(
+                         "flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-all",
+                         isPublicLobby 
+                           ? "bg-green-500/20 border border-green-500 text-green-400" 
+                           : "bg-black/30 border border-white/10 text-zinc-400 hover:text-white"
+                       )}
+                       data-testid="button-public-lobby"
+                     >
+                       <Globe size={14} /> Public
+                     </button>
+                   </div>
+                   <p className="text-xs text-zinc-500">
+                     {isPublicLobby 
+                       ? "Anyone can find and join your lobby." 
+                       : "Only players with the room code can join."}
+                   </p>
                    <Button 
                      onClick={handleCreateRoom} 
                      className="w-full" 
                      disabled={!isConnected || !playerName.trim()}
                      data-testid="button-create-lobby"
                    >
-                     Create New Lobby
+                     Create {isPublicLobby ? 'Public' : 'Private'} Lobby
                    </Button>
                 </div>
 
@@ -4697,6 +4760,17 @@ export default function Game() {
                        data-testid="button-join-lobby"
                      >
                        Join
+                     </Button>
+                   </div>
+                   <div className="border-t border-white/5 pt-3">
+                     <Button
+                       onClick={handleJoinRandomRoom}
+                       variant="outline"
+                       className="w-full border-green-500/30 text-green-400 hover:bg-green-500/10 hover:text-green-300"
+                       disabled={!isConnected || !playerName.trim()}
+                       data-testid="button-join-random"
+                     >
+                       <Shuffle size={16} className="mr-2" /> Join Random Room
                      </Button>
                    </div>
                 </div>
