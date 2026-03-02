@@ -1176,7 +1176,7 @@ export default function Game() {
     
     // Hidden 67: check BEFORE early return so non-winners can trigger it
     players.forEach(p => {
-      const bid = (p.currentBid || 0) + (multiplayerGameState.minBid || 0);
+      const bid = (p.currentBid || 0);
         if (bid >= 67.0 && bid < 68.0) {
         if (p.id === currentPlayerId) {
           setTimeout(() => addOverlay('hidden_67', '67', `You hit 67.`, 0), 1000);
@@ -1238,7 +1238,7 @@ export default function Game() {
     
         // Client MP Precision Strike (Exact second bid)
               if (winnerBid > 0 && isCurrentPlayerWinner) {
-                const adjustedBid = winnerBid + (multiplayerGameState.minBid || 0);
+                const adjustedBid = winnerBid;
                 const isExactSecond = (Math.round(adjustedBid * 10) / 10) % 1 === 0;
               if (isExactSecond) {
             setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
@@ -3234,7 +3234,7 @@ export default function Game() {
 
     // Use participants (original bids) instead of finalPlayers (processed bids)
     participants.forEach(p => {
-          const bid = (p.currentBid || 0) + getPenalty(); // add minBid offset
+          const bid = (p.currentBid || 0); // currentBid already includes minBid offset
           if (bid >= 67.0 && bid < 68.0) {
           console.log(`[Hidden 67] ${p.name} bid ${bid}, distance from 67: ${Math.abs(bid - 67)}`); // DEBUG
         // Only show overlay if it's the current player
@@ -3593,11 +3593,7 @@ export default function Game() {
         tokens: mp.tokens,
         remainingTime: mp.remainingTime,
         isEliminated: mp.isEliminated,
-      currentBid: mp.isHolding
-      ? mp.currentBid
-      : (mp.currentBid !== null && mp.currentBid > 0)
-        ? mp.currentBid + (multiplayerGameState?.minBid ?? 0)
-        : mp.currentBid,
+      currentBid: mp.currentBid,
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,
         netImpact: (mp as any).netImpact || 0,
@@ -3683,7 +3679,7 @@ export default function Game() {
   const currentPlayerBid = isMultiplayer
   ? (myMultiplayerPlayer?.isHolding 
       ? (multiplayerGameState?.elapsedTime ?? 0) 
-      : ((myMultiplayerPlayer?.currentBid ?? 0) + (multiplayerGameState?.minBid ?? 0)))
+      : (myMultiplayerPlayer?.currentBid ?? 0))
   : currentTime;
     
   const currentPlayerEliminated = isMultiplayer

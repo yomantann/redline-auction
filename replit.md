@@ -81,6 +81,11 @@ shared/           # Shared code between frontend and backend
 - Bots pre-calculate target HOLD TIMES (raw seconds) at round start via `calculateBotTargetBids()` in gameEngine.ts
 - Target represents how long bot holds (raw elapsed), NOT the timer value; minBid is added separately to get the final bid
 - Bot bid = holdTime + minBid (same formula as humans: elapsed + minBid)
+- **currentBid invariant**: `currentBid` ALWAYS includes minBid for ALL players (human and bot, SP and MP). Client displays `currentBid` directly without adding minBid.
+- Server bidding interval: `p.currentBid = playerElapsed + minBid` (all holding players)
+- Human release: `player.currentBid = playerElapsed + minBid` (includes PANIC_ROOM multiplier)
+- Bot release: `p.currentBid = elapsed + minBid`
+- endRound deduction: `p.remainingTime -= p.currentBid` (same for all players, no isBot check)
 - Protocol-aware risk adjustment: Panic Room -35%, No Look -10%, Mute -10%, Last Round -20%, Low time -35%
 - Personality-based strategies: aggressive (high bids, backs off under risk), conservative (low bids, extra cautious late), random (wide range scaled by risk)
 - Mole protocol: all bots reduce bids by 15% to avoid huge winning margins
