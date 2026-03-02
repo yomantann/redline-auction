@@ -736,38 +736,38 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
       (isLastRound ? 0.2 : 0) +
       (lowTime ? 0.35 : midTime ? 0.15 : 0);
 
-    const maxBid = Math.max(minBidTime, p.remainingTime);
-    let bid = minBidTime;
+    const maxHoldTime = Math.max(0.5, p.remainingTime - minBidTime);
+    let holdTime = 0.5;
 
     switch (p.personality) {
       case 'aggressive': {
         const base = 18 + Math.random() * 28;
         const cautious = 6 + Math.random() * 10;
         const chooseHigh = Math.random() > (0.25 + riskDown);
-        bid = chooseHigh ? base : cautious;
+        holdTime = chooseHigh ? base : cautious;
         break;
       }
       case 'conservative': {
         const base = 1.5 + Math.random() * 10;
-        bid = base;
-        if (isLastRound || isPanicRoom || lowTime) bid = 1.0 + Math.random() * 6;
+        holdTime = base;
+        if (isLastRound || isPanicRoom || lowTime) holdTime = 1.0 + Math.random() * 6;
         break;
       }
       case 'random':
       default: {
         const base = 1 + Math.random() * 40;
-        bid = base * (1 - Math.min(0.55, riskDown));
+        holdTime = base * (1 - Math.min(0.55, riskDown));
         break;
       }
     }
 
     if (isMole) {
-      bid = bid * 0.85;
+      holdTime = holdTime * 0.85;
     }
 
-    bid += Math.random() * 0.8;
-    bid = Math.min(maxBid, Math.max(minBidTime, bid));
-    bids[p.id] = parseFloat(bid.toFixed(1));
+    holdTime += Math.random() * 0.8;
+    holdTime = Math.min(maxHoldTime, Math.max(0.5, holdTime));
+    bids[p.id] = parseFloat(holdTime.toFixed(1));
   });
 
   return bids;
@@ -781,11 +781,11 @@ function processBotBids(game: GameState) {
   
   game.players.forEach(p => {
     if (p.isBot && p.isHolding && !p.isEliminated) {
-      const targetBid = game.botTargetBids[p.id];
-      if (targetBid !== undefined && (elapsed + minBid) >= targetBid) {
+      const targetHoldTime = game.botTargetBids[p.id];
+      if (targetHoldTime !== undefined && elapsed >= targetHoldTime) {
         p.isHolding = false;
         p.currentBid = elapsed + minBid;
-        log(`Bot ${p.name} released at ${p.currentBid.toFixed(1)}s (target ${targetBid}s) in lobby ${game.lobbyCode}`, "game");
+        log(`Bot ${p.name} released at ${p.currentBid.toFixed(1)}s (hold target ${targetHoldTime}s + ${minBid}s minBid) in lobby ${game.lobbyCode}`, "game");
       }
     }
   });

@@ -1618,8 +1618,8 @@ export default function Game() {
 
       players.forEach(p => {
         if (p.isBot) {
-          const maxBid = Math.max(minBidTime, p.remainingTime);
-          let bid = minBidTime;
+          const maxHoldTime = Math.max(0.5, p.remainingTime - minBidTime);
+          let bid = 0.5;
 
           const lowTime = p.remainingTime <= 8;
           const midTime = p.remainingTime > 8 && p.remainingTime <= 20;
@@ -1631,7 +1631,7 @@ export default function Game() {
           // - Low remaining time: reduce risk
           const riskDown = (isPanicRoom ? 0.35 : 0) + (isNoLook ? 0.1 : 0) + (isMute ? 0.1 : 0) + (isLastRound ? 0.2 : 0) + (lowTime ? 0.35 : midTime ? 0.15 : 0);
 
-          const clamp = (v: number) => Math.min(maxBid, Math.max(minBidTime, v));
+          const clamp = (v: number) => Math.min(maxHoldTime, Math.max(0.5, v));
 
           switch (p.personality) {
             case 'aggressive': {
@@ -1683,16 +1683,17 @@ export default function Game() {
   useEffect(() => {
     if (phase === 'bidding') {
       // Release bots
+      const minBidOffset = getTimerStart();
       const botsToRelease = players.filter(p => 
         p.isBot && 
         p.isHolding && 
-        botBids[p.id] <= currentTime
+        botBids[p.id] + minBidOffset <= currentTime
       );
 
       if (botsToRelease.length > 0) {
         setPlayers(prev => prev.map(p => {
           if (botsToRelease.find(b => b.id === p.id)) {
-            return { ...p, isHolding: false, currentBid: botBids[p.id] };
+            return { ...p, isHolding: false, currentBid: botBids[p.id] + minBidOffset };
           }
           return p;
         }));

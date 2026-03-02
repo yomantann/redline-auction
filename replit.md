@@ -78,12 +78,15 @@ shared/           # Shared code between frontend and backend
 - Voluntary `leave_lobby` still eliminates the player permanently
 
 ### MP Bot AI System
-- Bots pre-calculate target bid times at round start via `calculateBotTargetBids()` in gameEngine.ts
+- Bots pre-calculate target HOLD TIMES (raw seconds) at round start via `calculateBotTargetBids()` in gameEngine.ts
+- Target represents how long bot holds (raw elapsed), NOT the timer value; minBid is added separately to get the final bid
+- Bot bid = holdTime + minBid (same formula as humans: elapsed + minBid)
 - Protocol-aware risk adjustment: Panic Room -35%, No Look -10%, Mute -10%, Last Round -20%, Low time -35%
 - Personality-based strategies: aggressive (high bids, backs off under risk), conservative (low bids, extra cautious late), random (wide range scaled by risk)
 - Mole protocol: all bots reduce bids by 15% to avoid huge winning margins
 - Target bids stored in `game.botTargetBids` (server-only, not sent to clients)
-- `processBotBids()` compares elapsed time against pre-calculated targets each 100ms tick
+- `processBotBids()` compares raw elapsed time against pre-calculated hold targets each 100ms tick
+- SP bot release: `botBids[p.id] + getTimerStart() <= currentTime`, currentBid = holdTime + minBid
 - Matches SP bot logic exactly (same formulas, same risk factors)
 
 ### MP Lobby & Eliminated Players
