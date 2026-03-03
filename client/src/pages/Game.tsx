@@ -2960,8 +2960,8 @@ export default function Game() {
         return p;
       }));
     } else if (winnerId) { 
-       const winnerPlayer = participants[0]; // winner is first
-       const secondPlayer = participants.length > 1 ? participants[1] : null;
+       const winnerPlayer = validParticipants[0]; // sorted by bid descending, winner is first
+       const secondPlayer = validParticipants.length > 1 ? validParticipants[1] : null;
        const winnerBid = winnerPlayer.currentBid || 0;
        const secondBid = secondPlayer?.currentBid || 0;
        const margin = winnerBid - secondBid;
