@@ -1301,8 +1301,7 @@ function endRound(lobbyCode: string) {
       if (winnerPlayer.remainingTime < 10) {
         winnerPlayer.momentFlagsEarned.push('CLUTCH_PLAY');
       }
-      const adjustedWinnerBid = winnerBid + getMinBidPenalty(game.gameDuration);
-      if (adjustedWinnerBid > 0 && (Math.round(adjustedWinnerBid * 10) / 10) % 1 === 0) {
+      if (winnerBid > 0 && (Math.round(winnerBid * 10) / 10) % 1 === 0) {
         winnerPlayer.momentFlagsEarned.push('PRECISION_STRIKE');
       }
       // Comeback Hope: winner was sole last-place before winning

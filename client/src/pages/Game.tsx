@@ -1899,8 +1899,8 @@ export default function Game() {
            }
            let penalty = getPenalty();
 
-           // ALPHA PRIME (Gigachad) EXCEPTION: "JAWLINE"
-           if (selectedCharacter?.ability?.name === 'JAWLINE') {
+           // ALPHA PRIME (Gigachad) EXCEPTION: "JAWLINE" - only when abilities (limit breaks) are ON
+           if (selectedCharacter?.ability?.name === 'JAWLINE' && abilitiesEnabled) {
              penalty = 0;
              toast({
                title: "JAWLINE ACTIVATED",
@@ -3406,13 +3406,6 @@ export default function Game() {
       ? `Round ${round}: ${winnerName} won (${formatTime(winnerTime)})` 
       : `Round ${round}: No winner`;
 
-    // Track win bid for DEJA_BID detection next round
-      if (winnerId === 'p1' && winnerTime > 0) {
-      setRoundLog(prev => [`>> P1_WIN_BID_R${round}: ${winnerTime.toFixed(1)}`, logMsg, ...prev]);
-      } else {
-      setRoundLog(prev => [logMsg, ...prev]);
-    }
-    
     // Add extra logs for special events
     // Log array already initialized at start of function
     
@@ -3443,7 +3436,8 @@ export default function Game() {
     });
 
     const winBidEntry = (winnerId === 'p1' && winnerTime > 0) ? [`>> WIN BID: ${winnerTime.toFixed(1)}`] : [];
-    setRoundLog(prev => [...extraLogs, ...winBidEntry, logMsg, ...prev]);
+    const dejaBidTracker = (winnerId === 'p1' && winnerTime > 0) ? [`>> P1_WIN_BID_R${round}: ${winnerTime.toFixed(1)}`] : [];
+    setRoundLog(prev => [...extraLogs, ...winBidEntry, ...dejaBidTracker, logMsg, ...prev]);
 
     // Check game end conditions
     const remainingActivePlayers = updatedPlayers.filter(p => !p.isEliminated && p.remainingTime > 0);
