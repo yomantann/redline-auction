@@ -784,7 +784,7 @@ function processBotBids(game: GameState) {
       const targetHoldTime = game.botTargetBids[p.id];
       if (targetHoldTime !== undefined && elapsed >= targetHoldTime) {
         p.isHolding = false;
-        p.currentBid = elapsed + minBid;
+        p.currentBid = Math.round((elapsed + minBid) * 10) / 10;
         log(`Bot ${p.name} released at ${p.currentBid.toFixed(1)}s (hold target ${targetHoldTime}s + ${minBid}s minBid) in lobby ${game.lobbyCode}`, "game");
       }
     }
@@ -2119,7 +2119,7 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     const playerElapsed = (playerHasFireWall && game.activeProtocol === 'PANIC_ROOM') ? rawElapsed : rawElapsed * panicMultiplier;
     const minBid = getMinBidPenalty(game.gameDuration);
     player.isHolding = false;
-    player.currentBid = playerElapsed + minBid;
+    player.currentBid = Math.round((playerElapsed + minBid) * 10) / 10;
     
     log(`${player.name} released at ${player.currentBid.toFixed(1)}s (${playerElapsed.toFixed(1)}s hold + ${minBid}s minBid) in lobby ${lobbyCode}`, "game");
     

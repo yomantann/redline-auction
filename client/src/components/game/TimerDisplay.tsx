@@ -10,9 +10,10 @@ interface TimerDisplayProps {
 export function TimerDisplay({ time, isRunning, label = "AUCTION TIME" }: TimerDisplayProps) {
   // Simple format for main display (m:ss.d)
   const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 10);
+    const rounded = Math.round(seconds * 10) / 10;
+    const m = Math.floor(rounded / 60);
+    const s = Math.floor(rounded % 60);
+    const ms = Math.round((rounded % 1) * 10);
     return { m, s: s.toString().padStart(2, '0'), ms };
   };
 

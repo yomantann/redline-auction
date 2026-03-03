@@ -865,9 +865,10 @@ export default function Game() {
 
   // Helper for formatting time
   const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 10);
+    const rounded = Math.round(seconds * 10) / 10;
+    const m = Math.floor(rounded / 60);
+    const s = Math.floor(rounded % 60);
+    const ms = Math.round((rounded % 1) * 10);
     return `${m}:${s.toString().padStart(2, '0')}.${ms}`;
   };
 
@@ -1693,7 +1694,7 @@ export default function Game() {
       if (botsToRelease.length > 0) {
         setPlayers(prev => prev.map(p => {
           if (botsToRelease.find(b => b.id === p.id)) {
-            return { ...p, isHolding: false, currentBid: botBids[p.id] + minBidOffset };
+            return { ...p, isHolding: false, currentBid: Math.round((botBids[p.id] + minBidOffset) * 10) / 10 };
           }
           return p;
         }));

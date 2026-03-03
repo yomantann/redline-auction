@@ -82,6 +82,7 @@ shared/           # Shared code between frontend and backend
 - Target represents how long bot holds (raw elapsed), NOT the timer value; minBid is added separately to get the final bid
 - Bot bid = holdTime + minBid (same formula as humans: elapsed + minBid)
 - **currentBid invariant**: `currentBid` ALWAYS includes minBid for ALL players (human and bot, SP and MP). Client displays `currentBid` directly without adding minBid.
+- **Bid rounding**: When a bid is LOCKED IN (player/bot releases), `currentBid` is rounded to 1 decimal place via `Math.round(value * 10) / 10`. Live bidding interval values are NOT rounded (real-time display). `formatTime` functions also round (not truncate) to prevent 9.999 displaying as 9.9.
 - Server bidding interval: `p.currentBid = playerElapsed + minBid` (all holding players)
 - Human release: `player.currentBid = playerElapsed + minBid` (includes PANIC_ROOM multiplier)
 - Bot release: `p.currentBid = elapsed + minBid`
