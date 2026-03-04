@@ -1843,17 +1843,20 @@ export default function Game() {
           if (lastPeekRoundRef.current === currentRound) return;
           lastPeekRoundRef.current = currentRound;
           
-          // Activate PEEK ability every round if player has one (pick new random target each round)
+                // Activate PEEK ability every round if player has one
                 if (selectedCharacter?.ability?.effect === 'PEEK') {
                   const activated = abilitiesEnabled;
                   setPeekActive(activated);
-              if (activated) {
-                  toast({
-                      title: "INSIGHT ACTIVATED",
-                      description: `${selectedCharacter.ability.name}: You can see opponent status this round!`,
-                      className: "bg-green-950 border-green-500 text-green-100",
-                      duration: 4000
-                  });
+                  if (activated) {
+                    // Only show toast for actual PEEK abilities (not Roll Safe, Idol Core)
+                    if (selectedCharacter.id === 'sadman' || selectedCharacter.id === 'wandering_eye') {
+                      toast({
+                        title: "INSIGHT ACTIVATED",
+                        description: `${selectedCharacter.ability.name}: You can see an opponents' HOLD status!`,
+                        className: "bg-green-950 border-green-500 text-green-100",
+                        duration: 4000
+                      });
+                    }
                   
                   // Set peek targets for MP (SP targets are set in prepareToBid)
                   if (isMultiplayer && multiplayerGameState && socket) {
