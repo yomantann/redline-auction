@@ -145,7 +145,7 @@ const COUNTDOWN_SECONDS = 3;
 const READY_HOLD_DURATION = 3.0; 
 
 type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
-type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random';
+type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
     type SocialProtocol = 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'LOCK_ON' | 'NOISE_CANCEL';
@@ -712,24 +712,31 @@ export default function Game() {
   // Overlay State
   // REMOVED: Replaced by overlays array above
   
+  const ALL_PERSONALITIES: BotPersonality[] = ['aggressive', 'conservative', 'random', 'balanced', 'adaptive', 'psychological'];
+  const BOT_NAMES_SP = ['Alpha', 'Beta', 'Gamma'];
+  const PERSONALITY_LABELS: Record<BotPersonality, string> = {
+    aggressive: 'Aggr', conservative: 'Cons', random: 'Rand',
+    balanced: 'Bal', adaptive: 'Adpt', psychological: 'Psych'
+  };
+  
+  const createRandomBots = (time: number): Player[] => {
+    const shuffled = [...ALL_PERSONALITIES].sort(() => Math.random() - 0.5);
+    return BOT_NAMES_SP.map((name, i) => ({
+      id: `b${i + 1}`, name: `${name} (${PERSONALITY_LABELS[shuffled[i]]})`, isBot: true, tokens: 0,
+      remainingTime: time, isEliminated: false, currentBid: null, isHolding: false,
+      personality: shuffled[i] as BotPersonality,
+      totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [],
+      protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
+    }));
+  };
+
   // Players State
   const [players, setPlayers] = useState<Player[]>([
     { 
         id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false,
         totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0 
     },
-    { 
-        id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
-        totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
-    },
-    { 
-        id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
-        totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
-    },
-    { 
-        id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: STANDARD_INITIAL_TIME, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
-        totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
-    },
+    ...createRandomBots(STANDARD_INITIAL_TIME),
   ]);
 
   // Update players when duration changes (only during intro)
@@ -1599,7 +1606,7 @@ export default function Game() {
             ...p, 
             name: char.name, 
             characterIcon: pickIcon(char),
-            // Bots also get abilities if enabled, but we just store the icon/name for now
+            selectedDriver: char.id,
           };
         }
         return p;
@@ -1616,60 +1623,168 @@ export default function Game() {
       const isNoLook = activeProtocol === 'NO_LOOK';
       const isMute = activeProtocol === 'MUTE_PROTOCOL';
       const isMole = activeProtocol === 'THE_MOLE';
+      const roundsLeft = totalRounds - round + 1;
+      const isEarlyGame = round <= 3;
+      const isMidGame = round > 3 && round <= 6;
+      const isLateGame = round > 6;
+
+      const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
+      const activePlayers = players.filter(p => !p.isEliminated);
+      const maxTokens = Math.max(...activePlayers.map(p => p.tokens));
+
+      const getBotDriverId = (bot: Player): string | undefined => {
+        if (bot.selectedDriver) return bot.selectedDriver;
+        const char = allChars.find(c => c.name === bot.name);
+        return char?.id;
+      };
+
+      const getDriverBidAdjust = (driverId: string | undefined, holdTime: number, bot: Player): number => {
+        if (!driverId || !abilitiesEnabled) return holdTime;
+        switch (driverId) {
+          case 'rainbow_dash':
+            if (bot.remainingTime > 45 && holdTime < 38) return 38 + Math.random() * 6;
+            break;
+          case 'anointed':
+            if (bot.remainingTime > 25 && Math.random() > 0.4) {
+              const target = 20 - minBidTime;
+              return target + (Math.random() * 2 - 1);
+            }
+            break;
+          case 'primate':
+            if (bot.remainingTime > 20 && holdTime < 12) return holdTime * 1.3;
+            break;
+          case 'frostbyte': return holdTime * 1.08;
+          case 'the_rind': return holdTime * 0.8;
+          case 'pain_hider': return holdTime * 0.85;
+          case 'guardian_h':
+            if (round === 1 && Math.random() > 0.3) return holdTime * 1.4;
+            break;
+          case 'low_flame':
+            if (isPanicRoom) return holdTime * 1.3;
+            break;
+          case 'panic_bot':
+            return Math.random() > 0.5 ? holdTime * 1.15 : holdTime * 0.75;
+          case 'hotwired': return holdTime * 0.9;
+          case 'click_click': {
+            const otherBids = Object.values(newBotBids);
+            if (otherBids.length > 0 && holdTime > 5) {
+              const avgBid = otherBids.reduce((a, b) => a + b, 0) / otherBids.length;
+              return avgBid + 0.5 + Math.random() * 1.0;
+            }
+            break;
+          }
+        }
+        return holdTime;
+      };
 
       players.forEach(p => {
-        if (p.isBot) {
+        if (p.isBot && !p.isEliminated) {
           const maxHoldTime = Math.max(0.5, p.remainingTime - minBidTime);
+          const timePerRound = p.remainingTime / Math.max(1, roundsLeft);
           let bid = 0.5;
 
           const lowTime = p.remainingTime <= 8;
           const midTime = p.remainingTime > 8 && p.remainingTime <= 20;
+          const tokenDeficit = maxTokens - p.tokens;
+          const isBehind = tokenDeficit >= 2;
+          const isAhead = p.tokens >= maxTokens && p.tokens > 0;
 
-          // Protocol-aware tuning:
-          // - Panic Room: avoid huge holds (timer burns 2x)
-          // - No Look / Mute: slightly more conservative (table friction)
-          // - Late rounds: reduce risk
-          // - Low remaining time: reduce risk
           const riskDown = (isPanicRoom ? 0.35 : 0) + (isNoLook ? 0.1 : 0) + (isMute ? 0.1 : 0) + (isLastRound ? 0.2 : 0) + (lowTime ? 0.35 : midTime ? 0.15 : 0);
 
           const clamp = (v: number) => Math.min(maxHoldTime, Math.max(0.5, v));
 
           switch (p.personality) {
             case 'aggressive': {
-              // Aggressive bots usually push higher, but back off under riskDown.
               const base = 18 + Math.random() * 28;
               const cautious = 6 + Math.random() * 10;
               const chooseHigh = Math.random() > (0.25 + riskDown);
               bid = chooseHigh ? base : cautious;
+              if (isLateGame && isBehind) bid *= 1.2;
+              if (isLateGame && isAhead) bid *= 0.7;
               break;
             }
 
             case 'conservative': {
-              // Conservative bots stay low, especially late / low-time / panic room.
               const base = 1.5 + Math.random() * 10;
               bid = base;
               if (isLastRound || isPanicRoom || lowTime) bid = 1.0 + Math.random() * 6;
+              if (isLateGame && isBehind && Math.random() > 0.5) {
+                bid = 8 + Math.random() * 12;
+              }
+              break;
+            }
+
+            case 'balanced': {
+              const budgetBid = timePerRound * (0.7 + Math.random() * 0.5);
+              bid = budgetBid;
+              if (isEarlyGame) bid *= 0.85;
+              if (isLateGame) bid *= 1.1;
+              if (isBehind) bid *= 1.15;
+              if (isAhead) bid *= 0.85;
+              break;
+            }
+
+            case 'adaptive': {
+              if (isEarlyGame) {
+                bid = 3 + Math.random() * 8;
+              } else if (isMidGame) {
+                const bidPattern = /bid of (\d+\.?\d*)/;
+                const recentWinBids = roundLog
+                  .filter(e => e.includes('won Round') || e.includes('wins Round'))
+                  .slice(-3)
+                  .map(e => { const m = e.match(bidPattern); return m ? parseFloat(m[1]) : null; })
+                  .filter((v): v is number => v !== null);
+                const avgWinBid = recentWinBids.length > 0 
+                  ? recentWinBids.reduce((a, b) => a + b, 0) / recentWinBids.length 
+                  : 15;
+                bid = (avgWinBid - minBidTime) * (0.9 + Math.random() * 0.3);
+              } else {
+                if (isBehind) {
+                  bid = timePerRound * (1.2 + Math.random() * 0.5);
+                } else {
+                  bid = timePerRound * (0.5 + Math.random() * 0.3);
+                }
+              }
+              break;
+            }
+
+            case 'psychological': {
+              const unpredictable = Math.random();
+              if (unpredictable < 0.2) {
+                bid = 1.0 + Math.random() * 3;
+              } else if (unpredictable < 0.5) {
+                bid = 15 + Math.random() * 20;
+              } else {
+                bid = 8 + Math.random() * 15;
+              }
+              if (isLateGame && isBehind) {
+                bid = Math.max(bid, 20 + Math.random() * 15);
+              }
+              if (isAhead && Math.random() > 0.6) {
+                bid = 1.5 + Math.random() * 4;
+              }
               break;
             }
 
             case 'random':
             default: {
-              // Random bots still get bounded by riskDown.
               const base = 1 + Math.random() * 40;
               bid = base * (1 - Math.min(0.55, riskDown));
+              if (isLateGame && Math.random() > 0.6) {
+                bid = p.remainingTime * (0.4 + Math.random() * 0.5);
+              }
               break;
             }
           }
 
-          // Mole protocol: bots should be a bit more "second-place" oriented.
-          // Without revealing who is mole, we make bots generally avoid massive winning margins.
           if (isMole) {
             bid = bid * 0.85;
           }
 
-          // Add small fuzz so they don't land on identical tenths too often.
-          bid += Math.random() * 0.8;
+          const driverId = getBotDriverId(p);
+          bid = getDriverBidAdjust(driverId, bid, p);
 
+          bid += Math.random() * 0.8;
           bid = clamp(bid);
           newBotBids[p.id] = parseFloat(bid.toFixed(1));
         }
@@ -3878,18 +3993,7 @@ export default function Game() {
             id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false,
             totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
         },
-        { 
-            id: 'b1', name: 'Alpha (Aggr)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'aggressive',
-            totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
-        },
-        { 
-            id: 'b2', name: 'Beta (Cons)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'conservative',
-            totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
-        },
-        { 
-            id: 'b3', name: 'Gamma (Rand)', isBot: true, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false, personality: 'random',
-            totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
-        },
+        ...createRandomBots(time),
      ]);
   };
 

@@ -22,7 +22,7 @@ function getMinBidPenalty(duration: GameDuration): number {
 
 // Bot names for auto-fill
 const BOT_NAMES = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta'];
-const BOT_PERSONALITIES = ['aggressive', 'conservative', 'random', 'balanced'] as const;
+const BOT_PERSONALITIES = ['aggressive', 'conservative', 'random', 'balanced', 'adaptive', 'psychological'] as const;
 
 // Character/Driver IDs by variant for bot random assignment
 // These match the client-side character definitions - all variants use base characters
@@ -419,8 +419,9 @@ export function createGame(
   
   // Auto-fill with bots if less than MIN_PLAYERS
   let botIndex = 0;
+  const shuffledPersonalities = [...BOT_PERSONALITIES].sort(() => Math.random() - 0.5);
   while (gamePlayers.length < MIN_PLAYERS) {
-    const personality = BOT_PERSONALITIES[botIndex % BOT_PERSONALITIES.length];
+    const personality = shuffledPersonalities[botIndex % shuffledPersonalities.length];
     gamePlayers.push({
       id: `bot_${botIndex}_${Date.now()}`,
       socketId: null,
@@ -714,6 +715,68 @@ function startBidding(lobbyCode: string) {
   gameIntervals.set(`${lobbyCode}_bidding`, interval);
 }
 
+function getDriverBidAdjustment(driverId: string | undefined, holdTime: number, game: GameState, player: GamePlayer): { holdTime: number; reason?: string } {
+  if (!driverId || !game.settings.abilitiesEnabled) return { holdTime };
+  const ability = DRIVER_ABILITIES[driverId];
+  if (!ability) return { holdTime };
+
+  switch (driverId) {
+    case 'rainbow_dash':
+      if (player.remainingTime > 45 && holdTime < 38) {
+        return { holdTime: 38 + Math.random() * 6, reason: 'RAINBOW_RUN_push_40' };
+      }
+      break;
+    case 'anointed':
+      if (player.remainingTime > 25) {
+        const minBid = getMinBidPenalty(game.gameDuration);
+        const target = 20 - minBid;
+        if (Math.random() > 0.4) {
+          return { holdTime: target + (Math.random() * 2 - 1), reason: 'ROYAL_DECREE_near_20' };
+        }
+      }
+      break;
+    case 'primate':
+      if (player.remainingTime > 20 && holdTime < 12) {
+        return { holdTime: holdTime * 1.3, reason: 'CHEFS_SPECIAL_push_margin' };
+      }
+      break;
+    case 'frostbyte':
+      return { holdTime: holdTime * 1.08, reason: 'CRYO_FREEZE_extra_aggro' };
+    case 'the_rind':
+      return { holdTime: holdTime * 0.8, reason: 'CHEESE_TAX_play_safe' };
+    case 'pain_hider':
+      return { holdTime: holdTime * 0.85, reason: 'HIDE_PAIN_lose_ok' };
+    case 'guardian_h':
+      if (game.round === 1 && Math.random() > 0.3) {
+        return { holdTime: holdTime * 1.4, reason: 'SPIRIT_SHIELD_R1_push' };
+      }
+      break;
+    case 'low_flame':
+      if (game.activeProtocol === 'PANIC_ROOM') {
+        return { holdTime: holdTime * 1.3, reason: 'FIRE_WALL_immune_panic' };
+      }
+      break;
+    case 'panic_bot':
+      if (Math.random() > 0.5) {
+        return { holdTime: holdTime * 1.15, reason: 'PANIC_MASH_gamble' };
+      } else {
+        return { holdTime: holdTime * 0.75, reason: 'PANIC_MASH_cautious' };
+      }
+    case 'hotwired':
+      return { holdTime: holdTime * 0.9, reason: 'BURN_IT_moderate' };
+    case 'click_click':
+      if (holdTime > 5) {
+        const otherBids = Object.values(game.botTargetBids);
+        if (otherBids.length > 0) {
+          const avgBid = otherBids.reduce((a, b) => a + b, 0) / otherBids.length;
+          return { holdTime: avgBid + 0.5 + Math.random() * 1.0, reason: 'HYPER_CLICK_close_win' };
+        }
+      }
+      break;
+  }
+  return { holdTime };
+}
+
 function calculateBotTargetBids(game: GameState): Record<string, number> {
   const bids: Record<string, number> = {};
   const isPanicRoom = game.activeProtocol === 'PANIC_ROOM';
@@ -722,12 +785,24 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
   const isMole = game.activeProtocol === 'THE_MOLE';
   const isLastRound = game.round >= game.totalRounds;
   const minBidTime = getMinBidPenalty(game.gameDuration);
+  const roundsLeft = game.totalRounds - game.round + 1;
+  const roundFraction = game.round / game.totalRounds;
+  const isEarlyGame = game.round <= 3;
+  const isMidGame = game.round > 3 && game.round <= 6;
+  const isLateGame = game.round > 6;
+
+  const avgTokens = game.players.filter(p => !p.isEliminated).reduce((sum, p) => sum + p.tokens, 0) / Math.max(1, game.players.filter(p => !p.isEliminated).length);
+  const maxTokens = Math.max(...game.players.filter(p => !p.isEliminated).map(p => p.tokens));
 
   game.players.forEach(p => {
     if (!p.isBot || p.isEliminated) return;
 
+    const timePerRound = p.remainingTime / Math.max(1, roundsLeft);
     const lowTime = p.remainingTime <= 8;
     const midTime = p.remainingTime > 8 && p.remainingTime <= 20;
+    const tokenDeficit = maxTokens - p.tokens;
+    const isBehind = tokenDeficit >= 2;
+    const isAhead = p.tokens >= maxTokens && p.tokens > 0;
 
     const riskDown =
       (isPanicRoom ? 0.35 : 0) +
@@ -741,22 +816,81 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
 
     switch (p.personality) {
       case 'aggressive': {
-        const base = 18 + Math.random() * 28;
+        const baseLow = 18 + Math.random() * 28;
         const cautious = 6 + Math.random() * 10;
         const chooseHigh = Math.random() > (0.25 + riskDown);
-        holdTime = chooseHigh ? base : cautious;
+        holdTime = chooseHigh ? baseLow : cautious;
+        if (isLateGame && isBehind) holdTime *= 1.2;
+        if (isLateGame && isAhead) holdTime *= 0.7;
         break;
       }
+
       case 'conservative': {
         const base = 1.5 + Math.random() * 10;
         holdTime = base;
         if (isLastRound || isPanicRoom || lowTime) holdTime = 1.0 + Math.random() * 6;
+        if (isLateGame && isBehind && Math.random() > 0.5) {
+          holdTime = 8 + Math.random() * 12;
+        }
         break;
       }
+
+      case 'balanced': {
+        const budgetBid = timePerRound * (0.7 + Math.random() * 0.5);
+        holdTime = budgetBid;
+        if (isEarlyGame) holdTime *= 0.85;
+        if (isLateGame) holdTime *= 1.1;
+        if (isBehind) holdTime *= 1.15;
+        if (isAhead) holdTime *= 0.85;
+        break;
+      }
+
+      case 'adaptive': {
+        if (isEarlyGame) {
+          holdTime = 3 + Math.random() * 8;
+        } else if (isMidGame) {
+          const recentWins = game.gameLog
+            .filter(e => e.type === 'win' && e.round >= game.round - 3)
+            .map(e => e.value || 0);
+          const avgWinBid = recentWins.length > 0 
+            ? recentWins.reduce((a, b) => a + b, 0) / recentWins.length 
+            : 15;
+          holdTime = (avgWinBid - minBidTime) * (0.9 + Math.random() * 0.3);
+        } else {
+          if (isBehind) {
+            holdTime = timePerRound * (1.2 + Math.random() * 0.5);
+          } else {
+            holdTime = timePerRound * (0.5 + Math.random() * 0.3);
+          }
+        }
+        break;
+      }
+
+      case 'psychological': {
+        const unpredictable = Math.random();
+        if (unpredictable < 0.2) {
+          holdTime = 1.0 + Math.random() * 3;
+        } else if (unpredictable < 0.5) {
+          holdTime = 15 + Math.random() * 20;
+        } else {
+          holdTime = 8 + Math.random() * 15;
+        }
+        if (isLateGame && isBehind) {
+          holdTime = Math.max(holdTime, 20 + Math.random() * 15);
+        }
+        if (isAhead && Math.random() > 0.6) {
+          holdTime = 1.5 + Math.random() * 4;
+        }
+        break;
+      }
+
       case 'random':
       default: {
         const base = 1 + Math.random() * 40;
         holdTime = base * (1 - Math.min(0.55, riskDown));
+        if (isLateGame && Math.random() > 0.6) {
+          holdTime = p.remainingTime * (0.4 + Math.random() * 0.5);
+        }
         break;
       }
     }
@@ -764,6 +898,9 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
     if (isMole) {
       holdTime = holdTime * 0.85;
     }
+
+    const driverAdj = getDriverBidAdjustment(p.selectedDriver, holdTime, game, p);
+    holdTime = driverAdj.holdTime;
 
     holdTime += Math.random() * 0.8;
     holdTime = Math.min(maxHoldTime, Math.max(0.5, holdTime));

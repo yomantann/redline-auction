@@ -88,12 +88,20 @@ shared/           # Shared code between frontend and backend
 - Bot release: `p.currentBid = elapsed + minBid`
 - endRound deduction: `p.remainingTime -= p.currentBid` (same for all players, no isBot check)
 - Protocol-aware risk adjustment: Panic Room -35%, No Look -10%, Mute -10%, Last Round -20%, Low time -35%
-- Personality-based strategies: aggressive (high bids, backs off under risk), conservative (low bids, extra cautious late), random (wide range scaled by risk)
+- **6 Bot Personalities** (randomly rotated each game): aggressive, conservative, random, balanced, adaptive, psychological
+  - aggressive: high bids (18-46s), backs off under risk; pushes harder when behind late-game
+  - conservative: low bids (1.5-11.5s), extra cautious late; can push 8-20s if behind in late rounds
+  - random: wide range (1-40s) scaled by risk; sometimes goes all-in late-game
+  - balanced: budget-based (timePerRound * 0.7-1.2); paces to spend most time bank by game end
+  - adaptive: conservative early (3-8s), exploits win patterns mid-game, all-in or safe late based on token position
+  - psychological: unpredictable (20% instant release, 30% huge bid, 50% moderate); mind-games opponents
+- **Driver-aware bidding**: `getDriverBidAdjustment()` modifies bids based on bot's assigned driver ability (e.g., rainbow_dash pushes for 40s+, anointed targets 20s, guardian_h pushes R1, low_flame ignores PANIC_ROOM penalty)
+- **Game state awareness**: all personalities consider token deficit/lead, rounds remaining, time budget per round
 - Mole protocol: all bots reduce bids by 15% to avoid huge winning margins
 - Target bids stored in `game.botTargetBids` (server-only, not sent to clients)
 - `processBotBids()` compares raw elapsed time against pre-calculated hold targets each 100ms tick
 - SP bot release: `botBids[p.id] + getTimerStart() <= currentTime`, currentBid = holdTime + minBid
-- Matches SP bot logic exactly (same formulas, same risk factors)
+- Matches SP bot logic exactly (same formulas, same risk factors, same 6 personalities)
 
 ### MP Lobby & Eliminated Players
 - Lobby capacity: 16 players max
