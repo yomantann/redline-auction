@@ -6216,7 +6216,7 @@ export default function Game() {
                   </div>
                   <div className="flex gap-2">
                     <span className="text-yellow-500">•</span>
-                    <span>Improved multiplayer stability and reconnection</span>
+                    <span>Working on a bug with a hidden moment</span>
                   </div>
                 </div>
               </div>
