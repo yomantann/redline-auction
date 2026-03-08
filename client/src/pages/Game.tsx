@@ -3012,7 +3012,7 @@ export default function Game() {
                 triggered = true; abilityName = sName; abilityDesc = "Vote on winner's punishment!";
                 visibility = 'all';
             }
-            else if (sName === 'HOT SEAT' && roll < 0.25) {
+            else if (sName === 'HOT SEAT' && roll < 0.15) {
                 triggered = true; abilityName = sName; abilityDesc = "Choose a player to answer a truth!";
                 visibility = 'driver_only';
             }
