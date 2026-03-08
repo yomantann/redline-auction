@@ -5726,144 +5726,195 @@ export default function Game() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs mt-2">
-              <div className="bg-purple-950/30 p-2 rounded border border-purple-500/20" title={p.eventDatabasePopups?.join(', ') || 'None'}>
-                <div className="text-purple-400/70">Moment Flags</div>
-                <div className="font-mono text-purple-300">{p.eventDatabasePopups?.length || 0}</div>
-              </div>
-              <div className="bg-destructive/10 p-2 rounded border border-destructive/20" title={p.protocolWins?.join(', ') || 'None'}>
-                <div className="text-destructive/70">Protocol Wins</div>
-                <div className="font-mono text-destructive">{p.protocolWins?.length || 0}</div>
-              </div>
-              <div className="bg-yellow-950/30 p-2 rounded border border-yellow-500/20">
-                <div className="text-yellow-400/70">Trophies</div>
-                <div className="font-mono text-yellow-300">{p.tokens}</div>
-              </div>
+          <div className="grid grid-cols-3 gap-2 text-xs mt-2">
+            <div 
+              className="bg-purple-950/30 p-2 rounded border border-purple-500/20 cursor-pointer hover:bg-purple-950/50 transition-colors active:scale-95" 
+              onClick={() => {
+                const flags = p.eventDatabasePopups?.length > 0 ? p.eventDatabasePopups.join(', ') : 'None';
+                toast({
+                  title: `${p.name}: Moment Flags`,
+                  description: flags,
+                  duration: 5000,
+                });
+              }}
+            >
+              <div className="text-purple-400/70">Moment Flags</div>
+              <div className="font-mono text-purple-300">{p.eventDatabasePopups?.length || 0}</div>
+            </div>
+            <div 
+              className="bg-destructive/10 p-2 rounded border border-destructive/20 cursor-pointer hover:bg-destructive/20 transition-colors active:scale-95" 
+              onClick={() => {
+                const protocols = p.protocolWins?.length > 0 ? p.protocolWins.join(', ') : 'None';
+                toast({
+                  title: `${p.name}: Protocol Wins`,
+                  description: protocols,
+                  duration: 5000,
+                });
+              }}
+            >
+              <div className="text-destructive/70">Protocol Wins</div>
+              <div className="font-mono text-destructive">{p.protocolWins?.length || 0}</div>
+            </div>
+            <div className="bg-yellow-950/30 p-2 rounded border border-yellow-500/20">
+              <div className="text-yellow-400/70">Trophies</div>
+              <div className="font-mono text-yellow-300">{p.tokens}</div>
             </div>
           </div>
+            </div>
         );
 
-        return (
-          <div className="relative h-[550px] overflow-y-scroll" style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(239, 68, 68, 0.5) rgba(0, 0, 0, 0.3)'
-          }}>
-            <style>{`
-              .game-over-scroll::-webkit-scrollbar {
-                width: 8px;
-              }
-              .game-over-scroll::-webkit-scrollbar-track {
-                background: rgba(0, 0, 0, 0.3);
-                border-radius: 4px;
-              }
-              .game-over-scroll::-webkit-scrollbar-thumb {
-                background: rgba(239, 68, 68, 0.5);
-                border-radius: 4px;
-              }
-              .game-over-scroll::-webkit-scrollbar-thumb:hover {
-                background: rgba(239, 68, 68, 0.7);
-              }
-            `}</style>
-            <div className="sticky top-0 z-20 w-full pt-10 pb-4 flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-black/90 via-black/70 to-transparent backdrop-blur">
-              <h1 className="text-4xl sm:text-5xl font-display font-bold text-white text-center">GAME OVER</h1>
-            </div>
+          return (
+            <div className="flex flex-col h-[800px]">
+              {/* FIXED HEADER SECTION - Game Over + Podium + Play Again */}
+              <div className="flex-shrink-0 flex flex-col items-center gap-4 pb-6 bg-gradient-to-b from-black/90 via-black/70 to-transparent">
+                <GameOverlay overlays={overlays} onDismiss={removeOverlay} />
 
-            <div className="relative z-0 flex flex-col items-center justify-start gap-8 px-4 pb-10">
-              <GameOverlay overlays={overlays} onDismiss={removeOverlay} />
+                <h1 className="text-4xl sm:text-5xl font-display font-bold text-white text-center pt-8">GAME OVER</h1>
 
-              {/* Compact Podium - Top 3 with driver images */}
-              <div className="w-full max-w-3xl">
-                <div className="flex items-end justify-center gap-2 sm:gap-4 mb-8">
-                  {/* 2nd Place - Left, lower */}
-                  {topThree[1] && (
-                    <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '30px' }}>
-                      <div className="text-2xl sm:text-3xl font-bold text-zinc-400">2nd</div>
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-zinc-400 overflow-hidden bg-zinc-800">
-                        {topThree[1].selectedDriver && getCharacterImage(topThree[1].selectedDriver) ? (
-                          <img 
-                            src={getCharacterImage(topThree[1].selectedDriver)!} 
-                            alt={getCharacterName(topThree[1].selectedDriver)}
-                            className="w-full h-full object-cover" 
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-zinc-600">
-                            {topThree[1].name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                {/* Compact Podium - Top 3 with driver images */}
+                <div className="w-full max-w-3xl px-4">
+                  <div className="flex items-end justify-center gap-2 sm:gap-4">
+                    {/* 2nd Place - Left, lower */}
+                    {topThree[1] && (
+                      <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '30px' }}>
+                        <div className="text-2xl sm:text-3xl font-bold text-zinc-400">2nd</div>
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-zinc-400 overflow-hidden bg-zinc-800">
+                          {topThree[1].selectedDriver && getCharacterImage(topThree[1].selectedDriver) ? (
+                            <img 
+                              src={getCharacterImage(topThree[1].selectedDriver)!} 
+                              alt={getCharacterName(topThree[1].selectedDriver)}
+                              className="w-full h-full object-cover" 
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-zinc-600">
+                              {topThree[1].name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[1].name}</div>
+                        <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
+                          {getCharacterName(topThree[1].selectedDriver)}
+                        </div>
                       </div>
-                      <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[1].name}</div>
-                      <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
-                        {getCharacterName(topThree[1].selectedDriver)}
-                      </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* 1st Place - Center, highest */}
-                  {topThree[0] && (
-                    <div className="flex flex-col items-center gap-1 flex-1">
-                      <div className="text-3xl sm:text-5xl font-bold text-primary">1st</div>
-                      <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-primary overflow-hidden bg-primary/10 shadow-lg shadow-primary/50">
-                        {topThree[0].selectedDriver && getCharacterImage(topThree[0].selectedDriver) ? (
-                          <img 
-                            src={getCharacterImage(topThree[0].selectedDriver)!} 
-                            alt={getCharacterName(topThree[0].selectedDriver)}
-                            className="w-full h-full object-cover" 
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-primary/50">
-                            {topThree[0].name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                    {/* 1st Place - Center, highest */}
+                    {topThree[0] && (
+                      <div className="flex flex-col items-center gap-1 flex-1">
+                        <div className="text-3xl sm:text-5xl font-bold text-primary">1st</div>
+                        <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-primary overflow-hidden bg-primary/10 shadow-lg shadow-primary/50">
+                          {topThree[0].selectedDriver && getCharacterImage(topThree[0].selectedDriver) ? (
+                            <img 
+                              src={getCharacterImage(topThree[0].selectedDriver)!} 
+                              alt={getCharacterName(topThree[0].selectedDriver)}
+                              className="w-full h-full object-cover" 
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-primary/50">
+                              {topThree[0].name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-sm sm:text-base font-bold text-white text-center">{topThree[0].name}</div>
+                        <div className="text-xs sm:text-sm text-primary text-center">
+                          {getCharacterName(topThree[0].selectedDriver)}
+                        </div>
                       </div>
-                      <div className="text-sm sm:text-base font-bold text-white text-center">{topThree[0].name}</div>
-                      <div className="text-xs sm:text-sm text-primary text-center">
-                        {getCharacterName(topThree[0].selectedDriver)}
-                      </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* 3rd Place - Right, lower */}
-                  {topThree[2] && (
-                    <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '50px' }}>
-                      <div className="text-xl sm:text-2xl font-bold text-amber-700">3rd</div>
-                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-amber-700 overflow-hidden bg-amber-900/30">
-                        {topThree[2].selectedDriver && getCharacterImage(topThree[2].selectedDriver) ? (
-                          <img 
-                            src={getCharacterImage(topThree[2].selectedDriver)!} 
-                            alt={getCharacterName(topThree[2].selectedDriver)}
-                            className="w-full h-full object-cover" 
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xl font-bold text-amber-700/50">
-                            {topThree[2].name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                    {/* 3rd Place - Right, lower */}
+                    {topThree[2] && (
+                      <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '50px' }}>
+                        <div className="text-xl sm:text-2xl font-bold text-amber-700">3rd</div>
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-amber-700 overflow-hidden bg-amber-900/30">
+                          {topThree[2].selectedDriver && getCharacterImage(topThree[2].selectedDriver) ? (
+                            <img 
+                              src={getCharacterImage(topThree[2].selectedDriver)!} 
+                              alt={getCharacterName(topThree[2].selectedDriver)}
+                              className="w-full h-full object-cover" 
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xl font-bold text-amber-700/50">
+                              {topThree[2].name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[2].name}</div>
+                        <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
+                          {getCharacterName(topThree[2].selectedDriver)}
+                        </div>
                       </div>
-                      <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[2].name}</div>
-                      <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
-                        {getCharacterName(topThree[2].selectedDriver)}
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                </div>
+
+                {/* Play Again Button */}
+                <Button 
+                  onClick={() => {
+                    if (isMultiplayer && socket) {
+                      socket.emit("leave_lobby");
+                      setMultiplayerGameState(null);
+                      setCurrentLobby(null);
+                      setLobbyCode("");
+                      eliminationPopupShownRef.current = false;
+                      setPhase('multiplayer_lobby');
+                      setRound(1);
+                      setOverlays([]);
+                      setRoundLog([]);
+                      const time = getInitialTime();
+                      setPlayers([
+                        { 
+                          id: 'p1', name: 'YOU', isBot: false, tokens: 0, remainingTime: time, isEliminated: false, currentBid: null, isHolding: false,
+                          totalTimeBid: 0, netImpact: 0, specialEvents: [], eventDatabasePopups: [], protocolsTriggered: [], protocolWins: [], totalDrinks: 0, socialDares: 0
+                        },
+                        ...createRandomBots(time),
+                      ]);
+                    } else {
+                      quitGame();
+                    }
+                  }} 
+                  variant="outline" 
+                  size="lg" 
+                  className="mt-4"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" /> Play Again
+                </Button>
+                  </div>
+
+              {/* SCROLLABLE RESULTS SECTION */}
+              <div className="flex-1 overflow-y-auto px-4 pb-10" style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(239, 68, 68, 0.5) rgba(0, 0, 0, 0.3)'
+              }}>
+                <style>{`
+                  .flex-1::-webkit-scrollbar {
+                    width: 8px;
+                  }
+                  .flex-1::-webkit-scrollbar-track {
+                    background: rgba(0, 0, 0, 0.3);
+                    border-radius: 4px;
+                  }
+                  .flex-1::-webkit-scrollbar-thumb {
+                    background: rgba(239, 68, 68, 0.5);
+                    border-radius: 4px;
+                  }
+                  .flex-1::-webkit-scrollbar-thumb:hover {
+                    background: rgba(239, 68, 68, 0.7);
+                  }
+                `}</style>
+
+                <div className="w-full max-w-3xl mx-auto">
+                  <h2 className="text-xl sm:text-2xl font-display font-bold text-zinc-400 mb-4 text-center">Full Results</h2>
+                  <div className="flex flex-col gap-3">
+                    {sortedPlayers.map((p, i) => renderPlayerCard(p, i))}
+                  </div>
                 </div>
               </div>
-
-              {/* Full Player Stats - All players in order */}
-              <div className="w-full max-w-3xl">
-                <h2 className="text-xl sm:text-2xl font-display font-bold text-zinc-400 mb-4 text-center">Full Results</h2>
-                <div className="flex flex-col gap-3">
-                  {sortedPlayers.map((p, i) => renderPlayerCard(p, i))}
-                </div>
-              </div>
-
-              <Button onClick={() => window.location.reload()} variant="outline" size="lg" className="mt-8">
-                <RefreshCw className="mr-2 h-4 w-4" /> Play Again
-              </Button>
             </div>
-          </div>
-        );
-    }
-  };
+             );
+             }
+             };
+  
   const toggleSound = () => {
     setSoundEnabled((prev) => {
       const next = !prev;
