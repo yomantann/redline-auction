@@ -1561,7 +1561,7 @@ function endRound(lobbyCode: string) {
     }
   }
 
-  // HIDDEN_67: any player (not just winner) who bids within ±0.1 of 67s
+  // HIDDEN_67: any player (not just winner) who bids within 67-67.9
   game.players.forEach(p => {
     const bid = p.currentBid || 0;
     if (bid >= 67.0 && bid < 68.0) {
