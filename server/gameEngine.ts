@@ -1157,6 +1157,13 @@ function endRound(lobbyCode: string) {
   
   // Find winner (highest bid among non-eliminated)
   const participants = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
+
+  // Auto-eliminated bidders from this round (ran out of time while holding).
+  // Their bid must still be considered when checking for a deadlock tie — a player who
+  // went all-in at the same displayed bid as the top active bidder is a genuine tie.
+  const eliminatedBidders = game.players.filter(p =>
+    game.eliminatedThisRound.includes(p.id) && p.currentBid !== null && p.currentBid > 0
+  );
   
   let winnerId: string | null = null;
   
@@ -1166,7 +1173,12 @@ function endRound(lobbyCode: string) {
     const secondBid = sorted[1]?.currentBid || 0;
     // Detect a tie: top two bids round to the same displayed value (1 decimal place)
     const roundTo1 = (n: number) => Math.round(n * 10) / 10;
-    const isTie = sorted.length >= 2 && roundTo1(topBid) === roundTo1(secondBid);
+    // Also treat it as a deadlock if any auto-eliminated bidder matched the top bid —
+    // their remaining time ran out at the same displayed value (float arithmetic can
+    // make p.remainingTime slightly differ from the exact stored bid, so roundTo1 is used).
+    const isTie =
+      (sorted.length >= 2 && roundTo1(topBid) === roundTo1(secondBid)) ||
+      eliminatedBidders.some(p => roundTo1(p.currentBid || 0) === roundTo1(topBid));
 
     if (!isTie) {
       const winner = sorted[0];
@@ -1191,9 +1203,11 @@ function endRound(lobbyCode: string) {
     } else {
       // Tie: no winner this round
       game.roundWinner = null;
+      const eliminatedTied = eliminatedBidders.find(p => roundTo1(p.currentBid || 0) === roundTo1(topBid));
+      const tiedNames = [sorted[0].name, sorted[1]?.name ?? eliminatedTied?.name ?? ''].filter(Boolean);
       addGameLogEntry(game, {
         type: 'win',
-        message: `Round ${game.round} DEADLOCK: ${sorted[0].name} & ${sorted[1].name} tied at ${topBid.toFixed(1)}s`,
+        message: `Round ${game.round} DEADLOCK: ${tiedNames.join(' & ')} tied at ${topBid.toFixed(1)}s`,
         basic: true,
       });
       log(`Round ${game.round} DEADLOCK SYNC: tie at ${topBid.toFixed(1)}s in lobby ${lobbyCode}`, "game");
@@ -1480,14 +1494,15 @@ function endRound(lobbyCode: string) {
     }
   });
   
-  // Track DEADLOCK_SYNC: tie for first place (no winner despite bids)
-  if (!winnerId && participants.length >= 2) {
-    const validBidders = [...participants]
+  // Track DEADLOCK_SYNC: tie for first place (no winner despite bids).
+  // Include auto-eliminated bidders who matched the top bid — they are part of the deadlock.
+  if (!winnerId && participants.length + eliminatedBidders.length >= 2) {
+    const allBidders = [...participants, ...eliminatedBidders]
       .filter(p => p.currentBid !== null && p.currentBid > 0)
       .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
-    if (validBidders.length >= 2) {
-      const topBid = validBidders[0].currentBid || 0;
-      const tiedPlayers = validBidders.filter(p => Math.round((p.currentBid || 0) * 10) / 10 === Math.round(topBid * 10) / 10);
+    if (allBidders.length >= 2) {
+      const topBid = allBidders[0].currentBid || 0;
+      const tiedPlayers = allBidders.filter(p => Math.round((p.currentBid || 0) * 10) / 10 === Math.round(topBid * 10) / 10);
       if (tiedPlayers.length >= 2) {
         tiedPlayers.forEach(p => p.momentFlagsEarned.push('DEADLOCK_SYNC'));
         addGameLogEntry(game, {
@@ -1975,7 +1990,6 @@ function addGameLogEntry(game: GameState, entry: Omit<GameLogEntry, 'round' | 't
     round: game.round,
     timestamp: Date.now(),
   });
-}
 }
 
 // Start the waiting_for_ready phase (used for each round)
