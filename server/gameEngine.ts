@@ -1417,10 +1417,6 @@ function endRound(lobbyCode: string) {
   // Snapshot flag counts before adding any this round (for PATCH_NOTES_PENDING detection)
   const flagsBeforeCount = new Map<string, number>();
   game.players.forEach(p => flagsBeforeCount.set(p.id, p.momentFlagsEarned.length));
-  
-  // Snapshot flag counts before adding any this round (for PATCH_NOTES_PENDING detection)
-  const flagsBeforeCount = new Map<string, number>();
-  game.players.forEach(p => flagsBeforeCount.set(p.id, p.momentFlagsEarned.length));
 
   // Track protocol wins and moment flags for the round winner
   if (winnerId && game.activeProtocol) {
