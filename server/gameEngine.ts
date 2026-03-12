@@ -1161,25 +1161,42 @@ function endRound(lobbyCode: string) {
   let winnerId: string | null = null;
   
   if (participants.length > 0) {
-    const winner = participants.reduce((max, p) => (p.currentBid || 0) > (max.currentBid || 0) ? p : max);
-    winnerId = winner.id;
-    game.roundWinner = { id: winner.id, name: winner.name, bid: winner.currentBid || 0 };
-    
-    // Award token(s) - double if DOUBLE_STAKES protocol is active (FIRE WALL immune)
-    const winnerHasFireWall = winner.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled;
-    const tokensAwarded = (game.isDoubleTokensRound && !winnerHasFireWall) ? 2 : 1;
-    winner.tokens += tokensAwarded;
-    
-    addGameLogEntry(game, {
-      type: 'win',
-      playerId: winner.id,
-      playerName: winner.name,
-      message: `${winner.name} won round ${game.round} with ${winner.currentBid?.toFixed(1)}s bid${game.isDoubleTokensRound ? ' (2x tokens!)' : ''}`,
-      value: winner.currentBid || 0,
-      basic: true,
-    });
-    
-    log(`Round ${game.round} winner: ${winner.name} with bid of ${winner.currentBid?.toFixed(1)}s${game.isDoubleTokensRound ? ' (DOUBLE STAKES)' : ''}`, "game");
+    const sorted = [...participants].sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    const topBid = sorted[0].currentBid || 0;
+    const secondBid = sorted[1]?.currentBid || 0;
+    // Detect a tie: top two bids within 0.1s of each other (matches display rounding)
+    const isTie = sorted.length >= 2 && Math.abs(topBid - secondBid) < 0.1;
+
+    if (!isTie) {
+      const winner = sorted[0];
+      winnerId = winner.id;
+      game.roundWinner = { id: winner.id, name: winner.name, bid: winner.currentBid || 0 };
+
+      // Award token(s) - double if DOUBLE_STAKES protocol is active (FIRE WALL immune)
+      const winnerHasFireWall = winner.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled;
+      const tokensAwarded = (game.isDoubleTokensRound && !winnerHasFireWall) ? 2 : 1;
+      winner.tokens += tokensAwarded;
+
+      addGameLogEntry(game, {
+        type: 'win',
+        playerId: winner.id,
+        playerName: winner.name,
+        message: `${winner.name} won round ${game.round} with ${winner.currentBid?.toFixed(1)}s bid${game.isDoubleTokensRound ? ' (2x tokens!)' : ''}`,
+        value: winner.currentBid || 0,
+        basic: true,
+      });
+
+      log(`Round ${game.round} winner: ${winner.name} with bid of ${winner.currentBid?.toFixed(1)}s${game.isDoubleTokensRound ? ' (DOUBLE STAKES)' : ''}`, "game");
+    } else {
+      // Tie: no winner this round
+      game.roundWinner = null;
+      addGameLogEntry(game, {
+        type: 'win',
+        message: `Round ${game.round} DEADLOCK: ${sorted[0].name} & ${sorted[1].name} tied at ${topBid.toFixed(1)}s`,
+        basic: true,
+      });
+      log(`Round ${game.round} DEADLOCK SYNC: tie at ${topBid.toFixed(1)}s in lobby ${lobbyCode}`, "game");
+    }
   } else {
     addGameLogEntry(game, {
       type: 'win',
@@ -1400,7 +1417,7 @@ function endRound(lobbyCode: string) {
   // Snapshot flag counts before adding any this round (for PATCH_NOTES_PENDING detection)
   const flagsBeforeCount = new Map<string, number>();
   game.players.forEach(p => flagsBeforeCount.set(p.id, p.momentFlagsEarned.length));
-  
+
   // Track protocol wins and moment flags for the round winner
   if (winnerId && game.activeProtocol) {
     const winnerPlayer = game.players.find(p => p.id === winnerId);
@@ -1469,7 +1486,7 @@ function endRound(lobbyCode: string) {
       .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
     if (validBidders.length >= 2) {
       const topBid = validBidders[0].currentBid || 0;
-      const tiedPlayers = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.09);
+      const tiedPlayers = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.1);
       if (tiedPlayers.length >= 2) {
         tiedPlayers.forEach(p => p.momentFlagsEarned.push('DEADLOCK_SYNC'));
         addGameLogEntry(game, {
@@ -1533,8 +1550,9 @@ function endRound(lobbyCode: string) {
           .find(l => l.type === 'win' && l.playerId === winnerId && l.round === game.round - 1 && l.value && l.value > 0);
           if (prevWinEntry && prevWinEntry.value) {
             const currentBid = winnerForDeja.currentBid || 0;
-            if (Math.abs(currentBid - prevWinEntry.value) <= 1.0) {
+            if (Math.abs(currentBid - prevWinEntry.value) <= 1.0 && !winnerForDeja.momentFlagsEarned.includes('HIDDEN_DEJA_BID')) {
               winnerForDeja.momentFlagsEarned.push('HIDDEN_DEJA_BID');
+              log(`[DEJA BID] ${winnerForDeja.name} bid ${currentBid.toFixed(1)}s vs prev ${prevWinEntry.value.toFixed(1)}s (diff ${Math.abs(currentBid - prevWinEntry.value).toFixed(2)}s) in lobby ${lobbyCode}`, "game");
             }
           }
         }
@@ -1557,8 +1575,8 @@ function endRound(lobbyCode: string) {
           const isDoubleRound = game.activeProtocol === 'DOUBLE_STAKES' || game.activeProtocol === 'PANIC_ROOM';
         let tokensAwarded = isDoubleRound ? 2 : 1;
 
-        // Account for CLICK_CLICK ability bonus
-        if (winnerPlayer.selectedDriver === 'click_click') {
+        // Account for CLICK_CLICK ability bonus (only if abilities are enabled)
+        if (winnerPlayer.selectedDriver === 'click_click' && game.settings.abilitiesEnabled) {
           const sortedForAbility = [...game.players]
             .filter(p => p.currentBid !== null && !p.isEliminated)
             .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
@@ -1576,7 +1594,6 @@ function endRound(lobbyCode: string) {
               return b.remainingTime - a.remainingTime;
           });
           const rankBefore = sortedBefore.findIndex(p => p.id === winnerId);
-        // sortedBefore is already sorted by pre-token counts via the comparator above
         // Read pre-token values consistently by re-applying the adjustment
         const firstPlacePreTokens = sortedBefore[0]?.id === winnerId 
           ? sortedBefore[0].tokens - tokensAwarded 
@@ -1594,6 +1611,7 @@ function endRound(lobbyCode: string) {
 
           if (wasInSecond && isNowFirst) {
               winnerPlayer.momentFlagsEarned.push('HIDDEN_REDLINE_REVERSAL');
+              log(`[REDLINE REVERSAL] ${winnerPlayer.name} came from 2nd to 1st on final round in lobby ${lobbyCode}`, "game");
           }
       }
   }
@@ -1606,6 +1624,7 @@ function endRound(lobbyCode: string) {
       const flagsThisRound = winnerPlayer.momentFlagsEarned.length - (flagsBeforeCount.get(winnerId) || 0);
       if (flagsThisRound >= 3) {
         winnerPlayer.momentFlagsEarned.push('PATCH_NOTES_PENDING');
+        log(`[PATCH NOTES PENDING] ${winnerPlayer.name} triggered ${flagsThisRound} moment flags this round in lobby ${lobbyCode}`, "game");
       }
     }
   }
@@ -1955,6 +1974,7 @@ function addGameLogEntry(game: GameState, entry: Omit<GameLogEntry, 'round' | 't
     round: game.round,
     timestamp: Date.now(),
   });
+}
 }
 
 // Start the waiting_for_ready phase (used for each round)
