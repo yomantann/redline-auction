@@ -1976,7 +1976,6 @@ function addGameLogEntry(game: GameState, entry: Omit<GameLogEntry, 'round' | 't
     timestamp: Date.now(),
   });
 }
-}
 
 // Start the waiting_for_ready phase (used for each round)
 function startWaitingForReady(lobbyCode: string) {
@@ -2277,7 +2276,16 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     const playerElapsed = (playerHasFireWall && game.activeProtocol === 'PANIC_ROOM') ? rawElapsed : rawElapsed * panicMultiplier;
     const minBid = getMinBidPenalty(game.gameDuration);
     player.isHolding = false;
-    player.currentBid = Math.round((playerElapsed + minBid) * 10) / 10;
+    // Lock in the bid using the value already tracked by the 100ms tick, which is exactly
+    // what was broadcast and displayed to the player. Re-computing from Date.now() here can
+    // be up to 100ms later than the last tick, enough to push the bid across a 0.1s rounding
+    // boundary and give a different value than what the player saw — breaking deadlock
+    // detection when two players both release on the same displayed second.
+    // Fall back to the fresh computation only if the tick hasn't updated the bid yet
+    // (player released within the very first 100ms of the bidding phase).
+    player.currentBid = player.currentBid > 0
+      ? Math.round(player.currentBid * 10) / 10
+      : Math.round((playerElapsed + minBid) * 10) / 10;
     
     log(`${player.name} released at ${player.currentBid.toFixed(1)}s (${playerElapsed.toFixed(1)}s hold + ${minBid}s minBid) in lobby ${lobbyCode}`, "game");
     
