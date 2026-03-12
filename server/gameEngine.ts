@@ -1550,7 +1550,7 @@ function endRound(lobbyCode: string) {
           .find(l => l.type === 'win' && l.playerId === winnerId && l.round === game.round - 1 && l.value && l.value > 0);
           if (prevWinEntry && prevWinEntry.value) {
             const currentBid = winnerForDeja.currentBid || 0;
-            if (Math.abs(currentBid - prevWinEntry.value) <= 1.0) {
+            if (Math.abs(currentBid - prevWinEntry.value) <= 1.0 && !winnerForDeja.momentFlagsEarned.includes('HIDDEN_DEJA_BID')) {
               winnerForDeja.momentFlagsEarned.push('HIDDEN_DEJA_BID');
               log(`[DEJA BID] ${winnerForDeja.name} bid ${currentBid.toFixed(1)}s vs prev ${prevWinEntry.value.toFixed(1)}s (diff ${Math.abs(currentBid - prevWinEntry.value).toFixed(2)}s) in lobby ${lobbyCode}`, "game");
             }

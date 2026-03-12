@@ -1118,6 +1118,7 @@ export default function Game() {
   // Multiplayer Moment Flags - trigger when round ends
   const lastRoundEndProcessedRef = useRef<number>(0);
   const eliminationPopupShownRef = useRef<boolean>(false); // Track if elimination popup already shown
+  const dejaBidShownRef = useRef<boolean>(false); // DEJA BID only fires once per game session
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -1326,9 +1327,11 @@ export default function Game() {
     }
 
     // Hidden Deja Bid: prev player win was within ±1 bid (use server momentFlagsEarned)
+    // Only fires once per game session - guard with ref so cumulative array doesn't re-trigger it
     const winnerMpPlayer = players.find(p => p.id === winner.id);
     const mpFlagsEarned = (winnerMpPlayer as any)?.momentFlagsEarned || [];
-    if (mpFlagsEarned.includes('HIDDEN_DEJA_BID') && isCurrentPlayerWinner) {
+    if (mpFlagsEarned.includes('HIDDEN_DEJA_BID') && isCurrentPlayerWinner && !dejaBidShownRef.current) {
+      dejaBidShownRef.current = true;
       setTimeout(() => addOverlay('hidden_deja_bid', 'DEJA BID', 'Previous win was with a nearly identical bid.', 0), 500);
       momentCount++;
     }
@@ -3369,7 +3372,8 @@ export default function Game() {
     const prevWinBidEntry = roundLog.find(l => l.startsWith(`>> P1_WIN_BID_R${round - 1}: `));
     const prevWinBid = prevWinBidEntry ? parseFloat(prevWinBidEntry.split(`>> P1_WIN_BID_R${round - 1}: `)[1]) : NaN;
     if (winnerId === 'p1' && !Number.isNaN(prevWinBid) && winnerTime > 0) {
-      if (Math.abs(winnerTime - prevWinBid) <= 1.0) {
+      const dejaBidAlreadyEarned = players.find(p => p.id === 'p1')?.eventDatabasePopups?.includes('HIDDEN_DEJA_BID');
+      if (Math.abs(winnerTime - prevWinBid) <= 1.0 && !dejaBidAlreadyEarned) {
         addOverlay('hidden_deja_bid', 'DEJA BID', 'Previous win was with a nearly identical bid.', 0);
         momentCount += 1;
         roundMomentFlags.push('HIDDEN_DEJA_BID');
