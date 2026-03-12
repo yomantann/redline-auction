@@ -1164,8 +1164,9 @@ function endRound(lobbyCode: string) {
     const sorted = [...participants].sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
     const topBid = sorted[0].currentBid || 0;
     const secondBid = sorted[1]?.currentBid || 0;
-    // Detect a tie: top two bids within 0.1s of each other (matches display rounding)
-    const isTie = sorted.length >= 2 && Math.abs(topBid - secondBid) < 0.1;
+    // Detect a tie: top two bids round to the same displayed value (1 decimal place)
+    const roundTo1 = (n: number) => Math.round(n * 10) / 10;
+    const isTie = sorted.length >= 2 && roundTo1(topBid) === roundTo1(secondBid);
 
     if (!isTie) {
       const winner = sorted[0];
@@ -1486,7 +1487,7 @@ function endRound(lobbyCode: string) {
       .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
     if (validBidders.length >= 2) {
       const topBid = validBidders[0].currentBid || 0;
-      const tiedPlayers = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.1);
+      const tiedPlayers = validBidders.filter(p => Math.round((p.currentBid || 0) * 10) / 10 === Math.round(topBid * 10) / 10);
       if (tiedPlayers.length >= 2) {
         tiedPlayers.forEach(p => p.momentFlagsEarned.push('DEADLOCK_SYNC'));
         addGameLogEntry(game, {
