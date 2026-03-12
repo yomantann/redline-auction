@@ -1169,7 +1169,7 @@ export default function Game() {
 
       if (validBidders.length >= 2) {
         const topBid = validBidders[0].currentBid || 0;
-        const tied = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.09);
+        const tied = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.1);
         if (tied.length >= 2 && tied.some(p => p.id === currentPlayerId)) {
           addOverlay("deadlock_sync", "DEADLOCK SYNC", "Exact time match! No winner.");
         }
@@ -1281,12 +1281,12 @@ export default function Game() {
       momentCount++;
     }
 
-    //MP Redline Reversal:
-      if (multiplayerGameState.round === totalRoundsForMp) {
+    //MP Redline Reversal: only applies when current player is the winner
+      if (multiplayerGameState.round === totalRoundsForMp && isCurrentPlayerWinner) {
         const isDoubleRound = multiplayerGameState.activeProtocol === 'DOUBLE_STAKES' || multiplayerGameState.activeProtocol === 'PANIC_ROOM';
         let tokensAwarded = isDoubleRound ? 2 : 1;
 
-        // Account for CLICK_CLICK ability bonus
+        // Account for CLICK_CLICK ability bonus (limit break)
         const currentPlayerData = players.find(p => p.id === currentPlayerId);
         if (currentPlayerData?.selectedDriver === 'click_click') {
           const sortedForAbility = [...players]
@@ -1319,6 +1319,7 @@ export default function Game() {
         const isNowFirst = sortedAfter[0]?.id === currentPlayerId;
 
         if (wasInSecond && isNowFirst) {
+            console.log(`[REDLINE REVERSAL] MP: ${winner.name} came from 2nd to 1st on round ${multiplayerGameState.round} (tokensAwarded=${tokensAwarded})`);
             setTimeout(() => addOverlay('hidden_redline_reversal', 'REDLINE REVERSAL', 'Came from 2nd to claim the win on the final round!'), 2000);
             momentCount++;
         }
@@ -1340,6 +1341,7 @@ export default function Game() {
     
     // Patch Notes Pending: 3+ moment flags in same round
     if (momentCount >= 3) {
+      console.log(`[PATCH NOTES PENDING] MP: ${winner.name} triggered ${momentCount} moment flags in round ${multiplayerGameState.round}`);
       setTimeout(() => addOverlay("hidden_patch_notes", "PATCH NOTES PENDING", "Triggered 3+ moment flags in one round."), 2500);
     }
     
@@ -2617,7 +2619,7 @@ export default function Game() {
 
     if (validParticipants.length > 0) {
         const potentialWinner = validParticipants[0];
-        const isTie = validParticipants.some(p => p.id !== potentialWinner.id && Math.abs((p.currentBid || 0) - (potentialWinner.currentBid || 0)) < 0.09);
+        const isTie = validParticipants.some(p => p.id !== potentialWinner.id && Math.abs((p.currentBid || 0) - (potentialWinner.currentBid || 0)) < 0.1);
         
         if (!isTie) {
             winnerId = potentialWinner.id;
@@ -3130,8 +3132,8 @@ export default function Game() {
          // Client SP precision strike (exact second bid)
          if (winnerId === 'p1' && winnerBid > 0) {
            // Use the ORIGINAL bid value from the winner, not the rounded display value
-           const winnerPlayer = participants.find(p => p.id === winnerId);
-           const originalBid = winnerPlayer?.currentBid || 0;
+           const winnerParticipant = participants.find(p => p.id === winnerId);
+           const originalBid = winnerParticipant?.currentBid || 0;
            const isExactSecond = originalBid > 0 && (Math.round(originalBid * 10) / 10) % 1 === 0;
            if (isExactSecond) {
              setTimeout(() => addOverlay("precision_strike", "PRECISION STRIKE", "Exact second bid!"), 1500);
@@ -3153,23 +3155,9 @@ export default function Game() {
                momentCount++;
                roundMomentFlags.push('CLUTCH_PLAY');
            }
-           
-         // PATCH_NOTES_PENDING: 3+ moment flags in same round (tracked as a flag itself)
-         if (momentCount >= 3 && winnerId) {
-           roundMomentFlags.push('PATCH_NOTES_PENDING');
-         }
        }
-
-       // Track moment flags on the winner player
-       if (winnerId && roundMomentFlags.length > 0) {
-         setPlayers(prev => prev.map(p => {
-           if (p.id === winnerId) {
-             return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), ...roundMomentFlags] };
-           }
-           return p;
-         }));
-       }
-       
+       // Note: PATCH_NOTES_PENDING and all remaining hidden flags are computed below
+       // after all flags have been collected, then stats are tracked in one setPlayers call.       
        // Track protocol wins for the winner
        if (winnerId && activeProtocol) {
          setPlayers(prev => prev.map(p => {
@@ -3189,7 +3177,7 @@ export default function Game() {
            .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
          if (validBidders.length >= 2) {
            const topBid = validBidders[0].currentBid || 0;
-           const tiedIds = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.09).map(p => p.id);
+           const tiedIds = validBidders.filter(p => Math.abs((p.currentBid || 0) - topBid) < 0.1).map(p => p.id);
            if (tiedIds.length >= 2) {
              setPlayers(prev => prev.map(p => {
                if (tiedIds.includes(p.id)) {
@@ -3406,14 +3394,28 @@ export default function Game() {
         const isNowFirst = sortedAfter[0]?.id === 'p1';
 
         if (wasInSecond && isNowFirst) {
+            console.log(`[REDLINE REVERSAL] SP: p1 came from 2nd (${firstPlaceTokens} vs ${secondPlaceTokens} tokens before) to 1st on round ${round}`);
             addOverlay('hidden_redline_reversal', 'REDLINE REVERSAL', 'Came from 2nd to claim the win on the final round!', 0);
+            momentCount++;
             roundMomentFlags.push('HIDDEN_REDLINE_REVERSAL');
         }
     }
     
     // PATCH_NOTES_PENDING: 3+ moment flags in same round (tracked as a flag itself)
     if (momentCount >= 3 && winnerId) {
+      console.log(`[PATCH NOTES PENDING] SP: p1 triggered ${momentCount} moment flags in round ${round}`);
+      setTimeout(() => addOverlay('hidden_patch_notes', 'PATCH NOTES PENDING', 'Triggered 3+ moment flags in one round.', 0), 2500);
       roundMomentFlags.push('PATCH_NOTES_PENDING');
+    }
+
+    // Track all moment flags for winner and tied players in eventDatabasePopups (stats)
+    if (winnerId && roundMomentFlags.length > 0) {
+      setPlayers(prev => prev.map(p => {
+        if (p.id === winnerId) {
+          return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), ...roundMomentFlags] };
+        }
+        return p;
+      }));
     }
 
 
