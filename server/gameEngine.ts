@@ -1678,6 +1678,27 @@ function endRound(lobbyCode: string) {
     }
     game.round = game.totalRounds;
     setTimeout(() => endGame(lobbyCode), 3000);
+  } else if (activeHumans.length === 1 && game.isMultiplayer && game.round < game.totalRounds) {
+    // Only 1 real player remains - auto-award them the remaining trophies
+    const soleHuman = activeHumans[0];
+    const remainingRounds = game.totalRounds - game.round;
+    
+    log(`Only 1 human player (${soleHuman.name}) remains in lobby ${lobbyCode}. Auto-awarding ${remainingRounds} trophies.`, "game");
+    
+    for (let r = 0; r < remainingRounds; r++) {
+      soleHuman.tokens += 1;
+      addGameLogEntry(game, {
+        type: 'win',
+        playerId: soleHuman.id,
+        playerName: soleHuman.name,
+        message: `Auto-win R${game.round + r + 1}: ${soleHuman.name} wins +1 token (last player standing)`,
+        value: 1,
+        basic: true,
+      });
+      log(`Auto-win round ${game.round + r + 1}: ${soleHuman.name} wins 1 token (last player standing)`, "game");
+    }
+    game.round = game.totalRounds;
+    setTimeout(() => endGame(lobbyCode), 3000);
   }
   // Otherwise, wait for players to acknowledge round end (via player_ready_next event)
   
@@ -1695,9 +1716,13 @@ function endRound(lobbyCode: string) {
     limitBreaksTriggered: [],
     playerPositions: game.players.map(p => ({
       playerId: p.id,
+      playerName: p.name,
+      driverId: p.selectedDriver || null,
+      isBot: p.isBot,
       tokens: p.tokens,
       remainingTime: p.remainingTime,
       isEliminated: p.isEliminated,
+      bid: p.currentBid ?? null,
     })),
     lobbyCode: game.lobbyCode,
     gameSettings: {
@@ -2126,9 +2151,13 @@ function endGame(lobbyCode: string) {
     limitBreaksTriggered: [],
     playerPositions: game.players.map(p => ({
       playerId: p.id,
+      playerName: p.name,
+      driverId: p.selectedDriver || null,
+      isBot: p.isBot,
       tokens: p.tokens,
       remainingTime: p.remainingTime,
       isEliminated: p.isEliminated,
+      bid: null,
     })),
     lobbyCode: game.lobbyCode,
     gameSettings: {
