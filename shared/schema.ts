@@ -32,13 +32,9 @@ export const gameSnapshots = pgTable("game_snapshots", {
   limitBreaksTriggered: jsonb("limit_breaks_triggered").$type<string[]>().default([]),
   playerPositions: jsonb("player_positions").$type<{
     playerId: string;
-    playerName: string;
-    driverId: string | null;
-    isBot: boolean;
     tokens: number;
     remainingTime: number;
     isEliminated: boolean;
-    bid: number | null;
   }[]>().default([]),
   lobbyCode: varchar("lobby_code"), // null for singleplayer
   gameSettings: jsonb("game_settings").$type<{

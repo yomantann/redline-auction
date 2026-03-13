@@ -525,13 +525,9 @@ export default function Game() {
           limitBreaksTriggered: [],
           playerPositions: currentPlayers.map(p => ({
             playerId: p.id,
-            playerName: p.name,
-            driverId: p.selectedDriver || (p.id === 'p1' ? (selectedCharacter?.id || null) : null),
-            isBot: p.isBot,
             tokens: p.tokens,
             remainingTime: p.remainingTime,
             isEliminated: p.isEliminated,
-            bid: p.currentBid ?? null,
           })),
           lobbyCode: null,
           gameSettings: {
@@ -3619,20 +3615,6 @@ export default function Game() {
         activeProtocol
       );
     }
-
-    // SP: If exactly 1 player is left (everyone else eliminated) with rounds remaining, auto-award remaining trophies
-    let playersForGameEnd = updatedPlayers;
-    const lastPlayerStanding = !isMultiplayer && round < totalRounds && remainingActivePlayers.length === 1;
-    if (lastPlayerStanding) {
-      const lastPlayer = remainingActivePlayers[0];
-      const remainingRounds = totalRounds - round;
-      playersForGameEnd = updatedPlayers.map(p =>
-        p.id === lastPlayer.id ? { ...p, tokens: p.tokens + remainingRounds } : p
-      );
-      setPlayers(playersForGameEnd);
-    }
-    // For snapshots/summaries: if last player auto-won remaining rounds, record as if totalRounds were played
-    const effectiveRound = lastPlayerStanding ? totalRounds : round;
     
     if (round >= totalRounds || remainingActivePlayers.length <= 1) {
        // Game End condition
@@ -3643,9 +3625,9 @@ export default function Game() {
         
         // Record game over snapshot and summary
         if (!isMultiplayer) {
-          recordSingleplayerSnapshot('game_over', playersForGameEnd, effectiveRound, winnerId, winnerTime, eliminatedThisRound, activeProtocol);
+          recordSingleplayerSnapshot('game_over', updatedPlayers, round, winnerId, winnerTime, eliminatedThisRound, activeProtocol);
           
-          const sorted = [...playersForGameEnd].sort((a, b) => {
+          const sorted = [...updatedPlayers].sort((a, b) => {
             if (b.tokens !== a.tokens) return b.tokens - a.tokens;
             return b.remainingTime - a.remainingTime;
           });
@@ -3657,7 +3639,7 @@ export default function Game() {
               body: JSON.stringify({
                 gameId,
                 lobbyCode: null,
-                totalRounds: effectiveRound,
+                totalRounds: round,
                 gameSettings: { difficulty, variant, gameDuration, protocolsEnabled, abilitiesEnabled },
                 playerResults: sorted.map((p, i) => ({
                   playerId: p.id,

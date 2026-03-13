@@ -1650,28 +1650,7 @@ function endRound(lobbyCode: string) {
   const activePlayers = game.players.filter(p => !p.isEliminated);
   const activeHumans = activePlayers.filter(p => !p.isBot);
   
-  if (activePlayers.length === 1 && game.round < game.totalRounds) {
-    // Exactly 1 player left (everyone else eliminated) with rounds remaining — award them the rest
-    const lastPlayer = activePlayers[0];
-    const remainingRounds = game.totalRounds - game.round;
-    
-    log(`Only 1 player (${lastPlayer.name}) remains in lobby ${lobbyCode}. Auto-awarding ${remainingRounds} trophies for remaining rounds.`, "game");
-    
-    for (let r = 0; r < remainingRounds; r++) {
-      lastPlayer.tokens += 1;
-      addGameLogEntry(game, {
-        type: 'win',
-        playerId: lastPlayer.id,
-        playerName: lastPlayer.name,
-        message: `Auto-win R${game.round + r + 1}: ${lastPlayer.name} wins +1 token (last player standing)`,
-        value: 1,
-        basic: true,
-      });
-      log(`Auto-win round ${game.round + r + 1}: ${lastPlayer.name} wins 1 token (last player standing)`, "game");
-    }
-    game.round = game.totalRounds;
-    setTimeout(() => endGame(lobbyCode), 3000);
-  } else if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
+  if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
     setTimeout(() => endGame(lobbyCode), 3000);
   } else if (activeHumans.length === 0 && game.isMultiplayer) {
     // All real players eliminated - fast-forward remaining rounds with random CPU trophies
@@ -1716,13 +1695,9 @@ function endRound(lobbyCode: string) {
     limitBreaksTriggered: [],
     playerPositions: game.players.map(p => ({
       playerId: p.id,
-      playerName: p.name,
-      driverId: p.selectedDriver || null,
-      isBot: p.isBot,
       tokens: p.tokens,
       remainingTime: p.remainingTime,
       isEliminated: p.isEliminated,
-      bid: p.currentBid ?? null,
     })),
     lobbyCode: game.lobbyCode,
     gameSettings: {
@@ -2151,13 +2126,9 @@ function endGame(lobbyCode: string) {
     limitBreaksTriggered: [],
     playerPositions: game.players.map(p => ({
       playerId: p.id,
-      playerName: p.name,
-      driverId: p.selectedDriver || null,
-      isBot: p.isBot,
       tokens: p.tokens,
       remainingTime: p.remainingTime,
       isEliminated: p.isEliminated,
-      bid: null,
     })),
     lobbyCode: game.lobbyCode,
     gameSettings: {
