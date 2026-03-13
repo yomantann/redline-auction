@@ -3620,18 +3620,19 @@ export default function Game() {
       );
     }
 
-    // SP: If p1 is the last active player with rounds remaining, auto-award remaining trophies
+    // SP: If exactly 1 player is left (everyone else eliminated) with rounds remaining, auto-award remaining trophies
     let playersForGameEnd = updatedPlayers;
-    const p1IsLastStanding = !isMultiplayer && round < totalRounds && remainingActivePlayers.length === 1 && remainingActivePlayers[0].id === 'p1';
-    if (p1IsLastStanding) {
+    const lastPlayerStanding = !isMultiplayer && round < totalRounds && remainingActivePlayers.length === 1;
+    if (lastPlayerStanding) {
+      const lastPlayer = remainingActivePlayers[0];
       const remainingRounds = totalRounds - round;
       playersForGameEnd = updatedPlayers.map(p =>
-        p.id === 'p1' ? { ...p, tokens: p.tokens + remainingRounds } : p
+        p.id === lastPlayer.id ? { ...p, tokens: p.tokens + remainingRounds } : p
       );
       setPlayers(playersForGameEnd);
     }
-    // For snapshots/summaries: if p1 auto-won remaining rounds, record as if totalRounds were played
-    const effectiveRound = p1IsLastStanding ? totalRounds : round;
+    // For snapshots/summaries: if last player auto-won remaining rounds, record as if totalRounds were played
+    const effectiveRound = lastPlayerStanding ? totalRounds : round;
     
     if (round >= totalRounds || remainingActivePlayers.length <= 1) {
        // Game End condition
