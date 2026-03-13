@@ -1870,6 +1870,7 @@ export default function Game() {
                   if (isMultiplayer && multiplayerGameState && socket) {
                     const currentPlayerId = multiplayerGameState.players.find(p => p.socketId === socket.id)?.id;
                     if (currentPlayerId) {
+                      // Exclude roll_safe from peek pool — opponents is only consumed below when abilitiesEnabled
                       const opponents = multiplayerGameState.players.filter(p => p.id !== currentPlayerId && !p.isEliminated && (p as any).selectedDriver !== 'roll_safe');
                       
                         if (selectedCharacter.id === 'sadman' && opponents.length > 0 && abilitiesEnabled) {
@@ -2311,6 +2312,7 @@ export default function Game() {
         }
         // SADMAN: SAD REVEAL (Passive - PEEK Selection)
       if (selectedChar.id === 'sadman' && abilitiesEnabled) {
+         // Exclude roll_safe from peek targets — safe here since this block only runs when abilitiesEnabled
          const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.selectedDriver !== 'roll_safe');
          if (opponents.length > 0) {
              const target = opponents[Math.floor(Math.random() * opponents.length)];
@@ -2324,6 +2326,7 @@ export default function Game() {
       
       // WANDERING EYE: SNEAK PEEK (Passive - See 1 holding, scramble everyone else)
       if (selectedChar.id === 'wandering_eye' && abilitiesEnabled) {
+        // Exclude roll_safe from peek targets — safe here since this block only runs when abilitiesEnabled
         const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.selectedDriver !== 'roll_safe');
         if (opponents.length > 0) {
           // Show ONE person is holding (but DON'T reveal their time bank)
@@ -2368,8 +2371,12 @@ export default function Game() {
     
     // 2. CALCULATE PRELIMINARY TIME & ELIMINATION (Pre-Winner)
     
-    // First, identify Roll Safe (Thinker) if present - immune to all abilities
-    const rollSafeId = players.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'roll_safe') || (!p.isBot && selectedCharacter?.id === 'roll_safe'))?.id;
+    // First, identify Roll Safe (Thinker) if present - immune to all abilities.
+    // Only resolve this when abilities are enabled; when abilities are off, roll_safe
+    // is treated as a normal player and should not receive any special immunity.
+    const rollSafeId = abilitiesEnabled
+      ? players.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'roll_safe') || (!p.isBot && selectedCharacter?.id === 'roll_safe'))?.id
+      : undefined;
 
     const disruptEffects: { targetId: string, amount: number, source: string, ability: string }[] = [];
     let playersOut: string[] = [];
@@ -2410,17 +2417,14 @@ export default function Game() {
 
                  if (ab.name === 'MANAGER CALL') {
                      // Hit 1 RANDOM opponent (except Roll Safe)
-                     const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId && pl.selectedDriver !== 'roll_safe');
+                     const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId);
                      if (validTargets.length > 0) {
                          const target = validTargets[Math.floor(Math.random() * validTargets.length)];
                          disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
                      }
                  } else if (ab.name === 'BURN IT') {
                      // Hit EVERYONE (except Roll Safe)
-                     // Hotwired: Remove 1s from everyone else
-                     // FORCE HIT: Ignore immunity unless explicitly Roll Safe
-                     // Guard with both rollSafeId and selectedDriver check for robustness
-                     players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId && pl.selectedDriver !== 'roll_safe').forEach(target => {
+                     players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId).forEach(target => {
                          disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, ability: ab.name });
                      });
                  }
@@ -2466,9 +2470,9 @@ export default function Game() {
 
         // Apply Standard Disruptions (Manager Call, Burn It) - tracked in netImpact
         // Fire Wall BLOCKS PROTOCOLS but NOT DISRUPTIONS (Abilities) per user request.
-        // Roll Safe BLOCKS ALL.
+        // Roll Safe BLOCKS ALL — but only when abilitiesEnabled (rollSafeId is undefined otherwise).
         
-        if (p.id !== rollSafeId && p.selectedDriver !== 'roll_safe') { 
+        if (p.id !== rollSafeId) { 
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
@@ -2524,8 +2528,8 @@ export default function Game() {
 
         // Apply Standard Disruptions (Manager Call, Burn It)
         // Fire Wall does NOT block character abilities per user request.
-        // Roll Safe IS immune.
-        if (p.id !== rollSafeId && p.selectedDriver !== 'roll_safe') { 
+        // Roll Safe IS immune — but only when abilitiesEnabled (rollSafeId is undefined otherwise).
+        if (p.id !== rollSafeId) { 
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
@@ -2549,7 +2553,7 @@ export default function Game() {
                  // Removed random check for bots to ensure consistency as requested
                  
                  // Find non-eliminated opponent with MOST time (using temp times, post-bid deduction)
-                 const validTargets = tempPlayersState.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.remainingTime > 0 && pl.id !== rollSafeId && pl.selectedDriver !== 'roll_safe');
+                 const validTargets = tempPlayersState.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.remainingTime > 0 && pl.id !== rollSafeId);
                  if (validTargets.length > 0) {
                     // Sort descending by remainingTime to ensure we get the absolute max
                     validTargets.sort((a, b) => b.remainingTime - a.remainingTime);
@@ -2778,11 +2782,9 @@ export default function Game() {
         if (abilitiesEnabled && p.id !== winnerId && winnerId && !p.isEliminated) {
              const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
              if (playerChar?.ability?.name === 'CHEESE TAX') {
-                 // Cheese Tax does NOT trigger if the winner is roll_safe (immune to abilities)
-                 const winnerPs = playersState.find(wp => wp.id === winnerId);
-                 const winnerIsRollSafe = winnerPs?.selectedDriver === 'roll_safe' ||
-                     (!winnerPs?.isBot && selectedCharacter?.id === 'roll_safe');
-                 if (!winnerIsRollSafe) {
+                 // Cheese Tax does NOT trigger if the winner is roll_safe (immune to abilities).
+                 // rollSafeId is only non-undefined when abilitiesEnabled (see definition above).
+                 if (winnerId !== rollSafeId) {
                      newTime += 2.0;
                      roundNetImpactNum += 2.0;
                      impact += " +2.0s (Cheese Tax)";
@@ -2813,9 +2815,8 @@ export default function Game() {
                  const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
                  if (playerChar?.ability?.name === 'CHEESE TAX') {
                      const w = finalPlayers.find(fp => fp.id === winnerId);
-                     // Roll Safe Immunity Check — use both name-based lookup and selectedDriver for robustness
-                     const rollSafeId = finalPlayers.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'roll_safe') || (!p.isBot && selectedCharacter?.id === 'roll_safe'))?.id;
-                     if (w && w.id !== rollSafeId && !(w.selectedDriver === 'roll_safe' || (!w.isBot && selectedCharacter?.id === 'roll_safe'))) {
+                     // Roll Safe Immunity: rollSafeId is only non-undefined when abilitiesEnabled
+                     if (w && w.id !== rollSafeId) {
                          w.remainingTime = Math.max(0, w.remainingTime - 2.0);
                          w.netImpact = (w.netImpact || 0) - 2.0; // Track cheese tax damage received
                          w.roundImpact = (w.roundImpact || "") + " -2.0s (Cheese Tax)";
