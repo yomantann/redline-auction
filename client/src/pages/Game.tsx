@@ -1040,7 +1040,9 @@ export default function Game() {
       sub: string;
     }) => {
       setTimeout(() => {
-        addOverlay("protocol_alert", data.msg, data.sub);
+        const SOCIAL_PROTOCOL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+        const overlayType = SOCIAL_PROTOCOL_SET.includes(data.protocol) ? "social_event" : "protocol_alert";
+        addOverlay(overlayType, data.msg, data.sub);
       }, 1500);
     };
 
@@ -1172,6 +1174,7 @@ export default function Game() {
         const topBid = validBidders[0].currentBid || 0;
         const tied = validBidders.filter(p => Math.round((p.currentBid || 0) * 10) / 10 === Math.round(topBid * 10) / 10);
         if (tied.length >= 2 && tied.some(p => p.id === currentPlayerId)) {
+          sfxBlockUntilRef.current = 0; // Reset SFX blocking timer so deadlock sound plays immediately
           addOverlay("deadlock_sync", "DEADLOCK SYNC", "Exact time match! No winner.");
         }
       } else if (validBidders.length === 0) {
@@ -1267,7 +1270,7 @@ export default function Game() {
       const playersAtMin = allTokensBefore.filter(t => t === minTokens);
       const someoneHadMore = allTokensBefore.some(t => t > winnerTokensBefore);
       
-        if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && someoneHadMore && isCurrentPlayerWinner) {
+        if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && someoneHadMore && isCurrentPlayerWinner && winnerTokensBefore >= 0) {
         setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winner.name} stays in the fight!`), 1000);
         momentCount++;
       }
@@ -2131,6 +2134,7 @@ export default function Game() {
       let msg = "PROTOCOL INITIATED";
       let sub = "Unknown Effect";
       let showPopup = true;
+      let localMoleTargetId: string | null = null; // Track mole assignment without relying on stale state
       
       // Helper to get random player name(s) - FIRE WALL players excluded from protocol targeting
       const fireWallExclude = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
@@ -2164,10 +2168,12 @@ export default function Game() {
           const target = fireWallActive ? getRandomPlayer() : (Math.random() > 0.5 ? 'YOU' : getRandomPlayer());
           const targetId = target === 'YOU' ? 'p1' : players.find(p => p.name === target)?.id || null;
           setMoleTarget(targetId);
+          localMoleTargetId = targetId; // Store locally to avoid stale state check below
           msg = target === 'YOU' ? "THE MOLE" : "SECRET PROTOCOL ACTIVE";
           sub = target === 'YOU'
             ? "You are the Mole. Your bid does not impact your time bank. Do NOT win the round by more than 7.0s."
             : "";
+          if (target !== 'YOU') showPopup = false; // Bot is mole; SECRET PROTOCOL fallback shown by later logic
           break;
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break; // Secret
@@ -2177,7 +2183,7 @@ export default function Game() {
           const pcTarget = fireWallActivePC ? getRandomPlayer() : (Math.random() > 0.5 ? 'YOU' : getRandomPlayer());
           const pcPartner = getRandomPlayer();
           if (pcTarget === 'YOU') {
-            msg = "PRIVATE CHANNEL"; sub = `Secret link with ${pcPartner}! Coordinate your strategy.`;
+            msg = "PRIVATE CHANNEL"; sub = `YOU are secretly linked with ${pcPartner}! Coordinate your strategy.`;
           } else {
             showPopup = false;
           }
@@ -2206,19 +2212,26 @@ export default function Game() {
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water only this round!"; break;
       }
       
-      // Filter out popups that shouldn't be seen by the player
-      const targetProtocols = ['THE_MOLE', 'OPEN_HAND', 'LOCK_ON', 'PARTNER_DRINK', 'HUM_TUNE', 'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL'];
+      // Filter out popups that shouldn't be seen by the player (targeted/secret protocols only)
+      // Public social directives (OPEN_HAND, LOCK_ON, HUM_TUNE, PARTNER_DRINK) are always shown so p1 knows who is targeted
+      const targetProtocols = ['THE_MOLE', 'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL'];
 
       // LOW FLAME IMMUNITY CHECK (Fire Wall)
       const isLowFlame = selectedCharacter?.id === 'low_flame';
       const isImmune = isLowFlame && abilitiesEnabled; // FIRE WALL: Immune to ALL protocol effects
 
       if (newProtocol && targetProtocols.includes(newProtocol)) {
-         showPopup = false;
          if (newProtocol === 'THE_MOLE') {
-             if (moleTarget === 'p1') showPopup = true;
-         } else if (sub.includes('YOU') || sub.includes(players.find(p => p.id === 'p1')?.name || 'YOU')) {
-             showPopup = true;
+             // Use localMoleTargetId to avoid stale moleTarget state
+             if (localMoleTargetId !== 'p1') showPopup = false;
+         } else if (newProtocol === 'PRIVATE_CHANNEL') {
+             // showPopup already set correctly in switch case (false when p1 not in pair)
+             // sub.includes('YOU') check for PRIVATE_CHANNEL when p1 IS in pair
+             if (!sub.includes('YOU') && !sub.includes(players.find(p => p.id === 'p1')?.name || '')) {
+                 showPopup = false;
+             }
+         } else {
+             // UNDERDOG_VICTORY and TIME_TAX are always hidden (showPopup already false from switch)
          }
       }
 
@@ -2238,7 +2251,7 @@ export default function Game() {
              }
          }
       } else {
-         if (newProtocol === 'UNDERDOG_VICTORY' || newProtocol === 'TIME_TAX' || newProtocol === 'PRIVATE_CHANNEL') {
+         if (newProtocol && targetProtocols.includes(newProtocol)) {
              addOverlay("protocol_alert", "SECRET PROTOCOL", "A hidden protocol is active...");
          }
       }
@@ -2629,6 +2642,7 @@ export default function Game() {
             winnerName = potentialWinner.name;
             winnerTime = potentialWinner.currentBid || 0;
         } else {
+          sfxBlockUntilRef.current = 0; // Reset SFX blocking timer so deadlock sound plays immediately
           addOverlay("deadlock_sync", "DEADLOCK SYNC", "Exact Time Match! No Winner.");
           setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
         }
@@ -3126,7 +3140,7 @@ export default function Game() {
            // COMEBACK HOPE: only if you started the round as the *sole* last-place player
            // (not tied for last)
            const playersAtMin = players.filter(p => p.tokens === minTokens);
-           if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && players.some(p => p.tokens > winnerTokensBefore)) {
+           if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && players.some(p => p.tokens > winnerTokensBefore) && winnerTokensBefore >= 0) {
                setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winnerName} stays in the fight!`), 1000);
                momentCount++;
                roundMomentFlags.push('COMEBACK_HOPE');
@@ -3161,8 +3175,8 @@ export default function Game() {
        }
        // Note: PATCH_NOTES_PENDING and all remaining hidden flags are computed below
        // after all flags have been collected, then stats are tracked in one setPlayers call.       
-       // Track protocol wins for the winner
-       if (winnerId && activeProtocol) {
+       // Track protocol wins for the winner (UNDERDOG_VICTORY goes to underdog separately)
+       if (winnerId && activeProtocol && activeProtocol !== 'UNDERDOG_VICTORY') {
          setPlayers(prev => prev.map(p => {
            if (p.id === winnerId) {
              return { ...p, protocolWins: [...(p.protocolWins || []), activeProtocol] };
@@ -3222,6 +3236,15 @@ export default function Game() {
                 finalPlayers[idx].roundImpact = (finalPlayers[idx].roundImpact || "") + " +1 Token (Underdog)";
                 if (finalPlayers[idx].impactLogs) finalPlayers[idx].impactLogs!.push({ value: "+1 Token", reason: "Underdog Victory", type: 'gain' });
                 
+                // Protocol win goes to the underdog player
+                const underdogId = underdog.id;
+                setPlayers(prev => prev.map(p => {
+                  if (p.id === underdogId) {
+                    return { ...p, protocolWins: [...(p.protocolWins || []), 'UNDERDOG_VICTORY'] };
+                  }
+                  return p;
+                }));
+
                 extraLogs.push(`>> SECRET REVEALED: UNDERDOG VICTORY! ${underdog.name} wins a trophy for lowest bid!`);
                 
                 // Show Overlay
@@ -3279,6 +3302,17 @@ export default function Game() {
                 addOverlay("protocol_alert", "SECRET REVEALED", "PRIVATE CHANNEL: No eligible link this round.");
             }, 1500);
         }
+    }
+
+    // TRUTH_DARE: show end-of-round reminder with winner/loser info
+    if (activeProtocol === 'TRUTH_DARE') {
+        const loserNames = finalPlayers
+            .filter(p => !p.isEliminated && p.id !== winnerId)
+            .map(p => p.name);
+        const sub = winnerId && winnerName
+            ? `${winnerName} asks — ${loserNames.length > 0 ? loserNames.join(', ') : 'others'} must answer!`
+            : 'No winner this round!';
+        setTimeout(() => addOverlay("social_event", "TRUTH OR DARE", sub), 2000);
     }
 
     // LAST ONE STANDING: win final round with at least one elimination this round

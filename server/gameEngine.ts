@@ -1216,6 +1216,7 @@ function endRound(lobbyCode: string) {
     if (eligible.length > 0) {
       const underdog = eligible[0];
       underdog.tokens += 1;
+      underdog.protocolWinsEarned.push('UNDERDOG_VICTORY'); // Protocol win goes to the underdog
       addGameLogEntry(game, {
         type: 'protocol',
         playerId: underdog.id,
@@ -1393,7 +1394,7 @@ function endRound(lobbyCode: string) {
       const margin = (molePlayer.currentBid || 0) - secondPlaceBid;
       
       if (margin > 7) {
-        molePlayer.tokens = Math.max(0, molePlayer.tokens - 2);
+        molePlayer.tokens -= 2; // Allow tokens to go negative (e.g., -1 trophy on round 1)
         addGameLogEntry(game, {
           type: 'protocol',
           playerId: molePlayer.id,
@@ -1419,8 +1420,8 @@ function endRound(lobbyCode: string) {
   const flagsBeforeCount = new Map<string, number>();
   game.players.forEach(p => flagsBeforeCount.set(p.id, p.momentFlagsEarned.length));
 
-  // Track protocol wins and moment flags for the round winner
-  if (winnerId && game.activeProtocol) {
+  // Track protocol wins for the round winner (UNDERDOG_VICTORY goes to underdog separately, not regular winner)
+  if (winnerId && game.activeProtocol && game.activeProtocol !== 'UNDERDOG_VICTORY') {
     const winnerPlayer = game.players.find(p => p.id === winnerId);
     if (winnerPlayer) {
       winnerPlayer.protocolWinsEarned.push(game.activeProtocol);
@@ -1466,7 +1467,7 @@ function endRound(lobbyCode: string) {
       const allTokensBefore = game.players.filter(p => !p.isEliminated || p.id === winnerId).map(p => p.id === winnerId ? winnerTokensBefore : p.tokens);
       const minTokens = Math.min(...allTokensBefore);
       const playersAtMin = allTokensBefore.filter(t => t === minTokens);
-      if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && allTokensBefore.some(t => t > winnerTokensBefore)) {
+      if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && allTokensBefore.some(t => t > winnerTokensBefore) && winnerTokensBefore >= 0) {
         winnerPlayer.momentFlagsEarned.push('COMEBACK_HOPE');
       }
     }
@@ -1928,6 +1929,18 @@ function emitSecretProtocolReveal(game: GameState) {
       protocol: 'PRIVATE_CHANNEL',
       msg: 'SECRET REVEALED',
       sub: `PRIVATE CHANNEL: ${pA?.name || '?'} & ${pB?.name || '?'} were secretly linked!`,
+    });
+  }
+
+  // TRUTH_DARE: remind all players who won and must ask a truth or dare at round end
+  if (game.activeProtocol === 'TRUTH_DARE') {
+    const winner = game.roundWinner;
+    emitToLobby(game.lobbyCode, 'protocol_reveal', {
+      protocol: 'TRUTH_DARE',
+      msg: 'TRUTH OR DARE',
+      sub: winner
+        ? `${winner.name} asks — everyone else must answer!`
+        : 'No winner this round!',
     });
   }
 }
