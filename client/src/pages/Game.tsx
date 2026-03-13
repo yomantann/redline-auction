@@ -1040,7 +1040,9 @@ export default function Game() {
       sub: string;
     }) => {
       setTimeout(() => {
-        addOverlay("protocol_alert", data.msg, data.sub);
+        const SOCIAL_PROTOCOL_SET = ['TRUTH_DARE', 'SWITCH_SEATS', 'HUM_TUNE', 'LOCK_ON', 'NOISE_CANCEL'];
+        const overlayType = SOCIAL_PROTOCOL_SET.includes(data.protocol) ? "social_event" : "protocol_alert";
+        addOverlay(overlayType, data.msg, data.sub);
       }, 1500);
     };
 
@@ -1172,7 +1174,7 @@ export default function Game() {
         const topBid = validBidders[0].currentBid || 0;
         const tied = validBidders.filter(p => Math.round((p.currentBid || 0) * 10) / 10 === Math.round(topBid * 10) / 10);
         if (tied.length >= 2 && tied.some(p => p.id === currentPlayerId)) {
-          sfxBlockUntilRef.current = 0; // Ensure deadlock SFX always plays
+          sfxBlockUntilRef.current = 0; // Reset SFX blocking timer so deadlock sound plays immediately
           addOverlay("deadlock_sync", "DEADLOCK SYNC", "Exact time match! No winner.");
         }
       } else if (validBidders.length === 0) {
@@ -1268,7 +1270,7 @@ export default function Game() {
       const playersAtMin = allTokensBefore.filter(t => t === minTokens);
       const someoneHadMore = allTokensBefore.some(t => t > winnerTokensBefore);
       
-        if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && someoneHadMore && isCurrentPlayerWinner) {
+        if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && someoneHadMore && isCurrentPlayerWinner && winnerTokensBefore >= 0) {
         setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winner.name} stays in the fight!`), 1000);
         momentCount++;
       }
@@ -2171,7 +2173,7 @@ export default function Game() {
           sub = target === 'YOU'
             ? "You are the Mole. Your bid does not impact your time bank. Do NOT win the round by more than 7.0s."
             : "";
-          if (target !== 'YOU') showPopup = false; // Bot is mole - hide from p1, show SECRET PROTOCOL fallback
+          if (target !== 'YOU') showPopup = false; // Bot is mole; SECRET PROTOCOL fallback shown by later logic
           break;
         case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break; // Secret
@@ -2640,7 +2642,7 @@ export default function Game() {
             winnerName = potentialWinner.name;
             winnerTime = potentialWinner.currentBid || 0;
         } else {
-          sfxBlockUntilRef.current = 0; // Ensure deadlock SFX always plays
+          sfxBlockUntilRef.current = 0; // Reset SFX blocking timer so deadlock sound plays immediately
           addOverlay("deadlock_sync", "DEADLOCK SYNC", "Exact Time Match! No Winner.");
           setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
         }
@@ -3138,7 +3140,7 @@ export default function Game() {
            // COMEBACK HOPE: only if you started the round as the *sole* last-place player
            // (not tied for last)
            const playersAtMin = players.filter(p => p.tokens === minTokens);
-           if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && players.some(p => p.tokens > winnerTokensBefore)) {
+           if (winnerTokensBefore === minTokens && playersAtMin.length === 1 && players.some(p => p.tokens > winnerTokensBefore) && winnerTokensBefore >= 0) {
                setTimeout(() => addOverlay("comeback_hope", "COMEBACK HOPE", `${winnerName} stays in the fight!`), 1000);
                momentCount++;
                roundMomentFlags.push('COMEBACK_HOPE');
@@ -3173,8 +3175,8 @@ export default function Game() {
        }
        // Note: PATCH_NOTES_PENDING and all remaining hidden flags are computed below
        // after all flags have been collected, then stats are tracked in one setPlayers call.       
-       // Track protocol wins for the winner
-       if (winnerId && activeProtocol) {
+       // Track protocol wins for the winner (UNDERDOG_VICTORY goes to underdog separately)
+       if (winnerId && activeProtocol && activeProtocol !== 'UNDERDOG_VICTORY') {
          setPlayers(prev => prev.map(p => {
            if (p.id === winnerId) {
              return { ...p, protocolWins: [...(p.protocolWins || []), activeProtocol] };
@@ -3234,6 +3236,15 @@ export default function Game() {
                 finalPlayers[idx].roundImpact = (finalPlayers[idx].roundImpact || "") + " +1 Token (Underdog)";
                 if (finalPlayers[idx].impactLogs) finalPlayers[idx].impactLogs!.push({ value: "+1 Token", reason: "Underdog Victory", type: 'gain' });
                 
+                // Protocol win goes to the underdog player
+                const underdogId = underdog.id;
+                setPlayers(prev => prev.map(p => {
+                  if (p.id === underdogId) {
+                    return { ...p, protocolWins: [...(p.protocolWins || []), 'UNDERDOG_VICTORY'] };
+                  }
+                  return p;
+                }));
+
                 extraLogs.push(`>> SECRET REVEALED: UNDERDOG VICTORY! ${underdog.name} wins a trophy for lowest bid!`);
                 
                 // Show Overlay
@@ -3291,6 +3302,17 @@ export default function Game() {
                 addOverlay("protocol_alert", "SECRET REVEALED", "PRIVATE CHANNEL: No eligible link this round.");
             }, 1500);
         }
+    }
+
+    // TRUTH_DARE: show end-of-round reminder with winner/loser info
+    if (activeProtocol === 'TRUTH_DARE') {
+        const loserNames = finalPlayers
+            .filter(p => !p.isEliminated && p.id !== winnerId)
+            .map(p => p.name);
+        const sub = winnerId && winnerName
+            ? `${winnerName} asks — ${loserNames.length > 0 ? loserNames.join(', ') : 'others'} must answer!`
+            : 'No winner this round!';
+        setTimeout(() => addOverlay("social_event", "TRUTH OR DARE", sub), 2000);
     }
 
     // LAST ONE STANDING: win final round with at least one elimination this round
