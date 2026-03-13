@@ -2693,12 +2693,16 @@ export default function Game() {
 
         if (p.id === winnerId) {
              let tokensToAdd = 1;
-             const winnerIsFireWall = p.id === 'p1' && selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
+             // Fire Wall immunity applies to both the human player and any bot with low_flame
+             const winnerIsFireWall = abilitiesEnabled && (
+                 (!p.isBot && selectedCharacter?.id === 'low_flame') ||
+                 (p.isBot && p.selectedDriver === 'low_flame')
+             );
              if ((activeProtocol === 'DOUBLE_STAKES' || activeProtocol === 'PANIC_ROOM') && !winnerIsFireWall) {
                 tokensToAdd = 2;
                 extraLogs.push(`>> HIGH STAKES: ${p.name} won ${tokensToAdd} trophies!`);
-            }
-            newTokens += tokensToAdd;
+             }
+             newTokens += tokensToAdd;
 
              if (abilitiesEnabled) {
                 const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
@@ -2774,11 +2778,17 @@ export default function Game() {
         if (abilitiesEnabled && p.id !== winnerId && winnerId && !p.isEliminated) {
              const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
              if (playerChar?.ability?.name === 'CHEESE TAX') {
-                 newTime += 2.0;
-                 roundNetImpactNum += 2.0;
-                 impact += " +2.0s (Cheese Tax)";
-                 impactLogs.push({ value: "+2.0s", reason: "Cheese Tax", type: 'gain' });
-                 newAbilities.push({ playerId: p.id, ability: 'CHEESE TAX', effect: 'DISRUPT', targetId: winnerId, impactValue: "Steal 2s" });
+                 // Cheese Tax does NOT trigger if the winner is roll_safe (immune to abilities)
+                 const winnerPs = playersState.find(wp => wp.id === winnerId);
+                 const winnerIsRollSafe = winnerPs?.selectedDriver === 'roll_safe' ||
+                     (!winnerPs?.isBot && selectedCharacter?.id === 'roll_safe');
+                 if (!winnerIsRollSafe) {
+                     newTime += 2.0;
+                     roundNetImpactNum += 2.0;
+                     impact += " +2.0s (Cheese Tax)";
+                     impactLogs.push({ value: "+2.0s", reason: "Cheese Tax", type: 'gain' });
+                     newAbilities.push({ playerId: p.id, ability: 'CHEESE TAX', effect: 'DISRUPT', targetId: winnerId, impactValue: "Steal 2s" });
+                 }
              }
              if (playerChar?.ability?.name === 'HIDE PAIN') {
                  const winnerBidVal = validParticipants.find(vp => vp.id === winnerId)?.currentBid || 0;
@@ -2803,10 +2813,9 @@ export default function Game() {
                  const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
                  if (playerChar?.ability?.name === 'CHEESE TAX') {
                      const w = finalPlayers.find(fp => fp.id === winnerId);
-                     // Roll Safe Immunity Check
+                     // Roll Safe Immunity Check — use both name-based lookup and selectedDriver for robustness
                      const rollSafeId = finalPlayers.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'roll_safe') || (!p.isBot && selectedCharacter?.id === 'roll_safe'))?.id;
-                     
-                     if (w && w.id !== rollSafeId) {
+                     if (w && w.id !== rollSafeId && !(w.selectedDriver === 'roll_safe' || (!w.isBot && selectedCharacter?.id === 'roll_safe'))) {
                          w.remainingTime = Math.max(0, w.remainingTime - 2.0);
                          w.netImpact = (w.netImpact || 0) - 2.0; // Track cheese tax damage received
                          w.roundImpact = (w.roundImpact || "") + " -2.0s (Cheese Tax)";
@@ -3222,10 +3231,15 @@ export default function Game() {
 
     // SECRET PROTOCOL REVEALS (Underdog / Time Tax)
     if (activeProtocol === 'UNDERDOG_VICTORY') {
-        // Find lowest bidder > min bid and not eliminated (FIRE WALL players excluded)
+        // Find lowest bidder > min bid and not eliminated (FIRE WALL players excluded for both human and bots)
         const minBid = MIN_BID;
-        const isFireWall = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
-        const eligible = finalPlayers.filter(p => !p.isEliminated && (p.currentBid || 0) >= minBid && !(p.id === 'p1' && isFireWall));
+        const eligible = finalPlayers.filter(p => {
+            const pIsFireWall = abilitiesEnabled && (
+                (!p.isBot && selectedCharacter?.id === 'low_flame') ||
+                (p.isBot && p.selectedDriver === 'low_flame')
+            );
+            return !p.isEliminated && (p.currentBid || 0) >= minBid && !pIsFireWall;
+        });
         eligible.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0)); // Ascending
         
         if (eligible.length > 0) {
@@ -3262,11 +3276,13 @@ export default function Game() {
     }
 
     if (activeProtocol === 'TIME_TAX') {
-        // Deduct 10s from everyone not eliminated (FIRE WALL players immune)
-        const isFireWallPlayer = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
+        // Deduct 10s from everyone not eliminated (FIRE WALL immune — human player and bots)
         let hitList: string[] = [];
         finalPlayers.forEach(p => {
-            const isFireWallImmune = p.id === 'p1' && isFireWallPlayer;
+            const isFireWallImmune = abilitiesEnabled && (
+                (!p.isBot && selectedCharacter?.id === 'low_flame') ||
+                (p.isBot && p.selectedDriver === 'low_flame')
+            );
             if (!p.isEliminated && p.remainingTime > 0 && !isFireWallImmune) {
                 p.remainingTime = Math.max(0, p.remainingTime - 10.0);
                 p.roundImpact = (p.roundImpact || "") + " -10.0s (Time Tax)";
@@ -3680,7 +3696,8 @@ export default function Game() {
     }
     
     if (round < totalRounds) {
-      // STRICT LIFECYCLE: Clear ALL overlays and animations from previous round
+      // STRICT LIFECYCLE: Clear ALL overlays, protocol state, and animations from previous round
+      setActiveProtocol(null); // Reset protocol so ready phase isn't affected by last round's protocol
       setOverlay(null);
       setAnimations([]);
       
