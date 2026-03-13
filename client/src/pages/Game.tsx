@@ -2311,7 +2311,7 @@ export default function Game() {
         }
         // SADMAN: SAD REVEAL (Passive - PEEK Selection)
       if (selectedChar.id === 'sadman' && abilitiesEnabled) {
-         const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
+         const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.selectedDriver !== 'roll_safe');
          if (opponents.length > 0) {
              const target = opponents[Math.floor(Math.random() * opponents.length)];
              setPeekTargetId(target.id);
@@ -2324,7 +2324,7 @@ export default function Game() {
       
       // WANDERING EYE: SNEAK PEEK (Passive - See 1 holding, scramble everyone else)
       if (selectedChar.id === 'wandering_eye' && abilitiesEnabled) {
-        const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.driverName !== 'Roll Safe');
+        const opponents = players.filter(p => p.id !== 'p1' && !p.isEliminated && p.selectedDriver !== 'roll_safe');
         if (opponents.length > 0) {
           // Show ONE person is holding (but DON'T reveal their time bank)
           const target = opponents[Math.floor(Math.random() * opponents.length)];
@@ -2410,7 +2410,7 @@ export default function Game() {
 
                  if (ab.name === 'MANAGER CALL') {
                      // Hit 1 RANDOM opponent (except Roll Safe)
-                     const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId);
+                     const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId && pl.selectedDriver !== 'roll_safe');
                      if (validTargets.length > 0) {
                          const target = validTargets[Math.floor(Math.random() * validTargets.length)];
                          disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
@@ -2419,7 +2419,8 @@ export default function Game() {
                      // Hit EVERYONE (except Roll Safe)
                      // Hotwired: Remove 1s from everyone else
                      // FORCE HIT: Ignore immunity unless explicitly Roll Safe
-                     players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId).forEach(target => {
+                     // Guard with both rollSafeId and selectedDriver check for robustness
+                     players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId && pl.selectedDriver !== 'roll_safe').forEach(target => {
                          disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, ability: ab.name });
                      });
                  }
@@ -2467,7 +2468,7 @@ export default function Game() {
         // Fire Wall BLOCKS PROTOCOLS but NOT DISRUPTIONS (Abilities) per user request.
         // Roll Safe BLOCKS ALL.
         
-        if (p.id !== rollSafeId) { 
+        if (p.id !== rollSafeId && p.selectedDriver !== 'roll_safe') { 
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
@@ -2524,7 +2525,7 @@ export default function Game() {
         // Apply Standard Disruptions (Manager Call, Burn It)
         // Fire Wall does NOT block character abilities per user request.
         // Roll Safe IS immune.
-        if (p.id !== rollSafeId) { 
+        if (p.id !== rollSafeId && p.selectedDriver !== 'roll_safe') { 
              const myDisrupts = disruptEffects.filter(d => d.targetId === p.id);
              myDisrupts.forEach(d => {
                 newTime -= d.amount;
@@ -2547,8 +2548,8 @@ export default function Game() {
             if (character?.ability?.name === 'AXE SWING') {
                  // Removed random check for bots to ensure consistency as requested
                  
-                 // Find non-eliminated opponent with MOST time (using temp times)
-                 const validTargets = tempPlayersState.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.remainingTime > 0 && pl.id !== rollSafeId);
+                 // Find non-eliminated opponent with MOST time (using temp times, post-bid deduction)
+                 const validTargets = tempPlayersState.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.remainingTime > 0 && pl.id !== rollSafeId && pl.selectedDriver !== 'roll_safe');
                  if (validTargets.length > 0) {
                     // Sort descending by remainingTime to ensure we get the absolute max
                     validTargets.sort((a, b) => b.remainingTime - a.remainingTime);

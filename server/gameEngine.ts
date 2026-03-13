@@ -1069,9 +1069,19 @@ function processAbilities(game: GameState, winnerId: string | null) {
             // Cheese Tax: target the winner
             target = game.players.find(p => p.id === targetId);
           } else if (player.selectedDriver === 'executive_p') {
-            // Axe Swing: target player with most time
+            // Axe Swing: target player with most time AFTER current-round bid deductions
+            // Using post-bid effective time ensures the ability targets the correct player
+            // even in 2x speed (PANIC_ROOM) rounds where bids are larger
             const nonEliminated = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
-            target = nonEliminated.reduce((max, p) => p.remainingTime > (max?.remainingTime || 0) ? p : max, undefined as GamePlayer | undefined);
+            if (nonEliminated.length > 0) {
+              // Sort by post-bid effective time descending; take the first (richest) player
+              const sorted = [...nonEliminated].sort((a, b) => {
+                const aEffective = Math.max(0, a.remainingTime - (a.currentBid || 0));
+                const bEffective = Math.max(0, b.remainingTime - (b.currentBid || 0));
+                return bEffective - aEffective;
+              });
+              target = sorted[0];
+            }
           } else if (player.selectedDriver === 'accuser' || player.selectedDriver === 'hotwired') {
             // Manager Call / Burn It: random opponents or all
             const targets = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
