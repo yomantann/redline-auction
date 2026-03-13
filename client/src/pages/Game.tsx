@@ -6504,7 +6504,7 @@ export default function Game() {
                     title: 'SECRET PROTOCOLS',
                     subtitle: 'Secret for some players',
                     items: [
-                      { name: "THE MOLE", desc: "A hidden role is assigned. The Mole's bid does not impact their time bank. If the Mole wins by MORE than 7.0s, they lose the won trophy.", type: "Hidden Role" },
+                      { name: "THE MOLE", desc: "A hidden role is assigned. The Mole's bid does not impact their time bank. If the Mole wins by MORE than 7.0s, they LOSE an additional trophy.", type: "Hidden Role" },
                       { name: "PRIVATE CHANNEL", desc: "Two players are selected to privately coordinate strategy.", type: "Team" },
                       { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins token (kept secret until reveal).", type: "Secret" },
                       { name: "TIME TAX", desc: "-10s for everyone.", type: "Secret" },
