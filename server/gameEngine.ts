@@ -1069,9 +1069,20 @@ function processAbilities(game: GameState, winnerId: string | null) {
             // Cheese Tax: target the winner
             target = game.players.find(p => p.id === targetId);
           } else if (player.selectedDriver === 'executive_p') {
-            // Axe Swing: target player with most time
+            // Axe Swing: target the player with the most time REMAINING after subtracting their
+            // current-round bid (i.e., effective post-bid time = remainingTime - currentBid).
+            // This avoids targeting someone who bid heavily and will end the round with little time,
+            // and remains correct in PANIC_ROOM rounds where bids are proportionally larger.
             const nonEliminated = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
-            target = nonEliminated.reduce((max, p) => p.remainingTime > (max?.remainingTime || 0) ? p : max, undefined as GamePlayer | undefined);
+            if (nonEliminated.length > 0) {
+              // Sort by post-bid effective time descending; take the first (richest) player
+              const sorted = [...nonEliminated].sort((a, b) => {
+                const aEffective = Math.max(0, a.remainingTime - (a.currentBid || 0));
+                const bEffective = Math.max(0, b.remainingTime - (b.currentBid || 0));
+                return bEffective - aEffective;
+              });
+              target = sorted[0];
+            }
           } else if (player.selectedDriver === 'accuser' || player.selectedDriver === 'hotwired') {
             // Manager Call / Burn It: random opponents or all
             const targets = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
@@ -1717,8 +1728,8 @@ function getRandomPlayer(game: GameState, excludeIds: string[] = []): GamePlayer
   return pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
-function getTwoRandomPlayers(game: GameState): [GamePlayer | null, GamePlayer | null] {
-  const pool = game.players.filter(p => !p.isEliminated && !p.isBot);
+function getTwoRandomPlayers(game: GameState, excludeIds: string[] = []): [GamePlayer | null, GamePlayer | null] {
+  const pool = game.players.filter(p => !p.isEliminated && !p.isBot && !excludeIds.includes(p.id));
   if (pool.length < 2) return [pool[0] || null, null];
   const shuffled = [...pool].sort(() => 0.5 - Math.random());
   return [shuffled[0], shuffled[1]];
@@ -1768,7 +1779,7 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       break;
     }
     case 'LOCK_ON': {
-      const [a, b] = getTwoRandomPlayers(game);
+      const [a, b] = getTwoRandomPlayers(game, game.players.filter(fireWallExclude).map(p => p.id));
       if (a && b) {
         emitToLobby(game.lobbyCode, 'protocol_detail', {
           protocol: 'LOCK_ON',
@@ -1781,7 +1792,7 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       break;
     }
     case 'HUM_TUNE': {
-      const target = getRandomPlayer(game);
+      const target = getRandomPlayer(game, game.players.filter(fireWallExclude).map(p => p.id));
       if (target) {
         emitToLobby(game.lobbyCode, 'protocol_detail', {
           protocol: 'HUM_TUNE',
@@ -1793,7 +1804,7 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       break;
     }
     case 'PARTNER_DRINK': {
-      const [b1, b2] = getTwoRandomPlayers(game);
+      const [b1, b2] = getTwoRandomPlayers(game, game.players.filter(fireWallExclude).map(p => p.id));
       if (b1 && b2) {
         emitToLobby(game.lobbyCode, 'protocol_detail', {
           protocol: 'PARTNER_DRINK',
@@ -2023,7 +2034,8 @@ function startWaitingForReady(lobbyCode: string) {
       game.molePlayerId = null;
     }
     if (protocol === 'PRIVATE_CHANNEL') {
-      const [pcA, pcB] = getTwoRandomPlayers(game);
+      const fireWallIds = game.players.filter(p => p.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled).map(p => p.id);
+      const [pcA, pcB] = getTwoRandomPlayers(game, fireWallIds);
       if (pcA && pcB) {
         game.privateChannelPlayerIds = [pcA.id, pcB.id];
       } else {
