@@ -27,6 +27,7 @@ export type OverlayType =
   | "hidden_patch_notes"
   | "social_event" 
   | "bio_event"    
+  | "bonus_trophy"
   | null;
 
 interface OverlayItem {
@@ -74,6 +75,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       
       case "social_event": return <PartyPopper size={40} className="text-purple-400" />;
       case "bio_event": return <Martini size={40} className="text-orange-400" />;
+      case "bonus_trophy": return <Trophy size={48} className="text-yellow-400" />;
 
       default: return null;
     }
@@ -113,6 +115,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
 
       case "social_event": return "text-purple-400 border-purple-500/20 bg-black/90";
       case "bio_event": return "text-orange-400 border-orange-500/20 bg-black/90";
+      case "bonus_trophy": return "text-yellow-400 border-yellow-500/50 bg-black/95 shadow-[0_0_30px_rgba(234,179,8,0.3)]";
       
       default: 
         return "text-muted-foreground border-white/10 bg-black/80";
@@ -153,6 +156,13 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
             {(item.type?.startsWith('hidden_') || item.type === 'hidden_patch_notes') && (
                 <div className="mb-2 text-xs font-bold tracking-[0.2em] text-pink-500 uppercase animate-pulse">
                     HIDDEN MOMENT FLAG
+                </div>
+            )}
+
+            {/* Header for Bonus Trophy */}
+            {item.type === 'bonus_trophy' && (
+                <div className="mb-2 text-xs font-bold tracking-[0.2em] text-yellow-500 uppercase animate-pulse">
+                    BONUS TROPHY AWARDED
                 </div>
             )}
 
