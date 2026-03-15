@@ -2982,7 +2982,6 @@ export default function Game() {
                const bp = finalPlayers.find(fp => fp.id === wId);
                if (bp) bp.tokens += bonusResult.trophiesPerWinner;
              });
-             setPlayers([...finalPlayers]);
              const subMsg = `${bonusResult.winnerNames.join(' & ')} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
              addOverlay("bonus_trophy", bonusResult.criterionName, subMsg, 0);
            }

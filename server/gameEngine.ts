@@ -1193,9 +1193,9 @@ function endRound(lobbyCode: string) {
       winner.tokens += tokensAwarded;
 
       // Track shortest win bid time (for Market Sniper bonus trophy)
-      const winBid = winner.currentBid || 0;
-      if (winBid > 0 && (winner.shortestWinBidTime === undefined || winBid < winner.shortestWinBidTime)) {
-        winner.shortestWinBidTime = winBid;
+      const winnerBidTime = winner.currentBid || 0;
+      if (winnerBidTime > 0 && (winner.shortestWinBidTime === undefined || winnerBidTime < winner.shortestWinBidTime)) {
+        winner.shortestWinBidTime = winnerBidTime;
       }
 
       addGameLogEntry(game, {
