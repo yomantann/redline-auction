@@ -225,6 +225,9 @@ interface Player {
   protocolWins: string[]; // NEW: Track protocols won specifically
   totalDrinks: number;
   socialDares: number;
+  // Bonus trophy tracking
+  isFirstEliminated?: boolean;    // True if this player was among the first eliminated (Flash Crash criterion)
+  shortestWinBidTime?: number;    // Shortest bid time used to win a round (Market Sniper criterion)
 }
 
 interface Character {
@@ -423,6 +426,101 @@ const LOBBY_TRACKS = [
   '/assets/lobby/mixkit-see-line-funk-105.mp3',
   '/assets/lobby/mixkit-vastness-184.mp3'
 ];
+
+// Calculate bonus trophies for singleplayer mode (mirrors server-side logic)
+// Returns up to 2 criteria results, each with 1 trophy per winner
+interface SpBonusTrophyResult {
+  criterion: string;
+  criterionName: string;
+  criterionDesc: string;
+  winnerIds: string[];
+  winnerNames: string[];
+  trophiesPerWinner: number;
+}
+
+function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult[] {
+  interface CriterionDef {
+    id: string;
+    name: string;
+    desc: string;
+    getCandidates: () => { id: string; name: string }[];
+  }
+
+  const criteria: CriterionDef[] = [
+    {
+      id: 'MOMENT_MAGNET',
+      name: 'Moment Magnet',
+      desc: 'Most moment flags earned',
+      getCandidates: () => {
+        const max = Math.max(...players.map(p => p.eventDatabasePopups?.length || 0));
+        if (max === 0) return [];
+        return players.filter(p => (p.eventDatabasePopups?.length || 0) === max).map(p => ({ id: p.id, name: p.name }));
+      },
+    },
+    {
+      id: 'PROTOCOL_KINGPIN',
+      name: 'Protocol Kingpin',
+      desc: 'Most protocol round wins',
+      getCandidates: () => {
+        const max = Math.max(...players.map(p => p.protocolWins?.length || 0));
+        if (max === 0) return [];
+        return players.filter(p => (p.protocolWins?.length || 0) === max).map(p => ({ id: p.id, name: p.name }));
+      },
+    },
+    {
+      id: 'CLOCK_HOARDER',
+      name: 'Clock Hoarder',
+      desc: 'Most remaining time',
+      getCandidates: () => {
+        const max = Math.max(...players.map(p => p.remainingTime));
+        if (max <= 0) return [];
+        return players.filter(p => p.remainingTime === max).map(p => ({ id: p.id, name: p.name }));
+      },
+    },
+    {
+      id: 'FLASH_CRASH',
+      name: 'Flash Crash',
+      desc: 'First player eliminated',
+      getCandidates: () => {
+        return players.filter(p => p.isFirstEliminated).map(p => ({ id: p.id, name: p.name }));
+      },
+    },
+    {
+      id: 'MARKET_SNIPER',
+      name: 'Market Sniper',
+      desc: 'Shortest winning bid time',
+      getCandidates: () => {
+        const withWins = players.filter(p => p.shortestWinBidTime !== undefined && p.shortestWinBidTime > 0);
+        if (withWins.length === 0) return [];
+        const min = Math.min(...withWins.map(p => p.shortestWinBidTime!));
+        return withWins.filter(p => p.shortestWinBidTime === min).map(p => ({ id: p.id, name: p.name }));
+      },
+    },
+  ];
+
+  // Pick 2 unique criteria at random from valid ones (Fisher-Yates shuffle)
+  const validCriteria = criteria.filter(c => c.getCandidates().length > 0);
+  if (validCriteria.length === 0) return [];
+
+  const shuffled = [...validCriteria];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const chosen = shuffled.slice(0, 2);
+
+  return chosen.map(c => {
+    const winners = c.getCandidates();
+    return {
+      criterion: c.id,
+      criterionName: c.name,
+      criterionDesc: c.desc,
+      winnerIds: winners.map(w => w.id),
+      winnerNames: winners.map(w => w.name),
+      trophiesPerWinner: 1,
+    };
+  });
+}
 
 export default function Game() {
   const { toast } = useToast();
@@ -1046,12 +1144,29 @@ export default function Game() {
       }, 1500);
     };
 
+    const handleBonusTrophyAward = (data: {
+      results: {
+        criterion: string;
+        criterionName: string;
+        criterionDesc: string;
+        winners: { id: string; name: string }[];
+        trophiesPerWinner: number;
+      }[];
+    }) => {
+      data.results.forEach(bonusResult => {
+        const winnerNames = bonusResult.winners.map(w => w.name).join(' & ');
+        const subMsg = `${winnerNames} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
+        addOverlay("bonus_trophy", bonusResult.criterionName, subMsg, 0);
+      });
+    };
+
     socket.on('lobby_update', handleLobbyUpdate);
     socket.on('game_started', handleGameStarted);
     socket.on('game_state', handleGameState);
     socket.on('reality_mode_ability', handleRealityModeAbility);
     socket.on('protocol_detail', handleProtocolDetail);
     socket.on('protocol_reveal', handleProtocolReveal);
+    socket.on('bonus_trophy_award', handleBonusTrophyAward);
 
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
@@ -1060,6 +1175,7 @@ export default function Game() {
       socket.off('reality_mode_ability', handleRealityModeAbility);
       socket.off('protocol_detail', handleProtocolDetail);
       socket.off('protocol_reveal', handleProtocolReveal);
+      socket.off('bonus_trophy_award', handleBonusTrophyAward);
     };
   }, [socket]);
 
@@ -2805,7 +2921,12 @@ export default function Game() {
              }
         }
         
-        return { ...p, tokens: newTokens, remainingTime: newTime, roundImpact: impact, impactLogs: impactLogs, netImpact: (p.netImpact || 0) + roundNetImpactNum };
+        return { ...p, tokens: newTokens, remainingTime: newTime, roundImpact: impact, impactLogs: impactLogs, netImpact: (p.netImpact || 0) + roundNetImpactNum,
+            // Track shortest win bid time for Market Sniper bonus trophy
+            shortestWinBidTime: p.id === winnerId && winnerTime > 0
+                ? (p.shortestWinBidTime === undefined || winnerTime < p.shortestWinBidTime ? winnerTime : p.shortestWinBidTime)
+                : p.shortestWinBidTime
+        };
     });
 
     // 6. APPLY CHEESE TAX DAMAGE TO WINNER (Post-Processing)
@@ -2823,7 +2944,7 @@ export default function Game() {
                          if (w.impactLogs) w.impactLogs.push({ value: "-2.0s", reason: "Cheese Tax", type: 'loss' });
                          
                          if (w.remainingTime <= 0) {
-                             w.isEliminated = true; 
+                             w.isEliminated = true;
                              extraLogs.push(`>> ${w.name} eliminated by Cheese Tax!`);
                          }
                      }
@@ -2833,6 +2954,18 @@ export default function Game() {
     }
 
     setPendingPenalties({}); 
+
+    // Mark first-eliminated players for Flash Crash bonus trophy criterion.
+    // Only mark once: if no player in the current state has isFirstEliminated yet,
+    // tag all players who became eliminated this round.
+    const alreadyHasFirstEliminated = players.some(p => p.isFirstEliminated);
+    if (!alreadyHasFirstEliminated) {
+      const newlyEliminated = finalPlayers.filter(p => p.isEliminated && !players.find(op => op.id === p.id)?.isEliminated);
+      if (newlyEliminated.length > 0) {
+        newlyEliminated.forEach(p => { p.isFirstEliminated = true; });
+      }
+    }
+
     setPlayers(finalPlayers);
     const updatedPlayers = finalPlayers;
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
@@ -2859,16 +2992,26 @@ export default function Game() {
                  currentR++;
              }
          }
-         
+
+         // Award SP Bonus Trophies if protocols are enabled (before final placement)
+         if (!isMultiplayer && protocolsEnabled) {
+           const bonusResults = calculateSpBonusTrophies(finalPlayers);
+           bonusResults.forEach(bonusResult => {
+             bonusResult.winnerIds.forEach(wId => {
+               const bp = finalPlayers.find(fp => fp.id === wId);
+               if (bp) bp.tokens += bonusResult.trophiesPerWinner;
+             });
+             const subMsg = `${bonusResult.winnerNames.join(' & ')} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
+             addOverlay("bonus_trophy", bonusResult.criterionName, subMsg, 0);
+           });
+         }
+
          // Show only the moment-flag style elimination notice (this should persist into game over).
          // (Avoid stacking multiple elimination popups; the moment flag is the single source of truth.)
          const alreadyHasElimFlag = overlays.some(o => o.type === "time_out" && o.message === "PLAYER ELIMINATED");
          if (!alreadyHasElimFlag) {
            addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
          }
-
-         // Simulate remaining rounds simply by awarding tokens
-         // (kept as-is; does not affect the overlay flow)
 
          // Keep the elimination overlays visible; do NOT auto-transition to game over.
          // Player must dismiss the elimination overlay(s), then can proceed.
@@ -3636,6 +3779,26 @@ export default function Game() {
     
     if (round >= totalRounds || remainingActivePlayers.length <= 1) {
        // Game End condition
+
+       // Award SP Bonus Trophies if protocols are enabled (before final placement sort)
+       let playersForSummary = updatedPlayers;
+       let spBonusResults: SpBonusTrophyResult[] = [];
+       if (!isMultiplayer && protocolsEnabled) {
+         spBonusResults = calculateSpBonusTrophies(updatedPlayers);
+         if (spBonusResults.length > 0) {
+           playersForSummary = updatedPlayers.map(p => {
+             const totalBonus = spBonusResults.reduce((sum, br) =>
+               br.winnerIds.includes(p.id) ? sum + br.trophiesPerWinner : sum, 0);
+             return totalBonus > 0 ? { ...p, tokens: p.tokens + totalBonus } : p;
+           });
+           setPlayers(playersForSummary);
+           spBonusResults.forEach(bonusResult => {
+             const subMsg = `${bonusResult.winnerNames.join(' & ')} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
+             addOverlay("bonus_trophy", bonusResult.criterionName, subMsg, 0);
+           });
+         }
+       }
+
        setTimeout(() => {
         // Keep any end-of-round overlays (moment flags / protocol notices) visible into game over.
         // We only switch phase; overlays are dismissed by the player.
@@ -3643,9 +3806,9 @@ export default function Game() {
         
         // Record game over snapshot and summary
         if (!isMultiplayer) {
-          recordSingleplayerSnapshot('game_over', updatedPlayers, round, winnerId, winnerTime, eliminatedThisRound, activeProtocol);
+          recordSingleplayerSnapshot('game_over', playersForSummary, round, winnerId, winnerTime, eliminatedThisRound, activeProtocol);
           
-          const sorted = [...updatedPlayers].sort((a, b) => {
+          const sorted = [...playersForSummary].sort((a, b) => {
             if (b.tokens !== a.tokens) return b.tokens - a.tokens;
             return b.remainingTime - a.remainingTime;
           });
@@ -3674,6 +3837,13 @@ export default function Game() {
                   protocolWins: p.protocolWins?.length || 0,
                   totalDrinks: p.totalDrinks || 0,
                   socialDares: p.socialDares || 0,
+                })),
+                bonusTrophyResults: spBonusResults.map(r => ({
+                  criterion: r.criterion,
+                  criterionName: r.criterionName,
+                  winnerIds: r.winnerIds,
+                  winnerNames: r.winnerNames,
+                  trophiesAwarded: r.trophiesPerWinner,
                 })),
                 winnerId: sorted[0]?.id || null,
                 winnerName: sorted[0]?.name || null,
