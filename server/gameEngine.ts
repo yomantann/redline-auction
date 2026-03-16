@@ -1967,7 +1967,7 @@ function emitSecretProtocolReveal(game: GameState) {
       protocol: 'TRUTH_DARE',
       msg: 'TRUTH OR DARE',
       sub: winner
-        ? `${winner.name} asks — everyone else must answer!`
+        ? `${winner.name} may ask or dare!`
         : 'No winner this round!',
     });
   }

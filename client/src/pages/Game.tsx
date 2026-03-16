@@ -3475,7 +3475,7 @@ export default function Game() {
             .filter(p => !p.isEliminated && p.id !== winnerId)
             .map(p => p.name);
         const sub = winnerId && winnerName
-            ? `${winnerName} asks — ${loserNames.length > 0 ? loserNames.join(', ') : 'others'} must answer!`
+            ? `${winnerName} asks — ${loserNames.length > 0 ? loserNames.join(', ') : 'others'} must answer or abide!`
             : 'No winner this round!';
         setTimeout(() => addOverlay("social_event", "TRUTH OR DARE", sub), 2000);
     }
@@ -6657,7 +6657,7 @@ export default function Game() {
               PROTOCOL DATABASE
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
-              When PROTOCOLS are enabled, random events may trigger at the start of a round.
+              When PROTOCOLS are enabled, random events may trigger & bonus trophies will be assesed at game over.
               <span className="block mt-2 text-xs text-zinc-500" data-testid="text-protocol-db-trigger-rates">
                 Trigger rates by game pace: SPEED 50% • STANDARD 40% • MARATHON 30% (per round, when Protocols are enabled).
               </span>
