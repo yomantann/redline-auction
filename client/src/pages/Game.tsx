@@ -6933,21 +6933,30 @@ export default function Game() {
             PLAYERS {isMultiplayer && <span className="text-primary text-xs">(LIVE)</span>}
           </h3>
           <div className="space-y-3">
-            {displayPlayers.map((p, idx) => (
+            {displayPlayers.map((p, idx) => {
+              const myPlayerId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
+              const isCurrentPlayerCard = myPlayerId === p.id;
+              const isPeekCharacter = selectedCharacter?.id === 'sadman' || selectedCharacter?.id === 'wandering_eye';
+              const isFireWallActive = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
+              // Peek target: a non-roll_safe opponent the peek ability is currently focused on
+              const isPeekTarget = isPeekCharacter && peekTargetId === p.id && (p as any).selectedDriver !== 'roll_safe' && abilitiesEnabled;
+              // DATA_BLACKOUT and SYSTEM_FAILURE must not apply their visual effects to the peek target —
+              // abilities take priority over protocols. LOWFLAME (Fire Wall) is always immune.
+              const systemFailureApplies = activeProtocol === 'SYSTEM_FAILURE' && !isFireWallActive && !isPeekTarget;
+              const cardSystemFailure = systemFailureApplies || (p.id === 'p1' && selectedCharacter?.id === 'sadman' && abilitiesEnabled);
+              return (
               <PlayerStats 
                 key={p.id} 
                 player={p} 
-                isCurrentPlayer={isMultiplayer 
-                  ? (multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id === p.id)
-                  : p.id === 'p1'} 
+                isCurrentPlayer={isCurrentPlayerCard} 
                 showTime={showDetails || phase === 'game_end' || p.isEliminated} 
                 // Show time if: Casual Mode OR Game Over OR Player Eliminated
                 remainingTime={p.remainingTime}
                 formatTime={formatTime}
-                peekActive={(selectedCharacter?.id === 'sadman' || selectedCharacter?.id === 'wandering_eye') && peekTargetId === p.id && (p as any).selectedDriver !== 'roll_safe' && abilitiesEnabled}
+                peekActive={isPeekTarget}
                 isDoubleTokens={isDoubleTokens}
-                isSystemFailure={(activeProtocol === 'SYSTEM_FAILURE' && !(selectedCharacter?.id === 'low_flame' && abilitiesEnabled)) || (p.id === 'p1' && selectedCharacter?.id === 'sadman' && abilitiesEnabled)}
-                isScrambled={(((isMultiplayer ? (p.id !== multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)) && abilitiesEnabled}
+                isSystemFailure={cardSystemFailure}
+                isScrambled={(((isMultiplayer ? (p.id !== myPlayerId) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)) && abilitiesEnabled}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
@@ -6966,7 +6975,8 @@ export default function Game() {
                     />
                  ))}
               </PlayerStats>
-            ))}
+              );
+            })}
           </div>
 
           <Separator className="bg-white/10 my-6" />
