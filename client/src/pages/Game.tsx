@@ -3476,7 +3476,7 @@ export default function Game() {
             .filter(p => !p.isEliminated && p.id !== winnerId)
             .map(p => p.name);
         const sub = winnerId && winnerName
-            ? `${winnerName} asks — ${loserNames.length > 0 ? loserNames.join(', ') : 'others'} must answer or abide!`
+            ? `${winnerName} chooses — ${loserNames.length > 0 ? loserNames.join(', ') : 'others'} who must answer or abide!`
             : 'No winner this round!';
         setTimeout(() => addOverlay("social_event", "TRUTH OR DARE", sub), 2000);
     }
