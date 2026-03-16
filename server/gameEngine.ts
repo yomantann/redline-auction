@@ -150,7 +150,6 @@ export interface GamePlayer {
   momentFlagsEarned: string[];
   protocolWinsEarned: string[];
   // Bonus trophy tracking
-  eliminatedRound?: number;      // Which round this player was eliminated (for Flash Crash criterion)
   shortestWinBidTime?: number;   // Shortest bid time used to win any round (for Market Sniper criterion)
 }
 
@@ -196,6 +195,7 @@ export interface GameState {
   allHumansHoldingStartTime: number | null;
   isMultiplayer: boolean;
   botTargetBids: Record<string, number>;
+  firstEliminatedIds: string[];  // IDs of first player(s) eliminated in the game (Flash Crash criterion)
 }
 
 // Active games storage
@@ -491,6 +491,7 @@ export function createGame(
     allHumansHoldingStartTime: null,
     isMultiplayer: true,
     botTargetBids: {},
+    firstEliminatedIds: [],
   };
   
   activeGames.set(lobbyCode, gameState);
@@ -1666,13 +1667,10 @@ function endRound(lobbyCode: string) {
     }
   });
   
-  // Track elimination round for newly eliminated players this round
-  game.eliminatedThisRound.forEach(elimId => {
-    const elimPlayer = game.players.find(p => p.id === elimId);
-    if (elimPlayer && elimPlayer.eliminatedRound === undefined) {
-      elimPlayer.eliminatedRound = game.round;
-    }
-  });
+  // Track first eliminated player(s) for Flash Crash bonus trophy criterion
+  if (game.eliminatedThisRound.length > 0 && game.firstEliminatedIds.length === 0) {
+    game.firstEliminatedIds = [...game.eliminatedThisRound];
+  }
 
   // Check for game over conditions
   const activePlayers = game.players.filter(p => !p.isEliminated);
@@ -2134,7 +2132,7 @@ interface BonusTrophyResult {
   trophiesPerWinner: number;
 }
 
-function calculateBonusTrophies(game: GameState): BonusTrophyResult | null {
+function calculateBonusTrophies(game: GameState): BonusTrophyResult[] {
   const allPlayers = game.players;
 
   interface CriterionDef {
@@ -2180,10 +2178,11 @@ function calculateBonusTrophies(game: GameState): BonusTrophyResult | null {
       name: 'Flash Crash',
       desc: 'First player eliminated',
       getCandidates: () => {
-        const eliminated = allPlayers.filter(p => p.isEliminated && p.eliminatedRound !== undefined);
-        if (eliminated.length === 0) return [];
-        const minRound = Math.min(...eliminated.map(p => p.eliminatedRound!));
-        return eliminated.filter(p => p.eliminatedRound === minRound).map(p => ({ id: p.id, name: p.name }));
+        if (game.firstEliminatedIds.length === 0) return [];
+        return game.firstEliminatedIds
+          .map(id => allPlayers.find(p => p.id === id))
+          .filter((p): p is GamePlayer => p !== undefined)
+          .map(p => ({ id: p.id, name: p.name }));
       },
     },
     {
@@ -2199,19 +2198,24 @@ function calculateBonusTrophies(game: GameState): BonusTrophyResult | null {
     },
   ];
 
+  // Pick 2 unique criteria at random from valid ones (Fisher-Yates shuffle)
   const validCriteria = criteria.filter(c => c.getCandidates().length > 0);
-  if (validCriteria.length === 0) return null;
+  if (validCriteria.length === 0) return [];
 
-  const chosen = validCriteria[Math.floor(Math.random() * validCriteria.length)];
-  const winners = chosen.getCandidates();
+  const shuffled = [...validCriteria];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const chosen = shuffled.slice(0, 2);
 
-  return {
-    criterion: chosen.id,
-    criterionName: chosen.name,
-    criterionDesc: chosen.desc,
-    winners,
-    trophiesPerWinner: 2,
-  };
+  return chosen.map(c => ({
+    criterion: c.id,
+    criterionName: c.name,
+    criterionDesc: c.desc,
+    winners: c.getCandidates(),
+    trophiesPerWinner: 1,
+  }));
 }
 
 function endGame(lobbyCode: string) {
@@ -2219,27 +2223,24 @@ function endGame(lobbyCode: string) {
   if (!game) return;
 
   // Award Bonus Trophies if protocols are enabled (before final placement sort)
+  // Pick 2 criteria, award 1 trophy per winner per criterion
+  let bonusResults: BonusTrophyResult[] = [];
   if (game.settings.protocolsEnabled) {
-    const bonusResult = calculateBonusTrophies(game);
-    if (bonusResult) {
-      // Apply trophies to winners
-      bonusResult.winners.forEach(w => {
-        const player = game.players.find(p => p.id === w.id);
-        if (player) player.tokens += bonusResult.trophiesPerWinner;
+    bonusResults = calculateBonusTrophies(game);
+    if (bonusResults.length > 0) {
+      // Apply 1 trophy per winner for each criterion
+      bonusResults.forEach(bonusResult => {
+        bonusResult.winners.forEach(w => {
+          const player = game.players.find(p => p.id === w.id);
+          if (player) player.tokens += bonusResult.trophiesPerWinner;
+        });
+        log(`Bonus Trophy (${bonusResult.criterionName}): ${bonusResult.winners.map(w => w.name).join(', ')} each +${bonusResult.trophiesPerWinner} trophy`, "game");
       });
 
-      // Emit bonus trophy event to all players before game_over phase transition
+      // Emit all bonus trophy results to all players before game_over phase transition
       if (emitToLobby) {
-        emitToLobby(lobbyCode, 'bonus_trophy_award', {
-          criterion: bonusResult.criterion,
-          criterionName: bonusResult.criterionName,
-          criterionDesc: bonusResult.criterionDesc,
-          winners: bonusResult.winners,
-          trophiesPerWinner: bonusResult.trophiesPerWinner,
-        });
+        emitToLobby(lobbyCode, 'bonus_trophy_award', { results: bonusResults });
       }
-
-      log(`Bonus Trophy (${bonusResult.criterionName}): ${bonusResult.winners.map(w => w.name).join(', ')} each +${bonusResult.trophiesPerWinner} trophies`, "game");
     }
   }
 
@@ -2311,6 +2312,13 @@ function endGame(lobbyCode: string) {
       protocolWins: p.protocolWinsEarned.length,
       totalDrinks: 0,
       socialDares: 0,
+    })),
+    bonusTrophyResults: bonusResults.map(r => ({
+      criterion: r.criterion,
+      criterionName: r.criterionName,
+      winnerIds: r.winners.map(w => w.id),
+      winnerNames: r.winners.map(w => w.name),
+      trophiesAwarded: r.trophiesPerWinner,
     })),
     winnerId: game.players[0]?.id || null,
     winnerName: game.players[0]?.name || null,

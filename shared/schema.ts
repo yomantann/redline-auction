@@ -85,6 +85,13 @@ export const gameSummaries = pgTable("game_summaries", {
     totalDrinks: number;
     socialDares: number;
   }[]>().default([]),
+  bonusTrophyResults: jsonb("bonus_trophy_results").$type<{
+    criterion: string;
+    criterionName: string;
+    winnerIds: string[];
+    winnerNames: string[];
+    trophiesAwarded: number;
+  }[]>().default([]),
   winnerId: varchar("winner_id"),
   winnerName: varchar("winner_name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

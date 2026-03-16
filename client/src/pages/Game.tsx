@@ -226,8 +226,8 @@ interface Player {
   totalDrinks: number;
   socialDares: number;
   // Bonus trophy tracking
-  eliminatedRound?: number;     // Which round the player was eliminated (Flash Crash criterion)
-  shortestWinBidTime?: number;  // Shortest bid time used to win a round (Market Sniper criterion)
+  isFirstEliminated?: boolean;    // True if this player was among the first eliminated (Flash Crash criterion)
+  shortestWinBidTime?: number;    // Shortest bid time used to win a round (Market Sniper criterion)
 }
 
 interface Character {
@@ -427,7 +427,8 @@ const LOBBY_TRACKS = [
   '/assets/lobby/mixkit-vastness-184.mp3'
 ];
 
-// Calculate bonus trophy for singleplayer mode (mirrors server-side logic)
+// Calculate bonus trophies for singleplayer mode (mirrors server-side logic)
+// Returns up to 2 criteria results, each with 1 trophy per winner
 interface SpBonusTrophyResult {
   criterion: string;
   criterionName: string;
@@ -437,7 +438,7 @@ interface SpBonusTrophyResult {
   trophiesPerWinner: number;
 }
 
-function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult | null {
+function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult[] {
   interface CriterionDef {
     id: string;
     name: string;
@@ -481,10 +482,7 @@ function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult | null
       name: 'Flash Crash',
       desc: 'First player eliminated',
       getCandidates: () => {
-        const eliminated = players.filter(p => p.isEliminated && p.eliminatedRound !== undefined);
-        if (eliminated.length === 0) return [];
-        const minRound = Math.min(...eliminated.map(p => p.eliminatedRound!));
-        return eliminated.filter(p => p.eliminatedRound === minRound).map(p => ({ id: p.id, name: p.name }));
+        return players.filter(p => p.isFirstEliminated).map(p => ({ id: p.id, name: p.name }));
       },
     },
     {
@@ -500,20 +498,28 @@ function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult | null
     },
   ];
 
+  // Pick 2 unique criteria at random from valid ones (Fisher-Yates shuffle)
   const validCriteria = criteria.filter(c => c.getCandidates().length > 0);
-  if (validCriteria.length === 0) return null;
+  if (validCriteria.length === 0) return [];
 
-  const chosen = validCriteria[Math.floor(Math.random() * validCriteria.length)];
-  const winners = chosen.getCandidates();
+  const shuffled = [...validCriteria];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const chosen = shuffled.slice(0, 2);
 
-  return {
-    criterion: chosen.id,
-    criterionName: chosen.name,
-    criterionDesc: chosen.desc,
-    winnerIds: winners.map(w => w.id),
-    winnerNames: winners.map(w => w.name),
-    trophiesPerWinner: 2,
-  };
+  return chosen.map(c => {
+    const winners = c.getCandidates();
+    return {
+      criterion: c.id,
+      criterionName: c.name,
+      criterionDesc: c.desc,
+      winnerIds: winners.map(w => w.id),
+      winnerNames: winners.map(w => w.name),
+      trophiesPerWinner: 1,
+    };
+  });
 }
 
 export default function Game() {
@@ -1139,15 +1145,19 @@ export default function Game() {
     };
 
     const handleBonusTrophyAward = (data: {
-      criterion: string;
-      criterionName: string;
-      criterionDesc: string;
-      winners: { id: string; name: string }[];
-      trophiesPerWinner: number;
+      results: {
+        criterion: string;
+        criterionName: string;
+        criterionDesc: string;
+        winners: { id: string; name: string }[];
+        trophiesPerWinner: number;
+      }[];
     }) => {
-      const winnerNames = data.winners.map(w => w.name).join(' & ');
-      const subMsg = `${winnerNames} +${data.trophiesPerWinner} 🏆\n${data.criterionDesc}`;
-      addOverlay("bonus_trophy", data.criterionName, subMsg, 0);
+      data.results.forEach(bonusResult => {
+        const winnerNames = bonusResult.winners.map(w => w.name).join(' & ');
+        const subMsg = `${winnerNames} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
+        addOverlay("bonus_trophy", bonusResult.criterionName, subMsg, 0);
+      });
     };
 
     socket.on('lobby_update', handleLobbyUpdate);
@@ -2725,8 +2735,6 @@ export default function Game() {
             ...p,
             remainingTime: Math.max(0, newTime),
             isEliminated: isEliminatedNow,
-            // Track which round this player was eliminated (for Flash Crash bonus trophy)
-            eliminatedRound: isEliminatedNow && !p.isEliminated ? round : p.eliminatedRound,
             roundImpact: roundImpact,
             impactLogs: impactLogs,
             selfGain: selfGain,
@@ -2937,7 +2945,6 @@ export default function Game() {
                          
                          if (w.remainingTime <= 0) {
                              w.isEliminated = true;
-                             if (w.eliminatedRound === undefined) w.eliminatedRound = round;
                              extraLogs.push(`>> ${w.name} eliminated by Cheese Tax!`);
                          }
                      }
@@ -2947,6 +2954,18 @@ export default function Game() {
     }
 
     setPendingPenalties({}); 
+
+    // Mark first-eliminated players for Flash Crash bonus trophy criterion.
+    // Only mark once: if no player in the current state has isFirstEliminated yet,
+    // tag all players who became eliminated this round.
+    const alreadyHasFirstEliminated = players.some(p => p.isFirstEliminated);
+    if (!alreadyHasFirstEliminated) {
+      const newlyEliminated = finalPlayers.filter(p => p.isEliminated && !players.find(op => op.id === p.id)?.isEliminated);
+      if (newlyEliminated.length > 0) {
+        newlyEliminated.forEach(p => { p.isFirstEliminated = true; });
+      }
+    }
+
     setPlayers(finalPlayers);
     const updatedPlayers = finalPlayers;
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
@@ -2976,15 +2995,15 @@ export default function Game() {
 
          // Award SP Bonus Trophies if protocols are enabled (before final placement)
          if (!isMultiplayer && protocolsEnabled) {
-           const bonusResult = calculateSpBonusTrophies(finalPlayers);
-           if (bonusResult) {
+           const bonusResults = calculateSpBonusTrophies(finalPlayers);
+           bonusResults.forEach(bonusResult => {
              bonusResult.winnerIds.forEach(wId => {
                const bp = finalPlayers.find(fp => fp.id === wId);
                if (bp) bp.tokens += bonusResult.trophiesPerWinner;
              });
              const subMsg = `${bonusResult.winnerNames.join(' & ')} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
              addOverlay("bonus_trophy", bonusResult.criterionName, subMsg, 0);
-           }
+           });
          }
 
          // Show only the moment-flag style elimination notice (this should persist into game over).
@@ -3763,17 +3782,20 @@ export default function Game() {
 
        // Award SP Bonus Trophies if protocols are enabled (before final placement sort)
        let playersForSummary = updatedPlayers;
+       let spBonusResults: SpBonusTrophyResult[] = [];
        if (!isMultiplayer && protocolsEnabled) {
-         const bonusResult = calculateSpBonusTrophies(updatedPlayers);
-         if (bonusResult) {
-           playersForSummary = updatedPlayers.map(p =>
-             bonusResult.winnerIds.includes(p.id)
-               ? { ...p, tokens: p.tokens + bonusResult.trophiesPerWinner }
-               : p
-           );
+         spBonusResults = calculateSpBonusTrophies(updatedPlayers);
+         if (spBonusResults.length > 0) {
+           playersForSummary = updatedPlayers.map(p => {
+             const totalBonus = spBonusResults.reduce((sum, br) =>
+               br.winnerIds.includes(p.id) ? sum + br.trophiesPerWinner : sum, 0);
+             return totalBonus > 0 ? { ...p, tokens: p.tokens + totalBonus } : p;
+           });
            setPlayers(playersForSummary);
-           const subMsg = `${bonusResult.winnerNames.join(' & ')} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
-           addOverlay("bonus_trophy", bonusResult.criterionName, subMsg, 0);
+           spBonusResults.forEach(bonusResult => {
+             const subMsg = `${bonusResult.winnerNames.join(' & ')} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
+             addOverlay("bonus_trophy", bonusResult.criterionName, subMsg, 0);
+           });
          }
        }
 
@@ -3815,6 +3837,13 @@ export default function Game() {
                   protocolWins: p.protocolWins?.length || 0,
                   totalDrinks: p.totalDrinks || 0,
                   socialDares: p.socialDares || 0,
+                })),
+                bonusTrophyResults: spBonusResults.map(r => ({
+                  criterion: r.criterion,
+                  criterionName: r.criterionName,
+                  winnerIds: r.winnerIds,
+                  winnerNames: r.winnerNames,
+                  trophiesAwarded: r.trophiesPerWinner,
                 })),
                 winnerId: sorted[0]?.id || null,
                 winnerName: sorted[0]?.name || null,
