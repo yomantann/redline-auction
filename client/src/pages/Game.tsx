@@ -3251,7 +3251,7 @@ export default function Game() {
     if (playersOut.length > 0) {
       // Track elimination moment flags for all eliminated players
       setPlayers(prev => prev.map(p => {
-        if (playersOut.includes(p.id)) {
+        if (playersOut.includes(p.name)) {
           return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), 'ELIMINATED'] };
         }
         return p;
@@ -3495,7 +3495,9 @@ export default function Game() {
     }
 
     // BIO-FUEL Logic: Add drink prompt if applicable
-    if (variant === 'BIO_FUEL' && playersOut.some(id => id === 'p1')) {
+    const finalP1 = finalPlayers.find(p => p.id === 'p1');
+    const currentP1 = players.find(p => p.id === 'p1');
+    if (variant === 'BIO_FUEL' && finalP1?.isEliminated && !currentP1?.isEliminated) {
          // Stack Bio Event for time out
          setTimeout(() => addOverlay("bio_event", "ELIMINATED! CONSUME BIO-FUEL.", "", 0), 1000);
     }
@@ -3916,7 +3918,7 @@ export default function Game() {
     
     setPlayers(prev => prev.map(p => {
       if (p.id === 'p1') {
-        return { ...p, name: char.name, characterIcon: pickIcon(char) };
+        return { ...p, name: char.name, characterIcon: pickIcon(char), selectedDriver: char.id };
       }
       return p;
     }));
@@ -4846,6 +4848,11 @@ export default function Game() {
                     {currentLobby.settings.protocolsEnabled && (
                       <span className="px-2 py-1 rounded border bg-red-500/10 border-red-500/30 text-red-400">
                         Protocols
+                      </span>
+                    )}
+                    {currentLobby.settings.protocolsEnabled && currentLobby.settings.bonusTrophiesEnabled && (
+                      <span className="px-2 py-1 rounded border bg-yellow-500/10 border-yellow-500/30 text-yellow-400">
+                        Bonus Trophies
                       </span>
                     )}
                     {currentLobby.settings.abilitiesEnabled && (
