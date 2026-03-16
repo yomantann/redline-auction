@@ -563,6 +563,7 @@ export default function Game() {
   const singleplayerGameIdRef = useRef<string | null>(null);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [protocolsEnabled, setProtocolsEnabled] = useState(false);
+  const [bonusTrophiesEnabled, setBonusTrophiesEnabled] = useState(true);
   const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
   const [readyHoldTime, setReadyHoldTime] = useState(0);
   const [moleTarget, setMoleTarget] = useState<string | null>(null);
@@ -875,6 +876,7 @@ export default function Game() {
     settings?: {
       difficulty: 'CASUAL' | 'COMPETITIVE';
       protocolsEnabled: boolean;
+      bonusTrophiesEnabled: boolean;
       abilitiesEnabled: boolean;
       variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
       gameDuration: 'sprint' | 'standard' | 'long' | 'short';
@@ -912,6 +914,7 @@ export default function Game() {
     settings: {
       difficulty: 'CASUAL' | 'COMPETITIVE';
       protocolsEnabled: boolean;
+      bonusTrophiesEnabled: boolean;
       abilitiesEnabled: boolean;
       variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
       gameDuration?: 'sprint' | 'standard' | 'long' | 'short';
@@ -1043,6 +1046,7 @@ export default function Game() {
           setVariant(state.settings.variant);
           setDifficulty(state.settings.difficulty);
           setProtocolsEnabled(state.settings.protocolsEnabled);
+          setBonusTrophiesEnabled(state.settings.bonusTrophiesEnabled ?? true);
           setAbilitiesEnabled(state.settings.abilitiesEnabled);
         }
         
@@ -2994,7 +2998,7 @@ export default function Game() {
          }
 
          // Award SP Bonus Trophies if protocols are enabled (before final placement)
-         if (!isMultiplayer && protocolsEnabled) {
+         if (!isMultiplayer && protocolsEnabled && bonusTrophiesEnabled) {
            const bonusResults = calculateSpBonusTrophies(finalPlayers);
            bonusResults.forEach(bonusResult => {
              bonusResult.winnerIds.forEach(wId => {
@@ -3783,7 +3787,7 @@ export default function Game() {
        // Award SP Bonus Trophies if protocols are enabled (before final placement sort)
        let playersForSummary = updatedPlayers;
        let spBonusResults: SpBonusTrophyResult[] = [];
-       if (!isMultiplayer && protocolsEnabled) {
+       if (!isMultiplayer && protocolsEnabled && bonusTrophiesEnabled) {
          spBonusResults = calculateSpBonusTrophies(updatedPlayers);
          if (spBonusResults.length > 0) {
            playersForSummary = updatedPlayers.map(p => {
@@ -3821,7 +3825,7 @@ export default function Game() {
                 gameId,
                 lobbyCode: null,
                 totalRounds: round,
-                gameSettings: { difficulty, variant, gameDuration, protocolsEnabled, abilitiesEnabled },
+                gameSettings: { difficulty, variant, gameDuration, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled },
                 playerResults: sorted.map((p, i) => ({
                   playerId: p.id,
                   playerName: p.name,
@@ -4055,6 +4059,7 @@ export default function Game() {
     const settings = {
       difficulty,
       protocolsEnabled,
+      bonusTrophiesEnabled,
       abilitiesEnabled,
       variant,
       gameDuration: serverDuration
@@ -4072,7 +4077,7 @@ export default function Game() {
         setLobbyError(response.error || "Failed to create lobby");
       }
     });
-  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration, isPublicLobby]);
+  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration, isPublicLobby]);
   
   const handleJoinRoom = useCallback(() => {
     if (!socket || !isConnected) {
@@ -4168,7 +4173,7 @@ export default function Game() {
     const serverDuration = gameDuration === 'short' ? 'sprint' : gameDuration;
     
     // Build settings string to detect actual changes
-    const settingsKey = JSON.stringify({ difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
+    const settingsKey = JSON.stringify({ difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
     if (settingsKey === prevSettingsRef.current) return;
     prevSettingsRef.current = settingsKey;
     
@@ -4176,13 +4181,14 @@ export default function Game() {
       settings: {
         difficulty,
         protocolsEnabled,
+        bonusTrophiesEnabled,
         abilitiesEnabled,
         variant,
         gameDuration: serverDuration
       }
     });
-    console.log('[Lobby] Settings updated:', { difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
-  }, [socket, difficulty, protocolsEnabled, abilitiesEnabled, variant, gameDuration]);
+    console.log('[Lobby] Settings updated:', { difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
+  }, [socket, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration]);
 
   const handleStartMultiplayerGame = useCallback(() => {
     if (!socket) return;
@@ -4479,6 +4485,23 @@ export default function Game() {
                             ))}
                           </div>
                         </details>
+
+                        {/* BONUS TROPHIES */}
+                        <div className="rounded-lg border border-yellow-500/20 bg-yellow-950/15 px-4 py-3 flex items-center justify-between" data-testid="section-protocol-config-bonus-trophies">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base leading-none">🏆</span>
+                            <div>
+                              <div className="text-sm font-bold text-yellow-200 tracking-widest">BONUS TROPHIES</div>
+                              <div className="text-[11px] text-yellow-300/60">Award bonus trophies at game over</div>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={bonusTrophiesEnabled}
+                            onCheckedChange={setBonusTrophiesEnabled}
+                            className="data-[state=checked]:bg-yellow-500"
+                            data-testid="switch-bonus-trophies"
+                          />
+                        </div>
                     </div>
                     <DialogFooter>
                         <div className="text-xs text-zinc-500 w-full text-left pt-2">

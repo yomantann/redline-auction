@@ -167,6 +167,7 @@ export interface GameLogEntry {
 export interface GameSettings {
   difficulty: 'CASUAL' | 'COMPETITIVE';
   protocolsEnabled: boolean;
+  bonusTrophiesEnabled: boolean;
   abilitiesEnabled: boolean;
   variant: GameVariant;
   gameDuration: GameDuration;
@@ -463,6 +464,7 @@ export function createGame(
   const settings: GameSettings = {
     difficulty: lobbySettings?.difficulty || 'CASUAL',
     protocolsEnabled: lobbySettings?.protocolsEnabled || false,
+    bonusTrophiesEnabled: lobbySettings?.bonusTrophiesEnabled ?? true,
     abilitiesEnabled: lobbySettings?.abilitiesEnabled || false,
     variant: lobbySettings?.variant || 'STANDARD',
     gameDuration: mappedDuration,
@@ -2222,10 +2224,10 @@ function endGame(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
   if (!game) return;
 
-  // Award Bonus Trophies if protocols are enabled (before final placement sort)
+  // Award Bonus Trophies if protocols are enabled and bonus trophies are enabled (before final placement sort)
   // Pick 2 criteria, award 1 trophy per winner per criterion
   let bonusResults: BonusTrophyResult[] = [];
-  if (game.settings.protocolsEnabled) {
+  if (game.settings.protocolsEnabled && game.settings.bonusTrophiesEnabled) {
     bonusResults = calculateBonusTrophies(game);
     if (bonusResults.length > 0) {
       // Apply 1 trophy per winner for each criterion
