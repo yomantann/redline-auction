@@ -446,6 +446,7 @@ function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult[] {
     getCandidates: () => { id: string; name: string }[];
   }
 
+  //Bonus trophies Trophy (sometimes referenced as criteria):
   const criteria: CriterionDef[] = [
     {
       id: 'MOMENT_MAGNET',
