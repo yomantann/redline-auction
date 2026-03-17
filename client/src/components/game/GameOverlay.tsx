@@ -162,7 +162,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
             {/* Header for Bonus Trophy */}
             {item.type === 'bonus_trophy' && (
                 <div className="mb-2 text-xs font-bold tracking-[0.2em] text-yellow-500 uppercase animate-pulse">
-                    BONUS TROPHY AWARDED
+                    {item.subMessage?.split('\n')[0] || 'BONUS TROPHY AWARDED'}
                 </div>
             )}
 
@@ -172,7 +172,9 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
             
             {item.subMessage && (
               <p className="text-xs sm:text-sm font-mono opacity-80 max-w-[340px] whitespace-pre-wrap">
-                {item.subMessage}
+                {item.type === 'bonus_trophy'
+                  ? item.subMessage.split('\n').slice(1).join('\n')
+                  : item.subMessage}
               </p>
             )}
 

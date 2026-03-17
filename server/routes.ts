@@ -40,6 +40,7 @@ interface LobbyPlayer {
 interface GameSettings {
   difficulty: 'CASUAL' | 'COMPETITIVE';
   protocolsEnabled: boolean;
+  bonusTrophiesEnabled: boolean;
   abilitiesEnabled: boolean;
   variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
   gameDuration: GameDuration; // 'short' | 'standard' | 'long'
@@ -212,6 +213,7 @@ export async function registerRoutes(
       const defaultSettings: GameSettings = {
         difficulty: 'CASUAL',
         protocolsEnabled: true,
+        bonusTrophiesEnabled: true,
         abilitiesEnabled: true,
         variant: 'STANDARD',
         gameDuration: 'standard'
