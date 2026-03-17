@@ -543,6 +543,7 @@ export async function registerRoutes(
       const gameState = createGame(lobbyCode, gamePlayers, lobby.settings.gameDuration, {
         difficulty: lobby.settings.difficulty,
         protocolsEnabled: lobby.settings.protocolsEnabled,
+        bonusTrophiesEnabled: lobby.settings.bonusTrophiesEnabled,
         abilitiesEnabled: lobby.settings.abilitiesEnabled,
         variant: lobby.settings.variant,
       });
