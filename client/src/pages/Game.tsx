@@ -563,7 +563,7 @@ export default function Game() {
   const [singleplayerGameId, setSingleplayerGameId] = useState<string | null>(null);
   const singleplayerGameIdRef = useRef<string | null>(null);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
-  const [protocolsEnabled, setProtocolsEnabled] = useState(false);
+  const [protocolsEnabled, setProtocolsEnabled] = useState(true);
   const [bonusTrophiesEnabled, setBonusTrophiesEnabled] = useState(true);
   const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
   const [readyHoldTime, setReadyHoldTime] = useState(0);
@@ -1268,7 +1268,9 @@ export default function Game() {
       } else {
         addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!");
       }
-      // Mark as processed and return - eliminated players don't get win moment flags
+      // ELIMINATED counts as 1 moment flag (server tracks it in momentFlagsEarned).
+      // Win-based moment flags are not applicable when eliminated.
+      // Mark as processed and return.
       lastRoundEndProcessedRef.current = multiplayerGameState.round;
       return;
     }
@@ -2986,6 +2988,16 @@ export default function Game() {
     // SIMULATE REMAINING ROUNDS so bots get trophies
     const p1 = finalPlayers.find(p => p.id === 'p1');
     if (p1?.isEliminated) {
+         // Add ELIMINATED to all newly eliminated players' moment flags (including p1)
+         // so it counts toward moment flag stats and MOMENT_MAGNET bonus criterion.
+         // This must happen before calculateSpBonusTrophies and before the early return.
+         finalPlayers.forEach(fp => {
+           const wasEliminated = players.find(op => op.id === fp.id)?.isEliminated;
+           if (fp.isEliminated && !wasEliminated) {
+             fp.eventDatabasePopups = [...(fp.eventDatabasePopups || []), 'ELIMINATED'];
+           }
+         });
+
          let currentR = round + 1;
          const remainingBots = finalPlayers.filter(p => !p.isEliminated && p.id !== 'p1');
          
@@ -3020,6 +3032,7 @@ export default function Game() {
 
          // Keep the elimination overlays visible; do NOT auto-transition to game over.
          // Player must dismiss the elimination overlay(s), then can proceed.
+         setPlayers([...finalPlayers]); // persist ELIMINATED flag in eventDatabasePopups
          setPhase('game_end');
 
          return; // Stop here
