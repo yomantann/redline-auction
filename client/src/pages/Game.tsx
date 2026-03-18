@@ -7,7 +7,7 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
-import { Mail } from 'lucide-react';
+import { Mail, Heart } from 'lucide-react';
 
 
 import bioAccuserOption1 from "../assets/generated_images/bio_accuser_girl_pointing_v5.png";
@@ -2992,8 +2992,10 @@ export default function Game() {
          // so it counts toward moment flag stats and MOMENT_MAGNET bonus criterion.
          // This must happen before calculateSpBonusTrophies and before the early return.
          finalPlayers.forEach(fp => {
-           const wasEliminated = players.find(op => op.id === fp.id)?.isEliminated;
-           if (fp.isEliminated && !wasEliminated) {
+           // Use flag presence check instead of wasEliminated check so over-limit eliminations
+           // (where players.isEliminated is already true before endRound is called) are handled too.
+           const alreadyHasFlag = (fp.eventDatabasePopups || []).includes('ELIMINATED');
+           if (fp.isEliminated && !alreadyHasFlag) {
              fp.eventDatabasePopups = [...(fp.eventDatabasePopups || []), 'ELIMINATED'];
            }
          });
@@ -3034,6 +3036,46 @@ export default function Game() {
          // Player must dismiss the elimination overlay(s), then can proceed.
          setPlayers([...finalPlayers]); // persist ELIMINATED flag in eventDatabasePopups
          setPhase('game_end');
+
+          // Save game summary to database for early elimination (mirrors normal game end save).
+          if (!isMultiplayer) {
+            const sortedForEarlyElim = [...finalPlayers].sort((a, b) => {
+              if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+              return b.remainingTime - a.remainingTime;
+            });
+            const gameId = singleplayerGameIdRef.current;
+            if (gameId) {
+              fetch('/api/game/summary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  gameId,
+                  lobbyCode: null,
+                  totalRounds: round,
+                  gameSettings: { difficulty, variant, gameDuration, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled },
+                  playerResults: sortedForEarlyElim.map((p, i) => ({
+                    playerId: p.id,
+                    playerName: p.name,
+                    driverId: p.selectedDriver || selectedCharacter?.id || null,
+                    finalRank: i + 1,
+                    tokens: p.tokens,
+                    remainingTime: p.remainingTime,
+                    totalTimeBid: p.totalTimeBid,
+                    netImpact: p.netImpact,
+                    isEliminated: p.isEliminated,
+                    isBot: p.id !== 'p1',
+                    momentFlags: p.eventDatabasePopups?.length || 0,
+                    protocolWins: p.protocolWins?.length || 0,
+                    totalDrinks: p.totalDrinks || 0,
+                    socialDares: p.socialDares || 0,
+                  })),
+                  bonusTrophyResults: [],
+                  winnerId: sortedForEarlyElim[0]?.id || null,
+                  winnerName: sortedForEarlyElim[0]?.name || null,
+                }),
+              }).catch(() => {});
+            }
+          }
 
          return; // Stop here
     }
@@ -6415,6 +6457,16 @@ export default function Game() {
                   <Mail size={12} />
                   Contact
                 </Button>
+
+                <a
+                  href="https://donate.stripe.com/8x2dRbdxf9jA0AUbTx1oI00"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-md border border-emerald-500/40 bg-emerald-950/40 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/20 hover:border-emerald-400/60 transition-colors"
+                >
+                  <Heart size={12} className="fill-emerald-400" />
+                  Donate
+                </a>
               </div>
             </div>
           </DialogHeader>
@@ -6965,6 +7017,12 @@ export default function Game() {
               // abilities take priority over protocols. LOWFLAME (Fire Wall) is always immune.
               const systemFailureApplies = activeProtocol === 'SYSTEM_FAILURE' && !isFireWallActive && !isPeekTarget;
               const cardSystemFailure = systemFailureApplies || (p.id === 'p1' && selectedCharacter?.id === 'sadman' && abilitiesEnabled);
+              // HYPER CLICK indicator: shown when click-click's limit break triggers this round
+              const isHyperClickActive = abilitiesEnabled && (
+                isMultiplayer
+                  ? ((p as any).abilityUsed === true && (p as any).selectedDriver === 'click_click')
+                  : activeAbilities.some(a => a.playerId === p.id && a.ability === 'HYPER CLICK' && a.effect === 'TOKEN_BOOST')
+              );
               return (
               <PlayerStats 
                 key={p.id} 
@@ -6977,6 +7035,7 @@ export default function Game() {
                 peekActive={isPeekTarget}
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={cardSystemFailure}
+                isHyperClickActive={isHyperClickActive}
                 isScrambled={(((isMultiplayer ? (p.id !== myPlayerId) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)) && abilitiesEnabled}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {

@@ -1,6 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { User, Cpu, Trophy, Clock } from "lucide-react";
+import { User, Cpu, Trophy, Clock, Zap } from "lucide-react";
 
 interface Player {
   id: string;
@@ -29,12 +29,13 @@ interface PlayerStatsProps {
   isDoubleTokens?: boolean;
   isSystemFailure?: boolean; // New prop for System Failure scramble
   isScrambled?: boolean; // New prop for Wandering Eye scramble
+  isHyperClickActive?: boolean; // Shown when Click-Click's HYPER CLICK limit break triggers
   children?: React.ReactNode; // Slot for animations
   onClick?: () => void;
   hideDetails?: boolean; // New prop to hide extra details
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, isScrambled, children, onClick, hideDetails }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, isScrambled, isHyperClickActive, children, onClick, hideDetails }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -80,6 +81,13 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       {isDoubleTokens && (
           <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg z-20 animate-bounce whitespace-nowrap">
              2x ROUND
+          </div>
+      )}
+
+      {/* HYPER CLICK LIMIT BREAK INDICATOR */}
+      {isHyperClickActive && (
+          <div className="absolute -top-2 right-2 bg-pink-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg z-20 animate-bounce whitespace-nowrap flex items-center gap-1">
+             <Zap size={8} /> ×2 🏆
           </div>
       )}
 
