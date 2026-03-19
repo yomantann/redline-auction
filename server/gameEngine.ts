@@ -1156,18 +1156,17 @@ function processAbilities(game: GameState, winnerId: string | null) {
             // Cheese Tax: target the winner
             target = game.players.find(p => p.id === targetId);
           } else if (player.selectedDriver === 'executive_p') {
-            // Axe Swing: target the player with the most time REMAINING after subtracting their
-            // current-round bid (i.e., effective post-bid time = remainingTime - currentBid).
-            // This avoids targeting someone who bid heavily and will end the round with little time,
-            // and remains correct in PANIC_ROOM rounds where bids are proportionally larger.
-            const nonEliminated = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
+            // Axe Swing: target the player with the most time REMAINING after bid deduction.
+            // Bids are deducted before processAbilities runs, so remainingTime is already post-bid.
+            const nonEliminated = game.players.filter(p => 
+              p.id !== player.id && 
+              !p.isEliminated && 
+              !game.eliminatedThisRound.includes(p.id) && 
+              !immunePlayerIds.includes(p.id)
+            );
             if (nonEliminated.length > 0) {
-              // Sort by post-bid effective time descending; take the first (richest) player
-              const sorted = [...nonEliminated].sort((a, b) => {
-                const aEffective = Math.max(0, a.remainingTime - (a.currentBid || 0));
-                const bEffective = Math.max(0, b.remainingTime - (b.currentBid || 0));
-                return bEffective - aEffective;
-              });
+              // Sort by post-bid remaining time descending; take the first (richest) player
+              const sorted = [...nonEliminated].sort((a, b) => b.remainingTime - a.remainingTime);
               target = sorted[0];
             }
           } else if (player.selectedDriver === 'accuser' || player.selectedDriver === 'hotwired') {
@@ -1387,6 +1386,46 @@ function endRound(lobbyCode: string) {
     return;
   }
 
+  // Deduct bid time first so overbidding eliminations are reflected in winner determination
+  game.players.forEach(p => {
+    if (p.currentBid && p.currentBid > 0) {
+      p.totalTimeBid += p.currentBid;
+      addGameLogEntry(game, {
+        type: 'bid',
+        playerId: p.id,
+        playerName: p.name,
+        message: `${p.name} bid ${p.currentBid.toFixed(1)}s`,
+        value: p.currentBid,
+      });
+      // THE_MOLE: Mole's bid is free (no time deduction)
+      if (game.activeProtocol === 'THE_MOLE' && p.id === game.molePlayerId) {
+        addGameLogEntry(game, {
+          type: 'protocol',
+          playerId: p.id,
+          playerName: p.name,
+          message: `${p.name}'s bid was FREE (Mole)`,
+          value: p.currentBid,
+        });
+      } else {
+        p.remainingTime -= p.currentBid;
+        if (p.remainingTime <= 0) {
+          p.remainingTime = 0;
+          p.isEliminated = true;
+          if (!game.eliminatedThisRound.includes(p.id)) {
+            game.eliminatedThisRound.push(p.id);
+            addGameLogEntry(game, {
+              type: 'elimination',
+              playerId: p.id,
+              playerName: p.name,
+              message: `${p.name} was eliminated (ran out of time)`,
+              basic: true,
+            });
+          }
+        }
+      }
+    }
+  });
+
   // Find winner (highest bid among non-eliminated, or closest to target for CALIBRATION)
   const participants = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
   
@@ -1577,50 +1616,6 @@ function endRound(lobbyCode: string) {
           basic: true,
         });
         log(`${p.name} eliminated by ability effect in lobby ${game.lobbyCode}`, "game");
-      }
-    }
-  });
-  
-  // Log all bids and deduct time
-  game.players.forEach(p => {
-    if (p.currentBid && p.currentBid > 0) {
-      // Track total time bid for stats
-      p.totalTimeBid += p.currentBid;
-      
-      addGameLogEntry(game, {
-        type: 'bid',
-        playerId: p.id,
-        playerName: p.name,
-        message: `${p.name} bid ${p.currentBid.toFixed(1)}s`,
-        value: p.currentBid,
-      });
-      
-      // THE_MOLE: Mole's bid is free (no time deduction)
-      if (game.activeProtocol === 'THE_MOLE' && p.id === game.molePlayerId) {
-        // Free bid - no time deduction, no netImpact change (matches singleplayer)
-        addGameLogEntry(game, {
-          type: 'protocol',
-          playerId: p.id,
-          playerName: p.name,
-          message: `${p.name}'s bid was FREE (Mole)`,
-          value: p.currentBid,
-        });
-      } else {
-        p.remainingTime -= p.currentBid;
-        if (p.remainingTime <= 0) {
-          p.remainingTime = 0;
-          p.isEliminated = true;
-          if (!game.eliminatedThisRound.includes(p.id)) {
-            game.eliminatedThisRound.push(p.id);
-            addGameLogEntry(game, {
-              type: 'elimination',
-              playerId: p.id,
-              playerName: p.name,
-              message: `${p.name} was eliminated (ran out of time)`,
-              basic: true,
-            });
-          }
-        }
       }
     }
   });

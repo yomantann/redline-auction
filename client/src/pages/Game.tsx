@@ -2934,8 +2934,9 @@ export default function Game() {
           setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
         }
     } else {
-        if (participants.length > 0) {
-             setOverlay({ type: "protocol_alert", message: "TOTAL WIPEOUT", subMessage: "All participants eliminated." });
+        const allPlayersEliminated = playersState.every(p => p.isEliminated);
+        if (allPlayersEliminated) {
+             addOverlay("protocol_alert", "TOTAL WIPEOUT", "All players eliminated.");
         }
     }
 
@@ -3141,6 +3142,19 @@ export default function Game() {
          triggerAnimation(ab.playerId, ab.effect === 'TIME_REFUND' ? 'TIME_REFUND' : 'TOKEN_BOOST', ab.impactValue);
          if (ab.targetId) triggerAnimation(ab.targetId, 'DAMAGE', ab.impactValue);
     });
+
+    // If p1 was just eliminated this round, immediately end the game without bot simulation
+    const p1Eliminated = finalPlayers.find(p => p.id === 'p1');
+    if (p1Eliminated?.isEliminated) {
+      const alreadyHasElimFlag = overlays.some(o => o.type === "time_out" && o.message === "PLAYER ELIMINATED");
+      if (!alreadyHasElimFlag) {
+        addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
+      }
+      setPlayers(finalPlayers.map(p => ({ ...p, isHolding: false, currentBid: null })));
+      setPendingPenalties({});
+      setTimeout(() => setPhase('game_end'), 3000);
+      return;
+    }
     
     // SINGLE PLAYER ELIMINATION CHECK
     // "If the main player is eliminated... Immediately resolve the game"
@@ -5901,7 +5915,7 @@ export default function Game() {
              <div className="h-[100px] flex flex-col items-center justify-center space-y-2"> 
               <h2 className="text-3xl font-display text-destructive">PREPARE TO BID</h2>
                <p className="text-muted-foreground">
-                 {`Release now to abandon auction (-${(isMultiplayer ? (multiplayerGameState?.minBid ?? 2) : getTimerStart()).toFixed(1)}s)`}
+                 {`Release now to abandon auction (-${Math.max(0, isMultiplayer ? (multiplayerGameState?.minBid ?? 2) : getTimerStart()).toFixed(1)}s)`}
                </p>
             </div>
             
@@ -5910,7 +5924,7 @@ export default function Game() {
                </div>
                
                <div className="z-20 text-9xl font-display font-black text-destructive animate-ping absolute pointer-events-none">
-                  {isMultiplayer ? multiplayerGameState?.countdownRemaining : countdown}
+                  {isMultiplayer ? multiplayerGameState?.countdownRemaining : Math.max(0, countdown)}
                </div>
 
                <div className="z-10 relative">
