@@ -1308,7 +1308,11 @@ export default function Game() {
       }
     }
 
-    // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s
+    // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s.
+    // This is intentionally placed before the `!winner` early return so it fires on deadlock
+    // rounds too. DEADLOCK_SYNC (same bid → no winner) and MIRROR_MATCH (same post-round bank)
+    // are distinct flags and correctly co-fire — e.g. Round 1 deadlock or back-to-back deadlocks.
+    // Stats for all involved players are tracked server-side; the overlay fires for everyone here.
     {
       const survivors = players.filter(p => !p.isEliminated && p.remainingTime > 0);
       let mirrorMatchFound = false;
@@ -3438,7 +3442,9 @@ export default function Game() {
 
     } else {
        
-       // Track DEADLOCK_SYNC for all tied first-place players
+       // Track DEADLOCK_SYNC for all tied first-place players.
+       // On a deadlock round, bids are still deducted, so if the tying players also had
+       // equal time banks going in, MIRROR_MATCH will fire too (handled separately below).
        if (participants.length >= 2) {
          const validBidders = [...participants]
            .filter(p => p.currentBid !== null && p.currentBid > 0)
@@ -3707,21 +3713,38 @@ export default function Game() {
       roundMomentFlags.push('HIDDEN_REDEMPTION');
     }
 
-    // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s
+    // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s.
+    // Note: DEADLOCK_SYNC (same bid → no winner) and MIRROR_MATCH (same post-round bank) are
+    // distinct flags and both fire correctly in co-occurrence cases — e.g. Round 1 deadlock where
+    // all players start with equal banks, or back-to-back deadlocks that keep banks aligned.
+    // Stats are tracked directly here for ALL matching players (not via roundMomentFlags),
+    // so the flag is recorded even on rounds with no winner (like deadlocks).
     {
       const survivors = finalPlayers.filter(p => !p.isEliminated && p.remainingTime > 0);
-      let mirrorMatchFound = false;
-      for (let i = 0; i < survivors.length && !mirrorMatchFound; i++) {
-        for (let j = i + 1; j < survivors.length && !mirrorMatchFound; j++) {
+      const mirrorMatchIds = new Set<string>();
+      for (let i = 0; i < survivors.length; i++) {
+        for (let j = i + 1; j < survivors.length; j++) {
           if (Math.abs(survivors[i].remainingTime - survivors[j].remainingTime) <= 0.1) {
-            mirrorMatchFound = true;
+            mirrorMatchIds.add(survivors[i].id);
+            mirrorMatchIds.add(survivors[j].id);
           }
         }
       }
-      if (mirrorMatchFound) {
+      // mirrorMatchIds.size >= 2 is always true when non-empty (each pair adds 2 distinct IDs),
+      // but explicit >= 2 makes the intent clear.
+      if (mirrorMatchIds.size >= 2) {
         setTimeout(() => addOverlay('mirror_match', 'MIRROR MATCH', 'Two players ended with matching time banks!'), 2000);
         momentCount++;
-        roundMomentFlags.push('MIRROR_MATCH');
+        // Track for ALL involved players regardless of winner status (mirrors server-side logic).
+        // Intentionally separate from roundMomentFlags to avoid only tracking the winner.
+        if (!isMultiplayer) {
+          setPlayers(prev => prev.map(p => {
+            if (mirrorMatchIds.has(p.id)) {
+              return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), 'MIRROR_MATCH'] };
+            }
+            return p;
+          }));
+        }
       }
     }
     
