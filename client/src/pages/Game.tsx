@@ -481,7 +481,7 @@ function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult[] {
     {
       id: 'FLASH_CRASH',
       name: 'Flash Crash',
-      desc: 'First player eliminated',
+      desc: 'Earliest round eliminated',
       getCandidates: () => {
         return players.filter(p => p.isFirstEliminated).map(p => ({ id: p.id, name: p.name }));
       },
