@@ -151,6 +151,7 @@ export interface GamePlayer {
   protocolWinsEarned: string[];
   // Bonus trophy tracking
   shortestWinBidTime?: number;   // Shortest bid time used to win any round (for Market Sniper criterion)
+  lostTrophyLastRound?: boolean; // True if this player's tokens decreased in the most recent round
 }
 
 export interface GameLogEntry {
@@ -1165,6 +1166,10 @@ function endRound(lobbyCode: string) {
   
   game.phase = 'round_end';
 
+  // Snapshot tokens before any modifications this round (for lostTrophyLastRound detection)
+  const tokensSnapshot = new Map<string, number>();
+  game.players.forEach(p => tokensSnapshot.set(p.id, p.tokens));
+
   // Snapshot time banks before any deductions (for LATE_PANIC check)
   const startingTimeBanks = new Map<string, number>();
   game.players.forEach(p => {
@@ -1646,6 +1651,12 @@ function endRound(lobbyCode: string) {
   if (winnerId) {
     const winnerPlayer = game.players.find(p => p.id === winnerId);
     if (winnerPlayer) {
+      // HIDDEN_REDEMPTION: winner had lostTrophyLastRound set from the previous round
+      if (winnerPlayer.lostTrophyLastRound) {
+        winnerPlayer.momentFlagsEarned.push('HIDDEN_REDEMPTION');
+        log(`[HIDDEN REDEMPTION] ${winnerPlayer.name} won after losing a trophy in lobby ${lobbyCode}`, "game");
+      }
+
       const flagsThisRound = winnerPlayer.momentFlagsEarned.length - (flagsBeforeCount.get(winnerId) || 0);
       if (flagsThisRound >= 3) {
         winnerPlayer.momentFlagsEarned.push('PATCH_NOTES_PENDING');
@@ -1653,6 +1664,36 @@ function endRound(lobbyCode: string) {
       }
     }
   }
+
+  // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s (stats tracking)
+  // Note: transitive matching is handled via a Set - if A≈B and B≈C, all three are flagged.
+  {
+    const survivors = game.players.filter(p => !p.isEliminated && p.remainingTime > 0);
+    const mirrorMatchIds = new Set<string>();
+    for (let i = 0; i < survivors.length; i++) {
+      for (let j = i + 1; j < survivors.length; j++) {
+        if (Math.abs(survivors[i].remainingTime - survivors[j].remainingTime) <= 0.1) {
+          mirrorMatchIds.add(survivors[i].id);
+          mirrorMatchIds.add(survivors[j].id);
+        }
+      }
+    }
+    mirrorMatchIds.forEach(id => {
+      const p = game.players.find(pl => pl.id === id);
+      if (p) {
+        p.momentFlagsEarned.push('MIRROR_MATCH');
+      }
+    });
+    if (mirrorMatchIds.size > 0) {
+      log(`[MIRROR MATCH] ${mirrorMatchIds.size} players share time bank in lobby ${lobbyCode}`, "game");
+    }
+  }
+
+  // Update lostTrophyLastRound for all players based on token changes this round
+  game.players.forEach(p => {
+    const tokensBefore = tokensSnapshot.get(p.id) ?? p.tokens;
+    p.lostTrophyLastRound = p.tokens < tokensBefore;
+  });
   
   broadcastGameState(lobbyCode);
   

@@ -664,8 +664,8 @@ export default function Game() {
       const MOMENT_FLAG_TYPES: OverlayType[] = [
           'fake_calm', 'genius_move', 'easy_w', 'time_out', 'deadlock_sync', 'last_one_standing',
           'comeback_hope', 'smug_confidence', 'zero_bid',
-          'precision_strike', 'overkill', 'clutch_play', 'late_panic',
-          'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes',
+          'precision_strike', 'overkill', 'clutch_play', 'late_panic', 'mirror_match',
+          'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes', 'hidden_redemption',
       ];
         if (soundEnabled && MOMENT_FLAG_TYPES.includes(type) && type !== 'hidden_patch_notes') {
           const now = Date.now();
@@ -1032,6 +1032,7 @@ export default function Game() {
       setIsMultiplayer(true);
       eliminationPopupShownRef.current = false; // Reset elimination popup tracking for new games
       lastRoundEndProcessedRef.current = 0; // Reset round processing for new games
+      redemptionShownCountRef.current = 0; // Reset redemption counter for new games
       // Don't set phase here - let the server game_state dictate the phase
       // The server starts in 'waiting_for_ready' phase
     };
@@ -1242,6 +1243,8 @@ export default function Game() {
   const lastRoundEndProcessedRef = useRef<number>(0);
   const eliminationPopupShownRef = useRef<boolean>(false); // Track if elimination popup already shown
   const dejaBidShownRef = useRef<boolean>(false); // DEJA BID only fires once per game session
+  const p1PrevRoundStartTokensRef = useRef<number | null>(null); // SP: track p1 tokens at start of previous round
+  const redemptionShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_REDEMPTION has been shown
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -1302,6 +1305,22 @@ export default function Game() {
         }
       } else if (validBidders.length === 0) {
         addOverlay("zero_bid", "AFK", "No one dared to bid!");
+      }
+    }
+
+    // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s
+    {
+      const survivors = players.filter(p => !p.isEliminated && p.remainingTime > 0);
+      let mirrorMatchFound = false;
+      for (let i = 0; i < survivors.length && !mirrorMatchFound; i++) {
+        for (let j = i + 1; j < survivors.length && !mirrorMatchFound; j++) {
+          if (Math.abs(survivors[i].remainingTime - survivors[j].remainingTime) <= 0.1) {
+            mirrorMatchFound = true;
+          }
+        }
+      }
+      if (mirrorMatchFound) {
+        setTimeout(() => addOverlay('mirror_match', 'MIRROR MATCH', 'Two players ended with matching time banks!'), 1500);
       }
     }
     
@@ -1466,6 +1485,17 @@ export default function Game() {
     if (mpFlagsEarned.includes('LATE_PANIC') && isCurrentPlayerWinner && multiplayerGameState.round > 1) {
       setTimeout(() => addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0), 800);
       momentCount += 1;
+    }
+
+    // HIDDEN_REDEMPTION: winner won after losing a trophy in a previous round (server tracked)
+    // Use count-based guard to support multiple occurrences per game
+    if (isCurrentPlayerWinner) {
+      const redemptionCount = mpFlagsEarned.filter((f: string) => f === 'HIDDEN_REDEMPTION').length;
+      if (redemptionCount > redemptionShownCountRef.current) {
+        redemptionShownCountRef.current = redemptionCount;
+        setTimeout(() => addOverlay('hidden_redemption', 'REDEMPTION', 'Won after a trophy was taken in a previous round.', 0), 1500);
+        momentCount++;
+      }
     }
     
     // Patch Notes Pending: 3+ moment flags in same round
@@ -2478,6 +2508,13 @@ export default function Game() {
   const endRound = (finalTime: number) => {
     setPhase('round_end');
     
+    // Capture p1 token count before this round's processing (= end of previous round)
+    // Used to detect if p1 lost a trophy last round (for hidden_redemption flag)
+    const p1TokensBeforeThisRound = players.find(p => p.id === 'p1')?.tokens ?? 0;
+    const p1PrevTokens = p1PrevRoundStartTokensRef.current;
+    const p1LostTrophyPrevRound = p1PrevTokens !== null && p1TokensBeforeThisRound < p1PrevTokens;
+    p1PrevRoundStartTokensRef.current = p1TokensBeforeThisRound;
+
     // 1. IDENTIFY PARTICIPANTS (Those who held past countdown)
     const participants = players.filter(p => p.currentBid !== null && p.currentBid > 0);
 
@@ -3661,6 +3698,32 @@ export default function Game() {
             roundMomentFlags.push('HIDDEN_REDLINE_REVERSAL');
         }
     }
+
+    // HIDDEN_REDEMPTION: p1 wins after losing a trophy in a previous round
+    if (winnerId === 'p1' && p1LostTrophyPrevRound) {
+      console.log(`[HIDDEN REDEMPTION] SP: p1 won after losing a trophy (prev=${p1PrevTokens}, now=${p1TokensBeforeThisRound})`);
+      addOverlay('hidden_redemption', 'REDEMPTION', 'Won after a trophy was taken in a previous round.', 0);
+      momentCount++;
+      roundMomentFlags.push('HIDDEN_REDEMPTION');
+    }
+
+    // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s
+    {
+      const survivors = finalPlayers.filter(p => !p.isEliminated && p.remainingTime > 0);
+      let mirrorMatchFound = false;
+      for (let i = 0; i < survivors.length && !mirrorMatchFound; i++) {
+        for (let j = i + 1; j < survivors.length && !mirrorMatchFound; j++) {
+          if (Math.abs(survivors[i].remainingTime - survivors[j].remainingTime) <= 0.1) {
+            mirrorMatchFound = true;
+          }
+        }
+      }
+      if (mirrorMatchFound) {
+        setTimeout(() => addOverlay('mirror_match', 'MIRROR MATCH', 'Two players ended with matching time banks!'), 2000);
+        momentCount++;
+        roundMomentFlags.push('MIRROR_MATCH');
+      }
+    }
     
     // PATCH_NOTES_PENDING: 3+ moment flags in same round (tracked as a flag itself)
     if (momentCount >= 3 && winnerId) {
@@ -4278,6 +4341,7 @@ export default function Game() {
      setCurrentLobby(null);
      setLobbyCode("");
      eliminationPopupShownRef.current = false; // Reset elimination popup tracking for new games
+     p1PrevRoundStartTokensRef.current = null; // Reset trophy-loss tracking for new games
      
      setPhase('intro');
      setRound(1);
@@ -5965,6 +6029,12 @@ export default function Game() {
         const loser = sortedPlayers[sortedPlayers.length - 1];
         const topThree = sortedPlayers.slice(0, 3);
 
+        // Determine if Prom King won in Social mode (for special game over text)
+        const isPromKingWin = variant === 'SOCIAL_OVERDRIVE' && (
+          winner?.selectedDriver === 'prom_king' ||
+          (!isMultiplayer && selectedCharacter?.id === 'prom_king' && winner?.id === 'p1')
+        );
+
         // Helper to get the correct character image based on variant
         const getCharacterImage = (selectedDriver: string | undefined) => {
           if (!selectedDriver) return null;
@@ -6084,7 +6154,12 @@ export default function Game() {
               <div className="flex-shrink-0 flex flex-col items-center gap-4 pb-6 bg-gradient-to-b from-black/90 via-black/70 to-transparent">
                 <GameOverlay overlays={overlays} onDismiss={removeOverlay} />
 
-                <h1 className="text-4xl sm:text-5xl font-display font-bold text-white text-center pt-8">GAME OVER</h1>
+                {/* Prom King wins in Social mode: special game over text */}
+                {isPromKingWin ? (
+                  <h1 className="text-4xl sm:text-5xl font-display font-bold text-purple-300 text-center pt-8">Clap for the King! 👑</h1>
+                ) : (
+                  <h1 className="text-4xl sm:text-5xl font-display font-bold text-white text-center pt-8">GAME OVER</h1>
+                )}
 
                 {/* Compact Podium - Top 3 with driver images */}
                 <div className="w-full max-w-3xl px-4">
@@ -6508,6 +6583,7 @@ export default function Game() {
                     { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-blue-400 border-blue-500/20" },
                     { title: "LATE PANIC", desc: "Win starting the round with the lowest time bank.", color: "text-fuchsia-300 border-fuchsia-500/20" },
                     { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-200 border-white/20" },
+                    { title: "MIRROR MATCH", desc: "Two or more players end the round with the same time bank (within 0.1s).", color: "text-violet-400 border-violet-500/20" },
                   ].map((p, i) => (
                     <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
                       <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
@@ -6547,7 +6623,7 @@ export default function Game() {
                 <div className="p-4 pt-3 space-y-3">
                   <p className="text-xs text-zinc-500 italic">Easter egg moments. Unlock by playing.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[0,1,2,3].map((i) => (
+                    {[0,1,2,3,4].map((i) => (
                       <div key={i} className="h-14 rounded border border-white/10 bg-white/5 flex items-center justify-between px-3">
                         <div className="h-2 w-24 rounded bg-white/10" />
                         <div className="h-2 w-10 rounded bg-white/10" />

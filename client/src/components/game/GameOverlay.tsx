@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck, Crosshair, Flame, Hourglass, X, PartyPopper, Martini } from "lucide-react";
+import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck, Crosshair, Flame, Hourglass, X, PartyPopper, Martini, Star, Scale } from "lucide-react";
 
 export type OverlayType = 
   | "round_start" 
@@ -25,6 +25,8 @@ export type OverlayType =
   | "hidden_redline_reversal"
   | "hidden_deja_bid"
   | "hidden_patch_notes"
+  | "hidden_redemption"
+  | "mirror_match"
   | "social_event" 
   | "bio_event"    
   | "bonus_trophy"
@@ -72,6 +74,9 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "hidden_redline_reversal": return <Flame size={48} className="text-rose-400" />;
       case "hidden_deja_bid": return <BadgeCheck size={48} className="text-sky-300" />;
       case "hidden_patch_notes": return <AlertTriangle size={48} className="text-amber-200" />;
+      case "hidden_redemption": return <Star size={48} className="text-pink-400" />;
+      
+      case "mirror_match": return <Scale size={48} className="text-violet-400" />;
       
       case "social_event": return <PartyPopper size={40} className="text-purple-400" />;
       case "bio_event": return <Martini size={40} className="text-orange-400" />;
@@ -111,7 +116,10 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "hidden_redline_reversal":
       case "hidden_deja_bid":
       case "hidden_patch_notes":
+      case "hidden_redemption":
         return "text-pink-400 border-pink-500/50 bg-black/95 shadow-[0_0_30px_rgba(236,72,153,0.3)]";
+
+      case "mirror_match": return "text-violet-400 border-violet-500/20 bg-black/80";
 
       case "social_event": return "text-purple-400 border-purple-500/20 bg-black/90";
       case "bio_event": return "text-orange-400 border-orange-500/20 bg-black/90";
