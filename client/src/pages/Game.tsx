@@ -6683,15 +6683,15 @@ export default function Game() {
                 <div className="space-y-2 text-sm text-yellow-200/90">
                   <div className="flex gap-2">
                     <span className="text-yellow-500">•</span>
-                    <span>Fixed early release penalty timing in Marathon mode</span>
+                    <span>New popups for click & lowflame</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="text-yellow-500">•</span>
-                    <span>Royal Decree now correctly awards 20s refund</span>
+                    <span>Bonus trophies added when playing with Protocols</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="text-yellow-500">•</span>
-                    <span>Working on a bug with a hidden moment</span>
+                    <span>Bug fixed with a dup hidden moment</span>
                   </div>
                 </div>
               </div>
