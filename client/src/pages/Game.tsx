@@ -1035,6 +1035,7 @@ export default function Game() {
       lastRoundEndProcessedRef.current = 0; // Reset round processing for new games
       redemptionShownCountRef.current = 0; // Reset redemption counter for new games
       nailInCoffinShownCountRef.current = 0; // Reset nail in coffin counter for new games
+      bonusTrophiesAwardedRef.current = false; // Reset bonus trophy tracking for new games
       // Don't set phase here - let the server game_state dictate the phase
       // The server starts in 'waiting_for_ready' phase
     };
@@ -1161,6 +1162,8 @@ export default function Game() {
         trophiesPerWinner: number;
       }[];
     }) => {
+      if (bonusTrophiesAwardedRef.current) return;
+      bonusTrophiesAwardedRef.current = true;
       data.results.forEach(bonusResult => {
         const winnerNames = bonusResult.winners.map(w => w.name).join(' & ');
         const subMsg = `${winnerNames} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
@@ -1176,13 +1179,6 @@ export default function Game() {
     socket.on('protocol_reveal', handleProtocolReveal);
     socket.on('bonus_trophy_award', handleBonusTrophyAward);
 
-    const handleKicked = (data: { reason: string }) => {
-      setCurrentLobby(null);
-      setPhase('intro');
-      toast({ title: "Kicked", description: data.reason || "You were kicked from the lobby.", variant: "destructive", duration: 4000 });
-    };
-    socket.on('kicked', handleKicked);
-
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
       socket.off('game_started', handleGameStarted);
@@ -1191,7 +1187,6 @@ export default function Game() {
       socket.off('protocol_detail', handleProtocolDetail);
       socket.off('protocol_reveal', handleProtocolReveal);
       socket.off('bonus_trophy_award', handleBonusTrophyAward);
-      socket.off('kicked', handleKicked);
     };
   }, [socket]);
 
@@ -1256,6 +1251,7 @@ export default function Game() {
   const p1PrevRoundStartTokensRef = useRef<number | null>(null); // SP: track p1 tokens at start of previous round
   const redemptionShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_REDEMPTION has been shown
   const nailInCoffinShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_NAIL_IN_THE_COFFIN has been shown
+  const bonusTrophiesAwardedRef = useRef<boolean>(false); // MP: prevent bonus trophy overlays from showing more than once per game
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -4415,6 +4411,7 @@ export default function Game() {
      setLobbyCode("");
      eliminationPopupShownRef.current = false; // Reset elimination popup tracking for new games
      p1PrevRoundStartTokensRef.current = null; // Reset trophy-loss tracking for new games
+     bonusTrophiesAwardedRef.current = false; // Reset bonus trophy tracking for new games
      
      setPhase('intro');
      setRound(1);
@@ -5165,22 +5162,7 @@ export default function Game() {
                         )}>
                           {player.isReady ? "Ready" : "Not Ready"}
                         </div>
-                        {isHost && player.socketId !== socket?.id && (
-                          <button
-                            onClick={() => {
-                              if (!socket || !currentLobby) return;
-                              socket.emit('kick_player', { playerId: player.id }, (response: { success: boolean; error?: string }) => {
-                                if (!response.success) {
-                                  toast({ title: "Error", description: response.error || "Failed to kick player", variant: "destructive" });
-                                }
-                              });
-                            }}
-                            className="px-2 py-1 rounded text-xs font-medium bg-red-900/30 text-red-400 hover:bg-red-900/60 transition-colors"
-                            title={`Kick ${player.name}`}
-                          >
-                            Kick
-                          </button>
-                        )}
+
                       </div>
                     </div>
                   ))}
