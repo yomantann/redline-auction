@@ -72,35 +72,27 @@ import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png'
 import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
 
 // Social Mode Images
-import socialSadmanOption3 from "../assets/generated_images/social_sadman_option3.png";
-import socialRainbowDashOption1 from "../assets/generated_images/social_rainbow_dash_option1.png";
-import socialGuardianHOption1 from "../assets/generated_images/social_guardian_h_option1.png";
-import socialFrostybyteOption1 from "../assets/generated_images/social_frostybyte_option1.png";
-import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_detailed_v4.png";
-import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_life_support_v6.png";
-import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_toy_v2.png";
-import socialAccuserOption1 from "../assets/generated_images/social_accuser_pointing_v4.png";
-import socialHarambe from '../assets/generated_images/social_harambe.png';
-import socialPopcat from '../assets/generated_images/social_popcat.png';
-import socialWinter from '../assets/generated_images/social_winter.png';
-import socialPepe from '../assets/generated_images/social_pepe.png';
-import socialNyan from '../assets/generated_images/social_nyan.png';
-import socialKaren from '../assets/generated_images/social_karen.png';
-import socialFine from '../assets/generated_images/social_fine.png';
-import socialBf from '../assets/generated_images/social_bf.png';
-import socialRat from '../assets/generated_images/social_rat.png';
-import socialBaldwin from '../assets/generated_images/social_baldwin.png';
-import socialSigma from '../assets/generated_images/social_sigma.png';
-import socialGigachad from '../assets/generated_images/social_gigachad.png';
-import socialThinker from '../assets/generated_images/social_thinker.png';
-import socialDisaster from '../assets/generated_images/social_disaster.png';
-import socialPrimate from '../assets/generated_images/social_primate.png';
-import socialHarold from '../assets/generated_images/social_harold.png';
-import socialPromKing from '../assets/generated_images/social_prom_king.png';
-import socialIdolCore from '../assets/generated_images/social_idol_core.png';
-import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
-import socialTank from '../assets/generated_images/social_tank.png';
-import socialDangerZone from '../assets/generated_images/social_danger_zone.png';
+import socialSadmanOption3 from "../assets/generated_images/SOCIAL/social_sadman_option3.png";
+import socialRainbowDashOption1 from "../assets/generated_images/SOCIAL/social_rainbow_dash_option1.png";
+import socialGuardianHOption1 from "../assets/generated_images/SOCIAL/social_guardian_h_option1.png";
+import socialFrostybyteOption1 from "../assets/generated_images/SOCIAL/social_frostybyte_option1.png";
+import socialExecutivePOption1 from "../assets/generated_images/SOCIAL/social_executive_p_detailed_v4.png";
+import socialPainHiderOption1 from "../assets/generated_images/SOCIAL/social_pain_hider_life_support_v6.png";
+import socialPanicBotOption1 from "../assets/generated_images/SOCIAL/social_panic_bot_toy_v2.png";
+import socialAccuserOption1 from "../assets/generated_images/SOCIAL/social_accuser_pointing_v4.png";
+import socialPopcat from '../assets/generated_images/SOCIAL/social_popcat.png';
+import socialFine from '../assets/generated_images/SOCIAL/social_fine.png';
+import socialBf from '../assets/generated_images/SOCIAL/social_bf.png';
+import socialRat from '../assets/generated_images/SOCIAL/social_rat.png';
+import socialBaldwin from '../assets/generated_images/SOCIAL/social_baldwin.png';
+import socialGigachad from '../assets/generated_images/SOCIAL/social_gigachad.png';
+import socialThinker from '../assets/generated_images/SOCIAL/social_thinker.png';
+import socialDisaster from '../assets/generated_images/SOCIAL/social_disaster.png';
+import socialPrimate from '../assets/generated_images/SOCIAL/social_primate.png';
+
+import charPromKing from '../assets/generated_images/SOCIAL/cool_cyberpunk_prom_king.png';
+import socialTank from '../assets/generated_images/SOCIAL/social_tank.png';
+import socialDangerZone from '../assets/generated_images/SOCIAL/social_danger_zone.png';
 
 // Bio Mode Images
 import bioPanicBotOption3 from "../assets/generated_images/BIO/bio_panic_bot_option3.png";
@@ -120,7 +112,8 @@ import bioThinker from '../assets/generated_images/BIO/bio_thinker.png';
 import bioDisaster from '../assets/generated_images/BIO/bio_hotwired_bar_on_fire_v6.png';
 import bioPrimate from '../assets/generated_images/BIO/bio_primate.png';
 import bioHarold from '../assets/generated_images/BIO/bio_harold.png';
-import bioPromKing from '../assets/generated_images/social_prom_king.png';
+
+import bioPromKing from '../assets/generated_images/BIO/social_prom_king.png';
 import bioIdolCore from '../assets/generated_images/BIO/bio_idol_core.png';
 import charRockShush from '../assets/generated_images/BIO/cute_rock_with_shush_gesture.png';
 import charDangerZone from '../assets/generated_images/BIO/edgy_cyberpunk_femme_fatale.png';
