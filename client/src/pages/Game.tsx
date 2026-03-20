@@ -498,6 +498,26 @@ function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult[] {
         return withWins.filter(p => p.shortestWinBidTime === min).map(p => ({ id: p.id, name: p.name }));
       },
     },
+    {
+      id: 'BOT_BID',
+      name: 'Bot Bid',
+      desc: 'Random CPU (bot) award',
+      getCandidates: () => {
+        // Award to one random non-eliminated bot
+        const activeBots = players.filter(p => p.isBot && !p.isEliminated);
+        if (activeBots.length > 0) {
+          const chosen = activeBots[Math.floor(Math.random() * activeBots.length)];
+          return [{ id: chosen.id, name: chosen.name }];
+        }
+        // Fall back to panic_bot driver players if no bots present
+        const panicBotPlayers = players.filter(p => !p.isBot && !p.isEliminated && p.selectedDriver === 'panic_bot');
+        if (panicBotPlayers.length > 0) {
+          const chosen = panicBotPlayers[Math.floor(Math.random() * panicBotPlayers.length)];
+          return [{ id: chosen.id, name: chosen.name }];
+        }
+        return [];
+      },
+    },
   ];
 
   // Pick 2 unique criteria at random from valid ones (Fisher-Yates shuffle)
