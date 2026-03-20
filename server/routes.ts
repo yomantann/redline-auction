@@ -388,7 +388,33 @@ export async function registerRoutes(
       }
 
       if (lobby.status === 'in_game') {
-        if (callback) callback({ success: false, error: "Cannot kick players during a game" });
+        // Allow kicking during an active game: eliminate the player from the game
+        const targetPlayer = lobby.players.find(p => p.id === data.playerId);
+        if (!targetPlayer) {
+          if (callback) callback({ success: false, error: "Player not found" });
+          return;
+        }
+
+        if (targetPlayer.socketId === socket.id) {
+          if (callback) callback({ success: false, error: "Cannot kick yourself" });
+          return;
+        }
+
+        // Notify the kicked player, eliminate from game, and clean up (removePlayerFromGame also broadcasts game state)
+        if (targetPlayer.socketId) {
+          io.to(targetPlayer.socketId).emit('kicked', { reason: 'You were kicked by the host.' });
+          removePlayerFromGame(targetPlayer.socketId);
+          playerToLobby.delete(targetPlayer.socketId);
+          io.sockets.sockets.get(targetPlayer.socketId)?.leave(lobbyCode);
+        }
+
+        // Remove from lobby player list
+        lobby.players = lobby.players.filter(p => p.id !== data.playerId);
+
+        log(`Player ${targetPlayer.name} was kicked from active game ${lobbyCode} by host`, "lobby");
+        broadcastLobbyUpdate(lobbyCode);
+
+        if (callback) callback({ success: true });
         return;
       }
 
