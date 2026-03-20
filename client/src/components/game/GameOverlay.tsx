@@ -60,7 +60,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "easy_w": return <Sparkles size={48} className="text-teal-400" />;
       case "time_out": return <Skull size={48} className="text-red-800" />;
       case "deadlock_sync": return <Lock size={48} className="text-zinc-400" />;
-      case "last_one_standing": return <Award size={48} className="text-yellow-500" />;
+      case "last_one_standing": return <Award size={48} className="text-pink-600" />;
       case "comeback_hope": return <HeartPulse size={48} className="text-teal-600" />;
       case "smug_confidence": return <Crown size={48} className="text-purple-400" />;
       case "zero_bid": return <Ghost size={48} className="text-amber-600" />;
@@ -101,7 +101,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "easy_w": return "text-teal-400 border-teal-400/20 bg-black/80";
       case "time_out": return "text-red-800 border-red-800/20 bg-black/80";
       case "deadlock_sync": return "text-zinc-400 border-zinc-400/20 bg-black/80";
-      case "last_one_standing": return "text-yellow-500 border-yellow-500/20 bg-black/80";
+      case "last_one_standing": return "text-pink-600 border-pink-600/20 bg-black/80";
       case "protocol_alert":
         return "text-red-400 border-red-500/20 bg-black/80";
       case "ability_trigger": return "text-blue-400 border-blue-500/20 bg-black/80";

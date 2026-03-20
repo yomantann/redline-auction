@@ -6671,7 +6671,7 @@ export default function Game() {
                   {[ 
                     { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
                     { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
-                    { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-yellow-500 border-yellow-500/20" },
+                    { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-pink-600 border-pink-600/20" },
                     { title: "LATE PANIC", desc: "Win starting the round with the lowest time bank.", color: "text-orange-500 border-orange-500/20" },
                     { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-400 border-zinc-400/20" },
                     { title: "MIRROR MATCH", desc: "Two or more players end the round with the same time bank (within 0.1s).", color: "text-[#d2b48c] border-[#d2b48c]/20" },
