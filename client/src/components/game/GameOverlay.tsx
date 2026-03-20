@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, AlertTriangle, Play, Skull, Zap, ThumbsDown, Smile, TrendingUp, ShieldAlert, BadgeCheck, Crosshair, Flame, Hourglass, X, PartyPopper, Martini, Star, Scale } from "lucide-react";
+import { Trophy, AlertTriangle, Play, Skull, Zap, TrendingUp, Crosshair, Flame, Hourglass, X, PartyPopper, Martini, Scale, Lightbulb, Sparkles, Meh, Award, Lock, Crown, HeartPulse, Ghost, Orbit, Rocket, History, Bug, Bird, Axe } from "lucide-react";
 
 export type OverlayType = 
   | "round_start" 
@@ -55,30 +55,30 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "round_win": return <Trophy size={40} className="text-primary" />;
       case "game_over": return <Trophy size={48} className="text-primary" />;
       
-      case "fake_calm": return <Zap size={48} className="text-amber-400" />;
-      case "genius_move": return <BadgeCheck size={48} className="text-cyan-400" />;
-      case "easy_w": return <Smile size={48} className="text-green-400" />;
-      case "time_out": return <Skull size={48} className="text-destructive" />;
-      case "deadlock_sync": return <AlertTriangle size={48} className="text-zinc-200" />;
-      case "last_one_standing": return <Trophy size={48} className="text-blue-400" />;
-      case "comeback_hope": return <TrendingUp size={48} className="text-emerald-400" />;
-      case "smug_confidence": return <Trophy size={48} className="text-purple-400" />;
-      case "zero_bid": return <AlertTriangle size={48} className="text-yellow-200" />;
+      case "fake_calm": return <Meh size={48} className="text-amber-400" />;
+      case "genius_move": return <Lightbulb size={48} className="text-cyan-400" />;
+      case "easy_w": return <Sparkles size={48} className="text-teal-400" />;
+      case "time_out": return <Skull size={48} className="text-red-800" />;
+      case "deadlock_sync": return <Lock size={48} className="text-zinc-400" />;
+      case "last_one_standing": return <Award size={48} className="text-yellow-500" />;
+      case "comeback_hope": return <HeartPulse size={48} className="text-teal-600" />;
+      case "smug_confidence": return <Crown size={48} className="text-purple-400" />;
+      case "zero_bid": return <Ghost size={48} className="text-amber-600" />;
       case "protocol_alert": return <AlertTriangle size={48} className="text-red-400" />;
       case "ability_trigger": return <Zap size={48} className="text-blue-400" />;
       
-      case "precision_strike": return <Crosshair size={48} className="text-blue-400" />;
+      case "precision_strike": return <Crosshair size={48} className="text-blue-600" />;
       case "overkill": return <Flame size={48} className="text-red-500" />;
-      case "clutch_play": return <Hourglass size={48} className="text-yellow-400" />;
-      case "late_panic": return <Hourglass size={48} className="text-fuchsia-400" />;
-      case "hidden_67": return <BadgeCheck size={48} className="text-lime-300" />;
-      case "hidden_redline_reversal": return <Flame size={48} className="text-rose-400" />;
-      case "hidden_deja_bid": return <BadgeCheck size={48} className="text-sky-300" />;
-      case "hidden_patch_notes": return <AlertTriangle size={48} className="text-amber-200" />;
-      case "hidden_redemption": return <Star size={48} className="text-pink-400" />;
-      case "hidden_nail_in_the_coffin": return <Skull size={48} className="text-rose-300" />;
+      case "clutch_play": return <Hourglass size={48} className="text-lime-500" />;
+      case "late_panic": return <TrendingUp size={48} className="text-orange-500" />;
+      case "hidden_67": return <Orbit size={48} className="text-lime-300" />;
+      case "hidden_redline_reversal": return <Rocket size={48} className="text-rose-400" />;
+      case "hidden_deja_bid": return <History size={48} className="text-sky-300" />;
+      case "hidden_patch_notes": return <Bug size={48} className="text-amber-200" />;
+      case "hidden_redemption": return <Bird size={48} className="text-pink-400" />;
+      case "hidden_nail_in_the_coffin": return <Axe size={48} className="text-rose-300" />;
       
-      case "mirror_match": return <Scale size={48} className="text-violet-400" />;
+      case "mirror_match": return <Scale size={48} className="text-[#d2b48c]" />;
       
       case "social_event": return <PartyPopper size={40} className="text-purple-400" />;
       case "bio_event": return <Martini size={40} className="text-orange-400" />;
@@ -96,22 +96,22 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
         return "text-primary border-primary/20 bg-black/80";
         
       case "fake_calm": return "text-amber-400 border-amber-500/20 bg-black/80";
-      case "late_panic": return "text-fuchsia-400 border-fuchsia-500/20 bg-black/80";
+      case "late_panic": return "text-orange-500 border-orange-500/20 bg-black/80";
       case "genius_move": return "text-cyan-400 border-cyan-500/20 bg-black/80";
-      case "easy_w": return "text-green-400 border-green-500/20 bg-black/80";
-      case "time_out": 
-      case "deadlock_sync": return "text-zinc-200 border-white/20 bg-black/80";
-      case "last_one_standing": return "text-blue-400 border-blue-500/20 bg-black/80";
+      case "easy_w": return "text-teal-400 border-teal-400/20 bg-black/80";
+      case "time_out": return "text-red-800 border-red-800/20 bg-black/80";
+      case "deadlock_sync": return "text-zinc-400 border-zinc-400/20 bg-black/80";
+      case "last_one_standing": return "text-yellow-500 border-yellow-500/20 bg-black/80";
       case "protocol_alert":
         return "text-red-400 border-red-500/20 bg-black/80";
       case "ability_trigger": return "text-blue-400 border-blue-500/20 bg-black/80";
-      case "comeback_hope": return "text-emerald-400 border-emerald-500/20 bg-black/80";
+      case "comeback_hope": return "text-teal-600 border-teal-600/20 bg-black/80";
       case "smug_confidence": return "text-purple-400 border-purple-500/20 bg-black/80";
-      case "zero_bid": return "text-yellow-200 border-yellow-200/20 bg-black/80";
+      case "zero_bid": return "text-amber-600 border-amber-600/20 bg-black/80";
       
-      case "precision_strike": return "text-blue-400 border-blue-500/20 bg-black/80";
+      case "precision_strike": return "text-blue-600 border-blue-600/20 bg-black/80";
       case "overkill": return "text-red-500 border-red-500/20 bg-black/80";
-      case "clutch_play": return "text-yellow-400 border-yellow-500/20 bg-black/80";
+      case "clutch_play": return "text-lime-500 border-lime-500/20 bg-black/80";
       
       // Hidden Flags - Special Styling
       case "hidden_67": 
@@ -122,7 +122,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "hidden_nail_in_the_coffin":
         return "text-pink-400 border-pink-500/50 bg-black/95 shadow-[0_0_30px_rgba(236,72,153,0.3)]";
 
-      case "mirror_match": return "text-violet-400 border-violet-500/20 bg-black/80";
+      case "mirror_match": return "text-[#d2b48c] border-[#d2b48c]/20 bg-black/80";
 
       case "social_event": return "text-purple-400 border-purple-500/20 bg-black/90";
       case "bio_event": return "text-orange-400 border-orange-500/20 bg-black/90";

@@ -6648,9 +6648,9 @@ export default function Game() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
                   {[ 
                     { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
-                    { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-400 border-blue-500/20" },
-                    { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-yellow-400 border-yellow-500/20" },
-                    { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
+                    { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-600 border-blue-600/20" },
+                    { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-lime-500 border-lime-500/20" },
+                    { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-teal-400 border-teal-400/20" },
                   ].map((p, i) => (
                     <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
                       <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
@@ -6662,8 +6662,8 @@ export default function Game() {
 
 
               {/* Chaos & Drama Flags */}
-              <details className="bg-black/40 rounded border border-purple-500/20">
-                <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-purple-300">
+              <details className="bg-black/40 rounded border border-orange-500/20">
+                <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-orange-300">
                   Chaos & Drama Flags
                   <span className="text-[10px] uppercase tracking-widest text-zinc-500">Swingy, Loud Moments</span>
                 </summary>
@@ -6671,10 +6671,10 @@ export default function Game() {
                   {[ 
                     { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
                     { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
-                    { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-blue-400 border-blue-500/20" },
-                    { title: "LATE PANIC", desc: "Win starting the round with the lowest time bank.", color: "text-fuchsia-300 border-fuchsia-500/20" },
-                    { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-200 border-white/20" },
-                    { title: "MIRROR MATCH", desc: "Two or more players end the round with the same time bank (within 0.1s).", color: "text-violet-400 border-violet-500/20" },
+                    { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-yellow-500 border-yellow-500/20" },
+                    { title: "LATE PANIC", desc: "Win starting the round with the lowest time bank.", color: "text-orange-500 border-orange-500/20" },
+                    { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-400 border-zinc-400/20" },
+                    { title: "MIRROR MATCH", desc: "Two or more players end the round with the same time bank (within 0.1s).", color: "text-[#d2b48c] border-[#d2b48c]/20" },
                   ].map((p, i) => (
                     <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
                       <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
@@ -6685,17 +6685,17 @@ export default function Game() {
               </details>
 
               {/* Game State Flags */}
-              <details className="bg-black/40 rounded border border-amber-500/20">
-                <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-amber-300">
+              <details className="bg-black/40 rounded border border-purple-500/20">
+                <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-purple-300">
                   Game State Flags
                   <span className="text-[10px] uppercase tracking-widest text-zinc-500">Elims & Edge Cases</span>
                 </summary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
                   {[ 
                     { title: "SMUG CONFIDENCE", desc: "Win Round 1.", color: "text-purple-400 border-purple-500/20" },
-                    { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
-                    { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-destructive border-destructive/20" },
-                    { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-yellow-200 border-yellow-200/20" },
+                    { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-teal-600 border-teal-600/20" },
+                    { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-red-800 border-red-800/20" },
+                    { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-amber-600 border-amber-600/20" },
                   ].map((p, i) => (
                     <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
                       <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
