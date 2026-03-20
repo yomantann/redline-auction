@@ -3177,19 +3177,6 @@ export default function Game() {
          if (ab.targetId) triggerAnimation(ab.targetId, 'DAMAGE', ab.impactValue);
     });
 
-    // If p1 was just eliminated this round, immediately end the game without bot simulation
-    const p1Eliminated = finalPlayers.find(p => p.id === 'p1');
-    if (p1Eliminated?.isEliminated) {
-      const alreadyHasElimFlag = overlays.some(o => o.type === "time_out" && o.message === "PLAYER ELIMINATED");
-      if (!alreadyHasElimFlag) {
-        addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
-      }
-      setPlayers(finalPlayers.map(p => ({ ...p, isHolding: false, currentBid: null })));
-      setPendingPenalties({});
-      setTimeout(() => setPhase('game_end'), 3000);
-      return;
-    }
-    
     // SINGLE PLAYER ELIMINATION CHECK
     // "If the main player is eliminated... Immediately resolve the game"
     // SIMULATE REMAINING ROUNDS so bots get trophies

@@ -2503,6 +2503,11 @@ function endGame(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
   if (!game) return;
 
+  // Guard against running endGame twice (e.g. triggered by a player leaving during the 3-second
+  // post-round delay, while a setTimeout for endGame is also pending from endRound, or when
+  // playerAcknowledgeRoundEnd fires before the scheduled setTimeout).
+  if (game.phase === 'game_over') return;
+
   // Award Bonus Trophies if protocols are enabled and bonus trophies are enabled (before final placement sort)
   // Pick 2 criteria, award 1 trophy per winner per criterion
   let bonusResults: BonusTrophyResult[] = [];
