@@ -131,7 +131,7 @@ const SHORT_INITIAL_TIME = 150.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -145,6 +145,7 @@ type ProtocolType =
   | 'NO_LOOK' | 'LOCK_ON' 
   | 'THE_MOLE' | 'PANIC_ROOM' 
   | 'UNDERDOG_VICTORY' | 'TIME_TAX' | 'PRIVATE_CHANNEL'
+  | 'OVERCLOCK' | 'CALIBRATION'
   | SocialProtocol
   | BioProtocol
   | null;
@@ -197,7 +198,7 @@ interface Player {
   personality?: BotPersonality;
   characterIcon?: string | React.ReactNode; // Can be image URL or icon
   roundImpact?: string; // Legacy string for backward compatibility
-  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // NEW: Structured logs
+  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[]; // NEW: Structured logs
   // Multiplayer driver info
   selectedDriver?: string; // Driver ID for multiplayer
   driverName?: string; // Driver/character name
@@ -484,6 +485,26 @@ function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult[] {
         return withWins.filter(p => p.shortestWinBidTime === min).map(p => ({ id: p.id, name: p.name }));
       },
     },
+    {
+      id: 'BOT_BID',
+      name: 'Bot Bid',
+      desc: 'Random CPU (bot) award',
+      getCandidates: () => {
+        // Award to one random non-eliminated bot
+        const activeBots = players.filter(p => p.isBot && !p.isEliminated);
+        if (activeBots.length > 0) {
+          const chosen = activeBots[Math.floor(Math.random() * activeBots.length)];
+          return [{ id: chosen.id, name: chosen.name }];
+        }
+        // Fall back to panic_bot driver players if no bots present
+        const panicBotPlayers = players.filter(p => !p.isBot && !p.isEliminated && p.selectedDriver === 'panic_bot');
+        if (panicBotPlayers.length > 0) {
+          const chosen = panicBotPlayers[Math.floor(Math.random() * panicBotPlayers.length)];
+          return [{ id: chosen.id, name: chosen.name }];
+        }
+        return [];
+      },
+    },
   ];
 
   // Pick 2 unique criteria at random from valid ones (Fisher-Yates shuffle)
@@ -561,13 +582,22 @@ export default function Game() {
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
   const [showProtocolSelect, setShowProtocolSelect] = useState(false);
 
+  // OVERCLOCK protocol state (singleplayer)
+  const [overclockActive, setOverclockActive] = useState(false);
+  const [overclockTimeLeft, setOverclockTimeLeft] = useState(10);
+  const [overclockClickCounts, setOverclockClickCounts] = useState<Record<string, number>>({});
+
+  // CALIBRATION protocol state (singleplayer)
+  const [calibrationTarget, setCalibrationTarget] = useState<number | null>(null);
+
   const [expandedDriverCategoryId, setExpandedDriverCategoryId] = useState<string | null>(null);
   const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
         'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
         'OPEN_HAND', 'MUTE_PROTOCOL', 
         'NO_LOOK', 
         'THE_MOLE', 'PANIC_ROOM',
-        'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL'
+        'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL',
+        'OVERCLOCK', 'CALIBRATION'
   ]);
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
@@ -879,7 +909,7 @@ export default function Game() {
   const [multiplayerGameState, setMultiplayerGameState] = useState<{
     round: number;
     totalRounds: number;
-    phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'round_end' | 'game_over';
+    phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
     countdownRemaining: number;
     elapsedTime: number;
     players: Array<{
@@ -925,6 +955,8 @@ export default function Game() {
     allHumansHoldingStartTime: number | null;
     gameDuration: 'short' | 'standard' | 'long';
     minBid: number;
+    overclockClickCounts?: Record<string, number>;
+    calibrationTargetSeconds?: number | null;
   } | null>(null);
   
   // Socket connection
@@ -1076,6 +1108,8 @@ export default function Game() {
           setCountdown(state.countdownRemaining);
         } else if (state.phase === 'bidding') {
           setPhase('bidding');
+        } else if (state.phase === 'overclock') {
+          setPhase('overclock');
         } else if (state.phase === 'round_end') {
           setPhase('round_end');
           if (state.roundWinner) {
@@ -1555,6 +1589,12 @@ export default function Game() {
         case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone Take a Sip!"; break;
         case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser Finishes Drink!"; break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water Only This Round!"; break;
+        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as fast as you can for 10 seconds! Most clicks wins, least loses 10s."; break;
+        case 'CALIBRATION': {
+          const calSecs = multiplayerGameState?.calibrationTargetSeconds;
+          msg = "CALIBRATION"; sub = calSecs ? `Hold as close to ${calSecs}s as possible! Closest bid wins.` : "Hold as close to target as possible! Closest bid wins.";
+          break;
+        }
         default: if (!detailHandled.includes(mpProtocol)) { msg = "PROTOCOL ACTIVE"; sub = mpProtocol; } break;
       }
       
@@ -1644,10 +1684,12 @@ export default function Game() {
       interval = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
-            // Start Auction
-            // Trigger Overlay removed as requested
-            // setOverlay({ type: "round_start", message: "AUCTION START" });
-            setPhase('bidding');
+            // Check if OVERCLOCK protocol is active - start click phase instead of bidding
+            if (activeProtocol === 'OVERCLOCK') {
+              setPhase('overclock');
+            } else {
+              setPhase('bidding');
+            }
             return 0;
           }
           return prev - 1;
@@ -1655,7 +1697,43 @@ export default function Game() {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [phase]);
+  }, [phase, activeProtocol]);
+
+  // OVERCLOCK Phase Logic - Singleplayer only
+  const overclockCountsRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    if (phase === 'overclock' && !isMultiplayer) {
+      // Initialize click counts for all players
+      const initialCounts: Record<string, number> = {};
+      players.forEach(p => {
+        if (!p.isEliminated) {
+          // Bots get random 15-50 clicks immediately
+          initialCounts[p.id] = p.isBot ? Math.floor(Math.random() * 36) + 15 : 0;
+        }
+      });
+      overclockCountsRef.current = initialCounts;
+      setOverclockClickCounts(initialCounts);
+      setOverclockActive(true);
+      setOverclockTimeLeft(10);
+
+      // 10-second countdown timer
+      const interval = setInterval(() => {
+        setOverclockTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setOverclockActive(false);
+            // Use ref to get latest counts (state may be stale in closure)
+            endOverclockRound(overclockCountsRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [phase, isMultiplayer]);
 
   // Main Bidding Timer (Precision) - Singleplayer only
   useEffect(() => {
@@ -1951,6 +2029,13 @@ export default function Game() {
             bid = bid * 0.85;
           }
 
+          // CALIBRATION: Override bid to aim for calibration target time
+          if (activeProtocol === 'CALIBRATION' && calibrationTarget !== null) {
+            const baseHold = Math.max(0.5, calibrationTarget - minBidTime);
+            bid = baseHold + (Math.random() * 4 - 2); // ±2s variance
+            bid = Math.max(0.5, bid);
+          }
+
           const driverId = getBotDriverId(p);
           bid = getDriverBidAdjust(driverId, bid, p);
 
@@ -2110,6 +2195,9 @@ export default function Game() {
         } else {
           console.log('[Game] Button down during bidding - already released');
         }
+      } else if (currentPhase === 'overclock') {
+        // OVERCLOCK: send click to server
+        socket.emit("overclock_click");
       }
       return;
     }
@@ -2117,6 +2205,13 @@ export default function Game() {
     // Single-player logic
     if (phase === 'ready') {
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: true } : p));
+    } else if (phase === 'overclock') {
+       // OVERCLOCK: each press counts as a click
+       setOverclockClickCounts(prev => {
+         const updated = { ...prev, p1: (prev['p1'] || 0) + 1 };
+         overclockCountsRef.current = updated;
+         return updated;
+       });
     } else if (phase === 'bidding' || phase === 'countdown') {
         // CLICK TO STOP / SUBMIT
         const p1 = players.find(p => p.id === 'p1');
@@ -2275,7 +2370,7 @@ export default function Game() {
       // Build Protocol Pool
       // Standard protocols and Reality Mode protocols are configured separately.
       // Goal: any enabled options should trigger uniformly.
-      const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX','PRIVATE_CHANNEL'];
+      const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX','PRIVATE_CHANNEL','OVERCLOCK','CALIBRATION'];
       const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
 
@@ -2293,6 +2388,15 @@ export default function Game() {
 
       const newProtocol = pick(combinedPool);
       setActiveProtocol(newProtocol);
+
+      // CALIBRATION: Set the target time immediately when protocol is selected
+      let newCalibrationTarget: number | null = null;
+      if (newProtocol === 'CALIBRATION') {
+        newCalibrationTarget = Math.floor(Math.random() * 30) + 11; // 11-40s
+        setCalibrationTarget(newCalibrationTarget);
+      } else {
+        setCalibrationTarget(null);
+      }
       
       let msg = "PROTOCOL INITIATED";
       let sub = "Unknown Effect";
@@ -2373,6 +2477,10 @@ export default function Game() {
             msg = "LINKED SYSTEMS"; sub = `${b1} & ${b2} are drinking buddies this round!`; 
             break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water only this round!"; break;
+        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as many times as you can in 10 seconds! Most clicks wins — least loses 10s."; break;
+        case 'CALIBRATION': {
+          msg = "CALIBRATION"; sub = `Hold as close to ${newCalibrationTarget}s as possible! Closest bid wins.`; break;
+        }
       }
       
       // Filter out popups that shouldn't be seen by the player (targeted/secret protocols only)
@@ -2420,6 +2528,7 @@ export default function Game() {
       }
     } else {
       setActiveProtocol(null);
+      setCalibrationTarget(null);
     }
 
     // --- ABILITY TRIGGERS: PREPARE_TO_BID ---
@@ -2513,6 +2622,62 @@ export default function Game() {
     overLimitToastShownRef.current = false; // Reset over-limit flag
   };
 
+  // End Overclock Round Logic (singleplayer) - processes click count results
+  const endOverclockRound = (counts: Record<string, number>) => {
+    setPhase('round_end');
+
+    const activePlayers = players.filter(p => !p.isEliminated);
+    if (activePlayers.length === 0) return;
+
+    const maxClicks = Math.max(...activePlayers.map(p => counts[p.id] || 0));
+    const minClicks = Math.min(...activePlayers.map(p => counts[p.id] || 0));
+
+    const topClickers = activePlayers.filter(p => (counts[p.id] || 0) === maxClicks);
+    const topWinner = topClickers[Math.floor(Math.random() * topClickers.length)];
+    let winnerId: string | null = topWinner.id;
+    let winnerName: string = topWinner.name;
+
+    // Award token to winner
+    setPlayers(prev => prev.map(p => {
+      if (p.id === topWinner.id) {
+        return { ...p, tokens: p.tokens + 1 };
+      }
+      return p;
+    }));
+
+    // Loser: least clicks → -10s (only if different from winner)
+    let loserName: string | null = null;
+    if (minClicks < maxClicks) {
+      const bottomClickers = activePlayers.filter(p => (counts[p.id] || 0) === minClicks);
+      const loser = bottomClickers[Math.floor(Math.random() * bottomClickers.length)];
+      loserName = loser.name;
+      setPlayers(prev => prev.map(p => {
+        if (p.id === loser.id) {
+          const newTime = Math.max(0, p.remainingTime - 10);
+          const isElim = newTime <= 0;
+          return { ...p, remainingTime: newTime, isEliminated: isElim || p.isEliminated };
+        }
+        return p;
+      }));
+    }
+
+    // Show results overlay
+    addOverlay("protocol_alert", "OVERCLOCK RESULTS",
+      `${winnerName} clicked the most (${maxClicks})!${loserName ? ` ${loserName} had fewest — loses 10s.` : ''}`
+    );
+
+    setRoundWinner({ name: topWinner.name, time: maxClicks });
+
+    // Record snapshot
+    recordSingleplayerSnapshot('round_end', players, round, winnerId, maxClicks, [], 'OVERCLOCK');
+
+    // Check if game over
+    const activePls = players.filter(p => !p.isEliminated);
+    if (activePls.length <= 1 || round >= totalRounds) {
+      setTimeout(() => setPhase('game_end'), 3000);
+    }
+  };
+
   // End Round Logic
   const endRound = (finalTime: number) => {
     setPhase('round_end');
@@ -2557,7 +2722,9 @@ export default function Game() {
             if (sourcePlayer.isEliminated || sourcePlayer.remainingTime <= 0) return;
             
             const character = sourcePlayer.isBot 
-                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
+                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => 
+                    sourcePlayer.selectedDriver ? c.id === sourcePlayer.selectedDriver : c.name === sourcePlayer.name
+                  ) 
                 : selectedCharacter;
             
             if (character?.ability?.effect === 'DISRUPT') {
@@ -2610,12 +2777,14 @@ export default function Game() {
 
         let newTime = p.remainingTime;
         let roundImpact = "";
-        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
+        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[] = [];
         let roundNetImpactNum = 0; // Track numeric impact from abilities/protocols (not bids)
 
         // Bid Deduction (Only if bid exists) - NOT tracked in netImpact (player choice)
         if (p.currentBid !== null && p.currentBid > 0) {
-             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
              const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
              
              // MOLE Exception
@@ -2668,12 +2837,12 @@ export default function Game() {
     // Let's re-run the logic for STEP A with this correction.
     
     tempPlayersState = players.map(p => {
-        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "", impactLogs: [] as { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[], roundNetImpactNum: 0 };
+        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "", impactLogs: [] as { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[], roundNetImpactNum: 0 };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
         let roundNetImpactNum = 0;
-        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
+        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[] = [];
 
         // Bid Deduction
         if (p.currentBid !== null && p.currentBid > 0) {
@@ -2715,7 +2884,9 @@ export default function Game() {
          players.forEach(sourcePlayer => {
             if (sourcePlayer.isEliminated) return;
             const character = sourcePlayer.isBot 
-                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
+                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => 
+                    sourcePlayer.selectedDriver ? c.id === sourcePlayer.selectedDriver : c.name === sourcePlayer.name
+                  ) 
                 : selectedCharacter;
             
             if (character?.ability?.name === 'AXE SWING') {
@@ -2756,7 +2927,9 @@ export default function Game() {
         let roundNetImpactNum = p.roundNetImpactNum || 0; // Carry forward from previous steps
         let selfGain = 0;
         
-        const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+        const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
 
         // Refunds
         if (abilitiesEnabled && playerChar?.ability?.effect === 'TIME_REFUND') {
@@ -2801,7 +2974,17 @@ export default function Game() {
         !p.isEliminated
     );
 
-    validParticipants.sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    // CALIBRATION: sort by closest to target instead of highest bid
+    if (activeProtocol === 'CALIBRATION' && calibrationTarget !== null) {
+      const target = calibrationTarget;
+      validParticipants.sort((a, b) => {
+        const aDiff = Math.abs((a.currentBid || 0) - target);
+        const bDiff = Math.abs((b.currentBid || 0) - target);
+        return aDiff - bDiff;
+      });
+    } else {
+      validParticipants.sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    }
 
     let winnerId: string | null = null;
     let winnerName: string | null = null;
@@ -2809,7 +2992,11 @@ export default function Game() {
 
     if (validParticipants.length > 0) {
         const potentialWinner = validParticipants[0];
-        const isTie = validParticipants.some(p => p.id !== potentialWinner.id && Math.round((p.currentBid || 0) * 10) / 10 === Math.round((potentialWinner.currentBid || 0) * 10) / 10);
+        // Tie check: for CALIBRATION, tie = same distance from target
+        const isTie = activeProtocol === 'CALIBRATION' && calibrationTarget !== null
+          ? validParticipants.some(p => p.id !== potentialWinner.id && 
+              Math.abs((p.currentBid || 0) - calibrationTarget) === Math.abs((potentialWinner.currentBid || 0) - calibrationTarget))
+          : validParticipants.some(p => p.id !== potentialWinner.id && Math.round((p.currentBid || 0) * 10) / 10 === Math.round((potentialWinner.currentBid || 0) * 10) / 10);
         
         if (!isTie) {
             winnerId = potentialWinner.id;
@@ -2821,8 +3008,9 @@ export default function Game() {
           setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
         }
     } else {
-        if (participants.length > 0) {
-             setOverlay({ type: "protocol_alert", message: "TOTAL WIPEOUT", subMessage: "All participants eliminated." });
+        const allPlayersEliminated = playersState.every(p => p.isEliminated);
+        if (allPlayersEliminated) {
+             addOverlay("protocol_alert", "TOTAL WIPEOUT", "All players eliminated.");
         }
     }
 
@@ -2837,7 +3025,7 @@ export default function Game() {
             if (moleIdx >= 0) {
                 playersState[moleIdx].tokens -= 1;
                 playersState[moleIdx].roundImpact = (playersState[moleIdx].roundImpact || "") + " -1 Token (Mole Suicide)";
-                playersState[moleIdx].impactLogs!.push({ value: "-1 Token", reason: "Mole Suicide", type: 'loss' });
+                playersState[moleIdx].impactLogs!.push({ value: "-1 Token", reason: "Mole Suicide", type: 'trophy' });
                 setRoundLog(prev => [`>> MOLE FAILURE: ${rawWinner.name} held too long and LOST a trophy!`, ...prev]);
                 setTimeout(() => addOverlay("protocol_alert", "MOLE REVEALED", `${rawWinner.name} was the Mole and got eliminated! -1 trophy.`), 1500);
             }
@@ -2878,7 +3066,9 @@ export default function Game() {
              newTokens += tokensToAdd;
 
              if (abilitiesEnabled) {
-                const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+                const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
                 const ab = playerChar?.ability;
                 
                 if (ab) {
@@ -2906,20 +3096,20 @@ export default function Game() {
                              if ((p.currentBid || 0) - secondPlace <= 1.1) {
                                  newTokens += 1;
                                  impact += " +1 Token (Hyper Click)";
-                                 impactLogs.push({ value: "+1 Token", reason: "Hyper Click", type: 'gain' });
+                                 impactLogs.push({ value: "+1 Token", reason: "Hyper Click", type: 'trophy' });
                                  newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                              }
                          }
                          if (ab.name === 'TO THE MOON' && (p.currentBid || 0) > 30) {
                              newTokens += 1;
                              impact += " +1 Token (Moon)";
-                             impactLogs.push({ value: "+1 Token", reason: "To The Moon", type: 'gain' });
+                             impactLogs.push({ value: "+1 Token", reason: "To The Moon", type: 'trophy' });
                              newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                          }
                          if (ab.name === 'DIVIDEND' && round % 3 === 0) {
                              newTokens += 1;
                              impact += " +1 Token (Dividend)";
-                             impactLogs.push({ value: "+1 Token", reason: "Dividend", type: 'gain' });
+                             impactLogs.push({ value: "+1 Token", reason: "Dividend", type: 'trophy' });
                              newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                          }
                     }
@@ -2941,7 +3131,7 @@ export default function Game() {
              if (margin > 7) {
                newTokens -= 2;
                impact += " -2 Tokens (Mole Win > 7s)";
-               impactLogs.push({ value: "-2 Tokens", reason: "Mole Win > 7s", type: 'loss' });
+               impactLogs.push({ value: "-2 Tokens", reason: "Mole Win > 7s", type: 'trophy' });
              } else {
                impact += " +0 (Mole Win Safe)";
                impactLogs.push({ value: "+0", reason: "Mole Win (<=7s)", type: 'neutral' });
@@ -2949,7 +3139,9 @@ export default function Game() {
         }
         
         if (abilitiesEnabled && p.id !== winnerId && winnerId && !p.isEliminated) {
-             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
              if (playerChar?.ability?.name === 'CHEESE TAX') {
                  // Cheese Tax does NOT trigger if the winner is roll_safe (immune to abilities).
                  // rollSafeId is only non-undefined when abilitiesEnabled (see definition above).
@@ -2986,7 +3178,9 @@ export default function Game() {
     if (winnerId && abilitiesEnabled) {
         finalPlayers.forEach(p => {
              if (p.id !== winnerId && !p.isEliminated) {
-                 const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+                 const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
                  if (playerChar?.ability?.name === 'CHEESE TAX') {
                      const w = finalPlayers.find(fp => fp.id === winnerId);
                      // Roll Safe Immunity: rollSafeId is only non-undefined when abilitiesEnabled
@@ -3028,7 +3222,7 @@ export default function Game() {
          triggerAnimation(ab.playerId, ab.effect === 'TIME_REFUND' ? 'TIME_REFUND' : 'TOKEN_BOOST', ab.impactValue);
          if (ab.targetId) triggerAnimation(ab.targetId, 'DAMAGE', ab.impactValue);
     });
-    
+
     // SINGLE PLAYER ELIMINATION CHECK
     // "If the main player is eliminated... Immediately resolve the game"
     // SIMULATE REMAINING ROUNDS so bots get trophies
@@ -3582,6 +3776,14 @@ export default function Game() {
             ? `${winnerName} chooses — ${loserNames.length > 0 ? loserNames.join(', ') : 'others'} who must answer or abide!`
             : 'No winner this round!';
         setTimeout(() => addOverlay("social_event", "TRUTH OR DARE", sub), 2000);
+    }
+
+    // CALIBRATION reveal: show results at round end
+    if (activeProtocol === 'CALIBRATION' && calibrationTarget !== null) {
+      const revealSub = winnerId && winnerName
+        ? `${winnerName} was closest to ${calibrationTarget}s with ${winnerTime.toFixed(1)}s!`
+        : `Target was ${calibrationTarget}s — no winner this round.`;
+      setTimeout(() => addOverlay("protocol_alert", "CALIBRATION RESULTS", revealSub), 1500);
     }
 
     // LAST ONE STANDING: win final round with at least one elimination this round
@@ -4493,6 +4695,55 @@ export default function Game() {
         : effectivePhase === 'game_over' ? 'game_end'
         : effectivePhase)
       : phase;
+
+    // Handle OVERCLOCK phase (both singleplayer and multiplayer)
+    if (renderPhase === 'overclock') {
+      const mpClickCounts = isMultiplayer ? (multiplayerGameState?.overclockClickCounts || {}) : overclockClickCounts;
+      const myId = isMultiplayer ? myMultiplayerPlayer?.id : 'p1';
+      const myClicks = myId ? (mpClickCounts[myId] || 0) : 0;
+      const myEliminated = isMultiplayer ? myMultiplayerPlayer?.isEliminated : players.find(p => p.id === 'p1')?.isEliminated;
+      const timeDisplay = isMultiplayer ? '...' : overclockTimeLeft;
+      const sortedForDisplay = displayPlayers.filter(p => !p.isEliminated).map(p => ({
+        ...p,
+        clicks: mpClickCounts[p.id] || 0,
+      })).sort((a, b) => b.clicks - a.clicks);
+
+      return (
+        <div className="flex flex-col items-center justify-center h-[450px] space-y-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-display text-yellow-400 tracking-widest">⚡ OVERCLOCK</h2>
+            <p className="text-zinc-400 text-sm mt-1">Click the button as many times as you can!</p>
+            <div className="mt-2 text-4xl font-mono text-white font-bold">
+              {isMultiplayer ? '10s' : `${timeDisplay}s`}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-6xl font-mono font-bold text-yellow-300">{myClicks}</div>
+            <p className="text-zinc-500 text-xs uppercase tracking-widest mt-1">Your Clicks</p>
+          </div>
+          <div>
+            {myEliminated ? (
+              <div className="text-zinc-600 text-lg uppercase tracking-widest">ELIMINATED</div>
+            ) : (
+              <AuctionButton
+                onPress={handlePress}
+                onRelease={() => {}}
+                isPressed={false}
+                showPulse={overclockActive || (isMultiplayer && effectivePhase === 'overclock')}
+              />
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 justify-center max-w-sm">
+            {sortedForDisplay.map(p => (
+              <div key={p.id} className="flex flex-col items-center bg-zinc-900 rounded px-3 py-1 border border-zinc-700">
+                <span className="text-xs text-zinc-400">{p.name}</span>
+                <span className="text-lg font-mono font-bold text-yellow-300">{p.clicks}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
     
     switch (renderPhase) {
       case 'intro':
@@ -4531,6 +4782,8 @@ export default function Game() {
                                 items: [
                                   { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
                                   { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD glitches & scramble' },
+                                  { id: 'OVERCLOCK', label: 'OVERCLOCK', desc: 'Click race: most clicks wins, least loses 10s' },
+                                  { id: 'CALIBRATION', label: 'CALIBRATION', desc: 'Hold closest to a random target time (11-40s) to win' },
                                 ]
                               },
                               {
@@ -5807,7 +6060,7 @@ export default function Game() {
              <div className="h-[100px] flex flex-col items-center justify-center space-y-2"> 
               <h2 className="text-3xl font-display text-destructive">PREPARE TO BID</h2>
                <p className="text-muted-foreground">
-                 {`Release now to abandon auction (-${(isMultiplayer ? (multiplayerGameState?.minBid ?? 2) : getTimerStart()).toFixed(1)}s)`}
+                 {`Release now to abandon auction (-${Math.max(0, isMultiplayer ? (multiplayerGameState?.minBid ?? 2) : getTimerStart()).toFixed(1)}s)`}
                </p>
             </div>
             
@@ -5816,7 +6069,7 @@ export default function Game() {
                </div>
                
                <div className="z-20 text-9xl font-display font-black text-destructive animate-ping absolute pointer-events-none">
-                  {isMultiplayer ? multiplayerGameState?.countdownRemaining : countdown}
+                  {isMultiplayer ? Math.max(0, multiplayerGameState?.countdownRemaining ?? 0) : Math.max(0, countdown)}
                </div>
 
                <div className="z-10 relative">
@@ -5843,9 +6096,18 @@ export default function Game() {
         const fireWallHudImmune = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
         const isBlackout = (activeProtocol === 'DATA_BLACKOUT' || activeProtocol === 'SYSTEM_FAILURE') && !fireWallHudImmune;
         const displayTime = isMultiplayer ? currentPlayerBid : currentTime;
+        const calTarget = isMultiplayer ? (multiplayerGameState?.calibrationTargetSeconds ?? null) : calibrationTarget;
         
         return (
           <div className="flex flex-col items-center justify-center h-[450px]">
+            {/* CALIBRATION Target Banner */}
+            {activeProtocol === 'CALIBRATION' && calTarget !== null && (
+              <div className="mb-2 px-4 py-2 rounded-lg bg-yellow-500/15 border border-yellow-500/30 text-center">
+                <span className="text-xs text-yellow-400 uppercase tracking-widest font-bold">⚙ CALIBRATION TARGET: </span>
+                <span className="text-xl font-mono font-bold text-yellow-300">{calTarget}s</span>
+                <span className="text-xs text-yellow-400/60 ml-2">— closest bid wins</span>
+              </div>
+            )}
                         {/* Timer Area */}
                          <div className="h-[120px] flex items-center justify-center mb-0">
                             {isMultiplayer ? (
@@ -6027,24 +6289,32 @@ export default function Game() {
               
               return (
                 <div className="space-y-2">
-                  <Button 
-                    onClick={() => {
-                      if (socket && !hasAcknowledged) {
-                        socket.emit("player_ready_next");
-                        console.log('[Game] Emitted player_ready_next');
-                      }
-                    }} 
-                    size="lg" 
-                    className={cn(
-                      "w-full",
-                      hasAcknowledged 
-                        ? "bg-green-600 hover:bg-green-600 text-white" 
-                        : "bg-white text-black hover:bg-zinc-200"
-                    )}
-                    disabled={hasAcknowledged}
-                  >
-                    {hasAcknowledged ? "WAITING FOR OTHERS..." : "NEXT ROUND"}
-                  </Button>
+                  <div className="relative">
+                    <Button 
+                      onClick={() => {
+                        if (socket && !hasAcknowledged) {
+                          socket.emit("player_ready_next");
+                          console.log('[Game] Emitted player_ready_next');
+                        }
+                      }} 
+                      size="lg" 
+                      className={cn(
+                        "w-full",
+                        hasAcknowledged 
+                          ? "bg-green-600 hover:bg-green-600 text-white" 
+                          : "bg-white text-black hover:bg-zinc-200"
+                      )}
+                      disabled={hasAcknowledged}
+                    >
+                      {hasAcknowledged ? "WAITING FOR OTHERS..." : "NEXT ROUND"}
+                    </Button>
+                    {/* Inline Overlay anchored directly below the Next Round button */}
+                    <GameOverlay
+                      overlays={overlays}
+                      onDismiss={removeOverlay}
+                      inline={true}
+                    />
+                  </div>
                   <div className="flex justify-center gap-2">
                     {mpHumanPlayers.map(p => (
                       <div 
@@ -6065,16 +6335,18 @@ export default function Game() {
                 </div>
               );
             })() : (
-              <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
-                NEXT ROUND
-              </Button>
+              <div className="relative">
+                <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
+                  NEXT ROUND
+                </Button>
+                {/* Inline Overlay anchored directly below the Next Round button */}
+                <GameOverlay
+                  overlays={overlays}
+                  onDismiss={removeOverlay}
+                  inline={true}
+                />
+              </div>
             )}
-            {/* Inline Overlay for Round End Phase */}
-             <GameOverlay 
-               overlays={overlays}
-               onDismiss={removeOverlay}
-               inline={true}
-             />
           </motion.div>
         );
 
@@ -6889,7 +7161,7 @@ export default function Game() {
                   <AlertTriangle size={14} className="text-red-400" />
                   <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                 </div>
-                <div className="text-[10px] uppercase tracking-widest text-red-300/70">11 protocols</div>
+                <div className="text-[10px] uppercase tracking-widest text-red-300/70">13 protocols</div>
               </summary>
 
               <div className="px-4 pb-4 space-y-3">
@@ -6901,6 +7173,8 @@ export default function Game() {
                     items: [
                       { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
                       { name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual" },
+                      { name: "OVERCLOCK", desc: "After prepare to bid: click the button as many times as you can in 10 seconds. Most clicks wins the round token. Least clicks loses 10s. Bots click 15-50 times randomly.", type: "Interactive" },
+                      { name: "CALIBRATION", desc: "A random target hold time (11-40s) is assigned. Players hold as close to the target as possible. Closest bid wins the round — elimination still applies if you run out of time.", type: "Precision" },
                     ]
                   },
                   {
