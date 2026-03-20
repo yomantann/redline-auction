@@ -9,19 +9,6 @@ import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Mail, Heart } from 'lucide-react';
 
-
-import bioAccuserOption1 from "../assets/generated_images/bio_accuser_girl_pointing_v5.png";
-import bioPanicBotOption3 from "../assets/generated_images/bio_panic_bot_option3.png";
-
-import socialSadmanOption3 from "../assets/generated_images/social_sadman_option3.png";
-import socialRainbowDashOption1 from "../assets/generated_images/social_rainbow_dash_option1.png";
-import socialGuardianHOption1 from "../assets/generated_images/social_guardian_h_option1.png";
-import socialFrostybyteOption1 from "../assets/generated_images/social_frostybyte_option1.png";
-import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_detailed_v4.png";
-
-import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_life_support_v6.png";
-import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_toy_v2.png";
-import socialAccuserOption1 from "../assets/generated_images/social_accuser_pointing_v4.png";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
 
 // Define OverlayItem interface locally to match GameOverlay
@@ -78,56 +65,56 @@ import charThinker from '@assets/generated_images/roll_safe_medium_shot.png';
 import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
-
-import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
 import charMonkeyHaircut from '@assets/generated_images/cool_monkey_haircut_chef_background.png';
-import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
-import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
-import charRockShush from '@assets/generated_images/cute_rock_with_shush_gesture.png';
-import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
+
 
 // Social Mode Images
-import socialHarambe from '../assets/generated_images/social_harambe.png';
-import socialPopcat from '../assets/generated_images/social_popcat.png';
-import socialWinter from '../assets/generated_images/social_winter.png';
-import socialPepe from '../assets/generated_images/social_pepe.png';
-import socialNyan from '../assets/generated_images/social_nyan.png';
-import socialKaren from '../assets/generated_images/social_karen.png';
-import socialFine from '../assets/generated_images/social_fine.png';
-import socialBf from '../assets/generated_images/social_bf.png';
-import socialRat from '../assets/generated_images/social_rat.png';
-import socialBaldwin from '../assets/generated_images/social_baldwin.png';
-import socialSigma from '../assets/generated_images/social_sigma.png';
-import socialGigachad from '../assets/generated_images/social_gigachad.png';
-import socialThinker from '../assets/generated_images/social_thinker.png';
-import socialDisaster from '../assets/generated_images/social_disaster.png';
-import socialPrimate from '../assets/generated_images/social_primate.png';
-import socialHarold from '../assets/generated_images/social_harold.png';
-import socialPromKing from '../assets/generated_images/social_prom_king.png';
-import socialIdolCore from '../assets/generated_images/social_idol_core.png';
-import socialTank from '../assets/generated_images/social_tank.png';
-import socialDangerZone from '../assets/generated_images/social_danger_zone.png';
+import socialSadmanOption3 from "../assets/generated_images/SOCIAL/social_sadman_option3.png";
+import socialRainbowDashOption1 from "../assets/generated_images/SOCIAL/social_rainbow_dash_option1.png";
+import socialGuardianHOption1 from "../assets/generated_images/SOCIAL/social_guardian_h_option1.png";
+import socialFrostybyteOption1 from "../assets/generated_images/SOCIAL/social_frostybyte_option1.png";
+import socialExecutivePOption1 from "../assets/generated_images/SOCIAL/social_executive_p_detailed_v4.png";
+import socialPainHiderOption1 from "../assets/generated_images/SOCIAL/social_pain_hider_life_support_v6.png";
+import socialPanicBotOption1 from "../assets/generated_images/SOCIAL/social_panic_bot_toy_v2.png";
+import socialAccuserOption1 from "../assets/generated_images/SOCIAL/social_accuser_pointing_v4.png";
+import socialPopcat from '../assets/generated_images/SOCIAL/social_popcat.png';
+import socialFine from '../assets/generated_images/SOCIAL/social_fine.png';
+import socialBf from '../assets/generated_images/SOCIAL/social_bf.png';
+import socialRat from '../assets/generated_images/SOCIAL/social_rat.png';
+import socialBaldwin from '../assets/generated_images/SOCIAL/social_baldwin.png';
+import socialGigachad from '../assets/generated_images/SOCIAL/social_gigachad.png';
+import socialThinker from '../assets/generated_images/SOCIAL/social_thinker.png';
+import socialDisaster from '../assets/generated_images/SOCIAL/social_disaster.png';
+import socialPrimate from '../assets/generated_images/SOCIAL/social_primate.png';
+
+import charIdolCore from '../assets/generated_images/SOCIAL/social_kpop.png';
+import charPromKing from '../assets/generated_images/SOCIAL/social_prom.png';
+import socialTank from '../assets/generated_images/SOCIAL/social_tank.png';
+import socialDangerZone from '../assets/generated_images/SOCIAL/social_danger_zone.png';
 
 // Bio Mode Images
-import bioHarambe from '../assets/generated_images/bio_guardian_h_gorilla_pushups_v4.png';
-import bioPopcat from '../assets/generated_images/bio_popcat.png';
-import bioWinter from '../assets/generated_images/bio_frostbyte_v4.png';
-import bioPepe from '../assets/generated_images/bio_pepe.png';
-import bioNyan from '../assets/generated_images/bio_nyan.png';
-import bioFine from '../assets/generated_images/bio_low_flame_no_text_v3.png';
-import bioBf from '../assets/generated_images/bio_bf.png';
-import bioRat from '../assets/generated_images/bio_rind_mouse_sniper_v4.png';
-import bioBaldwin from '../assets/generated_images/bio_baldwin.png';
-import bioSigma from '../assets/generated_images/bio_executive_p_axe_v5.png';
-import bioGigachad from '../assets/generated_images/bio_gigachad.png';
-import bioThinker from '../assets/generated_images/bio_thinker.png';
-import bioDisaster from '../assets/generated_images/bio_hotwired_bar_on_fire_v6.png';
-import bioPrimate from '../assets/generated_images/bio_primate.png';
-import bioHarold from '../assets/generated_images/bio_harold.png';
-import bioPromKing from '../assets/generated_images/social_prom_king.png';
-import bioIdolCore from '../assets/generated_images/bio_idol_core.png';
-import bioTank from '../assets/generated_images/bio_tank.png';
-import bioDangerZone from '../assets/generated_images/bio_danger_zone.png';
+import bioPanicBotOption3 from "../assets/generated_images/BIO/bio_panic_bot_option3.png";
+import bioAccuserOption1 from "../assets/generated_images/BIO/bio_accuser_girl_pointing_v5.png";
+import bioHarambe from '../assets/generated_images/BIO/bio_guardian_h_gorilla_pushups_v4.png';
+import bioPopcat from '../assets/generated_images/BIO/bio_popcat.png';
+import bioWinter from '../assets/generated_images/BIO/bio_frostbyte_v4.png';
+import bioPepe from '../assets/generated_images/BIO/bio_pepe.png';
+import bioNyan from '../assets/generated_images/BIO/bio_nyan.png';
+import bioFine from '../assets/generated_images/BIO/bio_low_flame_no_text_v3.png';
+import bioBf from '../assets/generated_images/BIO/bio_bf.png';
+import bioRat from '../assets/generated_images/BIO/bio_rind_mouse_sniper_v4.png';
+import bioBaldwin from '../assets/generated_images/BIO/bio_baldwin.png';
+import bioSigma from '../assets/generated_images/BIO/bio_executive_p_axe_v5.png';
+import bioGigachad from '../assets/generated_images/BIO/bio_gigachad.png';
+import bioThinker from '../assets/generated_images/BIO/bio_thinker.png';
+import bioDisaster from '../assets/generated_images/BIO/bio_hotwired_bar_on_fire_v6.png';
+import bioPrimate from '../assets/generated_images/BIO/bio_primate.png';
+import bioHarold from '../assets/generated_images/BIO/bio_harold.png';
+
+import bioPromKing from '../assets/generated_images/BIO/bio_prom.png';
+import bioIdolCore from '../assets/generated_images/BIO/bio_idol_core.png';
+import charRockShush from '../assets/generated_images/BIO/bio_tank.png';
+import charDangerZone from '../assets/generated_images/BIO/bio_danger.png';
 
 
 import { AbilityAnimation, AnimationType } from "@/components/game/AbilityAnimation";
@@ -482,7 +469,7 @@ function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult[] {
     {
       id: 'FLASH_CRASH',
       name: 'Flash Crash',
-      desc: 'First player eliminated',
+      desc: 'Earliest round eliminated',
       getCandidates: () => {
         return players.filter(p => p.isFirstEliminated).map(p => ({ id: p.id, name: p.name }));
       },
@@ -694,8 +681,9 @@ export default function Game() {
       const MOMENT_FLAG_TYPES: OverlayType[] = [
           'fake_calm', 'genius_move', 'easy_w', 'time_out', 'deadlock_sync', 'last_one_standing',
           'comeback_hope', 'smug_confidence', 'zero_bid',
-          'precision_strike', 'overkill', 'clutch_play', 'late_panic',
-          'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes',
+          'precision_strike', 'overkill', 'clutch_play', 'late_panic', 'mirror_match',
+          'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes', 'hidden_redemption',
+          'hidden_nail_in_the_coffin',
       ];
         if (soundEnabled && MOMENT_FLAG_TYPES.includes(type) && type !== 'hidden_patch_notes') {
           const now = Date.now();
@@ -1064,6 +1052,9 @@ export default function Game() {
       setIsMultiplayer(true);
       eliminationPopupShownRef.current = false; // Reset elimination popup tracking for new games
       lastRoundEndProcessedRef.current = 0; // Reset round processing for new games
+      redemptionShownCountRef.current = 0; // Reset redemption counter for new games
+      nailInCoffinShownCountRef.current = 0; // Reset nail in coffin counter for new games
+      bonusTrophiesAwardedRef.current = false; // Reset bonus trophy tracking for new games
       // Don't set phase here - let the server game_state dictate the phase
       // The server starts in 'waiting_for_ready' phase
     };
@@ -1192,6 +1183,8 @@ export default function Game() {
         trophiesPerWinner: number;
       }[];
     }) => {
+      if (bonusTrophiesAwardedRef.current) return;
+      bonusTrophiesAwardedRef.current = true;
       data.results.forEach(bonusResult => {
         const winnerNames = bonusResult.winners.map(w => w.name).join(' & ');
         const subMsg = `${winnerNames} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
@@ -1276,6 +1269,10 @@ export default function Game() {
   const lastRoundEndProcessedRef = useRef<number>(0);
   const eliminationPopupShownRef = useRef<boolean>(false); // Track if elimination popup already shown
   const dejaBidShownRef = useRef<boolean>(false); // DEJA BID only fires once per game session
+  const p1PrevRoundStartTokensRef = useRef<number | null>(null); // SP: track p1 tokens at start of previous round
+  const redemptionShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_REDEMPTION has been shown
+  const nailInCoffinShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_NAIL_IN_THE_COFFIN has been shown
+  const bonusTrophiesAwardedRef = useRef<boolean>(false); // MP: prevent bonus trophy overlays from showing more than once per game
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -1336,6 +1333,26 @@ export default function Game() {
         }
       } else if (validBidders.length === 0) {
         addOverlay("zero_bid", "AFK", "No one dared to bid!");
+      }
+    }
+
+    // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s.
+    // This is intentionally placed before the `!winner` early return so it fires on deadlock
+    // rounds too. DEADLOCK_SYNC (same bid → no winner) and MIRROR_MATCH (same post-round bank)
+    // are distinct flags and correctly co-fire — e.g. Round 1 deadlock or back-to-back deadlocks.
+    // Stats for all involved players are tracked server-side; the overlay fires for everyone here.
+    {
+      const survivors = players.filter(p => !p.isEliminated && p.remainingTime > 0);
+      let mirrorMatchFound = false;
+      for (let i = 0; i < survivors.length && !mirrorMatchFound; i++) {
+        for (let j = i + 1; j < survivors.length && !mirrorMatchFound; j++) {
+          if (Math.abs(survivors[i].remainingTime - survivors[j].remainingTime) <= 0.1) {
+            mirrorMatchFound = true;
+          }
+        }
+      }
+      if (mirrorMatchFound) {
+        setTimeout(() => addOverlay('mirror_match', 'MIRROR MATCH', 'Two players ended with matching time banks!'), 1500);
       }
     }
     
@@ -1500,6 +1517,28 @@ export default function Game() {
     if (mpFlagsEarned.includes('LATE_PANIC') && isCurrentPlayerWinner && multiplayerGameState.round > 1) {
       setTimeout(() => addOverlay('late_panic', 'LATE PANIC', 'Won starting the round with the lowest time bank.', 0), 800);
       momentCount += 1;
+    }
+
+    // HIDDEN_REDEMPTION: winner won after losing a trophy in a previous round (server tracked)
+    // Use count-based guard to support multiple occurrences per game
+    if (isCurrentPlayerWinner) {
+      const redemptionCount = mpFlagsEarned.filter((f: string) => f === 'HIDDEN_REDEMPTION').length;
+      if (redemptionCount > redemptionShownCountRef.current) {
+        redemptionShownCountRef.current = redemptionCount;
+        setTimeout(() => addOverlay('hidden_redemption', 'REDEMPTION', 'Won after a trophy was taken in a previous round.', 0), 1500);
+        momentCount++;
+      }
+    }
+
+    // HIDDEN_NAIL_IN_THE_COFFIN: current player's ability eliminated an opponent (server tracked)
+    const currentPlayerMpObj = players.find(p => p.socketId === socket?.id);
+    if (currentPlayerMpObj) {
+      const nailCount = (currentPlayerMpObj as any).momentFlagsEarned?.filter((f: string) => f === 'HIDDEN_NAIL_IN_THE_COFFIN').length || 0;
+      if (nailCount > nailInCoffinShownCountRef.current) {
+        nailInCoffinShownCountRef.current = nailCount;
+        setTimeout(() => addOverlay('hidden_nail_in_the_coffin', 'NAIL IN THE COFFIN', 'Your ability eliminated an opponent!', 0), 1800);
+        momentCount++;
+      }
     }
     
     // Patch Notes Pending: 3+ moment flags in same round
@@ -2643,6 +2682,13 @@ export default function Game() {
   const endRound = (finalTime: number) => {
     setPhase('round_end');
     
+    // Capture p1 token count before this round's processing (= end of previous round)
+    // Used to detect if p1 lost a trophy last round (for hidden_redemption flag)
+    const p1TokensBeforeThisRound = players.find(p => p.id === 'p1')?.tokens ?? 0;
+    const p1PrevTokens = p1PrevRoundStartTokensRef.current;
+    const p1LostTrophyPrevRound = p1PrevTokens !== null && p1TokensBeforeThisRound < p1PrevTokens;
+    p1PrevRoundStartTokensRef.current = p1TokensBeforeThisRound;
+
     // 1. IDENTIFY PARTICIPANTS (Those who held past countdown)
     const participants = players.filter(p => p.currentBid !== null && p.currentBid > 0);
 
@@ -2666,7 +2712,7 @@ export default function Game() {
       ? players.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'roll_safe') || (!p.isBot && selectedCharacter?.id === 'roll_safe'))?.id
       : undefined;
 
-    const disruptEffects: { targetId: string, amount: number, source: string, ability: string }[] = [];
+    const disruptEffects: { targetId: string, amount: number, source: string, sourceId: string, ability: string }[] = [];
     let playersOut: string[] = [];
     
     if (abilitiesEnabled) {
@@ -2710,12 +2756,12 @@ export default function Game() {
                      const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId);
                      if (validTargets.length > 0) {
                          const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-                         disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
+                         disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, sourceId: sourcePlayer.id, ability: ab.name });
                      }
                  } else if (ab.name === 'BURN IT') {
                      // Hit EVERYONE (except Roll Safe)
                      players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId).forEach(target => {
-                         disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, ability: ab.name });
+                         disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, sourceId: sourcePlayer.id, ability: ab.name });
                      });
                  }
                  // EXECUTIVE P (AXE SWING) is handled LATER after calculation
@@ -2864,7 +2910,7 @@ export default function Game() {
                         }
                         
                         // Add to disruptEffects for animation later
-                        disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: 'AXE SWING' });
+                        disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, sourceId: sourcePlayer.id, ability: 'AXE SWING' });
                     }
                  }
             }
@@ -3595,7 +3641,9 @@ export default function Game() {
 
     } else {
        
-       // Track DEADLOCK_SYNC for all tied first-place players
+       // Track DEADLOCK_SYNC for all tied first-place players.
+       // On a deadlock round, bids are still deducted, so if the tying players also had
+       // equal time banks going in, MIRROR_MATCH will fire too (handled separately below).
        if (participants.length >= 2) {
          const validBidders = [...participants]
            .filter(p => p.currentBid !== null && p.currentBid > 0)
@@ -3862,6 +3910,77 @@ export default function Game() {
             momentCount++;
             roundMomentFlags.push('HIDDEN_REDLINE_REVERSAL');
         }
+    }
+
+    // HIDDEN_REDEMPTION: p1 wins after losing a trophy in a previous round
+    if (winnerId === 'p1' && p1LostTrophyPrevRound) {
+      console.log(`[HIDDEN REDEMPTION] SP: p1 won after losing a trophy (prev=${p1PrevTokens}, now=${p1TokensBeforeThisRound})`);
+      addOverlay('hidden_redemption', 'REDEMPTION', 'Won after a trophy was taken in a previous round.', 0);
+      momentCount++;
+      roundMomentFlags.push('HIDDEN_REDEMPTION');
+    }
+
+    // HIDDEN_NAIL_IN_THE_COFFIN: p1's DISRUPT ability eliminated an opponent this round
+    if (!isMultiplayer && abilitiesEnabled) {
+      const p1WasEliminated = players.find(p => p.id === 'p1')?.isEliminated || false;
+      if (!p1WasEliminated) {
+        // Check standard disrupt effects from p1
+        const p1DisruptTargets = disruptEffects.filter(d => d.sourceId === 'p1').map(d => d.targetId);
+        const newlyEliminatedByDisrupt = finalPlayers.filter(fp => {
+          const wasEliminated = players.find(p => p.id === fp.id)?.isEliminated || false;
+          return !wasEliminated && fp.isEliminated && p1DisruptTargets.includes(fp.id);
+        });
+        // Check Cheese Tax: p1 used cheese tax and the winner was eliminated by it
+        const p1IsCheeseTax = selectedCharacter?.id === 'the_rind';
+        const cheeseTaxEliminated = winnerId && p1IsCheeseTax
+          ? finalPlayers.filter(fp => {
+              const wasEliminated = players.find(p => p.id === fp.id)?.isEliminated || false;
+              return fp.id === winnerId && !wasEliminated && fp.isEliminated;
+            })
+          : [];
+        const nailVictims = [...newlyEliminatedByDisrupt, ...cheeseTaxEliminated];
+        if (nailVictims.length > 0) {
+          const victimNames = nailVictims.map(p => p.name).join(' & ');
+          setTimeout(() => addOverlay('hidden_nail_in_the_coffin', 'NAIL IN THE COFFIN', `Your ability eliminated ${victimNames}!`, 0), 1800);
+          momentCount++;
+          roundMomentFlags.push('HIDDEN_NAIL_IN_THE_COFFIN');
+        }
+      }
+    }
+
+    // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s.
+    // Note: DEADLOCK_SYNC (same bid → no winner) and MIRROR_MATCH (same post-round bank) are
+    // distinct flags and both fire correctly in co-occurrence cases — e.g. Round 1 deadlock where
+    // all players start with equal banks, or back-to-back deadlocks that keep banks aligned.
+    // Stats are tracked directly here for ALL matching players (not via roundMomentFlags),
+    // so the flag is recorded even on rounds with no winner (like deadlocks).
+    {
+      const survivors = finalPlayers.filter(p => !p.isEliminated && p.remainingTime > 0);
+      const mirrorMatchIds = new Set<string>();
+      for (let i = 0; i < survivors.length; i++) {
+        for (let j = i + 1; j < survivors.length; j++) {
+          if (Math.abs(survivors[i].remainingTime - survivors[j].remainingTime) <= 0.1) {
+            mirrorMatchIds.add(survivors[i].id);
+            mirrorMatchIds.add(survivors[j].id);
+          }
+        }
+      }
+      // mirrorMatchIds.size >= 2 is always true when non-empty (each pair adds 2 distinct IDs),
+      // but explicit >= 2 makes the intent clear.
+      if (mirrorMatchIds.size >= 2) {
+        setTimeout(() => addOverlay('mirror_match', 'MIRROR MATCH', 'Two players ended with matching time banks!'), 2000);
+        momentCount++;
+        // Track for ALL involved players regardless of winner status (mirrors server-side logic).
+        // Intentionally separate from roundMomentFlags to avoid only tracking the winner.
+        if (!isMultiplayer) {
+          setPlayers(prev => prev.map(p => {
+            if (mirrorMatchIds.has(p.id)) {
+              return { ...p, eventDatabasePopups: [...(p.eventDatabasePopups || []), 'MIRROR_MATCH'] };
+            }
+            return p;
+          }));
+        }
+      }
     }
     
     // PATCH_NOTES_PENDING: 3+ moment flags in same round (tracked as a flag itself)
@@ -4480,6 +4599,8 @@ export default function Game() {
      setCurrentLobby(null);
      setLobbyCode("");
      eliminationPopupShownRef.current = false; // Reset elimination popup tracking for new games
+     p1PrevRoundStartTokensRef.current = null; // Reset trophy-loss tracking for new games
+     bonusTrophiesAwardedRef.current = false; // Reset bonus trophy tracking for new games
      
      setPhase('intro');
      setRound(1);
@@ -5272,13 +5393,16 @@ export default function Game() {
                           )}
                         </div>
                       </div>
-                      <div className={cn(
-                        "px-2 py-1 rounded text-xs font-medium",
-                        player.isReady 
-                          ? "bg-green-500/20 text-green-400" 
-                          : "bg-zinc-800 text-zinc-500"
-                      )}>
-                        {player.isReady ? "Ready" : "Not Ready"}
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "px-2 py-1 rounded text-xs font-medium",
+                          player.isReady 
+                            ? "bg-green-500/20 text-green-400" 
+                            : "bg-zinc-800 text-zinc-500"
+                        )}>
+                          {player.isReady ? "Ready" : "Not Ready"}
+                        </div>
+
                       </div>
                     </div>
                   ))}
@@ -6237,6 +6361,12 @@ export default function Game() {
         const loser = sortedPlayers[sortedPlayers.length - 1];
         const topThree = sortedPlayers.slice(0, 3);
 
+        // Determine if Prom King won in Social mode (for special game over text)
+        const isPromKingWin = variant === 'SOCIAL_OVERDRIVE' && abilitiesEnabled && (
+          winner?.selectedDriver === 'prom_king' ||
+          (!isMultiplayer && selectedCharacter?.id === 'prom_king' && winner?.id === 'p1')
+        );
+
         // Helper to get the correct character image based on variant
         const getCharacterImage = (selectedDriver: string | undefined) => {
           if (!selectedDriver) return null;
@@ -6356,7 +6486,12 @@ export default function Game() {
               <div className="flex-shrink-0 flex flex-col items-center gap-4 pb-6 bg-gradient-to-b from-black/90 via-black/70 to-transparent">
                 <GameOverlay overlays={overlays} onDismiss={removeOverlay} />
 
-                <h1 className="text-4xl sm:text-5xl font-display font-bold text-white text-center pt-8">GAME OVER</h1>
+                {/* Prom King wins in Social mode: special game over text */}
+                {isPromKingWin ? (
+                  <h1 className="text-4xl sm:text-5xl font-display font-bold text-purple-300 text-center pt-8">Clap for the King! 👑</h1>
+                ) : (
+                  <h1 className="text-4xl sm:text-5xl font-display font-bold text-white text-center pt-8">GAME OVER</h1>
+                )}
 
                 {/* Compact Podium - Top 3 with driver images */}
                 <div className="w-full max-w-3xl px-4">
@@ -6744,6 +6879,28 @@ export default function Game() {
           </DialogHeader>
 
             <div className="space-y-4 mt-4">
+
+
+              {/* Game State Flags */}
+              <details className="bg-black/40 rounded border border-purple-500/20">
+                <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-purple-300">
+                  Game State Flags
+                  <span className="text-[10px] uppercase tracking-widest text-zinc-500">Elims & Edge Cases</span>
+                </summary>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
+                  {[ 
+                    { title: "SMUG CONFIDENCE", desc: "Win Round 1.", color: "text-purple-400 border-purple-500/20" },
+                    { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-teal-600 border-teal-600/20" },
+                    { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-red-800 border-red-800/20" },
+                    { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-amber-600 border-amber-600/20" },
+                  ].map((p, i) => (
+                    <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
+                      <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
+                      <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </details>
       
               {/* Skill-based Flags - MOVED INSIDE */}
               <details className="bg-black/40 rounded border border-blue-500/20">
@@ -6754,9 +6911,9 @@ export default function Game() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
                   {[ 
                     { title: "GENIUS MOVE", desc: "Win by margin < 5s.", color: "text-cyan-400 border-cyan-500/20" },
-                    { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-400 border-blue-500/20" },
-                    { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-yellow-400 border-yellow-500/20" },
-                    { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-green-400 border-green-500/20" },
+                    { title: "PRECISION STRIKE", desc: "Win with an exact integer bid (e.g. 20.0s).", color: "text-blue-600 border-blue-600/20" },
+                    { title: "CLUTCH PLAY", desc: "Win with < 10s remaining in bank.", color: "text-lime-500 border-lime-500/20" },
+                    { title: "EASY W", desc: "Win with a bid under 20s.", color: "text-teal-400 border-teal-400/20" },
                   ].map((p, i) => (
                     <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
                       <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
@@ -6768,8 +6925,8 @@ export default function Game() {
 
 
               {/* Chaos & Drama Flags */}
-              <details className="bg-black/40 rounded border border-purple-500/20">
-                <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-purple-300">
+              <details className="bg-black/40 rounded border border-orange-500/20">
+                <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-orange-300">
                   Chaos & Drama Flags
                   <span className="text-[10px] uppercase tracking-widest text-zinc-500">Swingy, Loud Moments</span>
                 </summary>
@@ -6777,9 +6934,10 @@ export default function Game() {
                   {[ 
                     { title: "FAKE CALM", desc: "Win by margin > 15s.", color: "text-amber-400 border-amber-500/20" },
                     { title: "OVERKILL", desc: "Win with a bid over 60s.", color: "text-red-400 border-red-500/20" },
-                    { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-blue-400 border-blue-500/20" },
-                    { title: "LATE PANIC", desc: "Win starting the round with the lowest time bank.", color: "text-fuchsia-300 border-fuchsia-500/20" },
-                    { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-200 border-white/20" },
+                    { title: "LAST ONE STANDING", desc: "Win the final round while at least one player was eliminated.", color: "text-pink-600 border-pink-600/20" },
+                    { title: "LATE PANIC", desc: "Win starting the round with the lowest time bank.", color: "text-orange-500 border-orange-500/20" },
+                    { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-400 border-zinc-400/20" },
+                    { title: "MIRROR MATCH", desc: "Two or more players end the round with the same time bank (within 0.1s).", color: "text-[#d2b48c] border-[#d2b48c]/20" },
                   ].map((p, i) => (
                     <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
                       <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
@@ -6789,26 +6947,6 @@ export default function Game() {
                 </div>
               </details>
 
-              {/* Game State Flags */}
-              <details className="bg-black/40 rounded border border-amber-500/20">
-                <summary className="cursor-pointer select-none px-4 py-2 flex items-center justify-between text-sm font-semibold text-amber-300">
-                  Game State Flags
-                  <span className="text-[10px] uppercase tracking-widest text-zinc-500">Elims & Edge Cases</span>
-                </summary>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
-                  {[ 
-                    { title: "SMUG CONFIDENCE", desc: "Win Round 1.", color: "text-purple-400 border-purple-500/20" },
-                    { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-emerald-400 border-emerald-500/20" },
-                    { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-destructive border-destructive/20" },
-                    { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-yellow-200 border-yellow-200/20" },
-                  ].map((p, i) => (
-                    <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
-                      <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
-                      <p className="text-xs text-zinc-400 leading-relaxed">{p.desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </details>
 
               {/* Hidden Flags Placeholder */}
               <details className="bg-black/40 rounded border border-zinc-700/60">
@@ -6819,7 +6957,7 @@ export default function Game() {
                 <div className="p-4 pt-3 space-y-3">
                   <p className="text-xs text-zinc-500 italic">Easter egg moments. Unlock by playing.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[0,1,2,3].map((i) => (
+                    {[0,1,2,3,4,5].map((i) => (
                       <div key={i} className="h-14 rounded border border-white/10 bg-white/5 flex items-center justify-between px-3">
                         <div className="h-2 w-24 rounded bg-white/10" />
                         <div className="h-2 w-10 rounded bg-white/10" />
@@ -6856,15 +6994,15 @@ export default function Game() {
                 <div className="space-y-2 text-sm text-yellow-200/90">
                   <div className="flex gap-2">
                     <span className="text-yellow-500">•</span>
-                    <span>Fixed early release penalty timing in Marathon mode</span>
+                    <span>New popups for click & lowflame</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="text-yellow-500">•</span>
-                    <span>Royal Decree now correctly awards 20s refund</span>
+                    <span>Bonus trophies added when playing with Protocols</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="text-yellow-500">•</span>
-                    <span>Working on a bug with a hidden moment</span>
+                    <span>Bug fixed with a dup hidden moment</span>
                   </div>
                 </div>
               </div>
