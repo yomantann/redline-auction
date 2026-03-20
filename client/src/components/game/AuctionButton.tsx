@@ -42,10 +42,8 @@ export function AuctionButton({ onPress, onRelease, disabled, isPressed, isWaiti
               : "border-zinc-700 shadow-[0_10px_20px_rgba(0,0,0,0.5),inset_0_2px_10px_rgba(255,255,255,0.1)] hover:border-primary/50 hover:shadow-[0_0_30px_rgba(255,215,0,0.2)]"
         )}
         onContextMenu={(e) => e.preventDefault()}
-        onMouseDown={!disabled ? onPress : undefined}
-        onMouseUp={!disabled ? onRelease : undefined}
-        onTouchStart={!disabled ? onPress : undefined}
-        onTouchEnd={!disabled ? onRelease : undefined}
+        onPointerDown={!disabled ? onPress : undefined}
+        onPointerUp={!disabled ? onRelease : undefined}
         disabled={disabled}
         data-testid="button-auction"
       >
