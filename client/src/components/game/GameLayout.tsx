@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import bgStandard from "../../assets/generated_images/bg_standard_5.png";
 import bgSocial from "../../assets/generated_images/bg_social_1.png";
 import bgBio from "../../assets/generated_images/bg_bio_fuel_v6.png";
+import bgHaunted from "../../assets/generated_images/Haunted/hnt_bg_1.png";
 
 type RealityMode = "STANDARD" | "SOCIAL_OVERDRIVE" | "BIO_FUEL" | "HAUNTED";
 
@@ -13,7 +14,11 @@ interface GameLayoutProps {
 }
 
 export function GameLayout({ children, className, variant = "STANDARD" }: GameLayoutProps) {
-  const background = variant === "SOCIAL_OVERDRIVE" ? bgSocial : variant === "BIO_FUEL" ? bgBio : bgStandard;
+  const background =
+    variant === "SOCIAL_OVERDRIVE" ? bgSocial :
+    variant === "BIO_FUEL" ? bgBio :
+    variant === "HAUNTED" ? bgHaunted :
+    bgStandard;
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground no-callout">

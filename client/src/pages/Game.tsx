@@ -129,6 +129,59 @@ import bioIdolCore from '../assets/generated_images/bio_idol_core.png';
 import bioTank from '../assets/generated_images/bio_tank.png';
 import bioDangerZone from '../assets/generated_images/bio_danger_zone.png';
 
+// Haunted Mode: per-driver images (first image per driver)
+import hntGuardian from '../assets/generated_images/Haunted/hnt_guardian_1.png';
+import hntClick from '../assets/generated_images/Haunted/hnt_click_1.png';
+import hntFrost from '../assets/generated_images/Haunted/hnt_frost_1.png';
+import hntSadman from '../assets/generated_images/Haunted/hnt_sadman_1.png';
+import hntDash from '../assets/generated_images/Haunted/hnt_dash_1.png';
+import hntAccuser from '../assets/generated_images/Haunted/hnt_accuser_1.png';
+import hntLowflame from '../assets/generated_images/Haunted/hnt_lowflame_1.png';
+import hntWander from '../assets/generated_images/Haunted/hnt_wander_1.png';
+import hntRind from '../assets/generated_images/Haunted/hnt_rind_1.png';
+import hntAnnointed from '../assets/generated_images/Haunted/hnt_annointed_1.png';
+import hntExec from '../assets/generated_images/Haunted/hnt_exec_1.png';
+import hntAlpha from '../assets/generated_images/Haunted/hnt_alpha_1.png';
+import hntRoll from '../assets/generated_images/Haunted/hnt_roll_1.png';
+import hntHotwired from '../assets/generated_images/Haunted/hnt_hotwired_1.png';
+import hntPanic from '../assets/generated_images/Haunted/hnt_panic_1.png';
+import hntPrimate from '../assets/generated_images/Haunted/hnt_primate_1.png';
+import hntPain from '../assets/generated_images/Haunted/hnt_pain_1.png';
+
+// Haunted Mode: ghost images (used when player becomes a ghost)
+import hntGhost1 from '../assets/generated_images/Haunted/hnt_ghost_1.png';
+import hntGhost2 from '../assets/generated_images/Haunted/hnt_ghost_2.png';
+import hntGhost3 from '../assets/generated_images/Haunted/hnt_ghost_3.png';
+import hntGhost4 from '../assets/generated_images/Haunted/hnt_ghost_4.png';
+import hntGhost5 from '../assets/generated_images/Haunted/hnt_ghost_5.png';
+import hntGhost6 from '../assets/generated_images/Haunted/hnt_ghost_6.png';
+import hntGhost7 from '../assets/generated_images/Haunted/hnt_ghost_7.png';
+import hntGhost8 from '../assets/generated_images/Haunted/hnt_ghost_8.png';
+
+// Pool of ghost images for random assignment on ghosting
+const GHOST_IMAGES = [hntGhost1, hntGhost2, hntGhost3, hntGhost4, hntGhost5, hntGhost6, hntGhost7, hntGhost8];
+
+// Map driver ID -> haunted image
+const HAUNTED_DRIVER_IMAGES: Record<string, string> = {
+  guardian_h: hntGuardian,
+  click_click: hntClick,
+  frostbyte: hntFrost,
+  sadman: hntSadman,
+  rainbow_dash: hntDash,
+  accuser: hntAccuser,
+  low_flame: hntLowflame,
+  wandering_eye: hntWander,
+  the_rind: hntRind,
+  anointed: hntAnnointed,
+  executive_p: hntExec,
+  alpha_prime: hntAlpha,
+  roll_safe: hntRoll,
+  hotwired: hntHotwired,
+  panic_bot: hntPanic,
+  primate: hntPrimate,
+  pain_hider: hntPain,
+};
+
 
 import { AbilityAnimation, AnimationType } from "@/components/game/AbilityAnimation";
 import logoFuturistic from '@assets/generated_images/redline_auction_futuristic_logo_red_neon.png';
@@ -240,6 +293,7 @@ interface Character {
   image: string; // Changed from icon to image
   imageSocial?: string; // New: Social Mode Image
   imageBio?: string;    // New: Bio-Fuel Mode Image
+  imageHaunted?: string; // New: Haunted Mode Image
   description: string;
   color: string;
   ability?: {
@@ -259,110 +313,110 @@ interface Character {
 
 const CHARACTERS: Character[] = [
   { 
-    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, imageHaunted: hntGuardian, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
     ability: { name: 'SPIRIT SHIELD', description: '+11s if you win Round 1.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Designate a player immune to social dares each round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Others cannot release button until you finish a sip.' }
   },
   { 
-    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charPopcat, imageSocial: socialPopcat, imageBio: bioPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
+    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charPopcat, imageSocial: socialPopcat, imageBio: bioPopcat, imageHaunted: hntClick, description: 'Hyperactive timing precision.', color: 'text-pink-400',
     ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'MISCLICK', description: 'Chance 1 player must hold bid without using hands.' },
     bioAbility: { name: 'MOUTH POP', description: '1 round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
-    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, imageHaunted: hntFrost, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: 'Chance you may ignore all social interactions.' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 round: 1 opponent forced to win or drink.' }
   },
   { 
-    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, imageSocial: socialSadmanOption3, imageBio: bioPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, imageSocial: socialSadmanOption3, imageBio: bioPepe, imageHaunted: hntSadman, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'SAD STORY', description: 'Chance 1 random player shares a sad story.' },
     bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you can change your drinking buddy.' }
   },
   { 
-    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, imageSocial: socialRainbowDashOption1, imageBio: bioNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, imageSocial: socialRainbowDashOption1, imageBio: bioNyan, imageHaunted: hntDash, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: 'Chance 1 random opponent must speak 2x speed.' },
     bioAbility: { name: 'RAINBOW SHOT', description: 'Chance 1 random player mixes two drinks.' }
   },
   { 
     id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialAccuserOption1,
-    imageBio: bioAccuserOption1,
+    imageBio: bioAccuserOption1, imageHaunted: hntAccuser,
     description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
     socialAbility: { name: 'COMPLAINT', description: 'Chance everyone votes on winner\'s punishment.' },
     bioAbility: { name: 'SPILL HAZARD', description: 'Chance to accuse someone of spilling; they drink.' }
   },
   { 
-    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charFine, imageSocial: socialFine, imageBio: bioFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charFine, imageSocial: socialFine, imageBio: bioFine, imageHaunted: hntLowflame, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
     ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: 'Chance to choose a player to answer a truth.' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks.' }
   },
   { 
-    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, imageSocial: socialBf, imageBio: bioBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
+    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, imageSocial: socialBf, imageBio: bioBf, imageHaunted: hntWander, description: 'Always looking for a better deal.', color: 'text-blue-400',
     ability: { name: 'SNEAK PEEK', description: 'See 1 random player holding. All other banks scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'DISTRACTION', description: 'Chance to point at something; anyone who looks must drop buzzer.' },
     bioAbility: { name: 'THE EX', description: 'Chance 1 random player toasts to an ex.' }
   },
   { 
-    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRat, imageSocial: socialRat, imageBio: bioRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRat, imageSocial: socialRat, imageBio: bioRat, imageHaunted: hntRind, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: 'Chance 1 random player must reveal someone\'s tell.' },
     bioAbility: { name: 'SCAVENGE', description: 'Chance 1 random player finishes someone else\'s drink.' }
   },
   { 
     id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin,
-    imageBio: bioBaldwin,
+    imageBio: bioBaldwin, imageHaunted: hntAnnointed,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 20s refund if you bid within 0.4s of 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: 'Chance everyone is commanded silent' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round: Make a rule for remainder of game.' }
   },
   { 
-    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charSigma, imageSocial: socialExecutivePOption1, imageBio: bioSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charSigma, imageSocial: socialExecutivePOption1, imageBio: bioSigma, imageHaunted: hntExec, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
     ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
     socialAbility: { name: 'CC\'D', description: 'Chance 1 random player must copy your actions next round.' },
     bioAbility: { name: 'REASSIGNED', description: 'Chance to choose 1 player to take a drink.' }
   },
   { 
-    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, imageSocial: socialGigachad, imageBio: bioGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
+    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, imageSocial: socialGigachad, imageBio: bioGigachad, imageHaunted: hntAlpha, description: 'Peak performance in every bid.', color: 'text-zinc-300',
     ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'MOG', description: 'Chance 1 random player must do 10 pushups or ff next round.' },
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall.' }
   },
   { 
-    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, imageHaunted: hntRoll, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules.' },
     bioAbility: { name: 'BIG BRAIN', description: 'Chance option to have everyone pass drink to the left.' }
   },
   { 
-    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, imageHaunted: hntHotwired, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
     ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
     socialAbility: { name: 'VIRAL MOMENT', description: '1 random round target must re-enact a meme.' },
     bioAbility: { name: 'SPICY', description: 'Chance everyone drinks.' }
   },
   { 
     id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialPanicBotOption1,
-    imageBio: bioPanicBotOption3,
+    imageBio: bioPanicBotOption3, imageHaunted: hntPanic,
     description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drop button.' },
     bioAbility: { name: 'EMERGENCY MEETING', description: 'Chance everyone must point at another to gang up on next round.' }
   },
   { 
-    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, imageSocial: socialPrimate, imageBio: bioPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
+    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, imageSocial: socialPrimate, imageBio: bioPrimate, imageHaunted: hntPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
     ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s over second place.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'FRESH CUT', description: 'Chance 1 random player must compliment everyone.' },
     bioAbility: { name: 'GREEDY GRAB', description: 'Chance previous winner must burn 40s next round or finish drink.' }
   },
   { 
     id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialPainHiderOption1,
-    imageBio: bioHarold,
+    imageBio: bioHarold, imageHaunted: hntPain,
     description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'BOOMER', description: 'You forgot what your power was.' },
@@ -1729,19 +1783,25 @@ export default function Game() {
         const currentPlayer = players.find(p => p.id === 'p1');
         if (currentPlayer && currentPlayer.isHolding && !currentPlayer.isEliminated) {
             if (deltaTime > currentPlayer.remainingTime) {
-                // Force Eliminate
+                // Force Eliminate (or ghostify in Haunted mode)
                  setPlayers(prev => prev.map(p => {
                      if (p.id === 'p1') {
                          if (!overLimitToastShownRef.current) {
                               overLimitToastShownRef.current = true;
                          }
+                         const ghostIcon = variant === 'HAUNTED'
+                           ? GHOST_IMAGES[Math.floor(Math.random() * GHOST_IMAGES.length)]
+                           : undefined;
                          return { 
                              ...p, 
                              isHolding: false, 
                              currentBid: 0, 
                              // NO trophy loss on elimination (over-limit holding)
                              remainingTime: 0, 
-                             isEliminated: true 
+                             isEliminated: true,
+                             // Haunted: become a ghost
+                             isGhost: variant === 'HAUNTED' ? true : p.isGhost,
+                             characterIcon: ghostIcon ?? p.characterIcon,
                          };
                      }
                      return p;
@@ -1750,12 +1810,21 @@ export default function Game() {
         }
         
         if (overLimitToastShownRef.current) {
-             toast({
-                title: "OVER-LIMIT ELIMINATION",
-                description: "You held longer than your remaining time! Eliminated.",
-                className: "bg-cyan-950 border-cyan-500 text-cyan-100",
+            if (variant === 'HAUNTED') {
+              toast({
+                title: "👻 GHOSTED",
+                description: "You held too long and became a ghost!",
+                className: "bg-teal-950 border-teal-500 text-teal-100",
                 duration: 4000
-            });
+              });
+            } else {
+              toast({
+                 title: "OVER-LIMIT ELIMINATION",
+                 description: "You held longer than your remaining time! Eliminated.",
+                 className: "bg-cyan-950 border-cyan-500 text-cyan-100",
+                 duration: 4000
+             });
+            }
             overLimitToastShownRef.current = false; 
         }
 
@@ -1808,6 +1877,7 @@ export default function Game() {
       let charIndex = 0;
 
       const pickIcon = (c: Character) => {
+        if (variant === 'HAUNTED' && c.imageHaunted) return c.imageHaunted;
         if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
         if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
         return c.image;
@@ -2199,25 +2269,28 @@ export default function Game() {
 
             // OVER-BET CHECK
             if (bidTime > p.remainingTime) {
-                // Eliminate but NO trophy loss
+                // In Haunted mode: ghostify. In other modes: eliminate.
                 const newTime = 0; // Depleted to zero
+                const ghostIcon = variant === 'HAUNTED'
+                  ? GHOST_IMAGES[Math.floor(Math.random() * GHOST_IMAGES.length)]
+                  : undefined;
                 
                 // Add log
-                setRoundLog(prev => [`>> OVER-LIMIT: ${p.name} bet more than available! Time Depleted & Eliminated.`, ...prev]);
+                setRoundLog(prev => [`>> OVER-LIMIT: ${p.name} bet more than available! Time Depleted.`, ...prev]);
 
-                toast({
-                    title: "OVER-LIMIT",
-                    description: `You bid ${bidTime}s but only had ${p.remainingTime.toFixed(1)}s! Time Depleted.`,
-                    variant: "destructive",
-                    duration: 4000
-                });
+                if (variant === 'HAUNTED') {
+                  toast({ title: "👻 GHOSTED", description: `You bid ${bidTime}s but only had ${p.remainingTime.toFixed(1)}s! You became a ghost.`, className: "bg-teal-950 border-teal-500 text-teal-100", duration: 4000 });
+                } else {
+                  toast({ title: "OVER-LIMIT", description: `You bid ${bidTime}s but only had ${p.remainingTime.toFixed(1)}s! Time Depleted.`, variant: "destructive", duration: 4000 });
+                }
                 return { 
                     ...p, 
                     isHolding: false, 
                     currentBid: bidTime, 
-                    // NO tokens change - removed trophy penalty
                     remainingTime: newTime,
-                    isEliminated: true // Stop playing
+                    isEliminated: true,
+                    isGhost: variant === 'HAUNTED' ? true : p.isGhost,
+                    characterIcon: ghostIcon ?? p.characterIcon,
                 };
             }
             
@@ -2576,8 +2649,9 @@ export default function Game() {
     // Make sure the elimination moment flag shows up for the player if they got eliminated.
     // (Do NOT auto-dismiss; this must persist until the player clicks it.)
     // De-dupe: if another part of the round resolution also adds this, don't stack duplicates.
+    // In Haunted mode p1 becomes a ghost — no elimination popup.
     const p1AtRoundEnd = players.find(p => p.id === 'p1');
-    if (p1AtRoundEnd?.isEliminated) {
+    if (p1AtRoundEnd?.isEliminated && variant !== 'HAUNTED') {
       const alreadyHasElimFlag = overlays.some(o => o.type === "time_out" && o.message === "PLAYER ELIMINATED");
       if (!alreadyHasElimFlag) {
         addOverlay("time_out", "PLAYER ELIMINATED", "Out of time!", 0);
@@ -2826,14 +2900,24 @@ export default function Game() {
         }
 
         const isEliminatedNow = newTime <= 0;
-        if (isEliminatedNow && !p.isEliminated) {
+        // In Haunted mode, newly-eliminated players become ghosts instead of being removed.
+        const isNewlyEliminated = isEliminatedNow && !p.isEliminated;
+        if (isNewlyEliminated) {
              playersOut.push(p.name);
         }
+
+        // Haunted mode: assign random ghost image when converted
+        const ghostIcon = isNewlyEliminated && variant === 'HAUNTED'
+          ? GHOST_IMAGES[Math.floor(Math.random() * GHOST_IMAGES.length)]
+          : undefined;
 
         return {
             ...p,
             remainingTime: Math.max(0, newTime),
             isEliminated: isEliminatedNow,
+            // Haunted: mark as ghost and swap to ghost image
+            isGhost: isEliminatedNow && variant === 'HAUNTED' ? true : p.isGhost,
+            characterIcon: ghostIcon ?? p.characterIcon,
             roundImpact: roundImpact,
             impactLogs: impactLogs,
             selfGain: selfGain,
@@ -3069,6 +3153,13 @@ export default function Game() {
     const updatedPlayers = finalPlayers;
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
     
+    // Haunted mode: notify p1 they became a ghost this round
+    const p1WasAlreadyGhost = players.find(p => p.id === 'p1')?.isGhost;
+    const p1IsGhostNow = finalPlayers.find(p => p.id === 'p1')?.isGhost;
+    if (variant === 'HAUNTED' && !p1WasAlreadyGhost && p1IsGhostNow) {
+      setTimeout(() => addOverlay('time_out', '👻 GHOSTED', 'You ran out of time and became a ghost. You can no longer win — but the haunting continues.', 0), 800);
+    }
+    
     // Trigger Animations
     newAbilities.forEach(ab => {
          triggerAnimation(ab.playerId, ab.effect === 'TIME_REFUND' ? 'TIME_REFUND' : 'TOKEN_BOOST', ab.impactValue);
@@ -3078,8 +3169,9 @@ export default function Game() {
     // SINGLE PLAYER ELIMINATION CHECK
     // "If the main player is eliminated... Immediately resolve the game"
     // SIMULATE REMAINING ROUNDS so bots get trophies
+    // Exception: In Haunted mode, p1 becomes a ghost and the game continues.
     const p1 = finalPlayers.find(p => p.id === 'p1');
-    if (p1?.isEliminated) {
+    if (p1?.isEliminated && variant !== 'HAUNTED') {
          // Add ELIMINATED to all newly eliminated players' moment flags (including p1)
          // so it counts toward moment flag stats and MOMENT_MAGNET bonus criterion.
          // This must happen before calculateSpBonusTrophies and before the early return.
@@ -4131,6 +4223,7 @@ export default function Game() {
     assignBotCharacters(char);
 
     const pickIcon = (c: Character) => {
+      if (variant === 'HAUNTED' && c.imageHaunted) return c.imageHaunted;
       if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
       if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
       return c.image;
@@ -4213,6 +4306,7 @@ export default function Game() {
           const char = allChars.find(c => c.id === driverId);
           if (!char) return undefined;
           // Use variant-specific image based on game settings
+          if (variant === 'HAUNTED' && char.imageHaunted) return char.imageHaunted;
           if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) return char.imageSocial;
           if (variant === 'BIO_FUEL' && char.imageBio) return char.imageBio;
           return char.image;
@@ -4910,6 +5004,21 @@ export default function Game() {
                     >
                       BIO-FUEL
                     </button>
+                    <button
+                      onClick={() => setVariant('HAUNTED')}
+                      disabled={!!currentLobby}
+                      className={cn(
+                        'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
+                        variant === 'HAUNTED'
+                          ? 'bg-teal-500/20 border-teal-500 text-teal-300'
+                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300',
+                        currentLobby && 'cursor-not-allowed'
+                      )}
+                      title={currentLobby ? 'Settings locked - set by lobby host' : "HAUNTED: Ghost mechanics, haunted relics, and spectral bidding."}
+                      data-testid="button-intro-variant-haunted"
+                    >
+                      HAUNTED
+                    </button>
                  </div>
               </div>
 
@@ -5427,6 +5536,7 @@ export default function Game() {
 
               const renderDriverCard = (char: Character) => {
                   const getCharImage = (c: Character) => {
+                    if (variant === 'HAUNTED' && c.imageHaunted) return c.imageHaunted;
                     if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
                     if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
                     return c.image;
@@ -5653,6 +5763,7 @@ export default function Game() {
         
         // Get variant-specific image for a character
         const getDriverImage = (char: typeof CHARACTERS[0]) => {
+          if (variant === 'HAUNTED' && char.imageHaunted) return char.imageHaunted;
           if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) return char.imageSocial;
           if (variant === 'BIO_FUEL' && char.imageBio) return char.imageBio;
           return char.image;
@@ -6229,7 +6340,9 @@ export default function Game() {
           if (!char) return null;
 
           // Return the correct image based on current variant
-          if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) {
+          if (variant === 'HAUNTED' && char.imageHaunted) {
+            return char.imageHaunted;
+          } else if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) {
             return char.imageSocial;
           } else if (variant === 'BIO_FUEL' && char.imageBio) {
             return char.imageBio;
@@ -6644,7 +6757,9 @@ export default function Game() {
                           ? 'STANDARD: Pure auction, no social or drinking modifiers.'
                           : variant === 'SOCIAL_OVERDRIVE'
                             ? 'SOCIAL OVERDRIVE: Adds social dares and group prompts.'
-                            : 'BIO-FUEL: Adds drinking prompts and 21+ content.'
+                            : variant === 'BIO_FUEL'
+                              ? 'BIO-FUEL: Adds drinking prompts and 21+ content.'
+                              : 'HAUNTED: Ghost mechanics and spectral bidding.'
                       }
                       data-testid="button-toggle-variant"
                     >
