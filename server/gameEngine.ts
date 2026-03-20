@@ -67,7 +67,7 @@ const DRIVER_NAMES: Record<string, string> = {
 
 export type BotPersonality = typeof BOT_PERSONALITIES[number];
 export type GameDuration = 'standard' | 'long' | 'short';
-export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
 export type ProtocolType = 
   | 'DATA_BLACKOUT' | 'DOUBLE_STAKES' | 'SYSTEM_FAILURE' 
   | 'OPEN_HAND' | 'MUTE_PROTOCOL' 

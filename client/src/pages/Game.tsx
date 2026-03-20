@@ -144,7 +144,7 @@ const SHORT_INITIAL_TIME = 150.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -228,6 +228,9 @@ interface Player {
   // Bonus trophy tracking
   isFirstEliminated?: boolean;    // True if this player was among the first eliminated (Flash Crash criterion)
   shortestWinBidTime?: number;    // Shortest bid time used to win a round (Market Sniper criterion)
+  // Haunted mode fields
+  selectedItem?: string;          // Haunted mode: name of selected haunted item
+  isGhost?: boolean;              // Haunted mode: true when player is converted to ghost on elimination
 }
 
 interface Character {
@@ -369,7 +372,34 @@ const CHARACTERS: Character[] = [
 
 // New Types for Refactored Game Modes
 type GameDifficulty = 'COMPETITIVE' | 'CASUAL';
-type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
+
+// Haunted Mode: 16 placeholder items
+interface HauntedItem {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+}
+
+const HAUNTED_ITEMS: HauntedItem[] = [
+  { id: 'cursed_mirror', name: 'Cursed Mirror', icon: '🪞', description: 'Reflects what should not be seen.' },
+  { id: 'ghost_lantern', name: 'Ghost Lantern', icon: '🏮', description: 'Flickers in the presence of spirits.' },
+  { id: 'bone_dice', name: 'Bone Dice', icon: '🎲', description: 'Always rolls something unexpected.' },
+  { id: 'shadow_cloak', name: 'Shadow Cloak', icon: '🌑', description: 'Woven from pure darkness.' },
+  { id: 'phantom_watch', name: 'Phantom Watch', icon: '⌚', description: 'Ticks backward at midnight.' },
+  { id: 'witches_brew', name: "Witch's Brew", icon: '🧪', description: 'Smells of something ancient.' },
+  { id: 'obsidian_shard', name: 'Obsidian Shard', icon: '🔷', description: 'Cold to the touch, always.' },
+  { id: 'spirit_compass', name: 'Spirit Compass', icon: '🧭', description: 'Points toward the unseen.' },
+  { id: 'haunted_locket', name: 'Haunted Locket', icon: '📿', description: 'Contains a faded portrait.' },
+  { id: 'void_crystal', name: 'Void Crystal', icon: '💎', description: 'Absorbs all light around it.' },
+  { id: 'ravens_feather', name: "Raven's Feather", icon: '🪶', description: 'Left on doorsteps as an omen.' },
+  { id: 'rusted_key', name: 'Rusted Key', icon: '🗝️', description: 'Opens a door that no longer exists.' },
+  { id: 'severed_hand', name: 'Severed Hand', icon: '🤚', description: 'Still twitches occasionally.' },
+  { id: 'wailing_stone', name: 'Wailing Stone', icon: '🪨', description: 'Emits a low moan at dusk.' },
+  { id: 'grave_dust', name: 'Grave Dust', icon: '💨', description: 'Collected from an unmarked grave.' },
+  { id: 'eclipse_coin', name: 'Eclipse Coin', icon: '🌑', description: 'Minted during a total solar eclipse.' },
+];
 
 // ... (Existing types)
 
@@ -769,6 +799,7 @@ export default function Game() {
     setVariant(prev => {
       if (prev === 'STANDARD') return 'SOCIAL_OVERDRIVE';
       if (prev === 'SOCIAL_OVERDRIVE') return 'BIO_FUEL';
+      if (prev === 'BIO_FUEL') return 'HAUNTED';
       return 'STANDARD';
     });
   };
@@ -778,6 +809,7 @@ export default function Game() {
       case 'STANDARD': return <Shield size={12} />;
       case 'SOCIAL_OVERDRIVE': return <PartyPopper size={12} />;
       case 'BIO_FUEL': return <Martini size={12} />;
+      case 'HAUNTED': return <Skull size={12} />;
     }
   };
 
@@ -786,6 +818,7 @@ export default function Game() {
       case 'STANDARD': return "text-zinc-400";
       case 'SOCIAL_OVERDRIVE': return "text-purple-400";
       case 'BIO_FUEL': return "text-orange-400";
+      case 'HAUNTED': return "text-teal-400";
     }
   };
   
@@ -4117,7 +4150,12 @@ export default function Game() {
       singleplayerGameIdRef.current = newGameId;
     }
     
-    setPhase('ready');
+    // In Haunted mode, go to item selection screen instead of ready
+    if (variant === 'HAUNTED') {
+      setPhase('haunted_item_select');
+    } else {
+      setPhase('ready');
+    }
   };
 
   // Computed players list for display - uses multiplayer state when available
@@ -5518,6 +5556,71 @@ export default function Game() {
                 </div>
               );
             })()}
+          </motion.div>
+        );
+
+      case 'haunted_item_select':
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-3xl mx-auto space-y-6"
+            data-testid="screen-haunted-item-select"
+          >
+            <div className="text-center mb-6">
+              <h2 className="text-4xl font-display font-bold text-teal-300 mb-2 flex items-center justify-center gap-3">
+                <Skull size={36} className="text-teal-400" /> CHOOSE YOUR RELIC
+              </h2>
+              <p className="text-muted-foreground">Select one haunted item to carry into the auction.</p>
+              <p className="text-xs text-teal-400/70 mt-1">Items have no effect yet — but they will.</p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {HAUNTED_ITEMS.map((item) => (
+                <motion.button
+                  key={item.id}
+                  whileHover={{ scale: 1.04, backgroundColor: "rgba(20,184,166,0.08)" }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => {
+                    // Assign item to human player
+                    setPlayers(prev => prev.map(p => {
+                      if (p.id === 'p1') return { ...p, selectedItem: item.name };
+                      return p;
+                    }));
+                    // Auto-assign random items to bots
+                    setPlayers(prev => {
+                      const takenItems = new Set<string>([item.id]);
+                      return prev.map(p => {
+                        if (p.isBot) {
+                          const available = HAUNTED_ITEMS.filter(i => !takenItems.has(i.id));
+                          const pick = available[Math.floor(Math.random() * available.length)] || HAUNTED_ITEMS[0];
+                          takenItems.add(pick.id);
+                          return { ...p, selectedItem: pick.name };
+                        }
+                        return p;
+                      });
+                    });
+                    setPhase('ready');
+                  }}
+                  className="flex flex-col items-center p-4 rounded-xl border border-teal-500/20 bg-black/40 hover:border-teal-500/50 transition-colors text-center gap-2"
+                  data-testid={`card-haunted-item-${item.id}`}
+                >
+                  <span className="text-3xl leading-none" role="img" aria-label={item.name}>{item.icon}</span>
+                  <span className="font-bold text-sm text-teal-200 leading-tight">{item.name}</span>
+                  <span className="text-[10px] text-zinc-500 leading-tight line-clamp-2">{item.description}</span>
+                </motion.button>
+              ))}
+            </div>
+
+            <div className="flex justify-center mt-4">
+              <Button
+                variant="ghost"
+                onClick={() => setPhase('character_select')}
+                className="text-zinc-500 hover:text-white"
+                data-testid="button-haunted-item-back"
+              >
+                ← Back to Driver Select
+              </Button>
+            </div>
           </motion.div>
         );
 

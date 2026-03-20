@@ -42,7 +42,7 @@ interface GameSettings {
   protocolsEnabled: boolean;
   bonusTrophiesEnabled: boolean;
   abilitiesEnabled: boolean;
-  variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+  variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
   gameDuration: GameDuration; // 'short' | 'standard' | 'long'
 }
 
