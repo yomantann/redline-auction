@@ -6714,7 +6714,7 @@ export default function Game() {
                 <div className="p-4 pt-3 space-y-3">
                   <p className="text-xs text-zinc-500 italic">Easter egg moments. Unlock by playing.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[0,1,2,3,4].map((i) => (
+                    {[0,1,2,3,4,5].map((i) => (
                       <div key={i} className="h-14 rounded border border-white/10 bg-white/5 flex items-center justify-between px-3">
                         <div className="h-2 w-24 rounded bg-white/10" />
                         <div className="h-2 w-10 rounded bg-white/10" />
