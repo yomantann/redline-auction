@@ -9,19 +9,6 @@ import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Mail, Heart } from 'lucide-react';
 
-
-import bioAccuserOption1 from "../assets/generated_images/bio_accuser_girl_pointing_v5.png";
-import bioPanicBotOption3 from "../assets/generated_images/bio_panic_bot_option3.png";
-
-import socialSadmanOption3 from "../assets/generated_images/social_sadman_option3.png";
-import socialRainbowDashOption1 from "../assets/generated_images/social_rainbow_dash_option1.png";
-import socialGuardianHOption1 from "../assets/generated_images/social_guardian_h_option1.png";
-import socialFrostybyteOption1 from "../assets/generated_images/social_frostybyte_option1.png";
-import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_detailed_v4.png";
-
-import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_life_support_v6.png";
-import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_toy_v2.png";
-import socialAccuserOption1 from "../assets/generated_images/social_accuser_pointing_v4.png";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
 
 // Define OverlayItem interface locally to match GameOverlay
@@ -79,14 +66,20 @@ import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
 
-import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
+
 import charMonkeyHaircut from '@assets/generated_images/cool_monkey_haircut_chef_background.png';
 import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
-import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
-import charRockShush from '@assets/generated_images/cute_rock_with_shush_gesture.png';
 import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
 
 // Social Mode Images
+import socialSadmanOption3 from "../assets/generated_images/social_sadman_option3.png";
+import socialRainbowDashOption1 from "../assets/generated_images/social_rainbow_dash_option1.png";
+import socialGuardianHOption1 from "../assets/generated_images/social_guardian_h_option1.png";
+import socialFrostybyteOption1 from "../assets/generated_images/social_frostybyte_option1.png";
+import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_detailed_v4.png";
+import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_life_support_v6.png";
+import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_toy_v2.png";
+import socialAccuserOption1 from "../assets/generated_images/social_accuser_pointing_v4.png";
 import socialHarambe from '../assets/generated_images/social_harambe.png';
 import socialPopcat from '../assets/generated_images/social_popcat.png';
 import socialWinter from '../assets/generated_images/social_winter.png';
@@ -105,29 +98,32 @@ import socialPrimate from '../assets/generated_images/social_primate.png';
 import socialHarold from '../assets/generated_images/social_harold.png';
 import socialPromKing from '../assets/generated_images/social_prom_king.png';
 import socialIdolCore from '../assets/generated_images/social_idol_core.png';
+import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
 import socialTank from '../assets/generated_images/social_tank.png';
 import socialDangerZone from '../assets/generated_images/social_danger_zone.png';
 
 // Bio Mode Images
-import bioHarambe from '../assets/generated_images/bio_guardian_h_gorilla_pushups_v4.png';
-import bioPopcat from '../assets/generated_images/bio_popcat.png';
-import bioWinter from '../assets/generated_images/bio_frostbyte_v4.png';
-import bioPepe from '../assets/generated_images/bio_pepe.png';
-import bioNyan from '../assets/generated_images/bio_nyan.png';
-import bioFine from '../assets/generated_images/bio_low_flame_no_text_v3.png';
-import bioBf from '../assets/generated_images/bio_bf.png';
-import bioRat from '../assets/generated_images/bio_rind_mouse_sniper_v4.png';
-import bioBaldwin from '../assets/generated_images/bio_baldwin.png';
-import bioSigma from '../assets/generated_images/bio_executive_p_axe_v5.png';
-import bioGigachad from '../assets/generated_images/bio_gigachad.png';
-import bioThinker from '../assets/generated_images/bio_thinker.png';
-import bioDisaster from '../assets/generated_images/bio_hotwired_bar_on_fire_v6.png';
-import bioPrimate from '../assets/generated_images/bio_primate.png';
-import bioHarold from '../assets/generated_images/bio_harold.png';
+import bioPanicBotOption3 from "../assets/generated_images/BIO/bio_panic_bot_option3.png";
+import bioAccuserOption1 from "../assets/generated_images/BIO/bio_accuser_girl_pointing_v5.png";
+import bioHarambe from '../assets/generated_images/BIO/bio_guardian_h_gorilla_pushups_v4.png';
+import bioPopcat from '../assets/generated_images/BIO/bio_popcat.png';
+import bioWinter from '../assets/generated_images/BIO/bio_frostbyte_v4.png';
+import bioPepe from '../assets/generated_images/BIO/bio_pepe.png';
+import bioNyan from '../assets/generated_images/BIO/bio_nyan.png';
+import bioFine from '../assets/generated_images/BIO/bio_low_flame_no_text_v3.png';
+import bioBf from '../assets/generated_images/BIO/bio_bf.png';
+import bioRat from '../assets/generated_images/BIO/bio_rind_mouse_sniper_v4.png';
+import bioBaldwin from '../assets/generated_images/BIO/bio_baldwin.png';
+import bioSigma from '../assets/generated_images/BIO/bio_executive_p_axe_v5.png';
+import bioGigachad from '../assets/generated_images/BIO/bio_gigachad.png';
+import bioThinker from '../assets/generated_images/BIO/bio_thinker.png';
+import bioDisaster from '../assets/generated_images/BIO/bio_hotwired_bar_on_fire_v6.png';
+import bioPrimate from '../assets/generated_images/BIO/bio_primate.png';
+import bioHarold from '../assets/generated_images/BIO/bio_harold.png';
 import bioPromKing from '../assets/generated_images/social_prom_king.png';
-import bioIdolCore from '../assets/generated_images/bio_idol_core.png';
-import bioTank from '../assets/generated_images/bio_tank.png';
-import bioDangerZone from '../assets/generated_images/bio_danger_zone.png';
+import bioIdolCore from '../assets/generated_images/BIO/bio_idol_core.png';
+import charRockShush from '../assets/generated_images/BIO/cute_rock_with_shush_gesture.png';
+import charDangerZone from '../assets/generated_images/BIO/edgy_cyberpunk_femme_fatale.png';
 
 
 import { AbilityAnimation, AnimationType } from "@/components/game/AbilityAnimation";
