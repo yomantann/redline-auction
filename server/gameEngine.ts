@@ -1292,8 +1292,11 @@ function endRound(lobbyCode: string) {
     }
   });
   
+  // Snapshot eliminated IDs before abilities run (for NAIL IN THE COFFIN detection)
+  const eliminatedBeforeAbilities = new Set(game.eliminatedThisRound);
+
   // Process abilities before time deduction (allows for refunds)
-  processAbilities(game, winnerId);
+  const abilityImpacts = processAbilities(game, winnerId) || [];
 
   // Process roundImpacts (penalties from early release during countdown)
   game.players.forEach(p => {
@@ -1350,6 +1353,22 @@ function endRound(lobbyCode: string) {
       }
     }
   });
+
+  // HIDDEN_NAIL_IN_THE_COFFIN: award to player whose DISRUPT ability caused an opponent's elimination
+  if (game.settings.abilitiesEnabled && abilityImpacts.length > 0) {
+    game.eliminatedThisRound.forEach(eliminatedId => {
+      if (eliminatedBeforeAbilities.has(eliminatedId)) return; // was already eliminated before abilities ran
+      abilityImpacts.forEach(impact => {
+        if (impact.targetId === eliminatedId && impact.effect === 'DISRUPT') {
+          const sourcePlayer = game.players.find(p => p.id === impact.playerId && !p.isEliminated);
+          if (sourcePlayer) {
+            sourcePlayer.momentFlagsEarned.push('HIDDEN_NAIL_IN_THE_COFFIN');
+            log(`[NAIL IN THE COFFIN] ${sourcePlayer.name} eliminated ${eliminatedId} via ${impact.ability} in lobby ${lobbyCode}`, "game");
+          }
+        }
+      });
+    });
+  }
   
   // Log all bids and deduct time
   game.players.forEach(p => {
@@ -1719,9 +1738,7 @@ function endRound(lobbyCode: string) {
   const activePlayers = game.players.filter(p => !p.isEliminated);
   const activeHumans = activePlayers.filter(p => !p.isBot);
   
-  if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
-    setTimeout(() => endGame(lobbyCode), 3000);
-  } else if (activeHumans.length === 0 && game.isMultiplayer) {
+  if (activeHumans.length === 0 && game.isMultiplayer && activePlayers.filter(p => p.isBot).length > 0 && game.round < game.totalRounds) {
     // All real players eliminated - fast-forward remaining rounds with random CPU trophies
     const activeBots = activePlayers.filter(p => p.isBot);
     const remainingRounds = game.totalRounds - game.round;
@@ -1746,6 +1763,8 @@ function endRound(lobbyCode: string) {
       }
     }
     game.round = game.totalRounds;
+    setTimeout(() => endGame(lobbyCode), 3000);
+  } else if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
     setTimeout(() => endGame(lobbyCode), 3000);
   }
   // Otherwise, wait for players to acknowledge round end (via player_ready_next event)
