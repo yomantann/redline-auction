@@ -137,6 +137,9 @@ export interface GamePlayer {
   tokens: number;
   remainingTime: number;
   isEliminated: boolean;
+  isGhost?: boolean;       // Haunted mode: true when player runs out of time (can come back to life)
+  selectedItem?: string;   // Haunted mode: name of selected haunted relic
+  ghostImage?: string;     // Haunted mode: assigned ghost image key (e.g. 'hnt_ghost_3')
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -685,19 +688,29 @@ function startBidding(lobbyCode: string) {
     
     // Update bids for holding players (include min bid offset)
     const minBid = getMinBidPenalty(g.gameDuration);
+    const isHaunted = g.settings.variant === 'HAUNTED';
     g.players.forEach(p => {
+      // Ghosts can't hold in Haunted mode (they're in ghost state)
+      if (p.isGhost) { p.isHolding = false; return; }
       if (p.isHolding && !p.isEliminated) {
         const playerHasFireWall = p.selectedDriver === 'low_flame' && g.settings.abilitiesEnabled;
         const playerElapsed = (playerHasFireWall && g.activeProtocol === 'PANIC_ROOM') ? rawElapsed : elapsed;
         p.currentBid = playerElapsed + minBid; // Bid starts at min bid value
         
-        // Auto-eliminate if bid exceeds remaining time
+        // Auto-ghostify (Haunted) or eliminate (other modes) if bid exceeds remaining time
         if (p.currentBid >= p.remainingTime) {
           p.isHolding = false;
           p.currentBid = p.remainingTime;
-          p.isEliminated = true;
-          g.eliminatedThisRound.push(p.id);
-          log(`${p.name} eliminated (ran out of time) in lobby ${lobbyCode}`, "game");
+          if (isHaunted) {
+            // Haunted: become a ghost, NOT eliminated
+            p.isGhost = true;
+            p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 8) + 1}`;
+            log(`${p.name} became a ghost (ran out of time) in lobby ${lobbyCode}`, "game");
+          } else {
+            p.isEliminated = true;
+            g.eliminatedThisRound.push(p.id);
+            log(`${p.name} eliminated (ran out of time) in lobby ${lobbyCode}`, "game");
+          }
         }
       }
     });
@@ -705,8 +718,8 @@ function startBidding(lobbyCode: string) {
     // Bot AI: decide when to release
     processBotBids(g);
     
-    // Check if round should end (all players released)
-    const holdingPlayers = g.players.filter(p => p.isHolding && !p.isEliminated);
+    // Check if round should end (all non-ghost, non-eliminated players have released)
+    const holdingPlayers = g.players.filter(p => p.isHolding && !p.isEliminated && !p.isGhost);
     
     // End round when all players have released, but wait at least 0.5s 
     // (to give time for late starters and prevent instant round ends)
@@ -954,7 +967,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
   const winMargin = winnerBid - secondBid;
   
   game.players.forEach(player => {
-    if (player.isEliminated || !player.selectedDriver) return;
+    if (player.isEliminated || player.isGhost || !player.selectedDriver) return;
     
     const ability = DRIVER_ABILITIES[player.selectedDriver];
     if (!ability) return;
@@ -1177,8 +1190,8 @@ function endRound(lobbyCode: string) {
     startingTimeBanks.set(p.id, p.remainingTime + bid);
   });
   
-  // Find winner (highest bid among non-eliminated)
-  const participants = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
+  // Find winner (highest bid among non-eliminated, non-ghost)
+  const participants = game.players.filter(p => !p.isEliminated && !p.isGhost && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
   
   let winnerId: string | null = null;
   
@@ -1333,23 +1346,35 @@ function endRound(lobbyCode: string) {
         }
       });
   
-  // Check for eliminations from ability effects (clamp and eliminate players with <= 0 time)
+  // Check for eliminations from ability effects (clamp and eliminate/ghostify players with <= 0 time)
   game.players.forEach(p => {
     if (p.remainingTime < 0) {
       p.remainingTime = 0;
     }
-    if (p.remainingTime === 0 && !p.isEliminated) {
-      p.isEliminated = true;
-      if (!game.eliminatedThisRound.includes(p.id)) {
-        game.eliminatedThisRound.push(p.id);
+    if (p.remainingTime === 0 && !p.isEliminated && !p.isGhost) {
+      if (game.settings.variant === 'HAUNTED') {
+        p.isGhost = true;
+        if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 8) + 1}`;
         addGameLogEntry(game, {
           type: 'elimination',
           playerId: p.id,
           playerName: p.name,
-          message: `${p.name} was eliminated (ability effect)`,
+          message: `${p.name} became a ghost (ability effect)`,
           basic: true,
         });
-        log(`${p.name} eliminated by ability effect in lobby ${game.lobbyCode}`, "game");
+      } else {
+        p.isEliminated = true;
+        if (!game.eliminatedThisRound.includes(p.id)) {
+          game.eliminatedThisRound.push(p.id);
+          addGameLogEntry(game, {
+            type: 'elimination',
+            playerId: p.id,
+            playerName: p.name,
+            message: `${p.name} was eliminated (ability effect)`,
+            basic: true,
+          });
+          log(`${p.name} eliminated by ability effect in lobby ${game.lobbyCode}`, "game");
+        }
       }
     }
   });
@@ -1398,16 +1423,29 @@ function endRound(lobbyCode: string) {
         p.remainingTime -= p.currentBid;
         if (p.remainingTime <= 0) {
           p.remainingTime = 0;
-          p.isEliminated = true;
-          if (!game.eliminatedThisRound.includes(p.id)) {
-            game.eliminatedThisRound.push(p.id);
+          if (game.settings.variant === 'HAUNTED') {
+            // Haunted: become a ghost instead of eliminated
+            p.isGhost = true;
+            if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 8) + 1}`;
             addGameLogEntry(game, {
               type: 'elimination',
               playerId: p.id,
               playerName: p.name,
-              message: `${p.name} was eliminated (ran out of time)`,
+              message: `${p.name} became a ghost`,
               basic: true,
             });
+          } else {
+            p.isEliminated = true;
+            if (!game.eliminatedThisRound.includes(p.id)) {
+              game.eliminatedThisRound.push(p.id);
+              addGameLogEntry(game, {
+                type: 'elimination',
+                playerId: p.id,
+                playerName: p.name,
+                message: `${p.name} was eliminated (ran out of time)`,
+                basic: true,
+              });
+            }
           }
         }
       }
@@ -1721,10 +1759,10 @@ function endRound(lobbyCode: string) {
   
   // Mark all players as not acknowledged for round end
   game.players.forEach(p => {
-    if (!p.isBot && !p.isEliminated) {
+    if (!p.isBot && !p.isEliminated && !p.isGhost) {
       (p as any).roundEndAcknowledged = false;
     } else {
-      // Bots and eliminated players auto-acknowledge
+      // Bots, eliminated players, and ghosts auto-acknowledge
       (p as any).roundEndAcknowledged = true;
     }
   });
@@ -1735,10 +1773,14 @@ function endRound(lobbyCode: string) {
   }
 
   // Check for game over conditions
-  const activePlayers = game.players.filter(p => !p.isEliminated);
+  const isHauntedMode = game.settings.variant === 'HAUNTED';
+  // In Haunted mode: active = not a ghost. In other modes: active = not eliminated.
+  const activePlayers = isHauntedMode
+    ? game.players.filter(p => !p.isGhost && !p.isEliminated)
+    : game.players.filter(p => !p.isEliminated);
   const activeHumans = activePlayers.filter(p => !p.isBot);
   
-  if (activeHumans.length === 0 && game.isMultiplayer && activePlayers.filter(p => p.isBot).length > 0 && game.round < game.totalRounds) {
+  if (!isHauntedMode && activeHumans.length === 0 && game.isMultiplayer && activePlayers.filter(p => p.isBot).length > 0 && game.round < game.totalRounds) {
     // All real players eliminated - fast-forward remaining rounds with random CPU trophies
     const activeBots = activePlayers.filter(p => p.isBot);
     const remainingRounds = game.totalRounds - game.round;
@@ -1764,7 +1806,8 @@ function endRound(lobbyCode: string) {
     }
     game.round = game.totalRounds;
     setTimeout(() => endGame(lobbyCode), 3000);
-  } else if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
+  } else if (activePlayers.length === 0 || activePlayers.length <= 1 || game.round >= game.totalRounds) {
+    // Haunted: all players are ghosts, or rounds done → game over
     setTimeout(() => endGame(lobbyCode), 3000);
   }
   // Otherwise, wait for players to acknowledge round end (via player_ready_next event)
@@ -2659,6 +2702,9 @@ function broadcastGameState(lobbyCode: string) {
       tokens: p.tokens,
       remainingTime: p.remainingTime,
       isEliminated: p.isEliminated,
+      isGhost: p.isGhost || false,
+      ghostImage: p.ghostImage || null,
+      selectedItem: p.selectedItem || null,
       currentBid: p.currentBid,
       isHolding: p.isHolding,
       roundEndAcknowledged: (p as any).roundEndAcknowledged || false,

@@ -648,6 +648,24 @@ export async function registerRoutes(
       if (callback) callback({ success: true });
     });
 
+    // Haunted mode: player selects a haunted item/relic
+    socket.on("select_haunted_item", (data: { itemId: string; itemName: string }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback?.({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      const game = getGameState(lobbyCode);
+      if (!game) { if (callback) callback?.({ success: false, error: "No active game" }); return; }
+      const player = game.players.find(p => p.socketId === socket.id);
+      if (player) {
+        player.selectedItem = data.itemName;
+        // Broadcast updated state to all players in lobby
+        io.to(lobbyCode).emit("game_state_update", { players: game.players.map(p => ({ id: p.id, selectedItem: p.selectedItem })) });
+      }
+      if (callback) callback?.({ success: true });
+    });
+
     // Handle disconnection
     socket.on("rejoin_game", (data: { code: string; playerName: string }, callback) => {
       const { code, playerName } = data;

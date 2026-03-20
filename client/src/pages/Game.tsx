@@ -1796,10 +1796,9 @@ export default function Game() {
                              ...p, 
                              isHolding: false, 
                              currentBid: 0, 
-                             // NO trophy loss on elimination (over-limit holding)
                              remainingTime: 0, 
-                             isEliminated: true,
-                             // Haunted: become a ghost
+                             // In Haunted mode: become ghost, NOT eliminated
+                             isEliminated: variant === 'HAUNTED' ? p.isEliminated : true,
                              isGhost: variant === 'HAUNTED' ? true : p.isGhost,
                              characterIcon: ghostIcon ?? p.characterIcon,
                          };
@@ -1915,7 +1914,7 @@ export default function Game() {
       const isLateGame = round > 6;
 
       const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
-      const activePlayers = players.filter(p => !p.isEliminated);
+      const activePlayers = players.filter(p => !p.isEliminated && !p.isGhost);
       const maxTokens = Math.max(...activePlayers.map(p => p.tokens));
 
       const getBotDriverId = (bot: Player): string | undefined => {
@@ -1964,7 +1963,7 @@ export default function Game() {
       };
 
       players.forEach(p => {
-        if (p.isBot && !p.isEliminated) {
+        if (p.isBot && !p.isEliminated && !p.isGhost) {
           const maxHoldTime = Math.max(0.5, p.remainingTime - minBidTime);
           const timePerRound = p.remainingTime / Math.max(1, roundsLeft);
           let bid = 0.5;
@@ -2191,6 +2190,10 @@ export default function Game() {
 
   // User Interactions - Button Down
   const handlePress = () => {
+    // Ghosts cannot hold the button in Haunted mode
+    const p1 = players.find(p => p.id === 'p1');
+    if (p1?.isGhost) return;
+
     if (isMultiplayer && socket) {
       // Multiplayer: emit button press to server
       const currentPhase = multiplayerGameState?.phase || phase;
@@ -2288,7 +2291,8 @@ export default function Game() {
                     isHolding: false, 
                     currentBid: bidTime, 
                     remainingTime: newTime,
-                    isEliminated: true,
+                    // In Haunted mode: become ghost, NOT eliminated
+                    isEliminated: variant === 'HAUNTED' ? p.isEliminated : true,
                     isGhost: variant === 'HAUNTED' ? true : p.isGhost,
                     characterIcon: ghostIcon ?? p.characterIcon,
                 };
@@ -2674,7 +2678,8 @@ export default function Game() {
         players.forEach(sourcePlayer => {
             // Abilities should trigger even if the player didn't participate this round.
             // Only fully eliminated players (out of time) are blocked.
-            if (sourcePlayer.isEliminated || sourcePlayer.remainingTime <= 0) return;
+            // Ghosts cannot use driver abilities.
+            if (sourcePlayer.isEliminated || sourcePlayer.isGhost || sourcePlayer.remainingTime <= 0) return;
             
             const character = sourcePlayer.isBot 
                 ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
@@ -2901,22 +2906,24 @@ export default function Game() {
 
         const isEliminatedNow = newTime <= 0;
         // In Haunted mode, newly-eliminated players become ghosts instead of being removed.
-        const isNewlyEliminated = isEliminatedNow && !p.isEliminated;
-        if (isNewlyEliminated) {
+        // They are NOT set as isEliminated — they remain in the game as ghosts.
+        const isNewlyGhosted = isEliminatedNow && !p.isEliminated && !p.isGhost && variant === 'HAUNTED';
+        const isNewlyEliminated = isEliminatedNow && !p.isEliminated && variant !== 'HAUNTED';
+        if (isNewlyEliminated || isNewlyGhosted) {
              playersOut.push(p.name);
         }
 
         // Haunted mode: assign random ghost image when converted
-        const ghostIcon = isNewlyEliminated && variant === 'HAUNTED'
+        const ghostIcon = isNewlyGhosted
           ? GHOST_IMAGES[Math.floor(Math.random() * GHOST_IMAGES.length)]
           : undefined;
 
         return {
             ...p,
             remainingTime: Math.max(0, newTime),
-            isEliminated: isEliminatedNow,
-            // Haunted: mark as ghost and swap to ghost image
-            isGhost: isEliminatedNow && variant === 'HAUNTED' ? true : p.isGhost,
+            // In Haunted mode: don't set isEliminated — set isGhost instead
+            isEliminated: variant === 'HAUNTED' ? p.isEliminated : isEliminatedNow,
+            isGhost: isNewlyGhosted ? true : p.isGhost,
             characterIcon: ghostIcon ?? p.characterIcon,
             roundImpact: roundImpact,
             impactLogs: impactLogs,
@@ -2928,7 +2935,8 @@ export default function Game() {
     // 3. DETERMINE WINNER
     const validParticipants = playersState.filter(p => 
         participants.some(orig => orig.id === p.id) && 
-        !p.isEliminated
+        !p.isEliminated &&
+        !p.isGhost
     );
 
     validParticipants.sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
@@ -3171,6 +3179,17 @@ export default function Game() {
     // SIMULATE REMAINING ROUNDS so bots get trophies
     // Exception: In Haunted mode, p1 becomes a ghost and the game continues.
     const p1 = finalPlayers.find(p => p.id === 'p1');
+
+    // Haunted mode: if all players are now ghosts, end the game
+    if (variant === 'HAUNTED') {
+      const allGhosts = finalPlayers.every(p => p.isGhost || p.isEliminated);
+      if (allGhosts) {
+        setPlayers([...finalPlayers]);
+        setPhase('game_end');
+        return;
+      }
+    }
+
     if (p1?.isEliminated && variant !== 'HAUNTED') {
          // Add ELIMINATED to all newly eliminated players' moment flags (including p1)
          // so it counts toward moment flag stats and MOMENT_MAGNET bonus criterion.
@@ -3267,7 +3286,7 @@ export default function Game() {
     // --- BIO/SOCIAL ABILITY TRIGGERS (End of Round) ---
     
     finalPlayers.forEach(p => {
-        if (p.isEliminated) return;
+        if (p.isEliminated || p.isGhost) return;
         
         // Find Character Definition - Search ALL pools to be safe
         const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
@@ -4260,6 +4279,8 @@ export default function Game() {
         tokens: mp.tokens,
         remainingTime: mp.remainingTime,
         isEliminated: mp.isEliminated,
+        isGhost: (mp as any).isGhost || false,
+        selectedItem: (mp as any).selectedItem || undefined,
       currentBid: mp.currentBid,
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,
@@ -4300,6 +4321,15 @@ export default function Game() {
         selectedDriver: (mp as any).selectedDriver,
         abilityUsed: (mp as any).abilityUsed || false,
         characterIcon: (() => {
+          // In Haunted mode, ghosts get a random ghost image from the ghostImage key
+          if ((mp as any).isGhost && variant === 'HAUNTED') {
+            const ghostKey = (mp as any).ghostImage as string | undefined;
+            if (ghostKey) {
+              const idx = parseInt(ghostKey.replace('hnt_ghost_', ''), 10) - 1;
+              if (!isNaN(idx) && idx >= 0 && idx < GHOST_IMAGES.length) return GHOST_IMAGES[idx];
+            }
+            return GHOST_IMAGES[Math.floor(Math.random() * GHOST_IMAGES.length)];
+          }
           const driverId = (mp as any).selectedDriver;
           if (!driverId) return undefined;
           const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
@@ -5691,25 +5721,31 @@ export default function Game() {
                   whileHover={{ scale: 1.04, backgroundColor: "rgba(20,184,166,0.08)" }}
                   whileTap={{ scale: 0.96 }}
                   onClick={() => {
-                    // Assign item to human player
-                    setPlayers(prev => prev.map(p => {
-                      if (p.id === 'p1') return { ...p, selectedItem: item.name };
-                      return p;
-                    }));
-                    // Auto-assign random items to bots
-                    setPlayers(prev => {
-                      const takenItems = new Set<string>([item.id]);
-                      return prev.map(p => {
-                        if (p.isBot) {
-                          const available = HAUNTED_ITEMS.filter(i => !takenItems.has(i.id));
-                          const pick = available[Math.floor(Math.random() * available.length)] || HAUNTED_ITEMS[0];
-                          takenItems.add(pick.id);
-                          return { ...p, selectedItem: pick.name };
-                        }
+                    if (isMultiplayer && socket) {
+                      // MP: emit to server
+                      socket.emit('select_haunted_item', { itemId: item.id, itemName: item.name });
+                      setPhase('ready');
+                    } else {
+                      // SP: assign item to human player
+                      setPlayers(prev => prev.map(p => {
+                        if (p.id === 'p1') return { ...p, selectedItem: item.name };
                         return p;
+                      }));
+                      // Auto-assign random items to bots
+                      setPlayers(prev => {
+                        const takenItems = new Set<string>([item.id]);
+                        return prev.map(p => {
+                          if (p.isBot) {
+                            const available = HAUNTED_ITEMS.filter(i => !takenItems.has(i.id));
+                            const pick = available[Math.floor(Math.random() * available.length)] || HAUNTED_ITEMS[0];
+                            takenItems.add(pick.id);
+                            return { ...p, selectedItem: pick.name };
+                          }
+                          return p;
+                        });
                       });
-                    });
-                    setPhase('ready');
+                      setPhase('ready');
+                    }
                   }}
                   className="flex flex-col items-center p-4 rounded-xl border border-teal-500/20 bg-black/40 hover:border-teal-500/50 transition-colors text-center gap-2"
                   data-testid={`card-haunted-item-${item.id}`}
@@ -5755,6 +5791,9 @@ export default function Game() {
           socket.emit('confirm_driver', (response: { success: boolean; error?: string }) => {
             if (!response.success) {
               console.log('[Game] Driver confirmation failed:', response.error);
+            } else if (variant === 'HAUNTED') {
+              // In Haunted mode, go to item selection before waiting_for_ready
+              setPhase('haunted_item_select');
             }
           });
         };
