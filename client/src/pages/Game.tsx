@@ -65,11 +65,8 @@ import charThinker from '@assets/generated_images/roll_safe_medium_shot.png';
 import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
-
-
 import charMonkeyHaircut from '@assets/generated_images/cool_monkey_haircut_chef_background.png';
-import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
-import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
+
 
 // Social Mode Images
 import socialSadmanOption3 from "../assets/generated_images/SOCIAL/social_sadman_option3.png";
@@ -90,7 +87,8 @@ import socialThinker from '../assets/generated_images/SOCIAL/social_thinker.png'
 import socialDisaster from '../assets/generated_images/SOCIAL/social_disaster.png';
 import socialPrimate from '../assets/generated_images/SOCIAL/social_primate.png';
 
-import charPromKing from '../assets/generated_images/SOCIAL/cool_cyberpunk_prom_king.png';
+import charIdolCore from '../assets/generated_images/SOCIAL/social_kpop.png';
+import charPromKing from '../assets/generated_images/SOCIAL/social_prom.png';
 import socialTank from '../assets/generated_images/SOCIAL/social_tank.png';
 import socialDangerZone from '../assets/generated_images/SOCIAL/social_danger_zone.png';
 
@@ -113,10 +111,10 @@ import bioDisaster from '../assets/generated_images/BIO/bio_hotwired_bar_on_fire
 import bioPrimate from '../assets/generated_images/BIO/bio_primate.png';
 import bioHarold from '../assets/generated_images/BIO/bio_harold.png';
 
-import bioPromKing from '../assets/generated_images/BIO/social_prom_king.png';
+import bioPromKing from '../assets/generated_images/BIO/bio_prom.png';
 import bioIdolCore from '../assets/generated_images/BIO/bio_idol_core.png';
-import charRockShush from '../assets/generated_images/BIO/cute_rock_with_shush_gesture.png';
-import charDangerZone from '../assets/generated_images/BIO/edgy_cyberpunk_femme_fatale.png';
+import charRockShush from '../assets/generated_images/BIO/bio_tank.png';
+import charDangerZone from '../assets/generated_images/BIO/bio_danger.png';
 
 
 import { AbilityAnimation, AnimationType } from "@/components/game/AbilityAnimation";
