@@ -211,7 +211,7 @@ interface Player {
   personality?: BotPersonality;
   characterIcon?: string | React.ReactNode; // Can be image URL or icon
   roundImpact?: string; // Legacy string for backward compatibility
-  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // NEW: Structured logs
+  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[]; // NEW: Structured logs
   // Multiplayer driver info
   selectedDriver?: string; // Driver ID for multiplayer
   driverName?: string; // Driver/character name
@@ -2656,7 +2656,9 @@ export default function Game() {
             if (sourcePlayer.isEliminated || sourcePlayer.remainingTime <= 0) return;
             
             const character = sourcePlayer.isBot 
-                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
+                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => 
+                    sourcePlayer.selectedDriver ? c.id === sourcePlayer.selectedDriver : c.name === sourcePlayer.name
+                  ) 
                 : selectedCharacter;
             
             if (character?.ability?.effect === 'DISRUPT') {
@@ -2709,12 +2711,14 @@ export default function Game() {
 
         let newTime = p.remainingTime;
         let roundImpact = "";
-        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
+        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[] = [];
         let roundNetImpactNum = 0; // Track numeric impact from abilities/protocols (not bids)
 
         // Bid Deduction (Only if bid exists) - NOT tracked in netImpact (player choice)
         if (p.currentBid !== null && p.currentBid > 0) {
-             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
              const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
              
              // MOLE Exception
@@ -2767,12 +2771,12 @@ export default function Game() {
     // Let's re-run the logic for STEP A with this correction.
     
     tempPlayersState = players.map(p => {
-        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "", impactLogs: [] as { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[], roundNetImpactNum: 0 };
+        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "", impactLogs: [] as { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[], roundNetImpactNum: 0 };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
         let roundNetImpactNum = 0;
-        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
+        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[] = [];
 
         // Bid Deduction
         if (p.currentBid !== null && p.currentBid > 0) {
@@ -2814,7 +2818,9 @@ export default function Game() {
          players.forEach(sourcePlayer => {
             if (sourcePlayer.isEliminated) return;
             const character = sourcePlayer.isBot 
-                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
+                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => 
+                    sourcePlayer.selectedDriver ? c.id === sourcePlayer.selectedDriver : c.name === sourcePlayer.name
+                  ) 
                 : selectedCharacter;
             
             if (character?.ability?.name === 'AXE SWING') {
@@ -2855,7 +2861,9 @@ export default function Game() {
         let roundNetImpactNum = p.roundNetImpactNum || 0; // Carry forward from previous steps
         let selfGain = 0;
         
-        const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+        const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
 
         // Refunds
         if (abilitiesEnabled && playerChar?.ability?.effect === 'TIME_REFUND') {
@@ -2951,7 +2959,7 @@ export default function Game() {
             if (moleIdx >= 0) {
                 playersState[moleIdx].tokens -= 1;
                 playersState[moleIdx].roundImpact = (playersState[moleIdx].roundImpact || "") + " -1 Token (Mole Suicide)";
-                playersState[moleIdx].impactLogs!.push({ value: "-1 Token", reason: "Mole Suicide", type: 'loss' });
+                playersState[moleIdx].impactLogs!.push({ value: "-1 Token", reason: "Mole Suicide", type: 'trophy' });
                 setRoundLog(prev => [`>> MOLE FAILURE: ${rawWinner.name} held too long and LOST a trophy!`, ...prev]);
                 setTimeout(() => addOverlay("protocol_alert", "MOLE REVEALED", `${rawWinner.name} was the Mole and got eliminated! -1 trophy.`), 1500);
             }
@@ -2992,7 +3000,9 @@ export default function Game() {
              newTokens += tokensToAdd;
 
              if (abilitiesEnabled) {
-                const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+                const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
                 const ab = playerChar?.ability;
                 
                 if (ab) {
@@ -3020,20 +3030,20 @@ export default function Game() {
                              if ((p.currentBid || 0) - secondPlace <= 1.1) {
                                  newTokens += 1;
                                  impact += " +1 Token (Hyper Click)";
-                                 impactLogs.push({ value: "+1 Token", reason: "Hyper Click", type: 'gain' });
+                                 impactLogs.push({ value: "+1 Token", reason: "Hyper Click", type: 'trophy' });
                                  newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                              }
                          }
                          if (ab.name === 'TO THE MOON' && (p.currentBid || 0) > 30) {
                              newTokens += 1;
                              impact += " +1 Token (Moon)";
-                             impactLogs.push({ value: "+1 Token", reason: "To The Moon", type: 'gain' });
+                             impactLogs.push({ value: "+1 Token", reason: "To The Moon", type: 'trophy' });
                              newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                          }
                          if (ab.name === 'DIVIDEND' && round % 3 === 0) {
                              newTokens += 1;
                              impact += " +1 Token (Dividend)";
-                             impactLogs.push({ value: "+1 Token", reason: "Dividend", type: 'gain' });
+                             impactLogs.push({ value: "+1 Token", reason: "Dividend", type: 'trophy' });
                              newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                          }
                     }
@@ -3055,7 +3065,7 @@ export default function Game() {
              if (margin > 7) {
                newTokens -= 2;
                impact += " -2 Tokens (Mole Win > 7s)";
-               impactLogs.push({ value: "-2 Tokens", reason: "Mole Win > 7s", type: 'loss' });
+               impactLogs.push({ value: "-2 Tokens", reason: "Mole Win > 7s", type: 'trophy' });
              } else {
                impact += " +0 (Mole Win Safe)";
                impactLogs.push({ value: "+0", reason: "Mole Win (<=7s)", type: 'neutral' });
@@ -3063,7 +3073,9 @@ export default function Game() {
         }
         
         if (abilitiesEnabled && p.id !== winnerId && winnerId && !p.isEliminated) {
-             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
              if (playerChar?.ability?.name === 'CHEESE TAX') {
                  // Cheese Tax does NOT trigger if the winner is roll_safe (immune to abilities).
                  // rollSafeId is only non-undefined when abilitiesEnabled (see definition above).
@@ -3100,7 +3112,9 @@ export default function Game() {
     if (winnerId && abilitiesEnabled) {
         finalPlayers.forEach(p => {
              if (p.id !== winnerId && !p.isEliminated) {
-                 const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+                 const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
                  if (playerChar?.ability?.name === 'CHEESE TAX') {
                      const w = finalPlayers.find(fp => fp.id === winnerId);
                      // Roll Safe Immunity: rollSafeId is only non-undefined when abilitiesEnabled
@@ -5924,7 +5938,7 @@ export default function Game() {
                </div>
                
                <div className="z-20 text-9xl font-display font-black text-destructive animate-ping absolute pointer-events-none">
-                  {isMultiplayer ? multiplayerGameState?.countdownRemaining : Math.max(0, countdown)}
+                  {isMultiplayer ? Math.max(0, multiplayerGameState?.countdownRemaining ?? 0) : Math.max(0, countdown)}
                </div>
 
                <div className="z-10 relative">
@@ -6144,24 +6158,32 @@ export default function Game() {
               
               return (
                 <div className="space-y-2">
-                  <Button 
-                    onClick={() => {
-                      if (socket && !hasAcknowledged) {
-                        socket.emit("player_ready_next");
-                        console.log('[Game] Emitted player_ready_next');
-                      }
-                    }} 
-                    size="lg" 
-                    className={cn(
-                      "w-full",
-                      hasAcknowledged 
-                        ? "bg-green-600 hover:bg-green-600 text-white" 
-                        : "bg-white text-black hover:bg-zinc-200"
-                    )}
-                    disabled={hasAcknowledged}
-                  >
-                    {hasAcknowledged ? "WAITING FOR OTHERS..." : "NEXT ROUND"}
-                  </Button>
+                  <div className="relative">
+                    <Button 
+                      onClick={() => {
+                        if (socket && !hasAcknowledged) {
+                          socket.emit("player_ready_next");
+                          console.log('[Game] Emitted player_ready_next');
+                        }
+                      }} 
+                      size="lg" 
+                      className={cn(
+                        "w-full",
+                        hasAcknowledged 
+                          ? "bg-green-600 hover:bg-green-600 text-white" 
+                          : "bg-white text-black hover:bg-zinc-200"
+                      )}
+                      disabled={hasAcknowledged}
+                    >
+                      {hasAcknowledged ? "WAITING FOR OTHERS..." : "NEXT ROUND"}
+                    </Button>
+                    {/* Inline Overlay anchored directly below the Next Round button */}
+                    <GameOverlay
+                      overlays={overlays}
+                      onDismiss={removeOverlay}
+                      inline={true}
+                    />
+                  </div>
                   <div className="flex justify-center gap-2">
                     {mpHumanPlayers.map(p => (
                       <div 
@@ -6182,16 +6204,18 @@ export default function Game() {
                 </div>
               );
             })() : (
-              <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
-                NEXT ROUND
-              </Button>
+              <div className="relative">
+                <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
+                  NEXT ROUND
+                </Button>
+                {/* Inline Overlay anchored directly below the Next Round button */}
+                <GameOverlay
+                  overlays={overlays}
+                  onDismiss={removeOverlay}
+                  inline={true}
+                />
+              </div>
             )}
-            {/* Inline Overlay for Round End Phase */}
-             <GameOverlay 
-               overlays={overlays}
-               onDismiss={removeOverlay}
-               inline={true}
-             />
           </motion.div>
         );
 
