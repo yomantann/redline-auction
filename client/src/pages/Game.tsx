@@ -666,6 +666,7 @@ export default function Game() {
           'comeback_hope', 'smug_confidence', 'zero_bid',
           'precision_strike', 'overkill', 'clutch_play', 'late_panic', 'mirror_match',
           'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes', 'hidden_redemption',
+          'hidden_nail_in_the_coffin',
       ];
         if (soundEnabled && MOMENT_FLAG_TYPES.includes(type) && type !== 'hidden_patch_notes') {
           const now = Date.now();
@@ -1033,6 +1034,7 @@ export default function Game() {
       eliminationPopupShownRef.current = false; // Reset elimination popup tracking for new games
       lastRoundEndProcessedRef.current = 0; // Reset round processing for new games
       redemptionShownCountRef.current = 0; // Reset redemption counter for new games
+      nailInCoffinShownCountRef.current = 0; // Reset nail in coffin counter for new games
       // Don't set phase here - let the server game_state dictate the phase
       // The server starts in 'waiting_for_ready' phase
     };
@@ -1174,6 +1176,13 @@ export default function Game() {
     socket.on('protocol_reveal', handleProtocolReveal);
     socket.on('bonus_trophy_award', handleBonusTrophyAward);
 
+    const handleKicked = (data: { reason: string }) => {
+      setCurrentLobby(null);
+      setPhase('intro');
+      toast({ title: "Kicked", description: data.reason || "You were kicked from the lobby.", variant: "destructive", duration: 4000 });
+    };
+    socket.on('kicked', handleKicked);
+
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
       socket.off('game_started', handleGameStarted);
@@ -1182,6 +1191,7 @@ export default function Game() {
       socket.off('protocol_detail', handleProtocolDetail);
       socket.off('protocol_reveal', handleProtocolReveal);
       socket.off('bonus_trophy_award', handleBonusTrophyAward);
+      socket.off('kicked', handleKicked);
     };
   }, [socket]);
 
@@ -1245,6 +1255,7 @@ export default function Game() {
   const dejaBidShownRef = useRef<boolean>(false); // DEJA BID only fires once per game session
   const p1PrevRoundStartTokensRef = useRef<number | null>(null); // SP: track p1 tokens at start of previous round
   const redemptionShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_REDEMPTION has been shown
+  const nailInCoffinShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_NAIL_IN_THE_COFFIN has been shown
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -1498,6 +1509,17 @@ export default function Game() {
       if (redemptionCount > redemptionShownCountRef.current) {
         redemptionShownCountRef.current = redemptionCount;
         setTimeout(() => addOverlay('hidden_redemption', 'REDEMPTION', 'Won after a trophy was taken in a previous round.', 0), 1500);
+        momentCount++;
+      }
+    }
+
+    // HIDDEN_NAIL_IN_THE_COFFIN: current player's ability eliminated an opponent (server tracked)
+    const currentPlayerMpObj = players.find(p => p.socketId === socket?.id);
+    if (currentPlayerMpObj) {
+      const nailCount = (currentPlayerMpObj as any).momentFlagsEarned?.filter((f: string) => f === 'HIDDEN_NAIL_IN_THE_COFFIN').length || 0;
+      if (nailCount > nailInCoffinShownCountRef.current) {
+        nailInCoffinShownCountRef.current = nailCount;
+        setTimeout(() => addOverlay('hidden_nail_in_the_coffin', 'NAIL IN THE COFFIN', 'Your ability eliminated an opponent!', 0), 1800);
         momentCount++;
       }
     }
@@ -2542,7 +2564,7 @@ export default function Game() {
       ? players.find(p => p.name === 'Roll Safe' || p.name === 'The Consultant' || (p.isBot && [...CHARACTERS].find(c => c.name === p.name)?.id === 'roll_safe') || (!p.isBot && selectedCharacter?.id === 'roll_safe'))?.id
       : undefined;
 
-    const disruptEffects: { targetId: string, amount: number, source: string, ability: string }[] = [];
+    const disruptEffects: { targetId: string, amount: number, source: string, sourceId: string, ability: string }[] = [];
     let playersOut: string[] = [];
     
     if (abilitiesEnabled) {
@@ -2584,12 +2606,12 @@ export default function Game() {
                      const validTargets = players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId);
                      if (validTargets.length > 0) {
                          const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-                         disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: ab.name });
+                         disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, sourceId: sourcePlayer.id, ability: ab.name });
                      }
                  } else if (ab.name === 'BURN IT') {
                      // Hit EVERYONE (except Roll Safe)
                      players.filter(pl => pl.id !== sourcePlayer.id && !pl.isEliminated && pl.id !== rollSafeId).forEach(target => {
-                         disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, ability: ab.name });
+                         disruptEffects.push({ targetId: target.id, amount: 1.0, source: sourcePlayer.name, sourceId: sourcePlayer.id, ability: ab.name });
                      });
                  }
                  // EXECUTIVE P (AXE SWING) is handled LATER after calculation
@@ -2734,7 +2756,7 @@ export default function Game() {
                         }
                         
                         // Add to disruptEffects for animation later
-                        disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, ability: 'AXE SWING' });
+                        disruptEffects.push({ targetId: target.id, amount: 2.0, source: sourcePlayer.name, sourceId: sourcePlayer.id, ability: 'AXE SWING' });
                     }
                  }
             }
@@ -3711,6 +3733,34 @@ export default function Game() {
       addOverlay('hidden_redemption', 'REDEMPTION', 'Won after a trophy was taken in a previous round.', 0);
       momentCount++;
       roundMomentFlags.push('HIDDEN_REDEMPTION');
+    }
+
+    // HIDDEN_NAIL_IN_THE_COFFIN: p1's DISRUPT ability eliminated an opponent this round
+    if (!isMultiplayer && abilitiesEnabled) {
+      const p1WasEliminated = players.find(p => p.id === 'p1')?.isEliminated || false;
+      if (!p1WasEliminated) {
+        // Check standard disrupt effects from p1
+        const p1DisruptTargets = disruptEffects.filter(d => d.sourceId === 'p1').map(d => d.targetId);
+        const newlyEliminatedByDisrupt = finalPlayers.filter(fp => {
+          const wasEliminated = players.find(p => p.id === fp.id)?.isEliminated || false;
+          return !wasEliminated && fp.isEliminated && p1DisruptTargets.includes(fp.id);
+        });
+        // Check Cheese Tax: p1 used cheese tax and the winner was eliminated by it
+        const p1IsCheeseTax = selectedCharacter?.id === 'the_rind';
+        const cheeseTaxEliminated = winnerId && p1IsCheeseTax
+          ? finalPlayers.filter(fp => {
+              const wasEliminated = players.find(p => p.id === fp.id)?.isEliminated || false;
+              return fp.id === winnerId && !wasEliminated && fp.isEliminated;
+            })
+          : [];
+        const nailVictims = [...newlyEliminatedByDisrupt, ...cheeseTaxEliminated];
+        if (nailVictims.length > 0) {
+          const victimNames = nailVictims.map(p => p.name).join(' & ');
+          setTimeout(() => addOverlay('hidden_nail_in_the_coffin', 'NAIL IN THE COFFIN', `Your ability eliminated ${victimNames}!`, 0), 1800);
+          momentCount++;
+          roundMomentFlags.push('HIDDEN_NAIL_IN_THE_COFFIN');
+        }
+      }
     }
 
     // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s.
@@ -5106,13 +5156,31 @@ export default function Game() {
                           )}
                         </div>
                       </div>
-                      <div className={cn(
-                        "px-2 py-1 rounded text-xs font-medium",
-                        player.isReady 
-                          ? "bg-green-500/20 text-green-400" 
-                          : "bg-zinc-800 text-zinc-500"
-                      )}>
-                        {player.isReady ? "Ready" : "Not Ready"}
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "px-2 py-1 rounded text-xs font-medium",
+                          player.isReady 
+                            ? "bg-green-500/20 text-green-400" 
+                            : "bg-zinc-800 text-zinc-500"
+                        )}>
+                          {player.isReady ? "Ready" : "Not Ready"}
+                        </div>
+                        {isHost && player.socketId !== socket?.id && (
+                          <button
+                            onClick={() => {
+                              if (!socket || !currentLobby) return;
+                              socket.emit('kick_player', { playerId: player.id }, (response: { success: boolean; error?: string }) => {
+                                if (!response.success) {
+                                  toast({ title: "Error", description: response.error || "Failed to kick player", variant: "destructive" });
+                                }
+                              });
+                            }}
+                            className="px-2 py-1 rounded text-xs font-medium bg-red-900/30 text-red-400 hover:bg-red-900/60 transition-colors"
+                            title={`Kick ${player.name}`}
+                          >
+                            Kick
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -6053,7 +6121,7 @@ export default function Game() {
         const topThree = sortedPlayers.slice(0, 3);
 
         // Determine if Prom King won in Social mode (for special game over text)
-        const isPromKingWin = variant === 'SOCIAL_OVERDRIVE' && (
+        const isPromKingWin = variant === 'SOCIAL_OVERDRIVE' && abilitiesEnabled && (
           winner?.selectedDriver === 'prom_king' ||
           (!isMultiplayer && selectedCharacter?.id === 'prom_king' && winner?.id === 'p1')
         );

@@ -368,6 +368,59 @@ export async function registerRoutes(
       if (callback) callback({ success: true });
     });
 
+    // KICK PLAYER (host only)
+    socket.on("kick_player", (data: { playerId: string }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+
+      const lobby = lobbies.get(lobbyCode);
+      if (!lobby) {
+        if (callback) callback({ success: false, error: "Lobby not found" });
+        return;
+      }
+
+      if (lobby.hostSocketId !== socket.id) {
+        if (callback) callback({ success: false, error: "Only host can kick players" });
+        return;
+      }
+
+      if (lobby.status === 'in_game') {
+        if (callback) callback({ success: false, error: "Cannot kick players during a game" });
+        return;
+      }
+
+      const targetPlayer = lobby.players.find(p => p.id === data.playerId);
+      if (!targetPlayer) {
+        if (callback) callback({ success: false, error: "Player not found" });
+        return;
+      }
+
+      if (targetPlayer.socketId === socket.id) {
+        if (callback) callback({ success: false, error: "Cannot kick yourself" });
+        return;
+      }
+
+      // Notify the kicked player before removing them
+      if (targetPlayer.socketId) {
+        io.to(targetPlayer.socketId).emit('kicked', { reason: 'You were kicked by the host.' });
+      }
+
+      // Remove the kicked player from the lobby
+      lobby.players = lobby.players.filter(p => p.id !== data.playerId);
+      if (targetPlayer.socketId) {
+        playerToLobby.delete(targetPlayer.socketId);
+        io.sockets.sockets.get(targetPlayer.socketId)?.leave(lobbyCode);
+      }
+
+      log(`Player ${targetPlayer.name} was kicked from lobby ${lobbyCode} by host`, "lobby");
+      broadcastLobbyUpdate(lobbyCode);
+
+      if (callback) callback({ success: true });
+    });
+
     // UPDATE LOBBY SETTINGS (host only)
     socket.on("update_lobby_settings", (data: { settings: Partial<GameSettings> }, callback?) => {
       const lobbyCode = playerToLobby.get(socket.id);

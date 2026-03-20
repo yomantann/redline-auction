@@ -26,6 +26,7 @@ export type OverlayType =
   | "hidden_deja_bid"
   | "hidden_patch_notes"
   | "hidden_redemption"
+  | "hidden_nail_in_the_coffin"
   | "mirror_match"
   | "social_event" 
   | "bio_event"    
@@ -75,6 +76,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "hidden_deja_bid": return <BadgeCheck size={48} className="text-sky-300" />;
       case "hidden_patch_notes": return <AlertTriangle size={48} className="text-amber-200" />;
       case "hidden_redemption": return <Star size={48} className="text-pink-400" />;
+      case "hidden_nail_in_the_coffin": return <Skull size={48} className="text-rose-300" />;
       
       case "mirror_match": return <Scale size={48} className="text-violet-400" />;
       
@@ -117,6 +119,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "hidden_deja_bid":
       case "hidden_patch_notes":
       case "hidden_redemption":
+      case "hidden_nail_in_the_coffin":
         return "text-pink-400 border-pink-500/50 bg-black/95 shadow-[0_0_30px_rgba(236,72,153,0.3)]";
 
       case "mirror_match": return "text-violet-400 border-violet-500/20 bg-black/80";
