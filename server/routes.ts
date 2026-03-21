@@ -18,6 +18,7 @@ import {
   setEmitToPlayerCallback,
   selectDriverInGame,
   confirmDriverInGame,
+  broadcastGameState,
   type GameDuration
 } from "./gameEngine";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
@@ -684,6 +685,9 @@ export async function registerRoutes(
         player.possessionTargetId = data.targetId;
         player.possessionRoundsLeft = 3;
         player.ghostAbilityUsed = true;
+      } else if (data.ability === 'purgatory') {
+        player.possessionRoundsLeft = 2;
+        player.ghostAbilityUsed = true;
       } else if (data.ability === 'vendetta_win') {
         player.isGhost = false;
         player.remainingTime = 30;
@@ -698,8 +702,8 @@ export async function registerRoutes(
         if (target && player.tokens >= data.offerAmount) {
           player.tokens -= data.offerAmount;
           target.tokens += data.offerAmount;
-          player.remainingTime += data.offerAmount * 20;
-          target.remainingTime = Math.max(0, target.remainingTime - data.offerAmount * 20);
+          player.remainingTime += data.offerAmount * 40;
+          target.remainingTime = Math.max(0, target.remainingTime - data.offerAmount * 40);
         }
         player.ghostAbilityUsed = true;
       } else if (data.ability === 'curse') {
@@ -716,6 +720,8 @@ export async function registerRoutes(
         player.ghostAbilityUsed = true;
       }
 
+      // Broadcast updated state to all players
+      broadcastGameState(lobbyCode);
       if (callback) callback?.({ success: true });
     });
 
