@@ -174,6 +174,7 @@ export interface GameSettings {
   abilitiesEnabled: boolean;
   variant: GameVariant;
   gameDuration: GameDuration;
+  allowedProtocols?: ProtocolType[];
 }
 
 export interface GameState {
@@ -473,6 +474,7 @@ export function createGame(
     abilitiesEnabled: lobbySettings?.abilitiesEnabled || false,
     variant: lobbySettings?.variant || 'STANDARD',
     gameDuration: mappedDuration,
+    allowedProtocols: lobbySettings?.allowedProtocols,
   };
   
   const gameState: GameState = {
@@ -772,7 +774,7 @@ function startOverclock(lobbyCode: string) {
       return;
     }
     const elapsed = (Date.now() - startTime) / 1000;
-    if (elapsed >= 10) {
+    if (elapsed >= 15) {
       clearInterval(interval);
       endRound(lobbyCode);
       return;
@@ -981,10 +983,15 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
     // CALIBRATION: Override hold time to aim for the calibration target
     if (game.activeProtocol === 'CALIBRATION' && game.calibrationTargetSeconds !== null) {
       const target = game.calibrationTargetSeconds;
+      // Bots bid within 0.2–7.0 seconds of the target (random offset in either direction)
       // Hold time = target - minBid (since currentBid = elapsed + minBid)
+      const offsetMagnitude = 0.2 + Math.random() * 6.8; // 0.2 to 7.0
+      const offsetSign = Math.random() < 0.5 ? -1 : 1;
       const baseHold = Math.max(0.5, target - minBidTime);
-      holdTime = baseHold + (Math.random() * 4 - 2); // ±2s variance
-      holdTime = Math.max(0.5, holdTime);
+      holdTime = baseHold + offsetSign * offsetMagnitude;
+      // Avoid elimination: cap hold time so currentBid (holdTime + minBidTime) won't exceed remainingTime
+      const safeMaxHold = Math.max(0.5, p.remainingTime - minBidTime - 0.5);
+      holdTime = Math.min(safeMaxHold, Math.max(0.5, holdTime));
     }
 
     const driverAdj = getDriverBidAdjustment(p.selectedDriver, holdTime, game, p);
@@ -1710,11 +1717,13 @@ function endRound(lobbyCode: string) {
     const winnerPlayer = game.players.find(p => p.id === winnerId);
     if (winnerPlayer) {
       const winnerBid = winnerPlayer.currentBid || 0;
+      const isCalibration = game.activeProtocol === 'CALIBRATION' && game.calibrationTargetSeconds !== null;
       const sortedByBid = [...participants]
         .filter(p => p.currentBid !== null)
         .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
       const secondBid = sortedByBid.length > 1 ? sortedByBid[1].currentBid || 0 : 0;
-      const margin = winnerBid - secondBid;
+      // For CALIBRATION: use absolute bid difference so margin is always non-negative
+      const margin = isCalibration ? Math.abs(winnerBid - secondBid) : winnerBid - secondBid;
       
       if (game.round === 1) {
         winnerPlayer.momentFlagsEarned.push('SMUG_CONFIDENCE');
@@ -2174,7 +2183,7 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       emitToLobby(game.lobbyCode, 'protocol_detail', {
         protocol: 'OVERCLOCK',
         msg: 'OVERCLOCK',
-        sub: 'After prepare to bid: click the button as many times as you can in 10 seconds! Most clicks wins — least clicks loses 10s.',
+        sub: 'After prepare to bid: click the button as many times as you can in 15 seconds! Most clicks wins — least clicks loses 10s.',
         targetPlayerId: null,
       });
       break;
@@ -2304,6 +2313,12 @@ function selectProtocolForRound(game: GameState): ProtocolType {
     case 'BIO_FUEL':
       protocolPool = [...protocolPool, ...BIO_PROTOCOLS];
       break;
+  }
+  
+  // Filter by allowedProtocols if configured (per-protocol toggle buttons)
+  if (game.settings.allowedProtocols && game.settings.allowedProtocols.length > 0) {
+    protocolPool = protocolPool.filter(p => game.settings.allowedProtocols!.includes(p));
+    if (protocolPool.length === 0) return null;
   }
   
   // Filter out recently used protocols (avoid repetition)

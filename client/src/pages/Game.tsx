@@ -1589,7 +1589,7 @@ export default function Game() {
         case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone Take a Sip!"; break;
         case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser Finishes Drink!"; break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water Only This Round!"; break;
-        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as fast as you can for 10 seconds! Most clicks wins, least loses 10s."; break;
+        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as fast as you can for 15 seconds! Most clicks wins, least loses 10s."; break;
         case 'CALIBRATION': {
           const calSecs = multiplayerGameState?.calibrationTargetSeconds;
           msg = "CALIBRATION"; sub = calSecs ? `Hold as close to ${calSecs}s as possible! Closest bid wins.` : "Hold as close to target as possible! Closest bid wins.";
@@ -1715,9 +1715,9 @@ export default function Game() {
       overclockCountsRef.current = initialCounts;
       setOverclockClickCounts(initialCounts);
       setOverclockActive(true);
-      setOverclockTimeLeft(10);
+      setOverclockTimeLeft(15);
 
-      // 10-second countdown timer
+      // 15-second countdown timer
       const interval = setInterval(() => {
         setOverclockTimeLeft(prev => {
           if (prev <= 1) {
@@ -2032,8 +2032,13 @@ export default function Game() {
           // CALIBRATION: Override bid to aim for calibration target time
           if (activeProtocol === 'CALIBRATION' && calibrationTarget !== null) {
             const baseHold = Math.max(0.5, calibrationTarget - minBidTime);
-            bid = baseHold + (Math.random() * 4 - 2); // ±2s variance
-            bid = Math.max(0.5, bid);
+            // Bots bid within 0.2–7.0 seconds of the target (random offset in either direction)
+            const offsetMagnitude = 0.2 + Math.random() * 6.8; // 0.2 to 7.0
+            const offsetSign = Math.random() < 0.5 ? -1 : 1;
+            bid = baseHold + offsetSign * offsetMagnitude;
+            // Avoid elimination: cap hold time so currentBid won't exceed remainingTime
+            const safeMaxHold = Math.max(0.5, p.remainingTime - minBidTime - 0.5);
+            bid = Math.min(safeMaxHold, Math.max(0.5, bid));
           }
 
           const driverId = getBotDriverId(p);
@@ -2477,7 +2482,7 @@ export default function Game() {
             msg = "LINKED SYSTEMS"; sub = `${b1} & ${b2} are drinking buddies this round!`; 
             break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water only this round!"; break;
-        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as many times as you can in 10 seconds! Most clicks wins — least loses 10s."; break;
+        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as many times as you can in 15 seconds! Most clicks wins — least loses 10s."; break;
         case 'CALIBRATION': {
           msg = "CALIBRATION"; sub = `Hold as close to ${newCalibrationTarget}s as possible! Closest bid wins.`; break;
         }
@@ -2640,7 +2645,7 @@ export default function Game() {
     // Award token to winner
     setPlayers(prev => prev.map(p => {
       if (p.id === topWinner.id) {
-        return { ...p, tokens: p.tokens + 1 };
+        return { ...p, tokens: p.tokens + 1, protocolWins: [...(p.protocolWins || []), 'OVERCLOCK'] };
       }
       return p;
     }));
@@ -3556,7 +3561,9 @@ export default function Game() {
        const secondPlayer = validParticipants.length > 1 ? validParticipants[1] : null;
        const winnerBid = winnerPlayer.currentBid || 0;
        const secondBid = secondPlayer?.currentBid || 0;
-       const margin = winnerBid - secondBid;
+       // For CALIBRATION: use absolute bid difference so margin is always non-negative
+       const isCalibration = activeProtocol === 'CALIBRATION' && calibrationTarget !== null;
+       const margin = isCalibration ? Math.abs(winnerBid - secondBid) : winnerBid - secondBid;
 
        // 1. Smug Confidence (Round 1 Win)
        if (round === 1 && winnerId === 'p1') {
@@ -3573,7 +3580,7 @@ export default function Game() {
        }
        
        // 3. Genius Move (Margin <= 5s)
-       if (secondPlayer && margin <= 5 && winnerId === 'p1') {
+       if (secondPlayer && margin <= 5 && margin > 0 && winnerId === 'p1') {
          setTimeout(() => addOverlay("genius_move", "GENIUS MOVE", `Won by just ${margin.toFixed(1)}s`), 500);
          momentCount++;
          roundMomentFlags.push('GENIUS_MOVE');
@@ -4441,7 +4448,8 @@ export default function Game() {
       bonusTrophiesEnabled,
       abilitiesEnabled,
       variant,
-      gameDuration: serverDuration
+      gameDuration: serverDuration,
+      allowedProtocols
     };
     
     socket.emit("create_lobby", { playerName, settings, isPublic: isPublicLobby }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
@@ -4552,7 +4560,7 @@ export default function Game() {
     const serverDuration = gameDuration === 'short' ? 'sprint' : gameDuration;
     
     // Build settings string to detect actual changes
-    const settingsKey = JSON.stringify({ difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
+    const settingsKey = JSON.stringify({ difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration: serverDuration, allowedProtocols });
     if (settingsKey === prevSettingsRef.current) return;
     prevSettingsRef.current = settingsKey;
     
@@ -4563,11 +4571,12 @@ export default function Game() {
         bonusTrophiesEnabled,
         abilitiesEnabled,
         variant,
-        gameDuration: serverDuration
+        gameDuration: serverDuration,
+        allowedProtocols
       }
     });
     console.log('[Lobby] Settings updated:', { difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
-  }, [socket, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration]);
+  }, [socket, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration, allowedProtocols]);
 
   const handleStartMultiplayerGame = useCallback(() => {
     if (!socket) return;
@@ -4714,7 +4723,7 @@ export default function Game() {
             <h2 className="text-2xl font-display text-yellow-400 tracking-widest">⚡ OVERCLOCK</h2>
             <p className="text-zinc-400 text-sm mt-1">Click the button as many times as you can!</p>
             <div className="mt-2 text-4xl font-mono text-white font-bold">
-              {isMultiplayer ? '10s' : `${timeDisplay}s`}
+              {isMultiplayer ? '15s' : `${timeDisplay}s`}
             </div>
           </div>
           <div className="text-center">
