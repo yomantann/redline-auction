@@ -2397,7 +2397,7 @@ export default function Game() {
       // CALIBRATION: Set the target time immediately when protocol is selected
       let newCalibrationTarget: number | null = null;
       if (newProtocol === 'CALIBRATION') {
-        newCalibrationTarget = Math.floor(Math.random() * 30) + 11; // 11-40s
+        newCalibrationTarget = Math.floor(Math.random() * 26) + 15; // 15-40s
         setCalibrationTarget(newCalibrationTarget);
       } else {
         setCalibrationTarget(null);
@@ -4786,13 +4786,13 @@ export default function Game() {
                             {[
                               {
                                 id: 'standard_hud',
-                                title: 'HUD & SIGNAL',
-                                subtitle: 'Visibility, noise, scramble',
+                                title: 'HUD & MECHANICS',
+                                subtitle: 'Visibility & Interaction ',
                                 items: [
                                   { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
                                   { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD glitches & scramble' },
                                   { id: 'OVERCLOCK', label: 'OVERCLOCK', desc: 'Click race: most clicks wins, least loses 10s' },
-                                  { id: 'CALIBRATION', label: 'CALIBRATION', desc: 'Hold closest to a random target time (11-40s) to win' },
+                                  { id: 'CALIBRATION', label: 'CALIBRATION', desc: 'Hold closest to a random target time to win' },
                                 ]
                               },
                               {
@@ -7177,13 +7177,13 @@ export default function Game() {
                 {[ 
                   {
                     id: 'db_standard_hud',
-                    title: 'HUD & SIGNAL',
-                    subtitle: 'Visibility, noise, scramble',
+                    title: 'HUD & MECHANICS',
+                    subtitle: 'Visibility & Interaction',
                     items: [
                       { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
                       { name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual" },
-                      { name: "OVERCLOCK", desc: "After prepare to bid: click the button as many times as you can in 15 seconds. Most clicks wins the round token. Least clicks loses 10s. Bots click 15-50 times randomly.", type: "Interactive" },
-                      { name: "CALIBRATION", desc: "A random target hold time (11-40s) is assigned. Players hold as close to the target as possible. Closest bid wins the round — elimination still applies if you run out of time.", type: "Precision" },
+                      { name: "OVERCLOCK", desc: "After prepare to bid: click the button as many times as you can in 10 seconds. Most clicks wins the round token. Least clicks loses 10s.", type: "Interactive" },
+                      { name: "CALIBRATION", desc: "A random target hold time (15-40s) is assigned. Players hold as close to the target as possible.", type: "Precision" },
                     ]
                   },
                   {
