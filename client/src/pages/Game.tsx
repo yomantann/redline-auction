@@ -1589,7 +1589,7 @@ export default function Game() {
         case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone Take a Sip!"; break;
         case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser Finishes Drink!"; break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water Only This Round!"; break;
-        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as fast as you can for 15 seconds! Most clicks wins, least loses 10s."; break;
+        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as fast as you can for 15 seconds! Most clicks wins, least loses 35s."; break;
         case 'CALIBRATION': {
           const calSecs = multiplayerGameState?.calibrationTargetSeconds;
           msg = "CALIBRATION"; sub = calSecs ? `Hold as close to ${calSecs}s as possible! Closest bid wins.` : "Hold as close to target as possible! Closest bid wins.";
@@ -2029,7 +2029,13 @@ export default function Game() {
             bid = bid * 0.85;
           }
 
-          // CALIBRATION: Override bid to aim for calibration target time
+          const driverId = getBotDriverId(p);
+          bid = getDriverBidAdjust(driverId, bid, p);
+
+          bid += Math.random() * 0.8;
+          bid = clamp(bid);
+
+          // CALIBRATION: Override bid last so bot always stays within ±7s of target
           if (activeProtocol === 'CALIBRATION' && calibrationTarget !== null) {
             const baseHold = Math.max(0.5, calibrationTarget - minBidTime);
             // Bots bid within 0.2–7.0 seconds of the target (random offset in either direction)
@@ -2041,11 +2047,6 @@ export default function Game() {
             bid = Math.min(safeMaxHold, Math.max(0.5, bid));
           }
 
-          const driverId = getBotDriverId(p);
-          bid = getDriverBidAdjust(driverId, bid, p);
-
-          bid += Math.random() * 0.8;
-          bid = clamp(bid);
           newBotBids[p.id] = parseFloat(bid.toFixed(1));
         }
       });
@@ -2482,7 +2483,7 @@ export default function Game() {
             msg = "LINKED SYSTEMS"; sub = `${b1} & ${b2} are drinking buddies this round!`; 
             break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water only this round!"; break;
-        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as many times as you can in 15 seconds! Most clicks wins — least loses 10s."; break;
+        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as many times as you can in 15 seconds! Most clicks wins — least loses 35s."; break;
         case 'CALIBRATION': {
           msg = "CALIBRATION"; sub = `Hold as close to ${newCalibrationTarget}s as possible! Closest bid wins.`; break;
         }
@@ -2650,7 +2651,7 @@ export default function Game() {
       return p;
     }));
 
-    // Loser: least clicks → -10s (only if different from winner)
+    // Loser: least clicks → -35s (only if different from winner)
     let loserName: string | null = null;
     if (minClicks < maxClicks) {
       const bottomClickers = activePlayers.filter(p => (counts[p.id] || 0) === minClicks);
@@ -2658,7 +2659,7 @@ export default function Game() {
       loserName = loser.name;
       setPlayers(prev => prev.map(p => {
         if (p.id === loser.id) {
-          const newTime = Math.max(0, p.remainingTime - 10);
+          const newTime = Math.max(0, p.remainingTime - 35);
           const isElim = newTime <= 0;
           return { ...p, remainingTime: newTime, isEliminated: isElim || p.isEliminated };
         }
@@ -2668,8 +2669,95 @@ export default function Game() {
 
     // Show results overlay
     addOverlay("protocol_alert", "OVERCLOCK RESULTS",
-      `${winnerName} clicked the most (${maxClicks})!${loserName ? ` ${loserName} had fewest — loses 10s.` : ''}`
+      `${winnerName} clicked the most (${maxClicks})!${loserName ? ` ${loserName} had fewest — loses 35s.` : ''}`
     );
+
+    // Process abilities for OVERCLOCK round (ALWAYS, WIN, and LOSE triggers)
+    if (abilitiesEnabled) {
+      setPlayers(prev => {
+        // Find roll_safe player (immune to all abilities)
+        const rollSafeId = prev.find(p => {
+          const char = p.isBot
+            ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
+            : selectedCharacter;
+          return char?.id === 'roll_safe';
+        })?.id;
+
+        // Collect DISRUPT effects (MANAGER CALL, BURN IT, AXE SWING)
+        const disruptEffects: { targetId: string; amount: number }[] = [];
+        prev.forEach(p => {
+          if (p.isEliminated) return;
+          const char = p.isBot
+            ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
+            : selectedCharacter;
+          const ab = char?.ability;
+          if (!ab) return;
+          if (ab.name === 'MANAGER CALL') {
+            const validTargets = prev.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId);
+            if (validTargets.length > 0) {
+              const target = validTargets[Math.floor(Math.random() * validTargets.length)];
+              disruptEffects.push({ targetId: target.id, amount: 2.0 });
+            }
+          } else if (ab.name === 'BURN IT') {
+            prev.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId)
+              .forEach(target => disruptEffects.push({ targetId: target.id, amount: 1.0 }));
+          } else if (ab.name === 'AXE SWING') {
+            const eligible = prev.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId);
+            if (eligible.length > 0) {
+              const richest = eligible.reduce((a, b) => a.remainingTime > b.remainingTime ? a : b);
+              disruptEffects.push({ targetId: richest.id, amount: 2.0 });
+            }
+          }
+        });
+
+        // Count cheese tax sources targeting the winner
+        const cheeseTaxCount = prev.filter(p => {
+          if (p.isEliminated || p.id === topWinner.id || topWinner.id === rollSafeId) return false;
+          const char = p.isBot
+            ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
+            : selectedCharacter;
+          return char?.ability?.name === 'CHEESE TAX';
+        }).length;
+
+        // Apply all ability effects
+        return prev.map(p => {
+          if (p.isEliminated) return p;
+          const char = p.isBot
+            ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
+            : selectedCharacter;
+          const ab = char?.ability;
+          const isClickWinner = p.id === topWinner.id;
+
+          let newTime = p.remainingTime;
+
+          // ALWAYS TIME_REFUND abilities
+          if (ab?.effect === 'TIME_REFUND') {
+            if (ab.name === 'CYRO FREEZE') newTime += 1.0;
+            if (ab.name === 'PANIC MASH') newTime += Math.random() > 0.5 ? 3.0 : -3.0;
+          }
+          // WIN TIME_REFUND: Spirit Shield (+11s for click winner on round 1)
+          if (isClickWinner && ab?.name === 'SPIRIT SHIELD' && round === 1) newTime += 11.0;
+
+          // LOSE DISRUPT: Cheese Tax (non-winner steals 2s from click winner)
+          if (!isClickWinner && ab?.name === 'CHEESE TAX' && topWinner.id !== rollSafeId) newTime += 2.0;
+
+          // Apply incoming DISRUPT effects (if not Roll Safe immune)
+          if (p.id !== rollSafeId) {
+            disruptEffects.filter(d => d.targetId === p.id).forEach(d => { newTime -= d.amount; });
+          }
+
+          // Apply Cheese Tax damage received by the winner
+          if (isClickWinner) newTime -= cheeseTaxCount * 2.0;
+
+          const isElim = newTime <= 0 || p.isEliminated;
+          return { ...p, remainingTime: Math.max(0, newTime), isEliminated: isElim };
+        });
+      });
+    }
 
     setRoundWinner({ name: topWinner.name, time: maxClicks });
 
@@ -4791,7 +4879,7 @@ export default function Game() {
                                 items: [
                                   { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
                                   { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD glitches & scramble' },
-                                  { id: 'OVERCLOCK', label: 'OVERCLOCK', desc: 'Click race: most clicks wins, least loses 10s' },
+                                  { id: 'OVERCLOCK', label: 'OVERCLOCK', desc: 'Click race: most clicks wins, least loses 35s' },
                                   { id: 'CALIBRATION', label: 'CALIBRATION', desc: 'Hold closest to a random target time to win' },
                                 ]
                               },
@@ -7182,7 +7270,7 @@ export default function Game() {
                     items: [
                       { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
                       { name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual" },
-                      { name: "OVERCLOCK", desc: "After prepare to bid: click the button as many times as you can in 10 seconds. Most clicks wins the round token. Least clicks loses 10s.", type: "Interactive" },
+                      { name: "OVERCLOCK", desc: "After prepare to bid: click the button as many times as you can in 15 seconds. Most clicks wins the round token. Least clicks loses 35s.", type: "Interactive" },
                       { name: "CALIBRATION", desc: "A random target hold time (15-40s) is assigned. Players hold as close to the target as possible.", type: "Precision" },
                     ]
                   },
