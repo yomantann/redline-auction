@@ -137,9 +137,14 @@ export interface GamePlayer {
   tokens: number;
   remainingTime: number;
   isEliminated: boolean;
-  isGhost?: boolean;       // Haunted mode: true when player runs out of time (can come back to life)
-  selectedItem?: string;   // Haunted mode: name of selected haunted relic
-  ghostImage?: string;     // Haunted mode: assigned ghost image key (e.g. 'hnt_ghost_3')
+  isGhost?: boolean;              // Haunted mode: true when player runs out of time (can come back to life)
+  selectedItem?: string;          // Haunted mode: name of selected haunted relic
+  ghostImage?: string;            // Haunted mode: assigned ghost image key (e.g. 'hnt_ghost_3')
+  ghostAbility?: 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | null; // Ghost ability type
+  ghostAbilityUsed?: boolean;     // Has this ghost's ability already been used?
+  possessionTargetId?: string;    // POSSESSION: which player is being tracked
+  possessionRoundsLeft?: number;  // POSSESSION: rounds remaining before auto-revive
+  ghostCurseActive?: boolean;     // CURSE: true = tripled driver abilities globally (stored on game state as well)
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -201,6 +206,7 @@ export interface GameState {
   isMultiplayer: boolean;
   botTargetBids: Record<string, number>;
   firstEliminatedIds: string[];  // IDs of first player(s) eliminated in the game (Flash Crash criterion)
+  ghostCurseActive: boolean;     // Haunted CURSE ability: true = driver abilities tripled for alive players
 }
 
 // Active games storage
@@ -498,6 +504,7 @@ export function createGame(
     isMultiplayer: true,
     botTargetBids: {},
     firstEliminatedIds: [],
+    ghostCurseActive: false,
   };
   
   activeGames.set(lobbyCode, gameState);
@@ -1378,6 +1385,96 @@ function endRound(lobbyCode: string) {
       }
     }
   });
+
+  // HAUNTED: Assign ghostAbility to newly ghosted players (if not already set)
+  if (game.settings.variant === 'HAUNTED') {
+    const GHOST_ABILITY_SERVER_MAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | null> = {
+      1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: null, 7: null, 8: null,
+    };
+    game.players.forEach(p => {
+      if (p.isGhost && !p.ghostAbility && !p.ghostAbilityUsed) {
+        const idx = p.ghostImage ? parseInt(p.ghostImage.replace('hnt_ghost_', ''), 10) : Math.floor(Math.random() * 8) + 1;
+        p.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
+      }
+    });
+
+    // Process ghost abilities for BOT ghosts (human ghost abilities are handled client-side)
+    game.players.forEach(ghost => {
+      if (!ghost.isGhost || ghost.ghostAbilityUsed || !ghost.ghostAbility || !ghost.isBot) return;
+
+      const aliveTargets = game.players.filter(p => !p.isGhost && !p.isEliminated && p.id !== ghost.id);
+
+      if (ghost.ghostAbility === 'reaper' && aliveTargets.length > 0) {
+        const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+        const idx = Math.floor(Math.random() * 8) + 1;
+        const GMAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | null> = {
+          1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: null, 7: null, 8: null,
+        };
+        target.isGhost = true;
+        target.remainingTime = 0;
+        target.ghostImage = `hnt_ghost_${idx}`;
+        target.ghostAbility = GMAP[idx] ?? null;
+        ghost.ghostAbilityUsed = true;
+        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} REAPER: ${target.name} becomes a ghost!`, basic: true });
+
+      } else if (ghost.ghostAbility === 'curse') {
+        game.ghostCurseActive = true;
+        ghost.ghostAbilityUsed = true;
+        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} CURSE: All driver abilities tripled!`, basic: true });
+
+      } else if (ghost.ghostAbility === 'possession' && aliveTargets.length > 0) {
+        const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+        ghost.possessionTargetId = target.id;
+        ghost.possessionRoundsLeft = 3;
+        ghost.ghostAbilityUsed = true;
+        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} POSSESSION: latched onto ${target.name}`, basic: true });
+
+      } else if (ghost.ghostAbility === 'vendetta' && aliveTargets.length > 0) {
+        const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+        const ghostHold = 5 + Math.random() * 20;
+        const aliveHold = 5 + Math.random() * 20;
+        if (ghostHold > aliveHold) {
+          ghost.isGhost = false;
+          ghost.remainingTime = 30;
+          addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} VENDETTA: won! Revived with 30s`, basic: true });
+        } else {
+          target.remainingTime = Math.max(0, target.remainingTime * 0.75);
+          addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} VENDETTA: lost. ${target.name} -25% time`, basic: true });
+        }
+        ghost.ghostAbilityUsed = true;
+
+      } else if (ghost.ghostAbility === 'bargain' && aliveTargets.length > 0) {
+        const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+        const offer = Math.min(ghost.tokens, Math.max(1, Math.floor(Math.random() * 3) + 1));
+        if (offer > 0 && Math.random() > 0.4) {
+          const timeAmt = offer * 20;
+          ghost.tokens -= offer;
+          target.tokens += offer;
+          ghost.remainingTime += timeAmt;
+          addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} BARGAIN: traded ${offer} trophies for ${timeAmt}s`, basic: true });
+        }
+        ghost.ghostAbilityUsed = true;
+      }
+    });
+
+    // Check POSSESSION revive conditions
+    game.players.forEach(ghost => {
+      if (!ghost.isGhost || !ghost.possessionTargetId || ghost.possessionRoundsLeft === undefined) return;
+      const target = game.players.find(p => p.id === ghost.possessionTargetId);
+      const targetIsGhostNow = target?.isGhost;
+      const targetEliminated = target?.isEliminated;
+      const roundsExpired = ghost.possessionRoundsLeft <= 1;
+      if (targetIsGhostNow || targetEliminated || roundsExpired) {
+        ghost.isGhost = false;
+        ghost.remainingTime = 45;
+        ghost.possessionTargetId = undefined;
+        ghost.possessionRoundsLeft = undefined;
+        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} POSSESSION: revived with 45s!`, basic: true });
+      } else {
+        ghost.possessionRoundsLeft = (ghost.possessionRoundsLeft ?? 3) - 1;
+      }
+    });
+  }
 
   // HIDDEN_NAIL_IN_THE_COFFIN: award to player whose DISRUPT ability caused an opponent's elimination
   if (game.settings.abilitiesEnabled && abilityImpacts.length > 0) {
@@ -2704,6 +2801,10 @@ function broadcastGameState(lobbyCode: string) {
       isEliminated: p.isEliminated,
       isGhost: p.isGhost || false,
       ghostImage: p.ghostImage || null,
+      ghostAbility: p.ghostAbility || null,
+      ghostAbilityUsed: p.ghostAbilityUsed || false,
+      possessionTargetId: p.possessionTargetId || null,
+      possessionRoundsLeft: p.possessionRoundsLeft ?? null,
       selectedItem: p.selectedItem || null,
       currentBid: p.currentBid,
       isHolding: p.isHolding,
@@ -2723,6 +2824,7 @@ function broadcastGameState(lobbyCode: string) {
     allHumansHoldingStartTime: game.allHumansHoldingStartTime,
     gameDuration: game.gameDuration,
     minBid: minBid,
+    ghostCurseActive: game.ghostCurseActive,
   };
   
   emitToLobby(lobbyCode, 'game_state', stateForClients);

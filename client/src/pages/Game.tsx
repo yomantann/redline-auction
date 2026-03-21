@@ -161,6 +161,36 @@ import hntGhost8 from '../assets/generated_images/Haunted/hnt_ghost_8.png';
 // Pool of ghost images for random assignment on ghosting
 const GHOST_IMAGES = [hntGhost1, hntGhost2, hntGhost3, hntGhost4, hntGhost5, hntGhost6, hntGhost7, hntGhost8];
 
+// Ghost ability associated with each ghost image index (1-based)
+// Images 1-5 have unique abilities; 6-8 are neutral (no ability)
+type GhostAbilityType = 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | null;
+const GHOST_ABILITY_MAP: Record<number, GhostAbilityType> = {
+  1: 'reaper',    // hnt_ghost_1: immediately ghosts a random alive player
+  2: 'curse',     // hnt_ghost_2: triples all driver abilities for alive players
+  3: 'vendetta',  // hnt_ghost_3: click battle vs a random alive player; winner revived
+  4: 'bargain',   // hnt_ghost_4: offer trophies to an alive player for time
+  5: 'possession',// hnt_ghost_5: latch onto a player; revived when they're eliminated or 3 rounds pass
+  6: null,
+  7: null,
+  8: null,
+};
+
+const GHOST_ABILITY_NAMES: Record<NonNullable<GhostAbilityType>, string> = {
+  reaper:     '💀 REAPER',
+  curse:      '🔮 CURSE',
+  vendetta:   '⚔️ VENDETTA',
+  bargain:    '🤝 BARGAIN',
+  possession: '👁️ POSSESSION',
+};
+
+const GHOST_ABILITY_DESCS: Record<NonNullable<GhostAbilityType>, string> = {
+  reaper:     'Another alive player is immediately ghosted.',
+  curse:      'All driver abilities are tripled for alive players for the rest of the game.',
+  vendetta:   'Challenge a random alive player to a click battle. Winner revived, loser loses 25% time bank.',
+  bargain:    'Offer trophies to an alive player in exchange for their time bank.',
+  possession: 'Latch onto a player. You are revived when they are eliminated or survive 3 more rounds.',
+};
+
 // Map driver ID -> haunted image
 const HAUNTED_DRIVER_IMAGES: Record<string, string> = {
   guardian_h: hntGuardian,
@@ -197,7 +227,7 @@ const SHORT_INITIAL_TIME = 150.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -284,6 +314,10 @@ interface Player {
   // Haunted mode fields
   selectedItem?: string;          // Haunted mode: name of selected haunted item
   isGhost?: boolean;              // Haunted mode: true when player is converted to ghost on elimination
+  ghostAbility?: 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | null; // Which ghost ability this ghost has
+  ghostAbilityUsed?: boolean;     // Has this ghost's ability already been used?
+  possessionTargetId?: string;    // For POSSESSION: which player is being tracked
+  possessionRoundsLeft?: number;  // For POSSESSION: rounds remaining before auto-revive
 }
 
 interface Character {
@@ -678,6 +712,20 @@ export default function Game() {
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string, visibility?: string }[]>([]);
   
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<Player | null>(null);
+
+  // Ghost ability state (Haunted mode)
+  const [ghostCurseActive, setGhostCurseActive] = useState(false); // CURSE: triple driver ability values
+  const [vendettaGhostId, setVendettaGhostId] = useState<string | null>(null);    // VENDETTA: ghost participant
+  const [vendettaAliveId, setVendettaAliveId] = useState<string | null>(null);    // VENDETTA: alive participant
+  const [vendettaHoldStart, setVendettaHoldStart] = useState<number | null>(null);// VENDETTA: timestamp both started
+  const [vendettaP1Holding, setVendettaP1Holding] = useState(false);             // VENDETTA: is p1 holding
+  const [vendettaP1Released, setVendettaP1Released] = useState(false);           // VENDETTA: has p1 released
+  const [vendettaBotHoldTime, setVendettaBotHoldTime] = useState<number>(0);     // VENDETTA: bot's auto-bid time
+  const [bargainGhostId, setBargainGhostId] = useState<string | null>(null);     // BARGAIN: offering ghost
+  const [bargainTargetId, setBargainTargetId] = useState<string | null>(null);   // BARGAIN: target alive player
+  const [bargainOffer, setBargainOffer] = useState<number>(1);                   // BARGAIN: trophies offered
+  const [bargainTimeLeft, setBargainTimeLeft] = useState<number>(30);            // BARGAIN: seconds remaining
+  const [possessionGhostId, setPossessionGhostId] = useState<string | null>(null); // POSSESSION: picking ghost
 
   // Singleplayer snapshot recording - write-only to database
   const recordSingleplayerSnapshot = async (
@@ -1167,10 +1215,26 @@ export default function Game() {
           }
         }
         
+        // Sync ghost curse active from server
+        if ((state as any).ghostCurseActive !== undefined) {
+          setGhostCurseActive((state as any).ghostCurseActive);
+        }
+        
         if (state.phase === 'driver_selection') {
           setPhase('mp_driver_select');
         } else if (state.phase === 'waiting_for_ready') {
-          setPhase('ready');
+          // In Haunted mode, check if player's item was already selected; if not, go to item select
+          const myMpPlayer = socket ? state.players.find((p: any) => p.socketId === socket.id) : null;
+          if (variant === 'HAUNTED' && myMpPlayer && !(myMpPlayer as any).selectedItem) {
+            // Only show item select if we haven't done it yet
+            if (phase !== 'haunted_item_select' && phase !== 'ready') {
+              setPhase('ready'); // Just go to ready for now; item select was done after driver confirm
+            } else {
+              setPhase('ready');
+            }
+          } else {
+            setPhase('ready');
+          }
         } else if (state.phase === 'countdown') {
           setPhase('countdown');
           setCountdown(state.countdownRemaining);
@@ -1789,9 +1853,7 @@ export default function Game() {
                          if (!overLimitToastShownRef.current) {
                               overLimitToastShownRef.current = true;
                          }
-                         const ghostIcon = variant === 'HAUNTED'
-                           ? GHOST_IMAGES[Math.floor(Math.random() * GHOST_IMAGES.length)]
-                           : undefined;
+                         const ghostData = variant === 'HAUNTED' ? assignGhostImage() : null;
                          return { 
                              ...p, 
                              isHolding: false, 
@@ -1800,7 +1862,8 @@ export default function Game() {
                              // In Haunted mode: become ghost, NOT eliminated
                              isEliminated: variant === 'HAUNTED' ? p.isEliminated : true,
                              isGhost: variant === 'HAUNTED' ? true : p.isGhost,
-                             characterIcon: ghostIcon ?? p.characterIcon,
+                             ghostAbility: ghostData?.ghostAbility ?? p.ghostAbility,
+                             characterIcon: ghostData?.characterIcon ?? p.characterIcon,
                          };
                      }
                      return p;
@@ -2187,6 +2250,57 @@ export default function Game() {
     }
   }, [activeProtocol, selectedCharacter?.id]);
 
+  // Bargain countdown timer
+  useEffect(() => {
+    if (phase !== 'ghost_bargain') return;
+    if (bargainTimeLeft <= 0) {
+      // Time expired — auto-reject
+      addOverlay('protocol_alert', '🤝 BARGAIN EXPIRED', 'Time ran out — the deal is off.', 3000);
+      setBargainGhostId(null);
+      setBargainTargetId(null);
+      setPhase('round_end');
+      return;
+    }
+    const t = setTimeout(() => setBargainTimeLeft(prev => prev - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, bargainTimeLeft]);
+
+  // Vendetta: auto-resolve bot vs bot or when p1 is not a participant
+  useEffect(() => {
+    if (phase !== 'ghost_vendetta') return;
+    if (vendettaGhostId === 'p1' || vendettaAliveId === 'p1') return; // P1 is participant — wait for input
+    // Both are bots — auto-resolve
+    const timer = setTimeout(() => {
+      const ghostP = players.find(p => p.id === vendettaGhostId);
+      const aliveP = players.find(p => p.id === vendettaAliveId);
+      if (!ghostP || !aliveP) { setPhase('round_end'); return; }
+      const ghostHold = 5 + Math.random() * 20;
+      const aliveHold = 5 + Math.random() * 20;
+      const ghostWins = ghostHold > aliveHold;
+      setPlayers(prev => prev.map(p => {
+        if (ghostWins && p.id === vendettaGhostId) return { ...p, isGhost: false, remainingTime: 30, ghostAbilityUsed: true };
+        if (!ghostWins && p.id === vendettaAliveId) return { ...p, remainingTime: Math.max(0, p.remainingTime * 0.75) };
+        if (ghostWins && p.id === vendettaAliveId) return { ...p, remainingTime: Math.max(0, p.remainingTime * 0.75) };
+        return p;
+      }));
+      setVendettaGhostId(null);
+      setVendettaAliveId(null);
+      setPhase('round_end');
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [phase, vendettaGhostId, vendettaAliveId]);
+
+
+  // Helper: assign a ghost image + ability to a player being ghostified
+  const assignGhostImage = (existingGhostImage?: string): { ghostImage: string; ghostAbility: GhostAbilityType; characterIcon: string } => {
+    const idx = Math.floor(Math.random() * 8) + 1; // 1-8
+    const ability = GHOST_ABILITY_MAP[idx] ?? null;
+    return {
+      ghostImage: existingGhostImage ?? `hnt_ghost_${idx}`,
+      ghostAbility: ability,
+      characterIcon: GHOST_IMAGES[idx - 1],
+    };
+  };
 
   // User Interactions - Button Down
   const handlePress = () => {
@@ -2274,9 +2388,7 @@ export default function Game() {
             if (bidTime > p.remainingTime) {
                 // In Haunted mode: ghostify. In other modes: eliminate.
                 const newTime = 0; // Depleted to zero
-                const ghostIcon = variant === 'HAUNTED'
-                  ? GHOST_IMAGES[Math.floor(Math.random() * GHOST_IMAGES.length)]
-                  : undefined;
+                const ghostData = variant === 'HAUNTED' ? assignGhostImage() : null;
                 
                 // Add log
                 setRoundLog(prev => [`>> OVER-LIMIT: ${p.name} bet more than available! Time Depleted.`, ...prev]);
@@ -2294,7 +2406,8 @@ export default function Game() {
                     // In Haunted mode: become ghost, NOT eliminated
                     isEliminated: variant === 'HAUNTED' ? p.isEliminated : true,
                     isGhost: variant === 'HAUNTED' ? true : p.isGhost,
-                    characterIcon: ghostIcon ?? p.characterIcon,
+                    ghostAbility: ghostData?.ghostAbility ?? p.ghostAbility,
+                    characterIcon: ghostData?.characterIcon ?? p.characterIcon,
                 };
             }
             
@@ -2896,11 +3009,13 @@ export default function Game() {
             }
             
             if (refund !== 0) {
-                newTime += refund;
-                roundNetImpactNum += refund;
-                roundImpact += ` ${refund > 0 ? '+' : ''}${refund}s (${ab.name})`;
-                impactLogs.push({ value: `${refund > 0 ? '+' : ''}${refund.toFixed(1)}s`, reason: ab.name, type: refund > 0 ? 'gain' : 'loss' });
-                selfGain += refund;
+                const curseM = ghostCurseActive && variant === 'HAUNTED' && !p.isGhost ? 3 : 1;
+                const finalRefund = refund > 0 ? refund * curseM : refund; // Only multiply positive refunds
+                newTime += finalRefund;
+                roundNetImpactNum += finalRefund;
+                roundImpact += ` ${finalRefund > 0 ? '+' : ''}${finalRefund.toFixed(1)}s (${ab.name}${curseM > 1 ? ' ×3 CURSE' : ''})`;
+                impactLogs.push({ value: `${finalRefund > 0 ? '+' : ''}${finalRefund.toFixed(1)}s`, reason: `${ab.name}${curseM > 1 ? ' ×3' : ''}`, type: finalRefund > 0 ? 'gain' : 'loss' });
+                selfGain += finalRefund;
             }
         }
 
@@ -2913,10 +3028,8 @@ export default function Game() {
              playersOut.push(p.name);
         }
 
-        // Haunted mode: assign random ghost image when converted
-        const ghostIcon = isNewlyGhosted
-          ? GHOST_IMAGES[Math.floor(Math.random() * GHOST_IMAGES.length)]
-          : undefined;
+        // Haunted mode: assign ghost image + ability when converted
+        const ghostData = isNewlyGhosted ? assignGhostImage() : null;
 
         return {
             ...p,
@@ -2924,7 +3037,8 @@ export default function Game() {
             // In Haunted mode: don't set isEliminated — set isGhost instead
             isEliminated: variant === 'HAUNTED' ? p.isEliminated : isEliminatedNow,
             isGhost: isNewlyGhosted ? true : p.isGhost,
-            characterIcon: ghostIcon ?? p.characterIcon,
+            ghostAbility: isNewlyGhosted ? (ghostData?.ghostAbility ?? null) : p.ghostAbility,
+            characterIcon: ghostData?.characterIcon ?? p.characterIcon,
             roundImpact: roundImpact,
             impactLogs: impactLogs,
             selfGain: selfGain,
@@ -3030,11 +3144,13 @@ export default function Game() {
                     }
 
                     if (refund > 0) {
-                        newTime += refund;
-                        roundNetImpactNum += refund;
-                        impact += ` +${refund}s (${ab.name})`;
-                        impactLogs.push({ value: `+${refund.toFixed(1)}s`, reason: ab.name, type: 'gain' });
-                        newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TIME_REFUND', impactValue: `+${refund}s` });
+                        const curseMultiplier = ghostCurseActive && variant === 'HAUNTED' ? 3 : 1;
+                        const finalRefund = refund * curseMultiplier;
+                        newTime += finalRefund;
+                        roundNetImpactNum += finalRefund;
+                        impact += ` +${finalRefund.toFixed(1)}s (${ab.name}${curseMultiplier > 1 ? ' ×3 CURSE' : ''})`;
+                        impactLogs.push({ value: `+${finalRefund.toFixed(1)}s`, reason: `${ab.name}${curseMultiplier > 1 ? ' ×3' : ''}`, type: 'gain' });
+                        newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TIME_REFUND', impactValue: `+${finalRefund.toFixed(1)}s` });
                     }
                     
                     if (ab.effect === 'TOKEN_BOOST') {
@@ -3088,26 +3204,29 @@ export default function Game() {
         
         if (abilitiesEnabled && p.id !== winnerId && winnerId && !p.isEliminated) {
              const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+             const curseM = ghostCurseActive && variant === 'HAUNTED' ? 3 : 1;
              if (playerChar?.ability?.name === 'CHEESE TAX') {
                  // Cheese Tax does NOT trigger if the winner is roll_safe (immune to abilities).
                  // rollSafeId is only non-undefined when abilitiesEnabled (see definition above).
                  if (winnerId !== rollSafeId) {
-                     newTime += 2.0;
-                     roundNetImpactNum += 2.0;
-                     impact += " +2.0s (Cheese Tax)";
-                     impactLogs.push({ value: "+2.0s", reason: "Cheese Tax", type: 'gain' });
-                     newAbilities.push({ playerId: p.id, ability: 'CHEESE TAX', effect: 'DISRUPT', targetId: winnerId, impactValue: "Steal 2s" });
+                     const taxAmt = 2.0 * curseM;
+                     newTime += taxAmt;
+                     roundNetImpactNum += taxAmt;
+                     impact += ` +${taxAmt.toFixed(1)}s (Cheese Tax${curseM > 1 ? ' ×3' : ''})`;
+                     impactLogs.push({ value: `+${taxAmt.toFixed(1)}s`, reason: `Cheese Tax${curseM > 1 ? ' ×3' : ''}`, type: 'gain' });
+                     newAbilities.push({ playerId: p.id, ability: 'CHEESE TAX', effect: 'DISRUPT', targetId: winnerId, impactValue: `Steal ${taxAmt.toFixed(1)}s` });
                  }
              }
              if (playerChar?.ability?.name === 'HIDE PAIN') {
                  const winnerBidVal = validParticipants.find(vp => vp.id === winnerId)?.currentBid || 0;
                  const myBidVal = p.currentBid || 0;
                  if (winnerBidVal - myBidVal > 15) {
-                     newTime += 3.0;
-                     roundNetImpactNum += 3.0;
-                     impact += " +3.0s (Hide Pain)";
-                     impactLogs.push({ value: "+3.0s", reason: "Hide Pain", type: 'gain' });
-                     newAbilities.push({ playerId: p.id, ability: 'HIDE PAIN', effect: 'TIME_REFUND', impactValue: "+3s" });
+                     const hpAmt = 3.0 * curseM;
+                     newTime += hpAmt;
+                     roundNetImpactNum += hpAmt;
+                     impact += ` +${hpAmt.toFixed(1)}s (Hide Pain${curseM > 1 ? ' ×3' : ''})`;
+                     impactLogs.push({ value: `+${hpAmt.toFixed(1)}s`, reason: `Hide Pain${curseM > 1 ? ' ×3' : ''}`, type: 'gain' });
+                     newAbilities.push({ playerId: p.id, ability: 'HIDE PAIN', effect: 'TIME_REFUND', impactValue: `+${hpAmt.toFixed(1)}s` });
                  }
              }
         }
@@ -3165,7 +3284,149 @@ export default function Game() {
     const p1WasAlreadyGhost = players.find(p => p.id === 'p1')?.isGhost;
     const p1IsGhostNow = finalPlayers.find(p => p.id === 'p1')?.isGhost;
     if (variant === 'HAUNTED' && !p1WasAlreadyGhost && p1IsGhostNow) {
-      setTimeout(() => addOverlay('time_out', '👻 GHOSTED', 'You ran out of time and became a ghost. You can no longer win — but the haunting continues.', 0), 800);
+      const p1Ghost = finalPlayers.find(p => p.id === 'p1');
+      const abilityName = p1Ghost?.ghostAbility ? GHOST_ABILITY_NAMES[p1Ghost.ghostAbility] : null;
+      const abilityDesc = p1Ghost?.ghostAbility ? GHOST_ABILITY_DESCS[p1Ghost.ghostAbility] : null;
+      const ghostMsg = abilityName
+        ? `You became a ghost. Your ghost ability: ${abilityName} — ${abilityDesc}`
+        : 'You ran out of time and became a ghost. You can no longer win — but the haunting continues.';
+      setTimeout(() => addOverlay('time_out', '👻 GHOSTED', ghostMsg, 0), 800);
+    }
+
+    // --- GHOST ABILITY PROCESSING (Haunted mode, SP) ---
+    if (variant === 'HAUNTED') {
+      // Find ghosts that have an unused ability assigned this round (newly ghosted this round)
+      const newlyGhosted = finalPlayers.filter(p =>
+        p.isGhost && !p.ghostAbilityUsed && p.ghostAbility &&
+        !players.find(op => op.id === p.id)?.isGhost // was not already a ghost before this round
+      );
+
+      for (const ghost of newlyGhosted) {
+        if (ghost.ghostAbility === 'reaper') {
+          // REAPER: auto-ghost a random alive non-ghost player
+          const aliveTargets = finalPlayers.filter(fp => !fp.isGhost && !fp.isEliminated && fp.id !== ghost.id);
+          if (aliveTargets.length > 0) {
+            const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+            const ghostData = assignGhostImage();
+            target.isGhost = true;
+            target.ghostAbility = ghostData.ghostAbility;
+            target.characterIcon = ghostData.characterIcon;
+            target.remainingTime = 0;
+            const reaperMsg = ghost.id === 'p1'
+              ? `💀 REAPER: Your ghost ability dragged ${target.name} into the spirit world!`
+              : `💀 REAPER: ${ghost.name}'s ghost ability ghosted ${target.name}!`;
+            setTimeout(() => addOverlay('protocol_alert', '💀 REAPER STRIKES', reaperMsg, 4000), 1200);
+          }
+          ghost.ghostAbilityUsed = true;
+
+        } else if (ghost.ghostAbility === 'curse') {
+          // CURSE: triple all driver ability values for alive players
+          setGhostCurseActive(true);
+          const curseMsg = ghost.id === 'p1'
+            ? `🔮 CURSE: Your ghostly curse triples all driver abilities for the rest of the game!`
+            : `🔮 CURSE: ${ghost.name}'s ghost cursed the arena — all driver abilities are tripled!`;
+          setTimeout(() => addOverlay('protocol_alert', '🔮 CURSE ACTIVATED', curseMsg, 4000), 1200);
+          ghost.ghostAbilityUsed = true;
+
+        } else if (ghost.ghostAbility === 'possession') {
+          // POSSESSION: for bots, auto-pick a random alive player; for p1, show the pick phase
+          if (ghost.isBot) {
+            const aliveTargets = finalPlayers.filter(fp => !fp.isGhost && !fp.isEliminated && fp.id !== ghost.id);
+            if (aliveTargets.length > 0) {
+              const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+              ghost.possessionTargetId = target.id;
+              ghost.possessionRoundsLeft = 3;
+            }
+            ghost.ghostAbilityUsed = true;
+          } else {
+            // p1 is a ghost with possession — show the pick phase
+            setPossessionGhostId(ghost.id);
+            setPlayers([...finalPlayers]);
+            setPhase('ghost_possession_pick');
+            return; // Wait for player to pick
+          }
+
+        } else if (ghost.ghostAbility === 'vendetta') {
+          // VENDETTA: click battle between ghost and a random alive player
+          const aliveTargets = finalPlayers.filter(fp => !fp.isGhost && !fp.isEliminated && fp.id !== ghost.id);
+          if (aliveTargets.length > 0) {
+            const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+            setVendettaGhostId(ghost.id);
+            setVendettaAliveId(target.id);
+            // Set bot auto-bid time (random competitive hold time)
+            const botBid = 5 + Math.random() * 20;
+            setVendettaBotHoldTime(botBid);
+            setVendettaP1Holding(false);
+            setVendettaP1Released(false);
+            setVendettaHoldStart(null);
+            ghost.ghostAbilityUsed = true;
+            setPlayers([...finalPlayers]);
+            setPhase('ghost_vendetta');
+            return; // Wait for vendetta to resolve
+          }
+          ghost.ghostAbilityUsed = true;
+
+        } else if (ghost.ghostAbility === 'bargain') {
+          // BARGAIN: p1 or bot offers trophies to an alive player
+          const aliveTargets = finalPlayers.filter(fp => !fp.isGhost && !fp.isEliminated && fp.id !== ghost.id);
+          if (aliveTargets.length > 0) {
+            const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+            setBargainGhostId(ghost.id);
+            setBargainTargetId(target.id);
+            setBargainOffer(1);
+            setBargainTimeLeft(30);
+            ghost.ghostAbilityUsed = true;
+            // For bots: auto-resolve after random time
+            if (ghost.isBot) {
+              // Bot ghost randomly decides offer (random trophies for time)
+              const botOffer = Math.min(ghost.tokens, Math.floor(Math.random() * 3) + 1);
+              const targetPlayer = finalPlayers.find(fp => fp.id === target.id);
+              if (targetPlayer && botOffer > 0) {
+                // Target accepts if deal is favorable (>20s per trophy)
+                const timeGained = botOffer * 20;
+                const accepts = !targetPlayer.isBot || Math.random() > 0.4;
+                if (accepts) {
+                  ghost.tokens -= botOffer;
+                  targetPlayer.tokens += botOffer;
+                  ghost.remainingTime += timeGained;
+                  ghost.isGhost = false; // Not revived, just gets time back... no, bargain doesn't revive
+                  // Actually bargain gives the ghost time in exchange for trophies
+                  // Let's keep it simpler: ghost gets time, target player gets trophies
+                }
+              }
+            } else {
+              setPlayers([...finalPlayers]);
+              setPhase('ghost_bargain');
+              return; // Wait for bargain to resolve
+            }
+          }
+          ghost.ghostAbilityUsed = true;
+        }
+      }
+
+      // Check POSSESSION revive conditions for existing possessing ghosts
+      finalPlayers.forEach(ghost => {
+        if (!ghost.isGhost || !ghost.possessionTargetId || ghost.possessionRoundsLeft === undefined) return;
+        const target = finalPlayers.find(fp => fp.id === ghost.possessionTargetId);
+        const targetJustGhosted = target?.isGhost && !players.find(p => p.id === target.id)?.isGhost;
+        const targetEliminated = target?.isEliminated;
+        const roundsExpired = (ghost.possessionRoundsLeft - 1) <= 0;
+
+        if (targetJustGhosted || targetEliminated || roundsExpired) {
+          // Revive!
+          ghost.isGhost = false;
+          ghost.remainingTime = 45;
+          ghost.possessionTargetId = undefined;
+          ghost.possessionRoundsLeft = undefined;
+          const ghostData = assignGhostImage();
+          ghost.characterIcon = ghostData.characterIcon; // Keep ghost look but revived
+          if (ghost.id === 'p1') {
+            setTimeout(() => addOverlay('ability_trigger', '👁️ POSSESSION REVIVE', 'Your latched target triggered your revival! You\'re back with 45s!', 4000), 600);
+          }
+        } else {
+          ghost.possessionRoundsLeft = (ghost.possessionRoundsLeft ?? 3) - 1;
+        }
+      });
     }
     
     // Trigger Animations
@@ -4281,6 +4542,10 @@ export default function Game() {
         isEliminated: mp.isEliminated,
         isGhost: (mp as any).isGhost || false,
         selectedItem: (mp as any).selectedItem || undefined,
+        ghostAbility: (mp as any).ghostAbility || null,
+        ghostAbilityUsed: (mp as any).ghostAbilityUsed || false,
+        possessionTargetId: (mp as any).possessionTargetId || undefined,
+        possessionRoundsLeft: (mp as any).possessionRoundsLeft ?? undefined,
       currentBid: mp.currentBid,
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,
@@ -5698,6 +5963,206 @@ export default function Game() {
             })()}
           </motion.div>
         );
+
+      case 'ghost_possession_pick': {
+        // Possession: p1 is a ghost and must pick a player to latch onto
+        const possGhost = players.find(p => p.id === possessionGhostId);
+        const alivePlayers = players.filter(p => !p.isGhost && !p.isEliminated && p.id !== possessionGhostId);
+        return (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-xl mx-auto space-y-6 text-center"
+            data-testid="screen-ghost-possession-pick">
+            <div className="mb-4">
+              <Eye size={40} className="mx-auto text-teal-300 mb-2" />
+              <h2 className="text-3xl font-display font-bold text-teal-300">👁️ POSSESSION</h2>
+              <p className="text-zinc-400 mt-1">Choose a player to latch onto.</p>
+              <p className="text-xs text-teal-400/70 mt-1">You'll be revived when they're eliminated or after 3 more rounds.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {alivePlayers.map(target => (
+                <button key={target.id}
+                  onClick={() => {
+                    setPlayers(prev => prev.map(p => {
+                      if (p.id === possessionGhostId) {
+                        return { ...p, possessionTargetId: target.id, possessionRoundsLeft: 3 };
+                      }
+                      return p;
+                    }));
+                    setPossessionGhostId(null);
+                    setPhase('round_end');
+                  }}
+                  className="flex flex-col items-center p-4 rounded-xl border border-teal-500/30 bg-black/50 hover:border-teal-400 hover:bg-teal-950/30 transition-colors gap-2">
+                  {target.characterIcon && typeof target.characterIcon === 'string' && (
+                    <img src={target.characterIcon} alt={target.name} className="w-12 h-12 rounded-full object-cover border border-teal-500/30" />
+                  )}
+                  <span className="font-bold text-teal-200 text-sm">{target.name}</span>
+                  <span className="text-xs text-zinc-500">{target.remainingTime.toFixed(1)}s left</span>
+                </button>
+              ))}
+            </div>
+            {alivePlayers.length === 0 && (
+              <div className="text-zinc-500">No alive players to latch onto.</div>
+            )}
+            <button onClick={() => { setPossessionGhostId(null); setPhase('round_end'); }}
+              className="text-zinc-600 hover:text-zinc-400 text-sm mt-2">Skip</button>
+          </motion.div>
+        );
+      }
+
+      case 'ghost_vendetta': {
+        // Vendetta: click battle between ghost and an alive player
+        const vendGhost = players.find(p => p.id === vendettaGhostId);
+        const vendAlive = players.find(p => p.id === vendettaAliveId);
+        const isP1Ghost = vendettaGhostId === 'p1';
+        const isP1Alive = vendettaAliveId === 'p1';
+        const p1IsParticipant = isP1Ghost || isP1Alive;
+
+        const handleVendettaPress = () => {
+          if (!vendettaHoldStart) {
+            setVendettaHoldStart(Date.now());
+            setVendettaP1Holding(true);
+          }
+        };
+
+        const handleVendettaRelease = () => {
+          if (!vendettaHoldStart || vendettaP1Released) return;
+          setVendettaP1Holding(false);
+          setVendettaP1Released(true);
+          const heldMs = Date.now() - vendettaHoldStart;
+          const heldSecs = heldMs / 1000;
+
+          // Compare p1 hold with bot hold time
+          const botHoldTime = vendettaBotHoldTime;
+          const p1Wins = heldSecs > botHoldTime;
+
+          setPlayers(prev => {
+            const next = prev.map(p => {
+              const ghostPlayer = prev.find(x => x.id === vendettaGhostId);
+              const alivePlayer = prev.find(x => x.id === vendettaAliveId);
+              if (!ghostPlayer || !alivePlayer) return p;
+
+              if (p1Wins) {
+                // P1 (ghost) wins: revived
+                if (p.id === vendettaGhostId) return { ...p, isGhost: false, remainingTime: 30, ghostAbilityUsed: true };
+                // Alive player loses: −25% time
+                if (p.id === vendettaAliveId) return { ...p, remainingTime: Math.max(0, p.remainingTime * 0.75) };
+              } else {
+                // P1 (alive or ghost) loses −25% time if alive; ghost stays ghost
+                if (p.id === vendettaAliveId && !p1Wins) return { ...p, remainingTime: Math.max(0, p.remainingTime * 0.75) };
+                // Alive player wins: ghost stays ghost
+              }
+              return p;
+            });
+            return next;
+          });
+
+          const resultMsg = p1Wins
+            ? `You won the click battle! Revived with 30s!`
+            : `You lost! The alive player held longer — no revival.`;
+          addOverlay('ability_trigger', p1Wins ? '⚔️ VENDETTA WIN' : '⚔️ VENDETTA LOST', resultMsg, 4000);
+          setTimeout(() => {
+            setVendettaGhostId(null);
+            setVendettaAliveId(null);
+            setVendettaHoldStart(null);
+            setPhase('round_end');
+          }, 3000);
+        };
+
+        return (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-xl mx-auto space-y-6 text-center"
+            data-testid="screen-ghost-vendetta">
+            <div className="mb-4">
+              <h2 className="text-3xl font-display font-bold text-red-400">⚔️ VENDETTA</h2>
+              <p className="text-zinc-300 mt-2">
+                <span className="text-teal-300 font-bold">{vendGhost?.name ?? 'Ghost'}</span> challenges{' '}
+                <span className="text-yellow-300 font-bold">{vendAlive?.name ?? 'Player'}</span>!
+              </p>
+              <p className="text-zinc-500 text-sm mt-1">Hold the button longer to win. Winner revived (or keeps time). Loser loses 25% time bank.</p>
+            </div>
+            {p1IsParticipant ? (
+              <div className="flex flex-col items-center gap-4">
+                <button
+                  onMouseDown={handleVendettaPress}
+                  onMouseUp={handleVendettaRelease}
+                  onTouchStart={handleVendettaPress}
+                  onTouchEnd={handleVendettaRelease}
+                  disabled={vendettaP1Released}
+                  className={`w-32 h-32 rounded-full text-2xl font-bold border-4 transition-all select-none ${vendettaP1Holding ? 'bg-red-600 border-red-400 scale-110' : 'bg-zinc-800 border-zinc-600'} ${vendettaP1Released ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  {vendettaP1Released ? '✓' : vendettaP1Holding ? 'HOLD!' : 'HOLD'}
+                </button>
+                {vendettaP1Released && <p className="text-zinc-400 text-sm">Waiting for result…</p>}
+              </div>
+            ) : (
+              <p className="text-zinc-500 text-sm">This is a bot vs bot battle — resolving automatically…</p>
+            )}
+          </motion.div>
+        );
+      }
+
+      case 'ghost_bargain': {
+        // Bargain: ghost offers trophies for time from an alive player
+        const bargGhost = players.find(p => p.id === bargainGhostId);
+        const bargTarget = players.find(p => p.id === bargainTargetId);
+        const maxOffer = Math.max(0, bargGhost?.tokens ?? 0);
+        const timePerTrophy = 20; // 20s per trophy offered
+
+        const handleBargainSubmit = (accepted: boolean) => {
+          if (accepted && bargGhost && bargTarget && bargainOffer > 0) {
+            setPlayers(prev => prev.map(p => {
+              if (p.id === bargainGhostId) return { ...p, tokens: p.tokens - bargainOffer, remainingTime: p.remainingTime + bargainOffer * timePerTrophy };
+              if (p.id === bargainTargetId) return { ...p, tokens: p.tokens + bargainOffer, remainingTime: Math.max(0, p.remainingTime - bargainOffer * timePerTrophy) };
+              return p;
+            }));
+            addOverlay('ability_trigger', '🤝 BARGAIN ACCEPTED', `${bargGhost?.name ?? 'Ghost'} traded ${bargainOffer} trophy for ${bargainOffer * timePerTrophy}s!`, 4000);
+          } else {
+            addOverlay('protocol_alert', '🤝 BARGAIN REJECTED', `The deal was refused. No exchange.`, 3000);
+          }
+          setBargainGhostId(null);
+          setBargainTargetId(null);
+          setPhase('round_end');
+        };
+
+        return (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-lg mx-auto space-y-6 text-center"
+            data-testid="screen-ghost-bargain">
+            <div className="mb-4">
+              <h2 className="text-3xl font-display font-bold text-yellow-400">🤝 BARGAIN</h2>
+              <p className="text-zinc-300 mt-2">
+                <span className="text-teal-300 font-bold">{bargGhost?.name ?? 'Ghost'}</span> offers trophies to{' '}
+                <span className="text-yellow-300 font-bold">{bargTarget?.name ?? 'Player'}</span>
+              </p>
+              <p className="text-zinc-500 text-xs mt-1">{bargainTimeLeft}s remaining to decide</p>
+            </div>
+            <div className="bg-zinc-900/80 border border-yellow-500/30 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-zinc-400">Offer:</span>
+                <button onClick={() => setBargainOffer(o => Math.max(1, o - 1))} className="w-8 h-8 rounded-full bg-zinc-800 text-white font-bold hover:bg-zinc-700">−</button>
+                <span className="text-2xl font-bold text-yellow-300">{bargainOffer} 🏆</span>
+                <button onClick={() => setBargainOffer(o => Math.min(maxOffer, o + 1))} disabled={bargainOffer >= maxOffer} className="w-8 h-8 rounded-full bg-zinc-800 text-white font-bold hover:bg-zinc-700 disabled:opacity-30">+</button>
+              </div>
+              <p className="text-zinc-400 text-sm">
+                = {bargainOffer * timePerTrophy}s from <span className="text-yellow-300">{bargTarget?.name ?? 'Player'}</span>'s bank
+              </p>
+              {bargTarget?.id === 'p1' ? (
+                <div className="flex gap-3 justify-center mt-2">
+                  <button onClick={() => handleBargainSubmit(true)} className="px-6 py-2 rounded-lg bg-teal-700 hover:bg-teal-600 text-white font-bold">Accept</button>
+                  <button onClick={() => handleBargainSubmit(false)} className="px-6 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white">Reject</button>
+                </div>
+              ) : bargGhost?.id === 'p1' ? (
+                <div className="flex gap-3 justify-center mt-2">
+                  <button onClick={() => handleBargainSubmit(true)} disabled={maxOffer === 0} className="px-6 py-2 rounded-lg bg-teal-700 hover:bg-teal-600 text-white font-bold disabled:opacity-40">Send Offer</button>
+                  <button onClick={() => { setBargainGhostId(null); setBargainTargetId(null); setPhase('round_end'); }} className="px-6 py-2 rounded-lg bg-zinc-700 text-white">Cancel</button>
+                </div>
+              ) : (
+                <p className="text-zinc-500 text-sm">Resolving automatically…</p>
+              )}
+            </div>
+          </motion.div>
+        );
+      }
 
       case 'haunted_item_select':
         return (

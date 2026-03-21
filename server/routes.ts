@@ -666,6 +666,59 @@ export async function registerRoutes(
       if (callback) callback?.({ success: true });
     });
 
+    // Haunted mode: player resolves a ghost ability (from client-side interactive phase)
+    socket.on("resolve_ghost_ability", (data: { 
+      ability: string; 
+      targetId?: string; 
+      accepted?: boolean;
+      offerAmount?: number;
+    }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in lobby" }); return; }
+      const game = getGameState(lobbyCode);
+      if (!game) { if (callback) callback?.({ success: false, error: "No game" }); return; }
+      const player = game.players.find(p => p.socketId === socket.id);
+      if (!player || !player.isGhost) { if (callback) callback?.({ success: false, error: "Not a ghost" }); return; }
+
+      if (data.ability === 'possession' && data.targetId) {
+        player.possessionTargetId = data.targetId;
+        player.possessionRoundsLeft = 3;
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'vendetta_win') {
+        player.isGhost = false;
+        player.remainingTime = 30;
+        const target = game.players.find(p => p.id === data.targetId);
+        if (target) target.remainingTime = Math.max(0, target.remainingTime * 0.75);
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'vendetta_lose') {
+        // Ghost stays ghost; alive player already unaffected (they won)
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'bargain' && data.targetId && data.offerAmount && data.accepted) {
+        const target = game.players.find(p => p.id === data.targetId);
+        if (target && player.tokens >= data.offerAmount) {
+          player.tokens -= data.offerAmount;
+          target.tokens += data.offerAmount;
+          player.remainingTime += data.offerAmount * 20;
+          target.remainingTime = Math.max(0, target.remainingTime - data.offerAmount * 20);
+        }
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'curse') {
+        game.ghostCurseActive = true;
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'reaper' && data.targetId) {
+        const target = game.players.find(p => p.id === data.targetId);
+        if (target && !target.isGhost && !target.isEliminated) {
+          const idx = Math.floor(Math.random() * 8) + 1;
+          target.isGhost = true;
+          target.remainingTime = 0;
+          target.ghostImage = `hnt_ghost_${idx}`;
+        }
+        player.ghostAbilityUsed = true;
+      }
+
+      if (callback) callback?.({ success: true });
+    });
+
     // Handle disconnection
     socket.on("rejoin_game", (data: { code: string; playerName: string }, callback) => {
       const { code, playerName } = data;
