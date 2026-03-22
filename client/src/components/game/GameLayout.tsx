@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import bgStandard from "../../assets/generated_images/BG/bg_standard_5.png";
 import bgSocial from "../../assets/generated_images/BG/bg_social_1.png";
 import bgBio from "../../assets/generated_images/BG/bg_bio_fuel_v6.png";
+import bgHaunt from "../../assets/generated_images/BG/hnt_bg_8.png";
 
 type RealityMode = "STANDARD" | "SOCIAL_OVERDRIVE" | "BIO_FUEL";
 

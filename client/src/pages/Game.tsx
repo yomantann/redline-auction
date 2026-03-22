@@ -55,17 +55,17 @@ import charWinter from '@assets/generated_images/cyberpunk_winter_soldier.png';
 import charPepe from '@assets/generated_images/cyberpunk_sad_green_alien_analyst.png';
 import charNyan from '@assets/generated_images/fast_cyberpunk_rainbow_rabbit_character.png';
 import charKaren from '@assets/generated_images/cyberpunk_yelling_commander.png';
-import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
-import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
+import charLowflame from '@assets/generated_images/lowflame.png';
+import charWandering from '@assets/generated_images/wandering.png';
 import charRat from '@assets/generated_images/cyberpunk_rat_sniper_rooftop.png';
-import charBaldwin from '@assets/generated_images/cyberpunk_anointed_royal_masked_figure.png';
+import charAnointed from '@assets/generated_images/anointed.png';
 import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
-import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
+import charAlpha from '@assets/generated_images/alpha.png';
 import charThinker from '@assets/generated_images/roll_safe_medium_shot.png';
-import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
+import charHotwired from '@assets/generated_images/hotwired.png';
 import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
 import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
-import charMonkeyHaircut from '@assets/generated_images/cool_monkey_haircut_chef_background.png';
+import charPrimate from '@assets/generated_images/primate.png';
 
 
 // Social Mode Images
@@ -282,13 +282,13 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'SPILL HAZARD', description: 'Chance to accuse someone of spilling; they drink.' }
   },
   { 
-    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charFine, imageSocial: socialFine, imageBio: bioFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charLowflame, imageSocial: socialFine, imageBio: bioFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
     ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: 'Chance to choose a player to answer a truth.' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks.' }
   },
   { 
-    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, imageSocial: socialBf, imageBio: bioBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
+    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charWandering, imageSocial: socialBf, imageBio: bioBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
     ability: { name: 'SNEAK PEEK', description: 'See 1 random player holding. All other banks scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'DISTRACTION', description: 'Chance to point at something; anyone who looks must drop buzzer.' },
     bioAbility: { name: 'THE EX', description: 'Chance 1 random player toasts to an ex.' }
@@ -300,7 +300,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'SCAVENGE', description: 'Chance 1 random player finishes someone else\'s drink.' }
   },
   { 
-    id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin,
+    id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charAnointed, imageSocial: socialBaldwin,
     imageBio: bioBaldwin,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 20s refund if you bid within 0.4s of 20s.', effect: 'TIME_REFUND' },
@@ -314,7 +314,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'REASSIGNED', description: 'Chance to choose 1 player to take a drink.' }
   },
   { 
-    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, imageSocial: socialGigachad, imageBio: bioGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
+    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charAlpha, imageSocial: socialGigachad, imageBio: bioGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
     ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'MOG', description: 'Chance 1 random player must do 10 pushups or ff next round.' },
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall.' }
@@ -326,7 +326,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'BIG BRAIN', description: 'Chance option to have everyone pass drink to the left.' }
   },
   { 
-    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charHotwired, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
     ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
     socialAbility: { name: 'VIRAL MOMENT', description: '1 random round target must re-enact a meme.' },
     bioAbility: { name: 'SPICY', description: 'Chance everyone drinks.' }
@@ -340,7 +340,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'EMERGENCY MEETING', description: 'Chance everyone must point at another to gang up on next round.' }
   },
   { 
-    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, imageSocial: socialPrimate, imageBio: bioPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
+    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charPrimate, imageSocial: socialPrimate, imageBio: bioPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
     ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s over second place.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'FRESH CUT', description: 'Chance 1 random player must compliment everyone.' },
     bioAbility: { name: 'GREEDY GRAB', description: 'Chance previous winner must burn 40s next round or finish drink.' }

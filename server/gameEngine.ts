@@ -1059,7 +1059,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
     switch (ability.triggerCondition) {
       case 'WIN':
         if (isWinner) {
-          // Special case for Spirit Shield (harambe) - only Round 1
+          // Special case for Spirit Shield - only Round 1
           if (player.selectedDriver === 'guardian_h' && game.round !== 1) break;
           triggered = true;
         }
@@ -1067,7 +1067,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
         
       case 'LOSE':
         if (!isWinner && winnerId) {
-          // HIDE PAIN (harold): only triggers if lost by >15s margin
+          // HIDE PAIN (Pain Hider): only triggers if lost by >15s margin
           if (player.selectedDriver === 'pain_hider') {
             const winnerPlayer = game.players.find(p => p.id === winnerId);
             const winnerBidVal = winnerPlayer?.currentBid || 0;
@@ -2747,7 +2747,7 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
       return;
     }
 
-    // JAWLINE (gigachad): No penalty during countdown
+    // JAWLINE (AlphaPrime): No penalty during countdown
     const ability = player.selectedDriver ? DRIVER_ABILITIES[player.selectedDriver] : null;
     if (ability?.name === 'JAWLINE' && game.settings.abilitiesEnabled) {
       player.penaltyAppliedThisRound = true;
