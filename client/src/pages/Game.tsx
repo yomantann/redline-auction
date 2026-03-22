@@ -49,22 +49,22 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 // Import Generated Images
-import charHarambe from '@assets/generated_images/cyberpunk_gorilla_guardian.png';
-import charPopcat from '@assets/generated_images/cyberpunk_popcat.png';
-import charWinter from '@assets/generated_images/cyberpunk_winter_soldier.png';
-import charPepe from '@assets/generated_images/cyberpunk_sad_green_alien_analyst.png';
-import charNyan from '@assets/generated_images/fast_cyberpunk_rainbow_rabbit_character.png';
-import charKaren from '@assets/generated_images/cyberpunk_yelling_commander.png';
+import charGuardian from '@assets/generated_images/guardian.png';
+import charClick from '@assets/generated_images/click.png';
+import charFrost from '@assets/generated_images/frost.png';
+import charSadman from '@assets/generated_images/sadman.png';
+import charDash from '@assets/generated_images/dash.png';
+import charAccuser from '@assets/generated_images/accuser.png';
 import charLowflame from '@assets/generated_images/lowflame.png';
 import charWandering from '@assets/generated_images/wandering.png';
-import charRat from '@assets/generated_images/cyberpunk_rat_sniper_rooftop.png';
+import charRind from '@assets/generated_images/rind.png';
 import charAnointed from '@assets/generated_images/anointed.png';
-import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
+import charExecutive from '@assets/generated_images/executive.png';
 import charAlpha from '@assets/generated_images/alpha.png';
-import charThinker from '@assets/generated_images/roll_safe_medium_shot.png';
+import charRoll from '@assets/generated_images/roll.png';
 import charHotwired from '@assets/generated_images/hotwired.png';
-import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
-import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
+import charPanic from '@assets/generated_images/panic.png';
+import charPain from '@assets/generated_images/pain.png';
 import charPrimate from '@assets/generated_images/primate.png';
 
 
@@ -244,37 +244,37 @@ interface Character {
 
 const CHARACTERS: Character[] = [
   { 
-    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charGuardian, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
     ability: { name: 'SPIRIT SHIELD', description: '+11s if you win Round 1.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Designate a player immune to social dares each round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Others cannot release button until you finish a sip.' }
   },
   { 
-    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charPopcat, imageSocial: socialPopcat, imageBio: bioPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
+    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charClick, imageSocial: socialPopcat, imageBio: bioPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
     ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'MISCLICK', description: 'Chance 1 player must hold bid without using hands.' },
     bioAbility: { name: 'MOUTH POP', description: '1 round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
-    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charFrost, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: 'Chance you may ignore all social interactions.' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 round: 1 opponent forced to win or drink.' }
   },
   { 
-    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, imageSocial: socialSadmanOption3, imageBio: bioPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charSadman, imageSocial: socialSadmanOption3, imageBio: bioPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'SAD STORY', description: 'Chance 1 random player shares a sad story.' },
     bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you can change your drinking buddy.' }
   },
   { 
-    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, imageSocial: socialRainbowDashOption1, imageBio: bioNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charDash, imageSocial: socialRainbowDashOption1, imageBio: bioNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: 'Chance 1 random opponent must speak 2x speed.' },
     bioAbility: { name: 'RAINBOW SHOT', description: 'Chance 1 random player mixes two drinks.' }
   },
   { 
-    id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialAccuserOption1,
+    id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charAccuser, imageSocial: socialAccuserOption1,
     imageBio: bioAccuserOption1,
     description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
@@ -294,7 +294,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'THE EX', description: 'Chance 1 random player toasts to an ex.' }
   },
   { 
-    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRat, imageSocial: socialRat, imageBio: bioRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRind, imageSocial: socialRat, imageBio: bioRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: 'Chance 1 random player must reveal someone\'s tell.' },
     bioAbility: { name: 'SCAVENGE', description: 'Chance 1 random player finishes someone else\'s drink.' }
@@ -308,7 +308,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'ROYAL CUP', description: '1 random round: Make a rule for remainder of game.' }
   },
   { 
-    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charSigma, imageSocial: socialExecutivePOption1, imageBio: bioSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charExecutive, imageSocial: socialExecutivePOption1, imageBio: bioSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
     ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
     socialAbility: { name: 'CC\'D', description: 'Chance 1 random player must copy your actions next round.' },
     bioAbility: { name: 'REASSIGNED', description: 'Chance to choose 1 player to take a drink.' }
@@ -320,7 +320,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall.' }
   },
   { 
-    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charRoll, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules.' },
     bioAbility: { name: 'BIG BRAIN', description: 'Chance option to have everyone pass drink to the left.' }
@@ -332,7 +332,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'SPICY', description: 'Chance everyone drinks.' }
   },
   { 
-    id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialPanicBotOption1,
+    id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charPanic, imageSocial: socialPanicBotOption1,
     imageBio: bioPanicBotOption3,
     description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
@@ -346,7 +346,7 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'GREEDY GRAB', description: 'Chance previous winner must burn 40s next round or finish drink.' }
   },
   { 
-    id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialPainHiderOption1,
+    id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charPain, imageSocial: socialPainHiderOption1,
     imageBio: bioHarold,
     description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
@@ -2798,7 +2798,7 @@ export default function Game() {
     
     // 2. CALCULATE PRELIMINARY TIME & ELIMINATION (Pre-Winner)
     
-    // First, identify Roll Safe (Thinker) if present - immune to all abilities.
+    // First, identify Roll Safe if present - immune to all abilities.
     // Only resolve this when abilities are enabled; when abilities are off, roll_safe
     // is treated as a normal player and should not receive any special immunity.
     const rollSafeId = abilitiesEnabled
