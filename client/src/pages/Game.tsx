@@ -320,6 +320,22 @@ interface Player {
   ghostAbilityUsed?: boolean;     // Has this ghost's ability already been used?
   possessionTargetId?: string;    // For POSSESSION: which player is being tracked
   possessionRoundsLeft?: number;  // For POSSESSION: rounds remaining before auto-revive
+  // Ghost reason / revival
+  ghostReason?: 'natural' | 'forced';   // 'natural' = ran out of time; 'forced' = externally ghosted with time remaining
+  ghostTimeAtDeath?: number;             // Time bank frozen at moment of forced ghosting
+  ghostImage?: string;                   // ghost image key e.g. 'hnt_ghost_3'
+  // Relic state
+  relicConsumed?: boolean;               // Whether this player's relic has been used/consumed
+  bidHistory?: number[];                 // All historical bids (for Echo + Pattern Lock relics)
+  pendingLastWill?: { targetId: string; curseType: 'time' | 'trophy' }; // Last Will deferred curse
+  markedBy?: string;                     // Marked relic: ID of player who marked this player
+  echoForcedBid?: number;               // Echo relic: this player must bid exactly this value next round
+  corruptRoundsLeft?: number;            // Corrupt relic: rounds remaining with 'aggressive' override
+  patternLockMinBid?: number;            // Pattern Lock: forced minimum bid next round
+  phantomBidActive?: boolean;            // Phantom Bid: hide this player's bid in round results
+  deathWishActive?: boolean;             // Death Wish: active this round (win=+2 trophies, lose=-15s extra)
+  bloodPactActive?: boolean;             // Blood Pact: active player (all losers also pay winner's bid)
+  cursedDiceActive?: boolean;            // Cursed Dice: active (±20s after round end)
 }
 
 interface Character {
@@ -1899,7 +1915,14 @@ export default function Game() {
   // Ready Phase Logic (3s Hold)
   useEffect(() => {
     if (phase === 'ready') {
-      const allReady = players.every(p => p.isHolding);
+      const allReady = players.filter(p => !p.isEliminated && !p.isGhost).every(p => p.isHolding);
+      
+      // Auto-advance if all non-eliminated players are ghosts (no one can press ready)
+      const aliveNonGhosts = players.filter(p => !p.isEliminated && !p.isGhost);
+      if (variant === 'HAUNTED' && aliveNonGhosts.length === 0 && !isMultiplayer) {
+        setTimeout(() => startCountdown(), 500);
+        return;
+      }
       
       if (allReady) {
         const animateReady = (time: number) => {
@@ -3188,6 +3211,7 @@ export default function Game() {
             // In Haunted mode: don't set isEliminated — set isGhost instead
             isEliminated: variant === 'HAUNTED' ? p.isEliminated : isEliminatedNow,
             isGhost: isNewlyGhosted ? true : p.isGhost,
+            ghostReason: isNewlyGhosted ? 'natural' : p.ghostReason,
             ghostAbility: isNewlyGhosted ? (ghostData?.ghostAbility ?? null) : p.ghostAbility,
             characterIcon: ghostData?.characterIcon ?? p.characterIcon,
             roundImpact: roundImpact,
@@ -3195,6 +3219,13 @@ export default function Game() {
             selfGain: selfGain,
             roundNetImpactNum: roundNetImpactNum
         };
+    });
+
+    // Track bid history for Echo / Pattern Lock relics
+    playersState.forEach(p => {
+      if (p.currentBid !== null && p.currentBid > 0) {
+        p.bidHistory = [...(p.bidHistory ?? []), p.currentBid];
+      }
     });
 
     // 3. DETERMINE WINNER
@@ -3457,10 +3488,13 @@ export default function Game() {
           if (aliveTargets.length > 0) {
             const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
             const ghostData = assignGhostImage();
+            const savedTime = target.remainingTime;
             target.isGhost = true;
             target.ghostAbility = ghostData.ghostAbility;
             target.characterIcon = ghostData.characterIcon;
             target.remainingTime = 0;
+            target.ghostReason = 'forced';
+            target.ghostTimeAtDeath = savedTime;
             const reaperMsg = ghost.id === 'p1'
               ? `💀 REAPER: Your ghost ability dragged ${target.name} into the spirit world!`
               : `💀 REAPER: ${ghost.name}'s ghost ability ghosted ${target.name}!`;
@@ -3598,11 +3632,16 @@ export default function Game() {
               // Final round: skip revival
               ghost.possessionRoundsLeft = undefined;
             } else {
-              // Revive with time bank of alive player with minimum time
-              const alivePlayers = finalPlayers.filter(fp => !fp.isGhost && !fp.isEliminated);
-              const reviveTime = alivePlayers.length > 0
-                ? Math.min(...alivePlayers.map(fp => fp.remainingTime))
-                : 20;
+              // Forced ghosts revive with their frozen bank; natural ghosts revive with min-alive time
+              let reviveTime: number;
+              if (ghost.ghostReason === 'forced' && ghost.ghostTimeAtDeath !== undefined && ghost.ghostTimeAtDeath > 0) {
+                reviveTime = ghost.ghostTimeAtDeath;
+              } else {
+                const alivePlayers = finalPlayers.filter(fp => !fp.isGhost && !fp.isEliminated);
+                reviveTime = alivePlayers.length > 0
+                  ? Math.min(...alivePlayers.map(fp => fp.remainingTime))
+                  : 20;
+              }
               ghost.isGhost = false;
               ghost.remainingTime = Math.max(10, reviveTime);
               ghost.possessionRoundsLeft = undefined;
@@ -3629,15 +3668,6 @@ export default function Game() {
     // Exception: In Haunted mode, p1 becomes a ghost and the game continues.
     const p1 = finalPlayers.find(p => p.id === 'p1');
 
-    // Haunted mode: if all players are now ghosts, end the game
-    if (variant === 'HAUNTED') {
-      const allGhosts = finalPlayers.every(p => p.isGhost || p.isEliminated);
-      if (allGhosts) {
-        setPlayers([...finalPlayers]);
-        setPhase('game_end');
-        return;
-      }
-    }
 
     if (p1?.isEliminated && variant !== 'HAUNTED') {
          // Add ELIMINATED to all newly eliminated players' moment flags (including p1)
@@ -4837,6 +4867,10 @@ export default function Game() {
     ? (myMultiplayerPlayer?.isEliminated ?? false)
     : (players.find(p => p.id === 'p1')?.isEliminated ?? false);
 
+  const currentPlayerIsGhost = isMultiplayer
+    ? (myMultiplayerPlayer?.isGhost ?? false)
+    : (players.find(p => p.id === 'p1')?.isGhost ?? false);
+
   // Now define playerIsReady and playerBid AFTER currentPlayerIsHolding is defined
   const playerIsReady = isMultiplayer 
     ? currentPlayerIsHolding 
@@ -4844,7 +4878,7 @@ export default function Game() {
   const playerBid = isMultiplayer
     ? (myMultiplayerPlayer?.currentBid ?? null)
     : (players.find(p => p.id === 'p1')?.currentBid ?? null);
-  const allPlayersReady = players.every(p => p.isHolding);
+  const allPlayersReady = players.filter(p => !p.isEliminated && !p.isGhost).every(p => p.isHolding);
 
   // New logic for 'waiting' state
   const isWaiting = phase === 'bidding' && playerBid !== null && playerBid > 0;
@@ -6681,7 +6715,42 @@ export default function Game() {
           </motion.div>
         );
 
-      case 'ready':
+      case 'ready': {
+        // Ghost spectator view
+        if (variant === 'HAUNTED' && currentPlayerIsGhost) {
+          const ghostPlayer = (isMultiplayer ? displayPlayers : players).find(p => 
+            isMultiplayer ? p.id === myMultiplayerPlayer?.id : p.id === 'p1'
+          );
+          const ghostImg = ghostPlayer?.ghostImage
+            ? GHOST_IMAGES[parseInt(ghostPlayer.ghostImage.replace('hnt_ghost_', ''), 10) - 1]
+            : null;
+          const abilityName = ghostPlayer?.ghostAbility ? GHOST_ABILITY_NAMES[ghostPlayer.ghostAbility] : null;
+          const abilityDesc = ghostPlayer?.ghostAbility ? GHOST_ABILITY_DESCS[ghostPlayer.ghostAbility] : null;
+          const purgatoryLeft = ghostPlayer?.possessionRoundsLeft;
+          return (
+            <div className="flex flex-col items-center justify-center h-[450px] gap-4">
+              <div className="text-center">
+                <div className="text-4xl mb-2">👻</div>
+                <h2 className="text-2xl font-display text-teal-300">YOU ARE A GHOST</h2>
+                <p className="text-zinc-500 text-sm mt-1">Spectating Round {round} / {totalRounds}</p>
+              </div>
+              {ghostImg && (
+                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-cover rounded-full border-2 border-teal-500/40" />
+              )}
+              {abilityName && (
+                <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
+                  <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
+                  <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
+                  {purgatoryLeft !== undefined && (
+                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}</div>
+                  )}
+                </div>
+              )}
+              <div className="text-zinc-600 text-xs mt-4">Watch the auction unfold below ↓</div>
+            </div>
+          );
+        }
+        
         return (
           <div className="flex flex-col items-center justify-center h-[450px]">
             <div className="h-[100px] flex flex-col items-center justify-center space-y-2">
@@ -6745,13 +6814,49 @@ export default function Game() {
                   )})}
                 </div>
                 <p className="text-xs text-zinc-500 uppercase tracking-widest">
-                  {displayPlayers.filter(p => p.isHolding).length} / {displayPlayers.filter(p => !p.isEliminated).length} READY
+                  {displayPlayers.filter(p => p.isHolding && !p.isGhost).length} / {displayPlayers.filter(p => !p.isEliminated && !p.isGhost).length} READY
                 </p>
             </div>
           </div>
         );
+      }
 
-      case 'countdown':
+      case 'countdown': {
+        // Ghost spectator view
+        if (variant === 'HAUNTED' && currentPlayerIsGhost) {
+          const ghostPlayer = (isMultiplayer ? displayPlayers : players).find(p => 
+            isMultiplayer ? p.id === myMultiplayerPlayer?.id : p.id === 'p1'
+          );
+          const ghostImg = ghostPlayer?.ghostImage
+            ? GHOST_IMAGES[parseInt(ghostPlayer.ghostImage.replace('hnt_ghost_', ''), 10) - 1]
+            : null;
+          const abilityName = ghostPlayer?.ghostAbility ? GHOST_ABILITY_NAMES[ghostPlayer.ghostAbility] : null;
+          const abilityDesc = ghostPlayer?.ghostAbility ? GHOST_ABILITY_DESCS[ghostPlayer.ghostAbility] : null;
+          const purgatoryLeft = ghostPlayer?.possessionRoundsLeft;
+          return (
+            <div className="flex flex-col items-center justify-center h-[450px] gap-4">
+              <div className="text-center">
+                <div className="text-4xl mb-2">👻</div>
+                <h2 className="text-2xl font-display text-teal-300">YOU ARE A GHOST</h2>
+                <p className="text-zinc-500 text-sm mt-1">Spectating Round {round} / {totalRounds}</p>
+              </div>
+              {ghostImg && (
+                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-cover rounded-full border-2 border-teal-500/40" />
+              )}
+              {abilityName && (
+                <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
+                  <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
+                  <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
+                  {purgatoryLeft !== undefined && (
+                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}</div>
+                  )}
+                </div>
+              )}
+              <div className="text-zinc-600 text-xs mt-4">Watch the auction unfold below ↓</div>
+            </div>
+          );
+        }
+        
         return (
           <div className="flex flex-col items-center justify-center h-[450px]"> 
              <div className="h-[100px] flex flex-col items-center justify-center space-y-2"> 
@@ -6788,8 +6893,44 @@ export default function Game() {
             <div className="h-[50px]"></div> 
           </div>
         );
+      }
 
-      case 'bidding':
+      case 'bidding': {
+        // Ghost spectator view
+        if (variant === 'HAUNTED' && currentPlayerIsGhost) {
+          const ghostPlayer = (isMultiplayer ? displayPlayers : players).find(p => 
+            isMultiplayer ? p.id === myMultiplayerPlayer?.id : p.id === 'p1'
+          );
+          const ghostImg = ghostPlayer?.ghostImage
+            ? GHOST_IMAGES[parseInt(ghostPlayer.ghostImage.replace('hnt_ghost_', ''), 10) - 1]
+            : null;
+          const abilityName = ghostPlayer?.ghostAbility ? GHOST_ABILITY_NAMES[ghostPlayer.ghostAbility] : null;
+          const abilityDesc = ghostPlayer?.ghostAbility ? GHOST_ABILITY_DESCS[ghostPlayer.ghostAbility] : null;
+          const purgatoryLeft = ghostPlayer?.possessionRoundsLeft;
+          return (
+            <div className="flex flex-col items-center justify-center h-[450px] gap-4">
+              <div className="text-center">
+                <div className="text-4xl mb-2">👻</div>
+                <h2 className="text-2xl font-display text-teal-300">AUCTION IN PROGRESS</h2>
+                <p className="text-zinc-500 text-sm mt-1">Spectating Round {round} / {totalRounds}</p>
+              </div>
+              {ghostImg && (
+                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-cover rounded-full border-2 border-teal-500/40" />
+              )}
+              {abilityName && (
+                <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
+                  <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
+                  <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
+                  {purgatoryLeft !== undefined && (
+                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}</div>
+                  )}
+                </div>
+              )}
+              <div className="text-zinc-600 text-xs mt-4">Watch the auction unfold below ↓</div>
+            </div>
+          );
+        }
+        
         const fireWallHudImmune = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
         const isBlackout = (activeProtocol === 'DATA_BLACKOUT' || activeProtocol === 'SYSTEM_FAILURE') && !fireWallHudImmune;
         const displayTime = isMultiplayer ? currentPlayerBid : currentTime;
@@ -6860,6 +7001,7 @@ export default function Game() {
              </div>
           </div>
         );
+      }
 
       case 'round_end':
         return (

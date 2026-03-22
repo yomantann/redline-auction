@@ -145,6 +145,19 @@ export interface GamePlayer {
   possessionTargetId?: string;    // POSSESSION: which player is being tracked
   possessionRoundsLeft?: number;  // POSSESSION: rounds remaining before auto-revive
   ghostCurseActive?: boolean;     // CURSE: true = tripled driver abilities globally (stored on game state as well)
+  ghostReason?: 'natural' | 'forced';
+  ghostTimeAtDeath?: number;
+  relicConsumed?: boolean;
+  bidHistory?: number[];
+  pendingLastWill?: { targetId: string; curseType: 'time' | 'trophy' };
+  markedBy?: string;
+  echoForcedBid?: number;
+  corruptRoundsLeft?: number;
+  patternLockMinBid?: number;
+  phantomBidActive?: boolean;
+  deathWishActive?: boolean;
+  bloodPactActive?: boolean;
+  cursedDiceActive?: boolean;
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -711,6 +724,7 @@ function startBidding(lobbyCode: string) {
           if (isHaunted) {
             // Haunted: become a ghost, NOT eliminated
             p.isGhost = true;
+            p.ghostReason = 'natural';
             p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 8) + 1}`;
             log(`${p.name} became a ghost (ran out of time) in lobby ${lobbyCode}`, "game");
           } else {
@@ -1366,6 +1380,7 @@ function endRound(lobbyCode: string) {
     if (p.remainingTime === 0 && !p.isEliminated && !p.isGhost) {
       if (game.settings.variant === 'HAUNTED') {
         p.isGhost = true;
+        p.ghostReason = 'natural';
         if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 8) + 1}`;
         addGameLogEntry(game, {
           type: 'elimination',
@@ -1415,10 +1430,13 @@ function endRound(lobbyCode: string) {
         const GMAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
           1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory', 7: null, 8: null,
         };
+        const savedTime = target.remainingTime;
         target.isGhost = true;
         target.remainingTime = 0;
         target.ghostImage = `hnt_ghost_${idx}`;
         target.ghostAbility = GMAP[idx] ?? null;
+        target.ghostReason = 'forced';
+        target.ghostTimeAtDeath = savedTime;
         ghost.ghostAbilityUsed = true;
         addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} REAPER: ${target.name} becomes a ghost!`, basic: true });
 
@@ -1496,8 +1514,13 @@ function endRound(lobbyCode: string) {
         const roundsLeft = ghost.possessionRoundsLeft - 1;
         if (roundsLeft <= 0) {
           if (!isFinalRound) {
-            const alivePlayers = game.players.filter(p => !p.isGhost && !p.isEliminated);
-            const reviveTime = alivePlayers.length > 0 ? Math.min(...alivePlayers.map(p => p.remainingTime)) : 20;
+            let reviveTime: number;
+            if (ghost.ghostReason === 'forced' && ghost.ghostTimeAtDeath !== undefined && ghost.ghostTimeAtDeath > 0) {
+              reviveTime = ghost.ghostTimeAtDeath;
+            } else {
+              const alivePlayers = game.players.filter(p => !p.isGhost && !p.isEliminated);
+              reviveTime = alivePlayers.length > 0 ? Math.min(...alivePlayers.map(p => p.remainingTime)) : 20;
+            }
             ghost.isGhost = false;
             ghost.remainingTime = Math.max(10, reviveTime);
             addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} PURGATORY: revived with ${ghost.remainingTime.toFixed(1)}s!`, basic: true });
@@ -1552,11 +1575,16 @@ function endRound(lobbyCode: string) {
         });
       } else {
         p.remainingTime -= p.currentBid;
+        // Track bid history
+        if (p.currentBid > 0) {
+          p.bidHistory = [...(p.bidHistory ?? []), p.currentBid];
+        }
         if (p.remainingTime <= 0) {
           p.remainingTime = 0;
           if (game.settings.variant === 'HAUNTED') {
             // Haunted: become a ghost instead of eliminated
             p.isGhost = true;
+            p.ghostReason = 'natural';
             if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 8) + 1}`;
             addGameLogEntry(game, {
               type: 'elimination',

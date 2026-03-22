@@ -713,9 +713,12 @@ export async function registerRoutes(
         const target = game.players.find(p => p.id === data.targetId);
         if (target && !target.isGhost && !target.isEliminated) {
           const idx = Math.floor(Math.random() * 8) + 1;
+          const savedTime = target.remainingTime;
           target.isGhost = true;
           target.remainingTime = 0;
           target.ghostImage = `hnt_ghost_${idx}`;
+          target.ghostReason = 'forced';
+          target.ghostTimeAtDeath = savedTime;
         }
         player.ghostAbilityUsed = true;
       }
