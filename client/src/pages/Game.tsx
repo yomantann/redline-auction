@@ -7099,7 +7099,7 @@ export default function Game() {
                   </div>
                   <div className="flex gap-2">
                     <span className="text-yellow-500">•</span>
-                    <span>Bug fixed with a dup hidden moment</span>
+                    <span>2 new standard protocols added</span>
                   </div>
                 </div>
               </div>
