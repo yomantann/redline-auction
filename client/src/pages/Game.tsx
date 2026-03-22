@@ -69,22 +69,22 @@ import charPrimate from '@assets/generated_images/primate.png';
 
 
 // Social Mode Images
-import socialSadmanOption3 from "../assets/generated_images/SOCIAL/social_sadman_option3.png";
-import socialRainbowDashOption1 from "../assets/generated_images/SOCIAL/social_rainbow_dash_option1.png";
-import socialGuardianHOption1 from "../assets/generated_images/SOCIAL/social_guardian_h_option1.png";
-import socialFrostybyteOption1 from "../assets/generated_images/SOCIAL/social_frostybyte_option1.png";
-import socialExecutivePOption1 from "../assets/generated_images/SOCIAL/social_executive_p_detailed_v4.png";
-import socialPainHiderOption1 from "../assets/generated_images/SOCIAL/social_pain_hider_life_support_v6.png";
-import socialPanicBotOption1 from "../assets/generated_images/SOCIAL/social_panic_bot_toy_v2.png";
-import socialAccuserOption1 from "../assets/generated_images/SOCIAL/social_accuser_pointing_v4.png";
-import socialPopcat from '../assets/generated_images/SOCIAL/social_popcat.png';
-import socialFine from '../assets/generated_images/SOCIAL/social_fine.png';
-import socialBf from '../assets/generated_images/SOCIAL/social_bf.png';
-import socialRat from '../assets/generated_images/SOCIAL/social_rat.png';
-import socialBaldwin from '../assets/generated_images/SOCIAL/social_baldwin.png';
-import socialGigachad from '../assets/generated_images/SOCIAL/social_gigachad.png';
-import socialThinker from '../assets/generated_images/SOCIAL/social_thinker.png';
-import socialDisaster from '../assets/generated_images/SOCIAL/social_disaster.png';
+import socialSadman from "../assets/generated_images/SOCIAL/social_sadman_option3.png";
+import socialDash from "../assets/generated_images/SOCIAL/social_rainbow_dash_option1.png";
+import socialGuardian from "../assets/generated_images/SOCIAL/social_guardian_h_option1.png";
+import socialFrost from "../assets/generated_images/SOCIAL/social_frostybyte_option1.png";
+import socialExecutive from "../assets/generated_images/SOCIAL/social_executive_p_detailed_v4.png";
+import socialPain from "../assets/generated_images/SOCIAL/social_pain_hider_life_support_v6.png";
+import socialPanic from "../assets/generated_images/SOCIAL/social_panic_bot_toy_v2.png";
+import socialAccuser from "../assets/generated_images/SOCIAL/social_accuser_pointing_v4.png";
+import socialClick from '../assets/generated_images/SOCIAL/social_popcat.png';
+import socialLowflame from '../assets/generated_images/SOCIAL/social_fine.png';
+import socialWandering from '../assets/generated_images/SOCIAL/social_bf.png';
+import socialRind from '../assets/generated_images/SOCIAL/social_rat.png';
+import socialAnointed from '../assets/generated_images/SOCIAL/social_baldwin.png';
+import socialAlpha from '../assets/generated_images/SOCIAL/social_gigachad.png';
+import socialRoll from '../assets/generated_images/SOCIAL/social_thinker.png';
+import socialHotwired from '../assets/generated_images/SOCIAL/social_disaster.png';
 import socialPrimate from '../assets/generated_images/SOCIAL/social_primate.png';
 
 import charIdolCore from '../assets/generated_images/SOCIAL/social_kpop.png';
@@ -93,23 +93,23 @@ import socialTank from '../assets/generated_images/SOCIAL/social_tank.png';
 import socialDangerZone from '../assets/generated_images/SOCIAL/social_danger_zone.png';
 
 // Bio Mode Images
-import bioPanicBotOption3 from "../assets/generated_images/BIO/bio_panic_bot_option3.png";
-import bioAccuserOption1 from "../assets/generated_images/BIO/bio_accuser_girl_pointing_v5.png";
-import bioHarambe from '../assets/generated_images/BIO/bio_guardian_h_gorilla_pushups_v4.png';
-import bioPopcat from '../assets/generated_images/BIO/bio_popcat.png';
-import bioWinter from '../assets/generated_images/BIO/bio_frostbyte_v4.png';
-import bioPepe from '../assets/generated_images/BIO/bio_pepe.png';
-import bioNyan from '../assets/generated_images/BIO/bio_nyan.png';
-import bioFine from '../assets/generated_images/BIO/bio_low_flame_no_text_v3.png';
-import bioBf from '../assets/generated_images/BIO/bio_bf.png';
-import bioRat from '../assets/generated_images/BIO/bio_rind_mouse_sniper_v4.png';
-import bioBaldwin from '../assets/generated_images/BIO/bio_baldwin.png';
-import bioSigma from '../assets/generated_images/BIO/bio_executive_p_axe_v5.png';
-import bioGigachad from '../assets/generated_images/BIO/bio_gigachad.png';
-import bioThinker from '../assets/generated_images/BIO/bio_thinker.png';
-import bioDisaster from '../assets/generated_images/BIO/bio_hotwired_bar_on_fire_v6.png';
+import bioPanic from "../assets/generated_images/BIO/bio_panic_bot_option3.png";
+import bioAccuser from "../assets/generated_images/BIO/bio_accuser_girl_pointing_v5.png";
+import bioGuardian from '../assets/generated_images/BIO/bio_guardian_h_gorilla_pushups_v4.png';
+import bioClick from '../assets/generated_images/BIO/bio_popcat.png';
+import bioFrost from '../assets/generated_images/BIO/bio_frostbyte_v4.png';
+import bioSadman from '../assets/generated_images/BIO/bio_pepe.png';
+import bioDash from '../assets/generated_images/BIO/bio_nyan.png';
+import bioLowflame from '../assets/generated_images/BIO/bio_low_flame_no_text_v3.png';
+import bioWandering from '../assets/generated_images/BIO/bio_bf.png';
+import bioRind from '../assets/generated_images/BIO/bio_rind_mouse_sniper_v4.png';
+import bioAnointed from '../assets/generated_images/BIO/bio_baldwin.png';
+import bioExecutive from '../assets/generated_images/BIO/bio_executive_p_axe_v5.png';
+import bioAlpha from '../assets/generated_images/BIO/bio_gigachad.png';
+import bioRoll from '../assets/generated_images/BIO/bio_thinker.png';
+import bioHotwired from '../assets/generated_images/BIO/bio_hotwired_bar_on_fire_v6.png';
 import bioPrimate from '../assets/generated_images/BIO/bio_primate.png';
-import bioHarold from '../assets/generated_images/BIO/bio_harold.png';
+import bioPain from '../assets/generated_images/BIO/bio_harold.png';
 
 import bioPromKing from '../assets/generated_images/BIO/bio_prom.png';
 import bioIdolCore from '../assets/generated_images/BIO/bio_idol_core.png';
@@ -244,96 +244,96 @@ interface Character {
 
 const CHARACTERS: Character[] = [
   { 
-    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charGuardian, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charGuardian, imageSocial: socialGuardian, imageBio: bioGuardian, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
     ability: { name: 'SPIRIT SHIELD', description: '+11s if you win Round 1.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Designate a player immune to social dares each round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Others cannot release button until you finish a sip.' }
   },
   { 
-    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charClick, imageSocial: socialPopcat, imageBio: bioPopcat, description: 'Hyperactive timing precision.', color: 'text-pink-400',
+    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charClick, imageSocial: socialClick, imageBio: bioClick, description: 'Hyperactive timing precision.', color: 'text-pink-400',
     ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'MISCLICK', description: 'Chance 1 player must hold bid without using hands.' },
     bioAbility: { name: 'MOUTH POP', description: '1 round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
-    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charFrost, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charFrost, imageSocial: socialFrost, imageBio: bioFrost, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: 'Chance you may ignore all social interactions.' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 round: 1 opponent forced to win or drink.' }
   },
   { 
-    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charSadman, imageSocial: socialSadmanOption3, imageBio: bioPepe, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charSadman, imageSocial: socialSadman, imageBio: bioSadman, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'SAD STORY', description: 'Chance 1 random player shares a sad story.' },
     bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you can change your drinking buddy.' }
   },
   { 
-    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charDash, imageSocial: socialRainbowDashOption1, imageBio: bioNyan, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charDash, imageSocial: socialDash, imageBio: bioDash, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: 'Chance 1 random opponent must speak 2x speed.' },
     bioAbility: { name: 'RAINBOW SHOT', description: 'Chance 1 random player mixes two drinks.' }
   },
   { 
-    id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charAccuser, imageSocial: socialAccuserOption1,
-    imageBio: bioAccuserOption1,
+    id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charAccuser, imageSocial: socialAccuser,
+    imageBio: bioAccuser,
     description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
     socialAbility: { name: 'COMPLAINT', description: 'Chance everyone votes on winner\'s punishment.' },
     bioAbility: { name: 'SPILL HAZARD', description: 'Chance to accuse someone of spilling; they drink.' }
   },
   { 
-    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charLowflame, imageSocial: socialFine, imageBio: bioFine, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charLowflame, imageSocial: socialLowflame, imageBio: bioLowflame, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
     ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: 'Chance to choose a player to answer a truth.' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks.' }
   },
   { 
-    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charWandering, imageSocial: socialBf, imageBio: bioBf, description: 'Always looking for a better deal.', color: 'text-blue-400',
+    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charWandering, imageSocial: socialWandering, imageBio: bioWandering, description: 'Always looking for a better deal.', color: 'text-blue-400',
     ability: { name: 'SNEAK PEEK', description: 'See 1 random player holding. All other banks scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'DISTRACTION', description: 'Chance to point at something; anyone who looks must drop buzzer.' },
     bioAbility: { name: 'THE EX', description: 'Chance 1 random player toasts to an ex.' }
   },
   { 
-    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRind, imageSocial: socialRat, imageBio: bioRat, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRind, imageSocial: socialRind, imageBio: bioRind, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: 'Chance 1 random player must reveal someone\'s tell.' },
     bioAbility: { name: 'SCAVENGE', description: 'Chance 1 random player finishes someone else\'s drink.' }
   },
   { 
-    id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charAnointed, imageSocial: socialBaldwin,
-    imageBio: bioBaldwin,
+    id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charAnointed, imageSocial: socialAnointed,
+    imageBio: bioAnointed,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 20s refund if you bid within 0.4s of 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: 'Chance everyone is commanded silent' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round: Make a rule for remainder of game.' }
   },
   { 
-    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charExecutive, imageSocial: socialExecutivePOption1, imageBio: bioSigma, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charExecutive, imageSocial: socialExecutive, imageBio: bioExecutive, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
     ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
     socialAbility: { name: 'CC\'D', description: 'Chance 1 random player must copy your actions next round.' },
     bioAbility: { name: 'REASSIGNED', description: 'Chance to choose 1 player to take a drink.' }
   },
   { 
-    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charAlpha, imageSocial: socialGigachad, imageBio: bioGigachad, description: 'Peak performance in every bid.', color: 'text-zinc-300',
+    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charAlpha, imageSocial: socialAlpha, imageBio: bioAlpha, description: 'Peak performance in every bid.', color: 'text-zinc-300',
     ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'MOG', description: 'Chance 1 random player must do 10 pushups or ff next round.' },
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall.' }
   },
   { 
-    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charRoll, imageSocial: socialThinker, imageBio: bioThinker, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charRoll, imageSocial: socialRoll, imageBio: bioRoll, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules.' },
     bioAbility: { name: 'BIG BRAIN', description: 'Chance option to have everyone pass drink to the left.' }
   },
   { 
-    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charHotwired, imageSocial: socialDisaster, imageBio: bioDisaster, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charHotwired, imageSocial: socialHotwired, imageBio: bioHotwired, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
     ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
     socialAbility: { name: 'VIRAL MOMENT', description: '1 random round target must re-enact a meme.' },
     bioAbility: { name: 'SPICY', description: 'Chance everyone drinks.' }
   },
   { 
-    id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charPanic, imageSocial: socialPanicBotOption1,
-    imageBio: bioPanicBotOption3,
+    id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charPanic, imageSocial: socialPanic,
+    imageBio: bioPanic,
     description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drop button.' },
@@ -346,8 +346,8 @@ const CHARACTERS: Character[] = [
     bioAbility: { name: 'GREEDY GRAB', description: 'Chance previous winner must burn 40s next round or finish drink.' }
   },
   { 
-    id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charPain, imageSocial: socialPainHiderOption1,
-    imageBio: bioHarold,
+    id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charPain, imageSocial: socialPain,
+    imageBio: bioPain,
     description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'BOOMER', description: 'You forgot what your power was.' },
