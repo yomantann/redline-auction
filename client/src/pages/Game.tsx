@@ -473,6 +473,7 @@ interface HauntedItem {
   category: 'Cursed' | 'Spooky' | 'Mystical' | 'Chaotic';
   target: 'Self' | 'Everyone' | 'Opponent';
   voteType?: 'vote';
+  botOnly?: boolean;
   description: string;
   flavour: string;
   ghostNote?: string;
@@ -572,17 +573,69 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     flavour: 'The table decides your fate.',
   },
   {
-    id: 'seance',
-    number: '12',
-    name: 'Séance',
-    icon: '🎭',
+    id: 'jackpot',
+    number: '09',
+    name: 'Jackpot',
+    icon: '🎰',
     category: 'Chaotic',
-    target: 'Everyone',
-    voteType: 'vote',
-    description: "All players vote on how next round is played. A: Lowest bid wins  |  B: Double tokens for winner  |  C: No eliminations this round. Most votes wins. Activator breaks ties.",
-    flavour: 'The spirits decide the rules.',
+    target: 'Self',
+    description: 'Randomly gain one of the following immediately: 🎯 25% — +40s to your time bank | 🏆 25% — +2 trophies | 💀 25% — lose 30s from your bank | 👻 25% — you are immediately ghosted.',
+    flavour: "The wheel doesn't care who you are.",
+  },
+  {
+    id: 'last_will',
+    number: '10',
+    name: 'Last Will',
+    icon: '📜',
+    category: 'Cursed',
+    target: 'Opponent',
+    description: 'Activate before a round. If you are eliminated this round, choose now: one opponent loses 20s OR loses 1 trophy when you go out. If you survive the round, nothing happens — relic still consumed.',
+    flavour: 'You will not go quietly.',
+  },
+  {
+    id: 'echo',
+    number: '13',
+    name: 'Echo',
+    icon: '🔁',
+    category: 'Spooky',
+    target: 'Opponent',
+    description: "Choose one opponent. Their bid from the previous round is automatically replayed as their bid next round — they cannot change it. They hold until that exact time elapses and release automatically.",
+    flavour: 'The past has a way of repeating.',
+  },
+  {
+    id: 'marked',
+    number: '14',
+    name: 'Marked',
+    icon: '🎯',
+    category: 'Cursed',
+    target: 'Opponent',
+    description: "Choose one opponent. The next time they win a round, they are immediately ghosted after receiving their trophy. The mark persists until it fires. You also have a 50% chance of being ghosted when it triggers.",
+    flavour: 'Victory is their curse.',
+  },
+  {
+    id: 'corrupt',
+    number: '15',
+    name: 'Corrupt',
+    icon: '🦠',
+    category: 'Cursed',
+    target: 'Opponent',
+    botOnly: true,
+    description: "Choose one bot player. Their personality is overridden to 'aggressive' for the next 3 rounds — they will overbid recklessly and drain their bank faster.",
+    flavour: 'Pull the strings. Watch them burn.',
+  },
+  {
+    id: 'pattern_lock',
+    number: '16',
+    name: 'Pattern Lock',
+    icon: '🔒',
+    category: 'Mystical',
+    target: 'Opponent',
+    description: "Look at one player's bid history. Their highest bid ever made becomes their forced minimum next round — they cannot release before reaching that value. If they can't afford it, they're eliminated trying.",
+    flavour: 'Your own history becomes your prison.',
   },
 ];
+
+
 
 // ... (Existing types)
 
@@ -6368,6 +6421,9 @@ export default function Game() {
                       <span className="font-bold text-sm text-teal-100 leading-tight">{item.name}</span>
                       {item.voteType && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded border border-yellow-500/40 bg-yellow-900/20 text-yellow-400">⬆ VOTE</span>
+                      )}
+                      {item.botOnly && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-600/60 bg-zinc-800/60 text-zinc-400">🤖 BOT TARGET</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap">
