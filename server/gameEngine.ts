@@ -2714,11 +2714,11 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     // detection when two players both release on the same displayed second.
     // Fall back to the fresh computation only if the tick hasn't updated the bid yet
     // (player released within the very first 100ms of the bidding phase).
-    player.currentBid = player.currentBid > 0
+    player.currentBid = (player.currentBid != null && player.currentBid > 0)
       ? Math.round(player.currentBid * 10) / 10
       : Math.round((playerElapsed + minBid) * 10) / 10;
     
-    log(`${player.name} released at ${player.currentBid.toFixed(1)}s (${playerElapsed.toFixed(1)}s hold + ${minBid}s minBid) in lobby ${lobbyCode}`, "game");
+    log(`${player.name} released at ${(player.currentBid as number).toFixed(1)}s (${playerElapsed.toFixed(1)}s hold + ${minBid}s minBid) in lobby ${lobbyCode}`, "game");
     
     // Broadcast immediately
     broadcastGameState(lobbyCode);
@@ -2868,6 +2868,8 @@ export function broadcastGameState(lobbyCode: string) {
       possessionTargetId: p.possessionTargetId || null,
       possessionRoundsLeft: p.possessionRoundsLeft ?? null,
       selectedItem: p.selectedItem || null,
+      relicConsumed: p.relicConsumed || false,
+      ghostReason: p.ghostReason || null,
       currentBid: p.currentBid,
       isHolding: p.isHolding,
       roundEndAcknowledged: (p as any).roundEndAcknowledged || false,

@@ -316,7 +316,7 @@ interface Player {
   // Haunted mode fields
   selectedItem?: string;          // Haunted mode: name of selected haunted item
   isGhost?: boolean;              // Haunted mode: true when player is converted to ghost on elimination
-  ghostAbility?: 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | null; // Which ghost ability this ghost has
+  ghostAbility?: 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null; // Which ghost ability this ghost has
   ghostAbilityUsed?: boolean;     // Has this ghost's ability already been used?
   possessionTargetId?: string;    // For POSSESSION: which player is being tracked
   possessionRoundsLeft?: number;  // For POSSESSION: rounds remaining before auto-revive
@@ -805,6 +805,83 @@ function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult[] {
   });
 }
 
+// Last Will picker sub-component (inline inside Game.tsx for closure access to cn)
+function LastWillPickerInline({
+  opponents,
+  onConfirm,
+  onCancel,
+}: {
+  opponents: { id: string; name: string; remainingTime: number; tokens: number }[];
+  onConfirm: (targetId: string, curseType: 'time' | 'trophy') => void;
+  onCancel: () => void;
+}) {
+  const [pickedTarget, setPickedTarget] = React.useState<string | null>(null);
+  const [pickedCurse, setPickedCurse] = React.useState<'time' | 'trophy' | null>(null);
+  return (
+    <div className="space-y-3">
+      <p className="text-zinc-500 text-xs text-center">Choose target:</p>
+      <div className="space-y-1 max-h-40 overflow-y-auto">
+        {opponents.map(opp => (
+          <button
+            key={opp.id}
+            onClick={() => setPickedTarget(opp.id)}
+            className={cn(
+              'w-full py-1.5 px-3 rounded text-sm flex justify-between transition-colors',
+              pickedTarget === opp.id
+                ? 'bg-teal-900 text-teal-100 border border-teal-500/50'
+                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+            )}
+          >
+            <span>{opp.name}</span>
+            <span className="text-zinc-500 text-xs">{opp.remainingTime.toFixed(1)}s · {opp.tokens}🏆</span>
+          </button>
+        ))}
+      </div>
+      {pickedTarget && (
+        <>
+          <p className="text-zinc-500 text-xs text-center">Choose curse:</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPickedCurse('time')}
+              className={cn(
+                'flex-1 py-2 rounded text-xs transition-colors',
+                pickedCurse === 'time'
+                  ? 'bg-red-900 text-red-200 border border-red-500/50'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+              )}
+            >
+              💀 Lose 20s
+            </button>
+            <button
+              onClick={() => setPickedCurse('trophy')}
+              className={cn(
+                'flex-1 py-2 rounded text-xs transition-colors',
+                pickedCurse === 'trophy'
+                  ? 'bg-yellow-900 text-yellow-200 border border-yellow-500/50'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+              )}
+            >
+              🏆 Lose 1 Trophy
+            </button>
+          </div>
+        </>
+      )}
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={() => pickedTarget && pickedCurse && onConfirm(pickedTarget, pickedCurse)}
+          disabled={!pickedTarget || !pickedCurse}
+          className="flex-1 py-2 rounded bg-teal-900 text-teal-100 text-sm font-bold hover:bg-teal-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Confirm Curse
+        </button>
+        <button onClick={onCancel} className="flex-1 py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Game() {
   const { toast } = useToast();
   
@@ -890,6 +967,8 @@ export default function Game() {
   const [bargainOffer, setBargainOffer] = useState<number>(1);                   // BARGAIN: trophies offered
   const [bargainTimeLeft, setBargainTimeLeft] = useState<number>(30);            // BARGAIN: seconds remaining
   const [possessionGhostId, setPossessionGhostId] = useState<string | null>(null); // POSSESSION: picking ghost
+  const [relicModalOpen, setRelicModalOpen] = useState(false);             // Relic activation modal open
+  const [relicTargetPickRelicId, setRelicTargetPickRelicId] = useState<string | null>(null); // unused direct state, kept for clarity
 
   // Singleplayer snapshot recording - write-only to database
   const recordSingleplayerSnapshot = async (
@@ -1204,6 +1283,11 @@ export default function Game() {
       tokens: number;
       remainingTime: number;
       isEliminated: boolean;
+      isGhost?: boolean;
+      ghostImage?: string;
+      ghostAbility?: string;
+      selectedItem?: string;
+      relicConsumed?: boolean;
       currentBid: number | null;
       isHolding: boolean;
       totalTimeBid: number;
@@ -2473,7 +2557,164 @@ export default function Game() {
     };
   };
 
-  // User Interactions - Button Down
+  // Helper: immediately fire a relic effect for the given player (SP only)
+  const fireRelicEffect = (relicId: string, activatorId: string, targetId?: string, curseType?: 'time' | 'trophy') => {
+    setPlayers(prev => {
+      const next = prev.map(p => ({ ...p }));
+      const activator = next.find(p => p.id === activatorId);
+      if (!activator) return prev;
+      activator.relicConsumed = true;
+
+      switch (relicId) {
+        case 'jackpot': {
+          const roll = Math.random();
+          if (roll < 0.25) {
+            activator.remainingTime = Math.min(activator.remainingTime + 40, 9999);
+            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 🎯 LUCKY!', '+40s added to your time bank!', 3000), 200);
+          } else if (roll < 0.5) {
+            activator.tokens += 2;
+            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 🏆 JACKPOT!', '+2 trophies awarded!', 3000), 200);
+          } else if (roll < 0.75) {
+            activator.remainingTime = Math.max(0, activator.remainingTime - 30);
+            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 💀 CURSED!', '-30s removed from your time bank!', 3000), 200);
+          } else {
+            const ghostData = assignGhostImage();
+            const savedTime = activator.remainingTime;
+            activator.isGhost = true;
+            activator.ghostReason = 'forced';
+            activator.ghostTimeAtDeath = savedTime;
+            activator.ghostAbility = ghostData.ghostAbility;
+            activator.characterIcon = ghostData.characterIcon;
+            activator.ghostImage = ghostData.ghostImage;
+            activator.remainingTime = 0;
+            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 👻 GHOSTED!', 'The wheel chose the worst outcome. You are now a ghost.', 0), 200);
+          }
+          break;
+        }
+        case 'ghost_touch': {
+          const target = next.find(p => p.id === targetId);
+          if (target && !target.isGhost && !target.isEliminated) {
+            if (Math.random() < 0.10) {
+              const ghostData = assignGhostImage();
+              const savedTime = target.remainingTime;
+              target.isGhost = true;
+              target.ghostReason = 'forced';
+              target.ghostTimeAtDeath = savedTime;
+              target.ghostAbility = ghostData.ghostAbility;
+              target.characterIcon = ghostData.characterIcon;
+              target.ghostImage = ghostData.ghostImage;
+              target.remainingTime = 0;
+              setTimeout(() => addOverlay('ability_trigger', '☠️ GHOST TOUCH FIRED', `${target.name} was consumed by the curse!`, 3000), 200);
+            } else {
+              setTimeout(() => addOverlay('ability_trigger', '☠️ GHOST TOUCH: MISSED', `The curse didn't take. ${target.name} survives — this time.`, 3000), 200);
+            }
+          }
+          break;
+        }
+        case 'sacrificial_lamb': {
+          const victims = next.filter(p => !p.isGhost && !p.isEliminated && p.tokens > 0);
+          if (victims.length > 0) {
+            const victim = victims[Math.floor(Math.random() * victims.length)];
+            victim.tokens = Math.max(0, victim.tokens - 1);
+            setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `${victim.name} loses 1 trophy. The lamb is chosen. Not by you.`, 3000), 200);
+          }
+          break;
+        }
+        case 'wild_card': {
+          const alive = next.filter(p => !p.isGhost && !p.isEliminated);
+          if (alive.length > 1) {
+            const times = alive.map(p => p.remainingTime);
+            let shuffled = [...times];
+            let attempts = 0;
+            do {
+              for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+              }
+              attempts++;
+            } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
+            alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
+            setTimeout(() => addOverlay('ability_trigger', '🌀 WILD CARD', "All time banks redistributed! Nobody gets their own.", 3000), 200);
+          }
+          break;
+        }
+        case 'echo': {
+          const target = next.find(p => p.id === targetId);
+          if (target) {
+            const lastBid = target.bidHistory?.length ? target.bidHistory[target.bidHistory.length - 1] : null;
+            if (lastBid != null) {
+              target.echoForcedBid = lastBid;
+              setTimeout(() => addOverlay('ability_trigger', '🔁 ECHO', `${target.name}'s last bid (${lastBid.toFixed(1)}s) is locked as their forced bid next round.`, 3000), 200);
+            } else {
+              setTimeout(() => addOverlay('ability_trigger', '🔁 ECHO: NO HISTORY', `${target.name} has no bid history yet. Echo had no effect.`, 3000), 200);
+            }
+          }
+          break;
+        }
+        case 'marked': {
+          const target = next.find(p => p.id === targetId);
+          if (target) {
+            target.markedBy = activatorId;
+            setTimeout(() => addOverlay('ability_trigger', '🎯 MARKED', `${target.name} is marked. The next time they win a round, they will be ghosted.`, 3000), 200);
+          }
+          break;
+        }
+        case 'corrupt': {
+          const target = next.find(p => p.id === targetId && p.isBot);
+          if (target) {
+            target.corruptRoundsLeft = 3;
+            target.personality = 'aggressive';
+            setTimeout(() => addOverlay('ability_trigger', '🦠 CORRUPT', `${target.name}'s personality is now AGGRESSIVE for 3 rounds!`, 3000), 200);
+          }
+          break;
+        }
+        case 'pattern_lock': {
+          const target = next.find(p => p.id === targetId);
+          if (target && target.bidHistory && target.bidHistory.length > 0) {
+            const maxBid = Math.max(...target.bidHistory);
+            target.patternLockMinBid = maxBid;
+            setTimeout(() => addOverlay('ability_trigger', '🔒 PATTERN LOCK', `${target.name}'s highest bid (${maxBid.toFixed(1)}s) is now their forced minimum next round.`, 3000), 200);
+          } else {
+            setTimeout(() => addOverlay('ability_trigger', '🔒 PATTERN LOCK: NO DATA', `${target?.name ?? 'Target'} has no bid history. Pattern Lock had no effect.`, 3000), 200);
+          }
+          break;
+        }
+        case 'last_will': {
+          if (targetId && curseType) {
+            activator.pendingLastWill = { targetId, curseType };
+            const curseName = curseType === 'time' ? 'loses 20s' : 'loses 1 trophy';
+            const tName = next.find(p => p.id === targetId)?.name ?? 'target';
+            setTimeout(() => addOverlay('ability_trigger', '📜 LAST WILL SET', `If you are ghosted this round, ${tName} ${curseName}. Survive to prevent it.`, 3000), 200);
+          }
+          break;
+        }
+        case 'death_wish': {
+          activator.deathWishActive = true;
+          setTimeout(() => addOverlay('ability_trigger', '💀 DEATH WISH', 'Win this round for +2 trophies instead of 1. Lose and forfeit an extra 15s.', 3000), 200);
+          break;
+        }
+        case 'blood_pact': {
+          activator.bloodPactActive = true;
+          setTimeout(() => addOverlay('ability_trigger', '🩸 BLOOD PACT', "If anyone wins this round, all non-winners also lose the winner's bid time.", 3000), 200);
+          break;
+        }
+        case 'cursed_dice': {
+          activator.cursedDiceActive = true;
+          setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE ARMED', 'After this round: 50/50 chance of +20s or −20s. No influence.', 3000), 200);
+          break;
+        }
+        case 'phantom_bid': {
+          activator.phantomBidActive = true;
+          setTimeout(() => addOverlay('ability_trigger', '🌙 PHANTOM BID', 'Your bid this round is hidden. Opponents see only ???', 3000), 200);
+          break;
+        }
+        default:
+          break;
+      }
+
+      return next;
+    });
+  };
   const handlePress = () => {
     // Ghosts cannot hold the button in Haunted mode
     const p1 = players.find(p => p.id === 'p1');
@@ -3655,7 +3896,111 @@ export default function Game() {
         }
       });
     }
-    
+
+    // Deferred relic effects (Haunted mode, SP)
+    if (variant === 'HAUNTED') {
+      finalPlayers.forEach(p => {
+        // Last Will: if player was ghosted THIS round, apply the curse
+        if (p.pendingLastWill) {
+          const wasGhostBefore = !!players.find(op => op.id === p.id)?.isGhost;
+          const isGhostNow = !!p.isGhost;
+          if (!wasGhostBefore && isGhostNow) {
+            const willTarget = finalPlayers.find(fp => fp.id === p.pendingLastWill!.targetId);
+            if (willTarget) {
+              if (p.pendingLastWill.curseType === 'time') {
+                willTarget.remainingTime = Math.max(0, willTarget.remainingTime - 20);
+                setTimeout(() => addOverlay('protocol_alert', '📜 LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 20s.`, 3500), 1000);
+              } else {
+                willTarget.tokens = Math.max(0, willTarget.tokens - 1);
+                setTimeout(() => addOverlay('protocol_alert', '📜 LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 1 trophy.`, 3500), 1000);
+              }
+            }
+          }
+          p.pendingLastWill = undefined;
+        }
+
+        // Death Wish: check if this player won or not
+        if (p.deathWishActive) {
+          if (p.id === winnerId) {
+            p.tokens += 1; // +2 total (normal +1 already applied), so add 1 more
+            setTimeout(() => addOverlay('ability_trigger', '💀 DEATH WISH: WIN!', '+1 bonus trophy (total +2 this round)!', 3000), 800);
+          } else if (!p.isGhost && !p.isEliminated) {
+            p.remainingTime = Math.max(0, p.remainingTime - 15);
+            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '💀 DEATH WISH: CURSED', '-15s extra penalty for not winning.', 3000), 800);
+          }
+          p.deathWishActive = false;
+        }
+
+        // Blood Pact: all non-winners also lose the winner's bid amount
+        if (p.bloodPactActive && winnerId && winnerTime > 0) {
+          finalPlayers.forEach(fp => {
+            if (fp.id !== winnerId && !fp.isGhost && !fp.isEliminated) {
+              fp.remainingTime = Math.max(0, fp.remainingTime - winnerTime);
+            }
+          });
+          setTimeout(() => addOverlay('protocol_alert', '🩸 BLOOD PACT TRIGGERED', `Everyone who didn't win loses an extra ${winnerTime.toFixed(1)}s!`, 3500), 800);
+          p.bloodPactActive = false;
+        }
+
+        // Cursed Dice: ±20s random
+        if (p.cursedDiceActive) {
+          const gain = Math.random() > 0.5;
+          if (gain) {
+            p.remainingTime += 20;
+            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: LUCKY!', '+20s added to your bank!', 3000), 800);
+          } else {
+            p.remainingTime = Math.max(0, p.remainingTime - 20);
+            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: CURSED!', '-20s removed from your bank!', 3000), 800);
+          }
+          p.cursedDiceActive = false;
+        }
+
+        // Marked: check if this player just won — if so, ghost them
+        if (p.markedBy && p.id === winnerId) {
+          const markerId = p.markedBy;
+          const marker = finalPlayers.find(fp => fp.id === markerId);
+          const savedTime = p.remainingTime;
+          const ghostData = assignGhostImage();
+          p.isGhost = true;
+          p.ghostReason = 'forced';
+          p.ghostTimeAtDeath = savedTime;
+          p.ghostAbility = ghostData.ghostAbility;
+          p.characterIcon = ghostData.characterIcon;
+          p.ghostImage = ghostData.ghostImage;
+          p.remainingTime = 0;
+          p.markedBy = undefined;
+          setTimeout(() => addOverlay('protocol_alert', '🎯 MARK TRIGGERED', `${p.name} won — and was immediately ghosted by the mark!`, 0), 800);
+          // 50% chance the marker is also ghosted
+          if (marker && !marker.isGhost && !marker.isEliminated && Math.random() < 0.5) {
+            const markerGhost = assignGhostImage();
+            const markerSaved = marker.remainingTime;
+            marker.isGhost = true;
+            marker.ghostReason = 'forced';
+            marker.ghostTimeAtDeath = markerSaved;
+            marker.ghostAbility = markerGhost.ghostAbility;
+            marker.characterIcon = markerGhost.characterIcon;
+            marker.ghostImage = markerGhost.ghostImage;
+            marker.remainingTime = 0;
+            setTimeout(() => addOverlay('protocol_alert', '🎯 MARK BACKLASH', `The mark also claimed ${marker.name}!`, 0), 1400);
+          }
+        }
+
+        // Corrupt: decrement rounds counter; restore personality when expired
+        if ((p.corruptRoundsLeft ?? 0) > 0) {
+          p.corruptRoundsLeft = (p.corruptRoundsLeft ?? 1) - 1;
+          if (p.corruptRoundsLeft <= 0) {
+            p.corruptRoundsLeft = undefined;
+            if (p.isBot) p.personality = (['balanced','aggressive','conservative','random','adaptive','psychological'] as const)[Math.floor(Math.random() * 6)];
+          }
+        }
+
+        // Echo / Pattern Lock: clear flags after being consumed this round
+        p.echoForcedBid = undefined;
+        p.patternLockMinBid = undefined;
+        p.phantomBidActive = false;
+      });
+    }
+
     // Trigger Animations
     newAbilities.forEach(ab => {
          triggerAnimation(ab.playerId, ab.effect === 'TIME_REFUND' ? 'TIME_REFUND' : 'TOKEN_BOOST', ab.impactValue);
@@ -4759,7 +5104,10 @@ export default function Game() {
         remainingTime: mp.remainingTime,
         isEliminated: mp.isEliminated,
         isGhost: (mp as any).isGhost || false,
+        ghostImage: (mp as any).ghostImage || undefined,
+        ghostReason: (mp as any).ghostReason || undefined,
         selectedItem: (mp as any).selectedItem || undefined,
+        relicConsumed: (mp as any).relicConsumed || false,
         ghostAbility: (mp as any).ghostAbility || null,
         ghostAbilityUsed: (mp as any).ghostAbilityUsed || false,
         possessionTargetId: (mp as any).possessionTargetId || undefined,
@@ -6751,7 +7099,7 @@ export default function Game() {
           );
         }
         
-        return (
+        return (<>
           <div className="flex flex-col items-center justify-center h-[450px]">
             <div className="h-[100px] flex flex-col items-center justify-center space-y-2">
               <h2 className="text-3xl font-display">ROUND {round} / {totalRounds}</h2>
@@ -6817,7 +7165,119 @@ export default function Game() {
                   {displayPlayers.filter(p => p.isHolding && !p.isGhost).length} / {displayPlayers.filter(p => !p.isEliminated && !p.isGhost).length} READY
                 </p>
             </div>
-          </div>
+
+          </div>{/* end outer ready div */}
+
+          {/* USE RELIC button — Haunted mode only, only if player has an unconsumed relic */}
+          {variant === 'HAUNTED' && !currentPlayerIsGhost && (() => {
+              const myPl = isMultiplayer
+                ? displayPlayers.find(p => p.id === myMultiplayerPlayer?.id)
+                : players.find(p => p.id === 'p1');
+              const relicId = myPl?.selectedItem;
+              if (!relicId || myPl?.relicConsumed) return null;
+              const relicDef = HAUNTED_ITEMS.find(r => r.id === relicId);
+              if (!relicDef) return null;
+              return (
+                <div className="mt-3 flex flex-col items-center">
+                  <button
+                    onClick={() => setRelicModalOpen(true)}
+                    className="px-5 py-2 rounded-lg border border-teal-500/40 bg-teal-950/30 text-teal-300 text-sm font-bold hover:bg-teal-900/50 hover:border-teal-400/60 transition-all active:scale-95"
+                  >
+                    {relicDef.icon} USE RELIC — {relicDef.name}
+                  </button>
+                  <p className="text-zinc-600 text-[10px] mt-1">{relicDef.category} · → {relicDef.target}</p>
+                </div>
+              );
+            })()}
+
+            {/* Relic activation modal */}
+            {relicModalOpen && (() => {
+              const myPl = isMultiplayer
+                ? displayPlayers.find(p => p.id === myMultiplayerPlayer?.id)
+                : players.find(p => p.id === 'p1');
+              const relicId = myPl?.selectedItem;
+              const relicDef = relicId ? HAUNTED_ITEMS.find(r => r.id === relicId) : null;
+              if (!relicDef) return null;
+
+              const myId = isMultiplayer ? (myMultiplayerPlayer?.id ?? 'p1') : 'p1';
+              const opponents = (isMultiplayer ? displayPlayers : players).filter(p =>
+                !p.isGhost && !p.isEliminated && p.id !== myId
+              );
+              const botOpponents = opponents.filter((p: any) => p.isBot);
+
+              if (relicDef.voteType === 'vote') {
+                return (
+                  <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+                    <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
+                      <h3 className="text-lg font-bold text-teal-300 text-center">{relicDef.icon} {relicDef.name}</h3>
+                      <p className="text-zinc-400 text-sm text-center">{relicDef.description}</p>
+                      <p className="text-zinc-500 text-xs text-center">Vote relics coming soon in a future update.</p>
+                      <button onClick={() => setRelicModalOpen(false)} className="w-full py-2 rounded bg-zinc-800 text-zinc-300 text-sm hover:bg-zinc-700 transition-colors">Close</button>
+                    </div>
+                  </div>
+                );
+              }
+
+              const isLastWill = relicDef.id === 'last_will';
+              const needsOpponentTarget = relicDef.target === 'Opponent';
+              const targetList = relicDef.botOnly ? botOpponents : opponents;
+
+              return (
+                <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+                  <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
+                    <h3 className="text-lg font-bold text-teal-300 text-center">{relicDef.icon} {relicDef.name}</h3>
+                    <p className="text-zinc-400 text-sm text-center leading-snug">{relicDef.description}</p>
+                    <p className="text-zinc-600 text-xs text-center italic">{relicDef.flavour}</p>
+
+                    {/* Self or Everyone relics — activate immediately */}
+                    {(relicDef.target === 'Self' || relicDef.target === 'Everyone') && !isLastWill && (
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          onClick={() => { fireRelicEffect(relicDef.id, myId); setRelicModalOpen(false); }}
+                          className="flex-1 py-2 rounded bg-teal-900 text-teal-100 text-sm font-bold hover:bg-teal-800 transition-colors"
+                        >
+                          ✓ Activate
+                        </button>
+                        <button onClick={() => setRelicModalOpen(false)} className="flex-1 py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
+                      </div>
+                    )}
+
+                    {/* Opponent-targeted relics (not Last Will) */}
+                    {needsOpponentTarget && !isLastWill && (
+                      <>
+                        <p className="text-zinc-500 text-xs text-center">Choose target:</p>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {targetList.length === 0 && (
+                            <p className="text-zinc-600 text-xs text-center">No valid targets available.</p>
+                          )}
+                          {targetList.map((opp: any) => (
+                            <button
+                              key={opp.id}
+                              onClick={() => { fireRelicEffect(relicDef.id, myId, opp.id); setRelicModalOpen(false); }}
+                              className="w-full py-2 px-3 rounded bg-zinc-800 text-zinc-200 text-sm hover:bg-zinc-700 transition-colors flex items-center justify-between"
+                            >
+                              <span>{opp.name}{opp.isBot ? ' 🤖' : ''}</span>
+                              <span className="text-zinc-500 text-xs">{opp.remainingTime.toFixed(1)}s · {opp.tokens}🏆</span>
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => setRelicModalOpen(false)} className="w-full py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
+                      </>
+                    )}
+
+                    {/* Last Will: pick target + curse type via inline form */}
+                    {isLastWill && (
+                      <LastWillPickerInline
+                        opponents={opponents as any[]}
+                        onConfirm={(tid, ct) => { fireRelicEffect('last_will', myId, tid, ct); setRelicModalOpen(false); }}
+                        onCancel={() => setRelicModalOpen(false)}
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+          })()}
+        </>
         );
       }
 
@@ -7237,10 +7697,11 @@ export default function Game() {
           <div key={p.id} className={cn(
             "p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden",
             p.id === winner.id && "border-primary/50 bg-primary/10",
-            p.id === loser.id ? "border-destructive/50 bg-destructive/10" : "border-white/10"
+            p.id === loser.id && !p.isGhost ? "border-destructive/50 bg-destructive/10" : "border-white/10"
           )}>
             {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
-            {p.id === loser.id && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
+            {p.id === loser.id && !p.isGhost && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
+            {p.isGhost && p.id !== winner.id && <div className="absolute top-0 right-0 bg-teal-800/80 text-teal-200 text-[10px] font-bold px-2 py-0.5">👻 GHOST</div>}
 
             <div className="flex items-center gap-2 mb-2">
               <span className="font-bold text-xl text-zinc-500">#{i + 1}</span>
@@ -7323,19 +7784,21 @@ export default function Game() {
                       <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '30px' }}>
                         <div className="text-2xl sm:text-3xl font-bold text-zinc-400">2nd</div>
                         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-zinc-400 overflow-hidden bg-zinc-800">
-                          {topThree[1].selectedDriver && getCharacterImage(topThree[1].selectedDriver) ? (
-                            <img 
-                              src={getCharacterImage(topThree[1].selectedDriver)!} 
-                              alt={getCharacterName(topThree[1].selectedDriver)}
-                              className="w-full h-full object-cover" 
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-zinc-600">
-                              {topThree[1].name.charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                          {(() => {
+                            const p = topThree[1];
+                            const imgSrc = (variant === 'HAUNTED' && (p as any).isGhost && (p as any).ghostImage)
+                              ? GHOST_IMAGES[parseInt((p as any).ghostImage.replace('hnt_ghost_', ''), 10) - 1]
+                              : getCharacterImage(p.selectedDriver);
+                            return imgSrc ? (
+                              <img src={imgSrc} alt={getCharacterName(p.selectedDriver)} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-zinc-600">
+                                {p.name.charAt(0).toUpperCase()}
+                              </div>
+                            );
+                          })()}
                         </div>
-                        <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[1].name}</div>
+                        <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[1].name}{(topThree[1] as any).isGhost ? ' 👻' : ''}</div>
                         <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
                           {getCharacterName(topThree[1].selectedDriver)}
                         </div>
@@ -7347,19 +7810,21 @@ export default function Game() {
                       <div className="flex flex-col items-center gap-1 flex-1">
                         <div className="text-3xl sm:text-5xl font-bold text-primary">1st</div>
                         <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-primary overflow-hidden bg-primary/10 shadow-lg shadow-primary/50">
-                          {topThree[0].selectedDriver && getCharacterImage(topThree[0].selectedDriver) ? (
-                            <img 
-                              src={getCharacterImage(topThree[0].selectedDriver)!} 
-                              alt={getCharacterName(topThree[0].selectedDriver)}
-                              className="w-full h-full object-cover" 
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-primary/50">
-                              {topThree[0].name.charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                          {(() => {
+                            const p = topThree[0];
+                            const imgSrc = (variant === 'HAUNTED' && (p as any).isGhost && (p as any).ghostImage)
+                              ? GHOST_IMAGES[parseInt((p as any).ghostImage.replace('hnt_ghost_', ''), 10) - 1]
+                              : getCharacterImage(p.selectedDriver);
+                            return imgSrc ? (
+                              <img src={imgSrc} alt={getCharacterName(p.selectedDriver)} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-primary/50">
+                                {p.name.charAt(0).toUpperCase()}
+                              </div>
+                            );
+                          })()}
                         </div>
-                        <div className="text-sm sm:text-base font-bold text-white text-center">{topThree[0].name}</div>
+                        <div className="text-sm sm:text-base font-bold text-white text-center">{topThree[0].name}{(topThree[0] as any).isGhost ? ' 👻' : ''}</div>
                         <div className="text-xs sm:text-sm text-primary text-center">
                           {getCharacterName(topThree[0].selectedDriver)}
                         </div>
@@ -7371,19 +7836,21 @@ export default function Game() {
                       <div className="flex flex-col items-center gap-1 flex-1" style={{ marginTop: '50px' }}>
                         <div className="text-xl sm:text-2xl font-bold text-amber-700">3rd</div>
                         <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-amber-700 overflow-hidden bg-amber-900/30">
-                          {topThree[2].selectedDriver && getCharacterImage(topThree[2].selectedDriver) ? (
-                            <img 
-                              src={getCharacterImage(topThree[2].selectedDriver)!} 
-                              alt={getCharacterName(topThree[2].selectedDriver)}
-                              className="w-full h-full object-cover" 
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xl font-bold text-amber-700/50">
-                              {topThree[2].name.charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                          {(() => {
+                            const p = topThree[2];
+                            const imgSrc = (variant === 'HAUNTED' && (p as any).isGhost && (p as any).ghostImage)
+                              ? GHOST_IMAGES[parseInt((p as any).ghostImage.replace('hnt_ghost_', ''), 10) - 1]
+                              : getCharacterImage(p.selectedDriver);
+                            return imgSrc ? (
+                              <img src={imgSrc} alt={getCharacterName(p.selectedDriver)} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xl font-bold text-amber-700/50">
+                                {p.name.charAt(0).toUpperCase()}
+                              </div>
+                            );
+                          })()}
                         </div>
-                        <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[2].name}</div>
+                        <div className="text-xs sm:text-sm font-bold text-white text-center">{topThree[2].name}{(topThree[2] as any).isGhost ? ' 👻' : ''}</div>
                         <div className="text-[10px] sm:text-xs text-zinc-400 text-center">
                           {getCharacterName(topThree[2].selectedDriver)}
                         </div>
