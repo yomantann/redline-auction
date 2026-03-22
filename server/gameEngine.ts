@@ -754,10 +754,10 @@ function startOverclock(lobbyCode: string) {
     }
   });
 
-  // Assign random click counts to bots (15-50 clicks)
+  // Assign random click counts to bots (85-120 clicks)
   game.players.forEach(p => {
     if (p.isBot && !p.isEliminated) {
-      game.overclockClickCounts[p.id] = Math.floor(Math.random() * 36) + 15; // 15-50
+      game.overclockClickCounts[p.id] = Math.floor(Math.random() * 36) + 85; // 85-120
     }
   });
 
@@ -980,7 +980,13 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
       holdTime = holdTime * 0.85;
     }
 
-    // CALIBRATION: Override hold time to aim for the calibration target
+    const driverAdj = getDriverBidAdjustment(p.selectedDriver, holdTime, game, p);
+    holdTime = driverAdj.holdTime;
+
+    holdTime += Math.random() * 0.8;
+    holdTime = Math.min(maxHoldTime, Math.max(0.5, holdTime));
+
+    // CALIBRATION: Override hold time last so bot always stays within ±7s of target
     if (game.activeProtocol === 'CALIBRATION' && game.calibrationTargetSeconds !== null) {
       const target = game.calibrationTargetSeconds;
       // Bots bid within 0.2–7.0 seconds of the target (random offset in either direction)
@@ -994,11 +1000,6 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
       holdTime = Math.min(safeMaxHold, Math.max(0.5, holdTime));
     }
 
-    const driverAdj = getDriverBidAdjustment(p.selectedDriver, holdTime, game, p);
-    holdTime = driverAdj.holdTime;
-
-    holdTime += Math.random() * 0.8;
-    holdTime = Math.min(maxHoldTime, Math.max(0.5, holdTime));
     bids[p.id] = parseFloat(holdTime.toFixed(1));
   });
 
@@ -1288,11 +1289,11 @@ function endRound(lobbyCode: string) {
       });
       log(`OVERCLOCK winner: ${topWinner.name} with ${maxClicks} clicks in lobby ${lobbyCode}`, "game");
 
-      // Loser: least clicks → -10s timebank (only if different click count from winner)
+      // Loser: least clicks → -35s timebank (only if different click count from winner)
       if (minClicks < maxClicks) {
         const bottomClickers = overclockActivePlayers.filter(p => (clickCounts[p.id] || 0) === minClicks);
         const loser = bottomClickers[Math.floor(Math.random() * bottomClickers.length)];
-        const penalty = 10;
+        const penalty = 35;
         loser.remainingTime = Math.max(0, loser.remainingTime - penalty);
         loser.netImpact -= penalty;
         loser.roundImpacts.push({ type: 'OVERCLOCK_PENALTY', value: -penalty, source: 'OVERCLOCK' });
@@ -1306,11 +1307,11 @@ function endRound(lobbyCode: string) {
           type: 'protocol',
           playerId: loser.id,
           playerName: loser.name,
-          message: `OVERCLOCK: ${loser.name} had fewest clicks (${minClicks}) — loses 10s!`,
+          message: `OVERCLOCK: ${loser.name} had fewest clicks (${minClicks}) — loses 35s!`,
           value: -penalty,
           basic: true,
         });
-        log(`OVERCLOCK loser: ${loser.name} with ${minClicks} clicks, -10s in lobby ${lobbyCode}`, "game");
+        log(`OVERCLOCK loser: ${loser.name} with ${minClicks} clicks, -35s in lobby ${lobbyCode}`, "game");
       }
     }
 
