@@ -236,6 +236,7 @@ export interface GameState {
   // Relic game-state fields
   forcedProtocolNextRound?: ProtocolType | null; // Protocol Forcer: override next round's protocol
   pendingVote?: PendingRelicVote | null;          // Active vote relic (Tribunal / Conclave)
+  voteQueue?: PendingRelicVote[];                  // Queued votes waiting for current vote to resolve
   protocolsAlwaysOn?: boolean;                    // Conclave C: 100% protocol trigger rest of game
   skipNextRound?: boolean;                        // Conclave B: skip next round as tie
 }
@@ -538,6 +539,7 @@ export function createGame(
     ghostCurseActive: false,
     forcedProtocolNextRound: null,
     pendingVote: null,
+    voteQueue: [],
     protocolsAlwaysOn: false,
     skipNextRound: false,
   };
@@ -744,8 +746,9 @@ function startBidding(lobbyCode: string) {
     game.players.forEach(p => {
       if (!p.isBot || p.isEliminated || p.isGhost) return;
       if (p.echoForcedBid !== undefined) {
-        // Bot must hold until exactly echoForcedBid (holdTime = echoForcedBid - minBid)
-        const holdTarget = Math.max(0, p.echoForcedBid - minBid);
+        // Bot targets max(echoForcedBid, patternLockMinBid) so both constraints are satisfied
+        const effectiveForcedBid = Math.max(p.echoForcedBid, p.patternLockMinBid ?? 0);
+        const holdTarget = Math.max(0, effectiveForcedBid - minBid);
         game.botTargetBids[p.id] = holdTarget;
         log(`Echo override: bot ${p.name} target hold = ${holdTarget.toFixed(1)}s in lobby ${lobbyCode}`, "game");
       } else if (p.patternLockMinBid !== undefined) {
@@ -789,12 +792,15 @@ function startBidding(lobbyCode: string) {
         const playerElapsed = (playerHasFireWall && g.activeProtocol === 'PANIC_ROOM') ? rawElapsed : elapsed;
         p.currentBid = playerElapsed + minBid; // Bid starts at min bid value
         
-        // ECHO: if a non-bot player has echoForcedBid, auto-release when they reach that amount
-        if (!p.isBot && p.echoForcedBid !== undefined && p.currentBid >= p.echoForcedBid) {
-          p.isHolding = false;
-          p.currentBid = Math.round(p.echoForcedBid * 10) / 10;
-          log(`Echo: ${p.name} auto-released at ${p.currentBid.toFixed(1)}s in lobby ${lobbyCode}`, "game");
-          return;
+        // ECHO: if a non-bot player has echoForcedBid, auto-release at max(echoForcedBid, patternLockMinBid)
+        if (!p.isBot && p.echoForcedBid !== undefined) {
+          const effectiveForcedBid = Math.max(p.echoForcedBid, p.patternLockMinBid ?? 0);
+          if (p.currentBid >= effectiveForcedBid) {
+            p.isHolding = false;
+            p.currentBid = Math.round(effectiveForcedBid * 10) / 10;
+            log(`Echo: ${p.name} auto-released at ${p.currentBid.toFixed(1)}s in lobby ${lobbyCode}`, "game");
+            return;
+          }
         }
 
         // Auto-ghostify (Haunted) or eliminate (other modes) if bid exceeds remaining time
@@ -805,7 +811,7 @@ function startBidding(lobbyCode: string) {
             // Haunted: become a ghost, NOT eliminated
             p.isGhost = true;
             p.ghostReason = 'natural';
-            p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 8) + 1}`;
+            p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
             log(`${p.name} became a ghost (ran out of time) in lobby ${lobbyCode}`, "game");
           } else {
             p.isEliminated = true;
@@ -1295,6 +1301,10 @@ function endRound(lobbyCode: string) {
     const bid = p.currentBid || 0;
     startingTimeBanks.set(p.id, p.remainingTime + bid);
   });
+
+  // Snapshot ghost state at round start (for Last Will deferred trigger detection)
+  const wasGhostAtRoundStart = new Map<string, boolean>();
+  game.players.forEach(p => wasGhostAtRoundStart.set(p.id, !!p.isGhost));
   
   // Find winner (highest bid among non-eliminated, non-ghost)
   const participants = game.players.filter(p => !p.isEliminated && !p.isGhost && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
@@ -1461,7 +1471,7 @@ function endRound(lobbyCode: string) {
       if (game.settings.variant === 'HAUNTED') {
         p.isGhost = true;
         p.ghostReason = 'natural';
-        if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 8) + 1}`;
+        if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
         addGameLogEntry(game, {
           type: 'elimination',
           playerId: p.id,
@@ -1489,11 +1499,11 @@ function endRound(lobbyCode: string) {
   // HAUNTED: Assign ghostAbility to newly ghosted players (if not already set)
   if (game.settings.variant === 'HAUNTED') {
     const GHOST_ABILITY_SERVER_MAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
-      1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory', 7: null, 8: null,
+      1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
     };
     game.players.forEach(p => {
       if (p.isGhost && !p.ghostAbility && !p.ghostAbilityUsed) {
-        const idx = p.ghostImage ? parseInt(p.ghostImage.replace('hnt_ghost_', ''), 10) : Math.floor(Math.random() * 8) + 1;
+        const idx = p.ghostImage ? parseInt(p.ghostImage.replace('hnt_ghost_', ''), 10) : Math.floor(Math.random() * 6) + 1;
         p.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
       }
     });
@@ -1506,9 +1516,9 @@ function endRound(lobbyCode: string) {
 
       if (ghost.ghostAbility === 'reaper' && aliveTargets.length > 0) {
         const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-        const idx = Math.floor(Math.random() * 8) + 1;
+        const idx = Math.floor(Math.random() * 6) + 1;
         const GMAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
-          1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory', 7: null, 8: null,
+          1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
         };
         const savedTime = target.remainingTime;
         target.isGhost = true;
@@ -1616,8 +1626,7 @@ function endRound(lobbyCode: string) {
     // --- GHOST FALLBACK REVIVE ---
     // All ghosts that haven't been revived by their own ability after 3 rounds
     // automatically return with max(ghostTimeAtDeath ?? 0, 30s).
-    // This ensures null-ability ghosts (hnt_ghost_7, hnt_ghost_8) and any ghost
-    // whose specific ability never triggered always have a way back.
+    // This ensures any ghost whose specific ability never triggered always have a way back.
     if (!isFinalRound) {
       game.players.forEach(ghost => {
         if (!ghost.isGhost) return; // already revived above or was alive
@@ -1698,7 +1707,7 @@ function endRound(lobbyCode: string) {
             // Haunted: become a ghost instead of eliminated
             p.isGhost = true;
             p.ghostReason = 'natural';
-            if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 8) + 1}`;
+            if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
             addGameLogEntry(game, {
               type: 'elimination',
               playerId: p.id,
@@ -2024,6 +2033,116 @@ function endRound(lobbyCode: string) {
     p.lostTrophyLastRound = p.tokens < tokensBefore;
   });
 
+  // --- HAUNTED: Deferred relic effects ---
+  // These relics set flags earlier and now resolve their effects at round end.
+  if (game.settings.variant === 'HAUNTED') {
+    // Winner time for Blood Pact
+    const winnerTimeBid = winnerId ? (game.players.find(p => p.id === winnerId)?.currentBid ?? 0) : 0;
+
+    game.players.forEach(p => {
+      // Last Will: if the activator was ghosted THIS round, apply curse to target
+      if (p.pendingLastWill) {
+        const wasGhostBefore = wasGhostAtRoundStart.get(p.id) ?? false;
+        const isGhostNow = !!p.isGhost;
+        if (!wasGhostBefore && isGhostNow) {
+          const target = game.players.find(tp => tp.id === p.pendingLastWill!.targetId);
+          if (target && !target.isEliminated) {
+            if (p.pendingLastWill.curseType === 'time') {
+              target.remainingTime = Math.max(0, target.remainingTime - 20);
+              addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${p.name} LAST WILL: ${target.name} loses 20s`, value: -20, basic: true });
+            } else {
+              target.tokens = Math.max(0, target.tokens - 1);
+              addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${p.name} LAST WILL: ${target.name} loses 1 trophy`, value: -1, basic: true });
+            }
+          }
+        }
+        p.pendingLastWill = undefined;
+      }
+
+      // Death Wish: win = +1 bonus trophy (total +2); lose = -15s extra
+      if (p.deathWishActive) {
+        if (p.id === winnerId) {
+          p.tokens += 1;
+          addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} DEATH WISH WIN: +1 bonus trophy`, value: 1, basic: true });
+        } else if (!p.isGhost && !p.isEliminated) {
+          p.remainingTime = Math.max(0, p.remainingTime - 15);
+          addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} DEATH WISH LOSS: -15s extra penalty`, value: -15, basic: true });
+        }
+        p.deathWishActive = false;
+      }
+
+      // Blood Pact: all non-winners also lose the winner's bid amount
+      if (p.bloodPactActive) {
+        if (winnerId && winnerTimeBid > 0) {
+          game.players.forEach(fp => {
+            if (fp.id !== winnerId && !fp.isGhost && !fp.isEliminated) {
+              fp.remainingTime = Math.max(0, fp.remainingTime - winnerTimeBid);
+            }
+          });
+          addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} BLOOD PACT: all non-winners lost extra ${winnerTimeBid.toFixed(1)}s`, value: -winnerTimeBid, basic: true });
+        }
+        p.bloodPactActive = false;
+      }
+
+      // Cursed Dice: ±20s random
+      if (p.cursedDiceActive) {
+        const gain = Math.random() > 0.5;
+        if (gain) {
+          p.remainingTime += 20;
+          addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: +20s`, value: 20, basic: true });
+        } else {
+          p.remainingTime = Math.max(0, p.remainingTime - 20);
+          addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: -20s`, value: -20, basic: true });
+        }
+        p.cursedDiceActive = false;
+      }
+
+      // Marked: if this player just won, ghost them (50% backfire on the marker)
+      if (p.markedBy && p.id === winnerId) {
+        const markerId = p.markedBy;
+        const marker = game.players.find(mp => mp.id === markerId);
+        const GMAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
+          1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
+        };
+        const savedTime = p.remainingTime;
+        const idx = Math.floor(Math.random() * 6) + 1;
+        p.isGhost = true;
+        p.ghostReason = 'forced';
+        p.ghostTimeAtDeath = savedTime;
+        p.remainingTime = 0;
+        p.ghostImage = `hnt_ghost_${idx}`;
+        p.ghostAbility = GMAP[idx] ?? null;
+        addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} MARK TRIGGERED: won and was immediately ghosted!`, basic: true });
+        // 50% chance the marker is also ghosted
+        if (marker && !marker.isGhost && !marker.isEliminated && Math.random() < 0.5) {
+          const mIdx = Math.floor(Math.random() * 6) + 1;
+          const mSaved = marker.remainingTime;
+          marker.isGhost = true;
+          marker.ghostReason = 'forced';
+          marker.ghostTimeAtDeath = mSaved;
+          marker.remainingTime = 0;
+          marker.ghostImage = `hnt_ghost_${mIdx}`;
+          marker.ghostAbility = GMAP[mIdx] ?? null;
+          addGameLogEntry(game, { type: 'ability', playerId: marker.id, playerName: marker.name, message: `${marker.name} MARK BACKLASH: mark claimed the marker too!`, basic: true });
+        }
+        p.markedBy = undefined;
+      }
+
+      // Corrupt: decrement rounds counter; restore normal personality when expired
+      if ((p.corruptRoundsLeft ?? 0) > 0) {
+        p.corruptRoundsLeft = (p.corruptRoundsLeft ?? 1) - 1;
+        if (p.corruptRoundsLeft <= 0) {
+          p.corruptRoundsLeft = undefined;
+          if (p.isBot) {
+            const personalities: GamePlayer['personality'][] = ['balanced', 'aggressive', 'conservative', 'random', 'adaptive', 'psychological'];
+            p.personality = personalities[Math.floor(Math.random() * personalities.length)];
+            addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CORRUPT expired: personality restored`, basic: true });
+          }
+        }
+      }
+    });
+  }
+
   // --- HAUNTED: Clear per-round relic flags ---
   if (game.settings.variant === 'HAUNTED') {
     game.players.forEach(p => {
@@ -2032,9 +2151,17 @@ function endRound(lobbyCode: string) {
       // tribunalMinBid is cleared after use in playerReleaseBid / here
       p.tribunalMinBid = undefined;
     });
-    // Clear resolved vote state
+    // Clear resolved vote state; dequeue next if any
     if (game.pendingVote?.resolved) {
-      game.pendingVote = null;
+      if (game.voteQueue && game.voteQueue.length > 0) {
+        const nextVote = game.voteQueue.shift()!;
+        nextVote.deadline = Date.now() + 30000;
+        nextVote.resolved = false;
+        game.pendingVote = nextVote;
+        setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+      } else {
+        game.pendingVote = null;
+      }
     }
   }
   
@@ -2882,11 +3009,13 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
   // During bidding: lock in the bid
   if (game.phase === 'bidding' && player.isHolding) {
     // PATTERN LOCK: block release if player hasn't reached their forced minimum bid yet
+    // Also accounts for echoForcedBid — effective minimum is max(patternLockMinBid, echoForcedBid)
     if (game.settings.variant === 'HAUNTED' && player.patternLockMinBid !== undefined) {
+      const effectiveMinBid = Math.max(player.patternLockMinBid, player.echoForcedBid ?? 0);
       const currentBidValue = player.currentBid ?? 0;
-      if (currentBidValue < player.patternLockMinBid) {
+      if (currentBidValue < effectiveMinBid) {
         // Reject the release — player must keep holding
-        log(`${player.name} release blocked by Pattern Lock (need ${player.patternLockMinBid.toFixed(1)}s, at ${currentBidValue.toFixed(1)}s) in lobby ${lobbyCode}`, "game");
+        log(`${player.name} release blocked by Pattern Lock (need ${effectiveMinBid.toFixed(1)}s, at ${currentBidValue.toFixed(1)}s) in lobby ${lobbyCode}`, "game");
         broadcastGameState(lobbyCode);
         return;
       }
@@ -3125,7 +3254,7 @@ export function activateRelicMP(
   activator.relicConsumed = true;
 
   const GHOST_ABILITY_SERVER_MAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
-    1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory', 7: null, 8: null,
+    1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
   };
 
   switch (relicId) {
@@ -3141,7 +3270,7 @@ export function activateRelicMP(
         activator.remainingTime = Math.max(0, activator.remainingTime - 30);
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: -30s`, value: -30, basic: true });
       } else {
-        const idx = Math.floor(Math.random() * 8) + 1;
+        const idx = Math.floor(Math.random() * 6) + 1;
         const savedTime = activator.remainingTime;
         activator.isGhost = true;
         activator.ghostReason = 'forced';
@@ -3157,7 +3286,7 @@ export function activateRelicMP(
       const target = game.players.find(p => p.id === targetId);
       if (target && !target.isGhost && !target.isEliminated) {
         if (Math.random() < 0.10) {
-          const idx = Math.floor(Math.random() * 8) + 1;
+          const idx = Math.floor(Math.random() * 6) + 1;
           const savedTime = target.remainingTime;
           target.isGhost = true;
           target.ghostReason = 'forced';
@@ -3299,7 +3428,7 @@ export function activateRelicMP(
       break;
     }
     case 'tribunal': {
-      // Start a vote
+      // Start a vote (or queue it if a vote is already in progress)
       const target = game.players.find(p => p.id === targetId);
       if (!target) { activator.relicConsumed = false; return { success: false, error: 'Invalid target' }; }
       const allVoters = game.players.filter(p => !p.isEliminated);
@@ -3308,7 +3437,7 @@ export function activateRelicMP(
       allVoters.filter(p => p.isBot).forEach(b => {
         votes[b.id] = Math.random() < 0.5 ? 'A' : 'B';
       });
-      game.pendingVote = {
+      const newVote: PendingRelicVote = {
         relicId: 'tribunal',
         activatorId: activator.id,
         targetId: target.id,
@@ -3320,8 +3449,16 @@ export function activateRelicMP(
         deadline: Date.now() + 30000,
       };
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} TRIBUNAL: vote started targeting ${target.name}`, basic: true });
-      // Schedule auto-resolve
-      setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+      if (game.pendingVote && !game.pendingVote.resolved) {
+        // Another vote is active — queue this one
+        if (!game.voteQueue) game.voteQueue = [];
+        game.voteQueue.push(newVote);
+        addGameLogEntry(game, { type: 'ability', message: `TRIBUNAL vote queued (another vote is in progress)`, basic: true });
+      } else {
+        game.pendingVote = newVote;
+        // Schedule auto-resolve
+        setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+      }
       break;
     }
     case 'conclave': {
@@ -3331,7 +3468,7 @@ export function activateRelicMP(
       allVoters.filter(p => p.isBot).forEach(b => {
         votes[b.id] = options[Math.floor(Math.random() * options.length)];
       });
-      game.pendingVote = {
+      const newVote: PendingRelicVote = {
         relicId: 'conclave',
         activatorId: activator.id,
         options: [
@@ -3344,7 +3481,15 @@ export function activateRelicMP(
         deadline: Date.now() + 30000,
       };
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CONCLAVE: vote started!`, basic: true });
-      setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+      if (game.pendingVote && !game.pendingVote.resolved) {
+        // Another vote is active — queue this one
+        if (!game.voteQueue) game.voteQueue = [];
+        game.voteQueue.push(newVote);
+        addGameLogEntry(game, { type: 'ability', message: `CONCLAVE vote queued (another vote is in progress)`, basic: true });
+      } else {
+        game.pendingVote = newVote;
+        setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+      }
       break;
     }
     default:
@@ -3467,6 +3612,19 @@ function resolveVoteRelic(lobbyCode: string) {
       winnerLabel: winner.label,
       tally,
     });
+  }
+
+  // Dequeue next vote if one is waiting
+  if (game.voteQueue && game.voteQueue.length > 0) {
+    const nextVote = game.voteQueue.shift()!;
+    // Refresh deadline and reset resolved flag
+    nextVote.deadline = Date.now() + 30000;
+    nextVote.resolved = false;
+    game.pendingVote = nextVote;
+    addGameLogEntry(game, { type: 'ability', message: `Next queued vote starting: ${nextVote.relicId}`, basic: true });
+    setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+  } else {
+    game.pendingVote = null;
   }
 
   broadcastGameState(lobbyCode);

@@ -155,14 +155,12 @@ import hntGhost3 from '../assets/generated_images/Haunted/hnt_ghost_3.png';
 import hntGhost4 from '../assets/generated_images/Haunted/hnt_ghost_4.png';
 import hntGhost5 from '../assets/generated_images/Haunted/hnt_ghost_5.png';
 import hntGhost6 from '../assets/generated_images/Haunted/hnt_ghost_6.png';
-import hntGhost7 from '../assets/generated_images/Haunted/hnt_ghost_7.png';
-import hntGhost8 from '../assets/generated_images/Haunted/hnt_ghost_8.png';
 
-// Pool of ghost images for random assignment on ghosting
-const GHOST_IMAGES = [hntGhost1, hntGhost2, hntGhost3, hntGhost4, hntGhost5, hntGhost6, hntGhost7, hntGhost8];
+// Pool of ghost images for random assignment on ghosting (6 ghosts; duplicates allowed)
+const GHOST_IMAGES = [hntGhost1, hntGhost2, hntGhost3, hntGhost4, hntGhost5, hntGhost6];
 
 // Ghost ability associated with each ghost image index (1-based)
-// Images 1-5 have unique abilities; 6 = purgatory; 7-8 neutral
+// Images 1-5 have unique abilities; 6 = purgatory
 type GhostAbilityType = 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null;
 const GHOST_ABILITY_MAP: Record<number, GhostAbilityType> = {
   1: 'reaper',     // hnt_ghost_1: immediately ghosts a random alive player
@@ -171,8 +169,6 @@ const GHOST_ABILITY_MAP: Record<number, GhostAbilityType> = {
   4: 'bargain',    // hnt_ghost_4: offer trophies to an alive player for time (N×40s)
   5: 'possession', // hnt_ghost_5: latch onto a player; revived when they're eliminated or 3 rounds pass
   6: 'purgatory',  // hnt_ghost_6: revived after 2 rounds with min-time alive player's bank
-  7: null,
-  8: null,
 };
 
 const GHOST_ABILITY_NAMES: Record<NonNullable<GhostAbilityType>, string> = {
@@ -2202,12 +2198,15 @@ export default function Game() {
         // (If player holds longer than they have time for)
         const currentPlayer = players.find(p => p.id === 'p1');
         if (currentPlayer && currentPlayer.isHolding && !currentPlayer.isEliminated) {
-            // ECHO: auto-release p1 at exactly echoForcedBid
-            if (currentPlayer.echoForcedBid !== undefined && deltaTime >= currentPlayer.echoForcedBid) {
-              setPlayers(prev => prev.map(p =>
-                p.id === 'p1' ? { ...p, isHolding: false, currentBid: parseFloat(currentPlayer.echoForcedBid!.toFixed(1)) } : p
-              ));
-              setTimeout(() => toast({ title: '🔁 ECHO', description: `Your bid was locked to ${currentPlayer.echoForcedBid!.toFixed(1)}s by Echo.`, duration: 3000 }), 100);
+            // ECHO: auto-release p1 at max(echoForcedBid, patternLockMinBid) so both constraints are satisfied
+            if (currentPlayer.echoForcedBid !== undefined) {
+              const effectiveForcedBid = Math.max(currentPlayer.echoForcedBid, currentPlayer.patternLockMinBid ?? 0);
+              if (deltaTime >= effectiveForcedBid) {
+                setPlayers(prev => prev.map(p =>
+                  p.id === 'p1' ? { ...p, isHolding: false, currentBid: parseFloat(effectiveForcedBid.toFixed(1)) } : p
+                ));
+                setTimeout(() => toast({ title: '🔁 ECHO', description: `Your bid was locked to ${effectiveForcedBid.toFixed(1)}s by Echo.`, duration: 3000 }), 100);
+              }
             }
 
             if (deltaTime > currentPlayer.remainingTime) {
@@ -2499,9 +2498,10 @@ export default function Game() {
           bid += Math.random() * 0.8;
           bid = clamp(bid);
 
-          // ECHO: if this bot has echoForcedBid, override bid exactly
+          // ECHO: if this bot has echoForcedBid, target the effective forced bid (max of echo and patternLock)
           if (p.echoForcedBid !== undefined) {
-            newBotBids[p.id] = parseFloat((p.echoForcedBid - minBidTime).toFixed(1));
+            const effectiveForcedBid = Math.max(p.echoForcedBid, p.patternLockMinBid ?? 0);
+            newBotBids[p.id] = parseFloat((effectiveForcedBid - minBidTime).toFixed(1));
           // PATTERN LOCK: if this bot has patternLockMinBid, enforce minimum
           } else if (p.patternLockMinBid !== undefined) {
             const minHold = Math.max(0, p.patternLockMinBid - minBidTime);
@@ -2667,7 +2667,7 @@ export default function Game() {
 
   // Helper: assign a ghost image + ability to a player being ghostified
   const assignGhostImage = (existingGhostImage?: string): { ghostImage: string; ghostAbility: GhostAbilityType; characterIcon: string } => {
-    const idx = Math.floor(Math.random() * 8) + 1; // 1-8
+    const idx = Math.floor(Math.random() * 6) + 1; // 1-6
     const ability = GHOST_ABILITY_MAP[idx] ?? null;
     return {
       ghostImage: existingGhostImage ?? `hnt_ghost_${idx}`,
@@ -3035,11 +3035,12 @@ export default function Game() {
       const bidTime = parseFloat(currentTime.toFixed(1));
       const p1 = players.find(p => p.id === 'p1');
 
-      // PATTERN LOCK: block SP release if below forced minimum
-      if (p1?.patternLockMinBid !== undefined && bidTime < p1.patternLockMinBid) {
+      // PATTERN LOCK: block SP release if below forced minimum (also accounts for echoForcedBid)
+      const effectiveMinBid = Math.max(p1?.patternLockMinBid ?? 0, p1?.echoForcedBid ?? 0);
+      if (p1?.patternLockMinBid !== undefined && bidTime < effectiveMinBid) {
         toast({
           title: '🔒 PATTERN LOCK',
-          description: `You cannot release before ${p1.patternLockMinBid.toFixed(1)}s (Pattern Lock active)!`,
+          description: `You cannot release before ${effectiveMinBid.toFixed(1)}s (Pattern Lock active)!`,
           variant: 'destructive',
           duration: 3000,
         });
