@@ -576,7 +576,7 @@ export default function Game() {
   const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
   const [readyHoldTime, setReadyHoldTime] = useState(0);
   const [moleTarget, setMoleTarget] = useState<string | null>(null);
-  const [peekTargetId, setPeekTargetId] = useState<string | null>(null); // New state for Sadman/Pepe peek
+  const [peekTargetId, setPeekTargetId] = useState<string | null>(null); // New state for Sadman peek
   const [scrambledPlayers, setScrambledPlayers] = useState<string[]>([]); // New state for Wandering Eye scramble
   const [frostbyteAbilityUsed, setFrostbyteAbilityUsed] = useState(false); // Track Frostbyte single use
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
@@ -2056,7 +2056,7 @@ export default function Game() {
   }, [phase, round, totalRounds, activeProtocol, gameDuration, variant]);
 
   // Check bot bids during bidding phase
-  // Also check for PEEK abilities (Sadman Logic / Pepe)
+  // Also check for PEEK abilities (Sadman Logic)
   useEffect(() => {
     if (phase === 'bidding') {
       // Release bots
@@ -2290,7 +2290,7 @@ export default function Game() {
            }
            let penalty = getPenalty();
 
-           // ALPHA PRIME (Gigachad) EXCEPTION: "JAWLINE" - only when abilities (limit breaks) are ON
+           // ALPHA PRIME EXCEPTION: "JAWLINE" - only when abilities (limit breaks) are ON
            if (selectedCharacter?.ability?.name === 'JAWLINE' && abilitiesEnabled) {
              penalty = 0;
              toast({
