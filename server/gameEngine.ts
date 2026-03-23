@@ -144,6 +144,7 @@ export interface GamePlayer {
   ghostAbilityUsed?: boolean;     // Has this ghost's ability already been used?
   possessionTargetId?: string;    // POSSESSION: which player is being tracked
   possessionRoundsLeft?: number;  // POSSESSION: rounds remaining before auto-revive
+  ghostRoundsAlive?: number;      // Fallback revive: rounds spent as ghost (all ghosts auto-revive after 3 via fallback)
   ghostCurseActive?: boolean;     // CURSE: true = tripled driver abilities globally (stored on game state as well)
   ghostReason?: 'natural' | 'forced';
   ghostTimeAtDeath?: number;
@@ -154,7 +155,6 @@ export interface GamePlayer {
   echoForcedBid?: number;
   corruptRoundsLeft?: number;
   patternLockMinBid?: number;
-  phantomBidActive?: boolean;
   deathWishActive?: boolean;
   bloodPactActive?: boolean;
   cursedDiceActive?: boolean;
@@ -1539,6 +1539,7 @@ function endRound(lobbyCode: string) {
         if (ghostHold > aliveHold) {
           ghost.isGhost = false;
           ghost.remainingTime = 30;
+          ghost.ghostRoundsAlive = 0;
           addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} VENDETTA: won! Revived with 30s`, basic: true });
         } else {
           target.remainingTime = Math.max(0, target.remainingTime * 0.75);
@@ -1611,6 +1612,38 @@ function endRound(lobbyCode: string) {
         }
       }
     });
+
+    // --- GHOST FALLBACK REVIVE ---
+    // All ghosts that haven't been revived by their own ability after 3 rounds
+    // automatically return with max(ghostTimeAtDeath ?? 0, 30s).
+    // This ensures null-ability ghosts (hnt_ghost_7, hnt_ghost_8) and any ghost
+    // whose specific ability never triggered always have a way back.
+    if (!isFinalRound) {
+      game.players.forEach(ghost => {
+        if (!ghost.isGhost) return; // already revived above or was alive
+        // Increment rounds spent as ghost
+        ghost.ghostRoundsAlive = (ghost.ghostRoundsAlive ?? 0) + 1;
+        if (ghost.ghostRoundsAlive >= 3) {
+          const reviveTime = Math.max(30, ghost.ghostTimeAtDeath ?? 0);
+          ghost.isGhost = false;
+          ghost.remainingTime = reviveTime;
+          ghost.ghostRoundsAlive = 0;
+          // Clear stale ghost state
+          ghost.ghostAbility = null;
+          ghost.ghostAbilityUsed = true;
+          ghost.possessionTargetId = undefined;
+          ghost.possessionRoundsLeft = undefined;
+          addGameLogEntry(game, {
+            type: 'ability',
+            playerId: ghost.id,
+            playerName: ghost.name,
+            message: `${ghost.name} FALLBACK REVIVE: returned after 3 rounds with ${reviveTime.toFixed(1)}s`,
+            basic: true,
+          });
+          log(`Fallback revive: ${ghost.name} returned after 3 ghost rounds in lobby ${lobbyCode}`, "game");
+        }
+      });
+    }
   }
 
   // HIDDEN_NAIL_IN_THE_COFFIN: award to player whose DISRUPT ability caused an opponent's elimination
