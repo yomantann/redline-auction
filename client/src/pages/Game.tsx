@@ -332,10 +332,12 @@ interface Player {
   echoForcedBid?: number;               // Echo relic: this player must bid exactly this value next round
   corruptRoundsLeft?: number;            // Corrupt relic: rounds remaining with 'aggressive' override
   patternLockMinBid?: number;            // Pattern Lock: forced minimum bid next round
-  phantomBidActive?: boolean;            // Phantom Bid: hide this player's bid in round results
   deathWishActive?: boolean;             // Death Wish: active this round (win=+2 trophies, lose=-15s extra)
   bloodPactActive?: boolean;             // Blood Pact: active player (all losers also pay winner's bid)
   cursedDiceActive?: boolean;            // Cursed Dice: active (±20s after round end)
+  finalWritActive?: boolean;             // Final Writ: this player auto-wins the final round
+  tribunalTimePenalty?: number;          // Tribunal A: lose Ns at start of next round
+  tribunalMinBid?: number;               // Tribunal B: must bid at least Ns next round
 }
 
 interface Character {
@@ -490,6 +492,7 @@ interface HauntedItem {
   target: 'Self' | 'Everyone' | 'Opponent';
   voteType?: 'vote';
   botOnly?: boolean;
+  requiresGhosts?: number; // Minimum active ghosts required to use
   description: string;
   flavour: string;
   ghostNote?: string;
@@ -558,14 +561,16 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     flavour: 'The curse decides. Not you.',
   },
   {
-    id: 'phantom_bid',
+    id: 'seance',
     number: '07',
-    name: 'Phantom Bid',
-    icon: '🌙',
+    name: 'Séance',
+    icon: '🕯️',
     category: 'Mystical',
-    target: 'Self',
-    description: 'Your bid next round is never revealed at round end — not even if you win. Opponents see only "???" for your result.',
-    flavour: 'You were never here.',
+    target: 'Everyone',
+    requiresGhosts: 2,
+    description: 'Requires at least 2 active ghosts. All current ghosts are revived immediately. Each ghost returns with 45s or their frozen time bank — whichever is higher. You receive +1 trophy.',
+    flavour: 'The veil thins. They answer.',
+    ghostNote: 'Revives all active ghosts. Caster gains +1 trophy.',
   },
   {
     id: 'protocol_forcer',
@@ -648,6 +653,27 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     target: 'Opponent',
     description: "Look at one player's bid history. Their highest bid ever made becomes their forced minimum next round — they cannot release before reaching that value. If they can't afford it, they're eliminated trying.",
     flavour: 'Your own history becomes your prison.',
+  },
+  {
+    id: 'final_writ',
+    number: '12',
+    name: 'Final Writ',
+    icon: '📋',
+    category: 'Cursed',
+    target: 'Self',
+    description: "The final round is automatically skipped. You are declared the winner of that round's trophy — regardless of any other effects or relics that were going to be played. Consumed immediately on activation.",
+    flavour: 'The last page was already written.',
+  },
+  {
+    id: 'conclave',
+    number: '17',
+    name: 'The Conclave',
+    icon: '🗳️',
+    category: 'Chaotic',
+    target: 'Everyone',
+    voteType: 'vote',
+    description: 'All players vote on a global effect that hits everyone:\nA: Cut every time bank in half\nB: Skip the next round as a tie\nC: 100% protocols for the rest of the game\nD: Overclock — bottom 2 players by trophies each lose 1.',
+    flavour: 'Democracy is just organized chaos.',
   },
 ];
 
@@ -970,6 +996,21 @@ export default function Game() {
   const [relicModalOpen, setRelicModalOpen] = useState(false);             // Relic activation modal open
   const [relicTargetPickRelicId, setRelicTargetPickRelicId] = useState<string | null>(null); // unused direct state, kept for clarity
 
+  // Vote relic state (SP + MP)
+  const [voteRelicState, setVoteRelicState] = useState<{
+    relicId: string;
+    activatorName: string;
+    targetName?: string;
+    options: { id: string; label: string }[];
+    votes: Record<string, string>;   // playerId → optionId
+    myVote?: string;
+    timeLeft: number;
+    resolved?: boolean;
+    winnerLabel?: string;
+    targetId?: string;
+  } | null>(null);
+  const voteTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Singleplayer snapshot recording - write-only to database
   const recordSingleplayerSnapshot = async (
     snapshotType: 'round_end' | 'elimination' | 'game_over',
@@ -1288,6 +1329,18 @@ export default function Game() {
       ghostAbility?: string;
       selectedItem?: string;
       relicConsumed?: boolean;
+      echoForcedBid?: number | null;
+      patternLockMinBid?: number | null;
+      markedBy?: string | null;
+      deathWishActive?: boolean;
+      bloodPactActive?: boolean;
+      cursedDiceActive?: boolean;
+      pendingLastWill?: { targetId: string; curseType: 'time' | 'trophy' } | null;
+      corruptRoundsLeft?: number | null;
+      finalWritActive?: boolean;
+      tribunalTimePenalty?: number | null;
+      tribunalMinBid?: number | null;
+      ghostTimeAtDeath?: number | null;
       currentBid: number | null;
       isHolding: boolean;
       totalTimeBid: number;
@@ -1321,6 +1374,16 @@ export default function Game() {
     allHumansHoldingStartTime: number | null;
     gameDuration: 'short' | 'standard' | 'long';
     minBid: number;
+    pendingVote?: {
+      relicId: string;
+      activatorId: string;
+      targetId?: string;
+      options: { id: string; label: string }[];
+      votes: Record<string, string>;
+      deadline: number;
+      resolved?: boolean;
+    } | null;
+    protocolsAlwaysOn?: boolean;
   } | null>(null);
   
   // Socket connection
@@ -1467,6 +1530,27 @@ export default function Game() {
         if ((state as any).ghostCurseActive !== undefined) {
           setGhostCurseActive((state as any).ghostCurseActive);
         }
+
+        // Sync MP pendingVote — show vote UI to all players
+        if ((state as any).pendingVote && !(state as any).pendingVote.resolved) {
+          const pv = (state as any).pendingVote;
+          const activatorPlayer = state.players.find((p: any) => p.id === pv.activatorId);
+          const targetPlayer = pv.targetId ? state.players.find((p: any) => p.id === pv.targetId) : undefined;
+          setVoteRelicState(prev => {
+            // Don't overwrite if already voted
+            if (prev && !prev.resolved && prev.relicId === pv.relicId) return { ...prev, votes: pv.votes };
+            return {
+              relicId: pv.relicId,
+              activatorName: activatorPlayer?.name ?? 'Player',
+              targetName: targetPlayer?.name,
+              options: pv.options,
+              votes: pv.votes,
+              timeLeft: Math.max(0, Math.floor((pv.deadline - Date.now()) / 1000)),
+            };
+          });
+        } else if ((state as any).pendingVote?.resolved) {
+          // Resolved — let vote_relic_resolved handler show result
+        }
         
         if (state.phase === 'driver_selection') {
           setPhase('mp_driver_select');
@@ -1570,6 +1654,21 @@ export default function Game() {
       });
     };
 
+    const handleVoteRelicResolved = (data: { relicId: string; winnerId: string; winnerLabel: string; tally: Record<string, number> }) => {
+      // Show the vote result overlay
+      setVoteRelicState(prev => prev ? { ...prev, resolved: true, winnerLabel: data.winnerLabel } : {
+        relicId: data.relicId,
+        activatorName: '',
+        options: [],
+        votes: {},
+        timeLeft: 0,
+        resolved: true,
+        winnerLabel: data.winnerLabel,
+      });
+      // Auto-dismiss after 5s
+      setTimeout(() => setVoteRelicState(null), 5000);
+    };
+
     socket.on('lobby_update', handleLobbyUpdate);
     socket.on('game_started', handleGameStarted);
     socket.on('game_state', handleGameState);
@@ -1577,6 +1676,7 @@ export default function Game() {
     socket.on('protocol_detail', handleProtocolDetail);
     socket.on('protocol_reveal', handleProtocolReveal);
     socket.on('bonus_trophy_award', handleBonusTrophyAward);
+    socket.on('vote_relic_resolved', handleVoteRelicResolved);
 
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
@@ -1586,6 +1686,7 @@ export default function Game() {
       socket.off('protocol_detail', handleProtocolDetail);
       socket.off('protocol_reveal', handleProtocolReveal);
       socket.off('bonus_trophy_award', handleBonusTrophyAward);
+      socket.off('vote_relic_resolved', handleVoteRelicResolved);
     };
   }, [socket]);
 
@@ -2101,6 +2202,14 @@ export default function Game() {
         // (If player holds longer than they have time for)
         const currentPlayer = players.find(p => p.id === 'p1');
         if (currentPlayer && currentPlayer.isHolding && !currentPlayer.isEliminated) {
+            // ECHO: auto-release p1 at exactly echoForcedBid
+            if (currentPlayer.echoForcedBid !== undefined && deltaTime >= currentPlayer.echoForcedBid) {
+              setPlayers(prev => prev.map(p =>
+                p.id === 'p1' ? { ...p, isHolding: false, currentBid: parseFloat(currentPlayer.echoForcedBid!.toFixed(1)) } : p
+              ));
+              setTimeout(() => toast({ title: '🔁 ECHO', description: `Your bid was locked to ${currentPlayer.echoForcedBid!.toFixed(1)}s by Echo.`, duration: 3000 }), 100);
+            }
+
             if (deltaTime > currentPlayer.remainingTime) {
                 // Force Eliminate (or ghostify in Haunted mode)
                  setPlayers(prev => prev.map(p => {
@@ -2389,7 +2498,17 @@ export default function Game() {
 
           bid += Math.random() * 0.8;
           bid = clamp(bid);
-          newBotBids[p.id] = parseFloat(bid.toFixed(1));
+
+          // ECHO: if this bot has echoForcedBid, override bid exactly
+          if (p.echoForcedBid !== undefined) {
+            newBotBids[p.id] = parseFloat((p.echoForcedBid - minBidTime).toFixed(1));
+          // PATTERN LOCK: if this bot has patternLockMinBid, enforce minimum
+          } else if (p.patternLockMinBid !== undefined) {
+            const minHold = Math.max(0, p.patternLockMinBid - minBidTime);
+            newBotBids[p.id] = parseFloat(Math.max(bid, minHold).toFixed(1));
+          } else {
+            newBotBids[p.id] = parseFloat(bid.toFixed(1));
+          }
         }
       });
 
@@ -2703,18 +2822,150 @@ export default function Game() {
           setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE ARMED', 'After this round: 50/50 chance of +20s or −20s. No influence.', 3000), 200);
           break;
         }
-        case 'phantom_bid': {
-          activator.phantomBidActive = true;
-          setTimeout(() => addOverlay('ability_trigger', '🌙 PHANTOM BID', 'Your bid this round is hidden. Opponents see only ???', 3000), 200);
+        case 'seance': {
+          const ghosts = next.filter(p => p.isGhost && !p.isEliminated);
+          if (ghosts.length < 2) {
+            // Not enough ghosts — do not consume
+            activator.relicConsumed = false;
+            setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE: FAILED', 'Requires at least 2 active ghosts!', 3000), 200);
+            return prev; // no change
+          }
+          ghosts.forEach(ghost => {
+            const reviveTime = Math.max(45, ghost.ghostTimeAtDeath ?? 0);
+            ghost.isGhost = false;
+            ghost.remainingTime = reviveTime;
+            ghost.ghostAbility = null;
+            ghost.ghostAbilityUsed = false;
+            ghost.possessionTargetId = undefined;
+            ghost.possessionRoundsLeft = undefined;
+          });
+          activator.tokens += 1;
+          setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE', `${ghosts.length} ghost(s) revived! You gain +1 trophy.`, 4000), 200);
           break;
         }
+        case 'final_writ': {
+          activator.finalWritActive = true;
+          setTimeout(() => addOverlay('ability_trigger', '📋 FINAL WRIT', 'You will automatically win the final round\'s trophy. The last page is written.', 4000), 200);
+          break;
+        }
+        case 'protocol_forcer': {
+          // Store on the activator so startCountdown picks it up
+          (activator as any).forcedProtocolNextRound = true;
+          const darkPool = ['DATA_BLACKOUT', 'SYSTEM_FAILURE', 'PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
+          const picked = darkPool[Math.floor(Math.random() * darkPool.length)] as any;
+          (activator as any).forcedProtocolValue = picked;
+          setTimeout(() => addOverlay('ability_trigger', '⛓️ PROTOCOL FORCER', `Next round will be forced to run protocol: ${picked}`, 4000), 200);
+          break;
+        }
+        // tribunal and conclave are handled below (outside setPlayers) for SP
         default:
           break;
       }
 
       return next;
     });
+
+    // SP vote relics: show vote screen immediately (bots already pre-voted)
+    if (!isMultiplayer && (relicId === 'tribunal' || relicId === 'conclave')) {
+      const allPlayers = players;
+      const activatorPlayer = allPlayers.find(p => p.id === activatorId);
+      const targetPlayer = targetId ? allPlayers.find(p => p.id === targetId) : undefined;
+      let opts: { id: string; label: string }[] = [];
+      if (relicId === 'tribunal' && targetPlayer) {
+        opts = [
+          { id: 'A', label: `${targetPlayer.name} loses 15s next round` },
+          { id: 'B', label: `${targetPlayer.name} must bid ≥30s next round` },
+        ];
+      } else if (relicId === 'conclave') {
+        opts = [
+          { id: 'A', label: 'Cut every time bank in half' },
+          { id: 'B', label: 'Skip the next round as a tie' },
+          { id: 'C', label: '100% protocols for the rest of the game' },
+          { id: 'D', label: 'Overclock — bottom 2 players lose 1 trophy' },
+        ];
+      }
+      // Bots auto-vote randomly
+      const botVotes: Record<string, string> = {};
+      allPlayers.filter(p => p.isBot && !p.isEliminated).forEach(p => {
+        botVotes[p.id] = opts[Math.floor(Math.random() * opts.length)]?.id ?? opts[0].id;
+      });
+      setVoteRelicState({
+        relicId,
+        activatorName: activatorPlayer?.name ?? 'Player',
+        targetName: targetPlayer?.name,
+        options: opts,
+        votes: botVotes,
+        timeLeft: 20,
+      });
+      // Start vote countdown
+      if (voteTimerRef.current) clearInterval(voteTimerRef.current);
+      voteTimerRef.current = setInterval(() => {
+        setVoteRelicState(vs => {
+          if (!vs || vs.resolved) { clearInterval(voteTimerRef.current!); return vs; }
+          const next = vs.timeLeft - 1;
+          if (next <= 0) {
+            clearInterval(voteTimerRef.current!);
+            // Auto-resolve without player vote: bots decide
+            resolveVoteRelicSP({ ...vs, timeLeft: 0 });
+            return { ...vs, timeLeft: 0, resolved: true };
+          }
+          return { ...vs, timeLeft: next };
+        });
+      }, 1000);
+    }
   };
+
+  // SP-only: resolve a vote relic after the timer or early when player votes
+  const resolveVoteRelicSP = (vs: NonNullable<typeof voteRelicState>) => {
+    // Count votes
+    const tally: Record<string, number> = {};
+    vs.options.forEach(o => { tally[o.id] = 0; });
+    Object.values(vs.votes).forEach(v => { tally[v] = (tally[v] ?? 0) + 1; });
+    const sorted = [...vs.options].sort((a, b) => {
+      const diff = (tally[b.id] ?? 0) - (tally[a.id] ?? 0);
+      if (diff !== 0) return diff;
+      return a.id.localeCompare(b.id);
+    });
+    const winner = sorted[0];
+    setVoteRelicState(prev => prev ? { ...prev, resolved: true, winnerLabel: winner.label } : prev);
+
+    if (vs.relicId === 'tribunal') {
+      setPlayers(prev => prev.map(p => {
+        if (p.id !== vs.targetId) return p;
+        if (winner.id === 'A') return { ...p, tribunalTimePenalty: (p.tribunalTimePenalty ?? 0) + 15 };
+        if (winner.id === 'B') return { ...p, tribunalMinBid: 30 };
+        return p;
+      }));
+      setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -15s next round.` : `${vs.targetName} must bid ≥30s next round.`, 4000), 200);
+    } else if (vs.relicId === 'conclave') {
+      if (winner.id === 'A') {
+        setPlayers(prev => prev.map(p => (!p.isEliminated && !p.isGhost) ? { ...p, remainingTime: Math.floor(p.remainingTime / 2 * 10) / 10 } : p));
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE A', 'All time banks halved!', 4000), 200);
+      } else if (winner.id === 'B') {
+        // Mark skip-next-round on local state; handled in startCountdown
+        (window as any).__conclaveSkipNextRound = true;
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE B', 'Next round will be skipped as a tie!', 4000), 200);
+      } else if (winner.id === 'C') {
+        (window as any).__conclaveProtocolsAlwaysOn = true;
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE C', '100% protocols for the rest of the game!', 4000), 200);
+      } else if (winner.id === 'D') {
+        setPlayers(prev => {
+          const alive = prev.filter(p => !p.isEliminated && !p.isGhost);
+          if (alive.length < 2) return prev;
+          const sorted2 = [...alive].sort((a, b) => a.tokens - b.tokens);
+          const minTok = sorted2[0].tokens;
+          const bottom2Ids = new Set(sorted2.filter(p => p.tokens === minTok).slice(0, 2).map(p => p.id));
+          if (bottom2Ids.size < 2) bottom2Ids.add(sorted2[1].id);
+          return prev.map(p => bottom2Ids.has(p.id) ? { ...p, tokens: Math.max(0, p.tokens - 1) } : p);
+        });
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', 'Bottom 2 players each lose 1 trophy!', 4000), 200);
+      }
+    }
+
+    // Auto-dismiss result after 5s
+    setTimeout(() => setVoteRelicState(null), 5000);
+  };
+
   const handlePress = () => {
     // Ghosts cannot hold the button in Haunted mode
     const p1 = players.find(p => p.id === 'p1');
@@ -2782,6 +3033,18 @@ export default function Game() {
       
       // Single-player logic
       const bidTime = parseFloat(currentTime.toFixed(1));
+      const p1 = players.find(p => p.id === 'p1');
+
+      // PATTERN LOCK: block SP release if below forced minimum
+      if (p1?.patternLockMinBid !== undefined && bidTime < p1.patternLockMinBid) {
+        toast({
+          title: '🔒 PATTERN LOCK',
+          description: `You cannot release before ${p1.patternLockMinBid.toFixed(1)}s (Pattern Lock active)!`,
+          variant: 'destructive',
+          duration: 3000,
+        });
+        return;
+      }
       
       setPlayers(prev => prev.map(p => {
         if (p.id === 'p1') {
@@ -2915,10 +3178,46 @@ export default function Game() {
 
   // Start Round Logic
   const startCountdown = () => {
+    // SP: FINAL WRIT — if player has it active and this IS the final round, skip it
+    if (variant === 'HAUNTED' && round >= totalRounds) {
+      const p1 = players.find(p => p.id === 'p1');
+      const finalWritHolder = players.find(p => p.finalWritActive && !p.isEliminated && !p.isGhost);
+      if (finalWritHolder) {
+        setPlayers(prev => prev.map(p =>
+          p.id === finalWritHolder.id ? { ...p, tokens: p.tokens + 1, finalWritActive: false, relicConsumed: true } : p
+        ));
+        setTimeout(() => addOverlay('ability_trigger', '📋 FINAL WRIT ACTIVATED', `${finalWritHolder.name} skips the final round and claims the trophy!`, 5000), 200);
+        // Go straight to round_end via endRound with no bids
+        setPhase('round_end');
+        return;
+      }
+    }
+
+    // SP: CONCLAVE B — skip this round as a tie
+    if (variant === 'HAUNTED' && (window as any).__conclaveSkipNextRound) {
+      (window as any).__conclaveSkipNextRound = false;
+      setTimeout(() => addOverlay('protocol_alert', '🗳️ CONCLAVE B', 'This round is skipped as a tie — no bids!', 4000), 200);
+      setPhase('round_end');
+      return;
+    }
+
     // Check for Protocol Trigger (pace-dependent)
     // SPEED (short): 50% | STANDARD (medium): 40% | MARATHON (long): 30%
     const protocolTriggerChance = gameDuration === 'short' ? 0.5 : gameDuration === 'long' ? 0.3 : 0.4;
-    if (protocolsEnabled && Math.random() < protocolTriggerChance) {
+    const conclaveCAlwaysOn = !!(window as any).__conclaveProtocolsAlwaysOn;
+
+    // Protocol Forcer: use forced protocol if set
+    const forcedProtocolHolder = variant === 'HAUNTED' ? players.find(p => (p as any).forcedProtocolNextRound && !p.isEliminated) : null;
+    const forcedProtocolValue = (forcedProtocolHolder as any)?.forcedProtocolValue as ProtocolType | undefined;
+
+    if (forcedProtocolValue) {
+      // Consume the forced protocol flag from the player
+      setPlayers(prev => prev.map(p =>
+        p.id === forcedProtocolHolder!.id ? { ...p, forcedProtocolNextRound: undefined, forcedProtocolValue: undefined } as any : p
+      ));
+    }
+
+    if ((protocolsEnabled || conclaveCAlwaysOn) && (forcedProtocolValue || conclaveCAlwaysOn || Math.random() < protocolTriggerChance)) {
       
       // Build Protocol Pool
       // Standard protocols and Reality Mode protocols are configured separately.
@@ -2937,9 +3236,10 @@ export default function Game() {
           : [];
 
       const combinedPool: ProtocolType[] = [...standardPool, ...modePool];
-      if (combinedPool.length === 0) return;
+      if (combinedPool.length === 0 && !forcedProtocolValue) return;
 
-      const newProtocol = pick(combinedPool);
+      // Use forced protocol if available, otherwise pick from pool
+      const newProtocol: ProtocolType = forcedProtocolValue ?? pick(combinedPool);
       setActiveProtocol(newProtocol);
       
       let msg = "PROTOCOL INITIATED";
@@ -3994,10 +4294,11 @@ export default function Game() {
           }
         }
 
-        // Echo / Pattern Lock: clear flags after being consumed this round
+        // Echo / Pattern Lock / Tribunal min bid: clear flags after round end
         p.echoForcedBid = undefined;
         p.patternLockMinBid = undefined;
-        p.phantomBidActive = false;
+        p.tribunalMinBid = undefined;
+        // Note: tribunalTimePenalty is applied at round start (next round's startCountdown)
       });
     }
 
@@ -5047,6 +5348,18 @@ export default function Game() {
       setPlayerAbilityUsed(false); // Reset ability usage
       setPeekTargetId(null); // Clear PEEK target
       setScrambledPlayers([]); // Clear Scrambled players
+
+      // SP HAUNTED: Apply Tribunal time penalty at start of new round
+      if (variant === 'HAUNTED') {
+        setPlayers(prev => prev.map(p => {
+          if (p.tribunalTimePenalty && p.tribunalTimePenalty > 0 && !p.isEliminated && !p.isGhost) {
+            const penalty = p.tribunalTimePenalty;
+            setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL PENALTY', `${p.name} loses ${penalty}s from last round's tribunal vote.`, 3000), 300);
+            return { ...p, remainingTime: Math.max(0, p.remainingTime - penalty), tribunalTimePenalty: undefined };
+          }
+          return p;
+        }));
+      }
     }
   };
 
@@ -7177,15 +7490,29 @@ export default function Game() {
               if (!relicId || myPl?.relicConsumed) return null;
               const relicDef = HAUNTED_ITEMS.find(r => r.id === relicId);
               if (!relicDef) return null;
+
+              // Séance: check if 2+ ghosts are present
+              const activeGhosts = displayPlayers.filter(p => p.isGhost && !p.isEliminated);
+              const seanceBlocked = relicDef.requiresGhosts !== undefined && activeGhosts.length < relicDef.requiresGhosts;
+
               return (
                 <div className="mt-3 flex flex-col items-center">
                   <button
-                    onClick={() => setRelicModalOpen(true)}
-                    className="px-5 py-2 rounded-lg border border-teal-500/40 bg-teal-950/30 text-teal-300 text-sm font-bold hover:bg-teal-900/50 hover:border-teal-400/60 transition-all active:scale-95"
+                    onClick={() => !seanceBlocked && setRelicModalOpen(true)}
+                    disabled={seanceBlocked}
+                    className={cn(
+                      "px-5 py-2 rounded-lg border text-sm font-bold transition-all active:scale-95",
+                      seanceBlocked
+                        ? "border-zinc-700/40 bg-zinc-900/30 text-zinc-600 cursor-not-allowed"
+                        : "border-teal-500/40 bg-teal-950/30 text-teal-300 hover:bg-teal-900/50 hover:border-teal-400/60"
+                    )}
                   >
                     {relicDef.icon} USE RELIC — {relicDef.name}
                   </button>
-                  <p className="text-zinc-600 text-[10px] mt-1">{relicDef.category} · → {relicDef.target}</p>
+                  {seanceBlocked && (
+                    <p className="text-zinc-600 text-[10px] mt-1">Requires {relicDef.requiresGhosts}+ active ghosts ({activeGhosts.length} present)</p>
+                  )}
+                  {!seanceBlocked && <p className="text-zinc-600 text-[10px] mt-1">{relicDef.category} · → {relicDef.target}</p>}
                 </div>
               );
             })()}
@@ -7205,14 +7532,63 @@ export default function Game() {
               );
               const botOpponents = opponents.filter((p: any) => p.isBot);
 
+              // Helper: fire relic in MP (emit to server) or SP (local)
+              const fireRelic = (targetId?: string, curseType?: 'time' | 'trophy') => {
+                if (isMultiplayer && socket) {
+                  socket.emit('activate_relic', { relicId: relicDef.id, targetId, curseType }, (res: any) => {
+                    if (!res?.success) {
+                      toast({ title: 'RELIC FAILED', description: res?.error ?? 'Unknown error', variant: 'destructive', duration: 3000 });
+                    }
+                  });
+                } else {
+                  fireRelicEffect(relicDef.id, myId, targetId, curseType);
+                }
+                setRelicModalOpen(false);
+              };
+
               if (relicDef.voteType === 'vote') {
+                // Vote relics: For SP, show target selector then vote screen
+                // For MP, emit to server which starts the vote
+                if (relicDef.id === 'tribunal') {
+                  return (
+                    <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+                      <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
+                        <h3 className="text-lg font-bold text-teal-300 text-center">{relicDef.icon} {relicDef.name}</h3>
+                        <p className="text-zinc-400 text-sm text-center leading-snug">{relicDef.description}</p>
+                        <p className="text-zinc-500 text-xs text-center">Choose who to put on trial:</p>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {opponents.length === 0 && <p className="text-zinc-600 text-xs text-center">No valid targets.</p>}
+                          {opponents.map((opp: any) => (
+                            <button key={opp.id}
+                              onClick={() => fireRelic(opp.id)}
+                              className="w-full py-2 px-3 rounded bg-zinc-800 text-zinc-200 text-sm hover:bg-zinc-700 transition-colors flex items-center justify-between">
+                              <span>{opp.name}{opp.isBot ? ' 🤖' : ''}</span>
+                              <span className="text-zinc-500 text-xs">{opp.remainingTime?.toFixed(1)}s · {opp.tokens}🏆</span>
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => setRelicModalOpen(false)} className="w-full py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  );
+                }
+                // Conclave (no target needed)
                 return (
                   <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
                     <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
                       <h3 className="text-lg font-bold text-teal-300 text-center">{relicDef.icon} {relicDef.name}</h3>
-                      <p className="text-zinc-400 text-sm text-center">{relicDef.description}</p>
-                      <p className="text-zinc-500 text-xs text-center">Vote relics coming soon in a future update.</p>
-                      <button onClick={() => setRelicModalOpen(false)} className="w-full py-2 rounded bg-zinc-800 text-zinc-300 text-sm hover:bg-zinc-700 transition-colors">Close</button>
+                      <p className="text-zinc-400 text-sm text-center leading-snug">{relicDef.description}</p>
+                      <p className="text-zinc-500 text-xs text-center">All players will vote on one of these effects:</p>
+                      <div className="space-y-1 text-xs text-zinc-400 bg-zinc-800/50 rounded p-3">
+                        <p>🔪 <span className="text-zinc-300">A</span> — Cut everyone's time bank in half</p>
+                        <p>⏭️ <span className="text-zinc-300">B</span> — Skip next round as a tie</p>
+                        <p>🔁 <span className="text-zinc-300">C</span> — 100% protocols rest of game</p>
+                        <p>💥 <span className="text-zinc-300">D</span> — Bottom 2 players lose a trophy</p>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <button onClick={() => fireRelic()} className="flex-1 py-2 rounded bg-teal-900 text-teal-100 text-sm font-bold hover:bg-teal-800 transition-colors">Start Vote</button>
+                        <button onClick={() => setRelicModalOpen(false)} className="flex-1 py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -7233,7 +7609,7 @@ export default function Game() {
                     {(relicDef.target === 'Self' || relicDef.target === 'Everyone') && !isLastWill && (
                       <div className="flex gap-2 pt-2">
                         <button
-                          onClick={() => { fireRelicEffect(relicDef.id, myId); setRelicModalOpen(false); }}
+                          onClick={() => fireRelic()}
                           className="flex-1 py-2 rounded bg-teal-900 text-teal-100 text-sm font-bold hover:bg-teal-800 transition-colors"
                         >
                           ✓ Activate
@@ -7253,7 +7629,7 @@ export default function Game() {
                           {targetList.map((opp: any) => (
                             <button
                               key={opp.id}
-                              onClick={() => { fireRelicEffect(relicDef.id, myId, opp.id); setRelicModalOpen(false); }}
+                              onClick={() => fireRelic(opp.id)}
                               className="w-full py-2 px-3 rounded bg-zinc-800 text-zinc-200 text-sm hover:bg-zinc-700 transition-colors flex items-center justify-between"
                             >
                               <span>{opp.name}{opp.isBot ? ' 🤖' : ''}</span>
@@ -7269,7 +7645,7 @@ export default function Game() {
                     {isLastWill && (
                       <LastWillPickerInline
                         opponents={opponents as any[]}
-                        onConfirm={(tid, ct) => { fireRelicEffect('last_will', myId, tid, ct); setRelicModalOpen(false); }}
+                        onConfirm={(tid, ct) => fireRelic(tid, ct)}
                         onCancel={() => setRelicModalOpen(false)}
                       />
                     )}
@@ -7277,6 +7653,64 @@ export default function Game() {
                 </div>
               );
           })()}
+
+          {/* Vote Relic overlay (SP + MP) */}
+          {voteRelicState && !voteRelicState.resolved && (
+            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+              <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
+                <h3 className="text-lg font-bold text-teal-300 text-center">
+                  {voteRelicState.relicId === 'tribunal' ? '⚖️ TRIBUNAL' : '🗳️ THE CONCLAVE'}
+                </h3>
+                <p className="text-zinc-400 text-sm text-center">
+                  {voteRelicState.activatorName} called a vote{voteRelicState.targetName ? ` targeting ${voteRelicState.targetName}` : ''}!
+                </p>
+                <div className="text-center text-teal-300 font-bold tabular-nums">{voteRelicState.timeLeft}s</div>
+                <div className="space-y-2">
+                  {voteRelicState.options.map(opt => {
+                    const count = Object.values(voteRelicState.votes).filter(v => v === opt.id).length;
+                    const hasVoted = voteRelicState.myVote === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => {
+                          if (voteRelicState.myVote) return; // already voted
+                          if (isMultiplayer && socket) {
+                            socket.emit('cast_relic_vote', { optionId: opt.id });
+                            setVoteRelicState(prev => prev ? { ...prev, myVote: opt.id } : prev);
+                          } else {
+                            const updated = { ...voteRelicState, votes: { ...voteRelicState.votes, p1: opt.id }, myVote: opt.id };
+                            setVoteRelicState(updated);
+                            resolveVoteRelicSP(updated);
+                          }
+                        }}
+                        className={cn(
+                          "w-full py-2 px-3 rounded text-sm text-left flex justify-between transition-colors",
+                          hasVoted ? "bg-teal-900 border border-teal-500/50 text-teal-200" : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
+                          voteRelicState.myVote && !hasVoted ? "opacity-50 cursor-not-allowed" : ""
+                        )}
+                      >
+                        <span><span className="font-bold text-teal-400">{opt.id}.</span> {opt.label}</span>
+                        <span className="text-zinc-500 text-xs ml-2">{count} vote{count !== 1 ? 's' : ''}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {!voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote before time runs out!</p>}
+                {voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote cast! Waiting for others…</p>}
+              </div>
+            </div>
+          )}
+
+          {/* Vote Relic result overlay */}
+          {voteRelicState?.resolved && voteRelicState.winnerLabel && (
+            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 pointer-events-none">
+              <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full text-center space-y-3">
+                <h3 className="text-lg font-bold text-teal-300">VOTE RESULT</h3>
+                <p className="text-zinc-200 text-sm font-semibold">{voteRelicState.winnerLabel}</p>
+                <p className="text-zinc-500 text-xs">Effect applied!</p>
+              </div>
+            </div>
+          )}
         </>
         );
       }

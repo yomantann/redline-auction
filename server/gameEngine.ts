@@ -158,6 +158,9 @@ export interface GamePlayer {
   deathWishActive?: boolean;
   bloodPactActive?: boolean;
   cursedDiceActive?: boolean;
+  finalWritActive?: boolean;      // Final Writ relic: this player auto-wins the final round
+  tribunalTimePenalty?: number;   // Tribunal option A: lose Ns at start of next round
+  tribunalMinBid?: number;        // Tribunal option B: must bid at least Ns next round
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -195,6 +198,16 @@ export interface GameSettings {
   gameDuration: GameDuration;
 }
 
+export interface PendingRelicVote {
+  relicId: string;
+  activatorId: string;
+  targetId?: string;
+  options: { id: string; label: string }[];
+  votes: Record<string, string>;  // playerId → optionId
+  deadline: number;
+  resolved?: boolean;
+}
+
 export interface GameState {
   gameId: string; // Unique identifier for database snapshots
   lobbyCode: string;
@@ -220,6 +233,11 @@ export interface GameState {
   botTargetBids: Record<string, number>;
   firstEliminatedIds: string[];  // IDs of first player(s) eliminated in the game (Flash Crash criterion)
   ghostCurseActive: boolean;     // Haunted CURSE ability: true = driver abilities tripled for alive players
+  // Relic game-state fields
+  forcedProtocolNextRound?: ProtocolType | null; // Protocol Forcer: override next round's protocol
+  pendingVote?: PendingRelicVote | null;          // Active vote relic (Tribunal / Conclave)
+  protocolsAlwaysOn?: boolean;                    // Conclave C: 100% protocol trigger rest of game
+  skipNextRound?: boolean;                        // Conclave B: skip next round as tie
 }
 
 // Active games storage
@@ -518,6 +536,10 @@ export function createGame(
     botTargetBids: {},
     firstEliminatedIds: [],
     ghostCurseActive: false,
+    forcedProtocolNextRound: null,
+    pendingVote: null,
+    protocolsAlwaysOn: false,
+    skipNextRound: false,
   };
   
   activeGames.set(lobbyCode, gameState);
@@ -669,7 +691,36 @@ function startCountdown(lobbyCode: string) {
 function startBidding(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
   if (!game) return;
-  
+
+  // --- CONCLAVE B: Skip this round as a tie ---
+  if (game.skipNextRound) {
+    game.skipNextRound = false;
+    game.phase = 'round_end';
+    game.roundWinner = null;
+    addGameLogEntry(game, {
+      type: 'win',
+      message: `Round ${game.round} SKIPPED (Conclave vote) — no winner, no bids.`,
+      basic: true,
+    });
+    broadcastGameState(lobbyCode);
+    // Use same post-round logic as endRound but minimal — just advance
+    game.players.forEach(p => {
+      if (!p.isBot && !p.isEliminated && !p.isGhost) (p as any).roundEndAcknowledged = false;
+      else (p as any).roundEndAcknowledged = true;
+    });
+    setTimeout(() => {
+      const g = activeGames.get(lobbyCode);
+      if (!g) return;
+      g.round += 1;
+      if (g.round > g.totalRounds) {
+        endGame(lobbyCode);
+      } else {
+        startWaitingForReady(lobbyCode);
+      }
+    }, 3000);
+    return;
+  }
+
   game.phase = 'bidding';
   game.roundStartTime = Date.now();
   
@@ -686,6 +737,27 @@ function startBidding(lobbyCode: string) {
   });
   
   game.botTargetBids = calculateBotTargetBids(game);
+
+  // --- ECHO / PATTERN LOCK: override bot target bids ---
+  if (game.settings.variant === 'HAUNTED') {
+    const minBid = getMinBidPenalty(game.gameDuration);
+    game.players.forEach(p => {
+      if (!p.isBot || p.isEliminated || p.isGhost) return;
+      if (p.echoForcedBid !== undefined) {
+        // Bot must hold until exactly echoForcedBid (holdTime = echoForcedBid - minBid)
+        const holdTarget = Math.max(0, p.echoForcedBid - minBid);
+        game.botTargetBids[p.id] = holdTarget;
+        log(`Echo override: bot ${p.name} target hold = ${holdTarget.toFixed(1)}s in lobby ${lobbyCode}`, "game");
+      } else if (p.patternLockMinBid !== undefined) {
+        // Bot cannot release before patternLockMinBid; if current target is below it, raise it
+        const holdMin = Math.max(0, p.patternLockMinBid - minBid);
+        if ((game.botTargetBids[p.id] ?? 0) < holdMin) {
+          game.botTargetBids[p.id] = holdMin;
+          log(`PatternLock override: bot ${p.name} min hold = ${holdMin.toFixed(1)}s in lobby ${lobbyCode}`, "game");
+        }
+      }
+    });
+  }
   
   broadcastGameState(lobbyCode);
   
@@ -717,6 +789,14 @@ function startBidding(lobbyCode: string) {
         const playerElapsed = (playerHasFireWall && g.activeProtocol === 'PANIC_ROOM') ? rawElapsed : elapsed;
         p.currentBid = playerElapsed + minBid; // Bid starts at min bid value
         
+        // ECHO: if a non-bot player has echoForcedBid, auto-release when they reach that amount
+        if (!p.isBot && p.echoForcedBid !== undefined && p.currentBid >= p.echoForcedBid) {
+          p.isHolding = false;
+          p.currentBid = Math.round(p.echoForcedBid * 10) / 10;
+          log(`Echo: ${p.name} auto-released at ${p.currentBid.toFixed(1)}s in lobby ${lobbyCode}`, "game");
+          return;
+        }
+
         // Auto-ghostify (Haunted) or eliminate (other modes) if bid exceeds remaining time
         if (p.currentBid >= p.remainingTime) {
           p.isHolding = false;
@@ -1910,6 +1990,20 @@ function endRound(lobbyCode: string) {
     const tokensBefore = tokensSnapshot.get(p.id) ?? p.tokens;
     p.lostTrophyLastRound = p.tokens < tokensBefore;
   });
+
+  // --- HAUNTED: Clear per-round relic flags ---
+  if (game.settings.variant === 'HAUNTED') {
+    game.players.forEach(p => {
+      p.echoForcedBid = undefined;
+      p.patternLockMinBid = undefined;
+      // tribunalMinBid is cleared after use in playerReleaseBid / here
+      p.tribunalMinBid = undefined;
+    });
+    // Clear resolved vote state
+    if (game.pendingVote?.resolved) {
+      game.pendingVote = null;
+    }
+  }
   
   broadcastGameState(lobbyCode);
   
@@ -2237,14 +2331,24 @@ function emitSecretProtocolReveal(game: GameState) {
 
 // Select a random protocol for the round based on variant and settings
 function selectProtocolForRound(game: GameState): ProtocolType {
-  if (!game.settings.protocolsEnabled) return null;
+  if (!game.settings.protocolsEnabled && !game.protocolsAlwaysOn) return null;
+
+  // Protocol Forcer relic: use the forced protocol for this round
+  if (game.forcedProtocolNextRound) {
+    const forced = game.forcedProtocolNextRound;
+    game.forcedProtocolNextRound = null;
+    return forced;
+  }
   
-  // Trigger chance based on game pace (matches SP):
-  // SPEED (short): 50% | STANDARD (medium): 40% | MARATHON (long): 30%
-  const triggerChance = game.settings.gameDuration === 'short' ? 0.5 
-    : game.settings.gameDuration === 'long' ? 0.3 
-    : 0.4;
-  if (Math.random() >= triggerChance) return null;
+  // Conclave C: protocols always trigger (100% chance)
+  if (!game.protocolsAlwaysOn) {
+    // Trigger chance based on game pace (matches SP):
+    // SPEED (short): 50% | STANDARD (medium): 40% | MARATHON (long): 30%
+    const triggerChance = game.settings.gameDuration === 'short' ? 0.5 
+      : game.settings.gameDuration === 'long' ? 0.3 
+      : 0.4;
+    if (Math.random() >= triggerChance) return null;
+  }
   
   let protocolPool: ProtocolType[] = [];
   
@@ -2284,11 +2388,54 @@ function addGameLogEntry(game: GameState, entry: Omit<GameLogEntry, 'round' | 't
 function startWaitingForReady(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
   if (!game) return;
-  
+
+  // --- FINAL WRIT CHECK ---
+  // If any player activated Final Writ and this is the final round, skip bidding entirely
+  if (game.settings.variant === 'HAUNTED' && game.round >= game.totalRounds) {
+    const finalWritPlayer = game.players.find(p => p.finalWritActive && !p.isEliminated && !p.isGhost);
+    if (finalWritPlayer) {
+      finalWritPlayer.tokens += 1;
+      finalWritPlayer.finalWritActive = false;
+      addGameLogEntry(game, {
+        type: 'win',
+        playerId: finalWritPlayer.id,
+        playerName: finalWritPlayer.name,
+        message: `${finalWritPlayer.name} FINAL WRIT: Final round skipped — trophy claimed automatically!`,
+        value: 1,
+        basic: true,
+      });
+      log(`FINAL WRIT: ${finalWritPlayer.name} skips final round and wins trophy in lobby ${lobbyCode}`, "game");
+      game.roundWinner = { id: finalWritPlayer.id, name: finalWritPlayer.name, bid: 0 };
+      game.phase = 'round_end';
+      broadcastGameState(lobbyCode);
+      setTimeout(() => endGame(lobbyCode), 3000);
+      return;
+    }
+  }
+
   game.phase = 'waiting_for_ready';
   game.roundWinner = null;
   game.eliminatedThisRound = [];
   game.isDoubleTokensRound = false;
+
+  // --- TRIBUNAL DEFERRED EFFECTS: apply time penalty at start of round ---
+  if (game.settings.variant === 'HAUNTED') {
+    game.players.forEach(p => {
+      if (p.tribunalTimePenalty && p.tribunalTimePenalty > 0 && !p.isEliminated && !p.isGhost) {
+        const penalty = p.tribunalTimePenalty;
+        p.remainingTime = Math.max(0, p.remainingTime - penalty);
+        p.tribunalTimePenalty = undefined;
+        addGameLogEntry(game, {
+          type: 'impact',
+          playerId: p.id,
+          playerName: p.name,
+          message: `${p.name} TRIBUNAL: -${penalty}s time penalty from last round's vote`,
+          value: -penalty,
+          basic: true,
+        });
+      }
+    });
+  }
   
   // Select protocol for this round
   const protocol = selectProtocolForRound(game);
@@ -2701,6 +2848,17 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
   
   // During bidding: lock in the bid
   if (game.phase === 'bidding' && player.isHolding) {
+    // PATTERN LOCK: block release if player hasn't reached their forced minimum bid yet
+    if (game.settings.variant === 'HAUNTED' && player.patternLockMinBid !== undefined) {
+      const currentBidValue = player.currentBid ?? 0;
+      if (currentBidValue < player.patternLockMinBid) {
+        // Reject the release — player must keep holding
+        log(`${player.name} release blocked by Pattern Lock (need ${player.patternLockMinBid.toFixed(1)}s, at ${currentBidValue.toFixed(1)}s) in lobby ${lobbyCode}`, "game");
+        broadcastGameState(lobbyCode);
+        return;
+      }
+    }
+
     const rawElapsed = (Date.now() - (game.roundStartTime || Date.now())) / 1000;
     const panicMultiplier = game.activeProtocol === 'PANIC_ROOM' ? 2 : 1;
     const playerHasFireWall = player.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled;
@@ -2870,6 +3028,7 @@ export function broadcastGameState(lobbyCode: string) {
       selectedItem: p.selectedItem || null,
       relicConsumed: p.relicConsumed || false,
       ghostReason: p.ghostReason || null,
+      ghostTimeAtDeath: p.ghostTimeAtDeath ?? null,
       currentBid: p.currentBid,
       isHolding: p.isHolding,
       roundEndAcknowledged: (p as any).roundEndAcknowledged || false,
@@ -2878,6 +3037,18 @@ export function broadcastGameState(lobbyCode: string) {
       abilityUsed: p.abilityUsed,
       momentFlagsEarned: p.momentFlagsEarned,
       protocolWinsEarned: p.protocolWinsEarned,
+      // Relic state fields
+      markedBy: p.markedBy || null,
+      echoForcedBid: p.echoForcedBid ?? null,
+      patternLockMinBid: p.patternLockMinBid ?? null,
+      deathWishActive: p.deathWishActive || false,
+      bloodPactActive: p.bloodPactActive || false,
+      cursedDiceActive: p.cursedDiceActive || false,
+      corruptRoundsLeft: p.corruptRoundsLeft ?? null,
+      pendingLastWill: p.pendingLastWill || null,
+      finalWritActive: p.finalWritActive || false,
+      tribunalTimePenalty: p.tribunalTimePenalty ?? null,
+      tribunalMinBid: p.tribunalMinBid ?? null,
     })),
     roundWinner: game.roundWinner,
     eliminatedThisRound: game.eliminatedThisRound,
@@ -2889,7 +3060,381 @@ export function broadcastGameState(lobbyCode: string) {
     gameDuration: game.gameDuration,
     minBid: minBid,
     ghostCurseActive: game.ghostCurseActive,
+    // Relic game-state fields
+    pendingVote: game.pendingVote || null,
+    protocolsAlwaysOn: game.protocolsAlwaysOn || false,
   };
   
   emitToLobby(lobbyCode, 'game_state', stateForClients);
+}
+
+// Dark protocol subset for Protocol Forcer relic
+const DARK_PROTOCOLS: ProtocolType[] = [
+  'DATA_BLACKOUT', 'SYSTEM_FAILURE', 'PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'
+];
+
+// ─── MP Relic Activation ──────────────────────────────────────────────────────
+
+export function activateRelicMP(
+  lobbyCode: string,
+  socketId: string,
+  relicId: string,
+  targetId?: string,
+  curseType?: 'time' | 'trophy',
+): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return { success: false, error: 'No game' };
+  const activator = game.players.find(p => p.socketId === socketId);
+  if (!activator) return { success: false, error: 'Player not found' };
+  if (activator.relicConsumed) return { success: false, error: 'Relic already consumed' };
+  if (game.settings.variant !== 'HAUNTED') return { success: false, error: 'Not haunted mode' };
+
+  activator.relicConsumed = true;
+
+  const GHOST_ABILITY_SERVER_MAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
+    1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory', 7: null, 8: null,
+  };
+
+  switch (relicId) {
+    case 'jackpot': {
+      const roll = Math.random();
+      if (roll < 0.25) {
+        activator.remainingTime = Math.min(activator.remainingTime + 40, 9999);
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: +40s`, value: 40, basic: true });
+      } else if (roll < 0.5) {
+        activator.tokens += 2;
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: +2 trophies`, value: 2, basic: true });
+      } else if (roll < 0.75) {
+        activator.remainingTime = Math.max(0, activator.remainingTime - 30);
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: -30s`, value: -30, basic: true });
+      } else {
+        const idx = Math.floor(Math.random() * 8) + 1;
+        const savedTime = activator.remainingTime;
+        activator.isGhost = true;
+        activator.ghostReason = 'forced';
+        activator.ghostTimeAtDeath = savedTime;
+        activator.remainingTime = 0;
+        activator.ghostImage = `hnt_ghost_${idx}`;
+        activator.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: GHOSTED`, basic: true });
+      }
+      break;
+    }
+    case 'ghost_touch': {
+      const target = game.players.find(p => p.id === targetId);
+      if (target && !target.isGhost && !target.isEliminated) {
+        if (Math.random() < 0.10) {
+          const idx = Math.floor(Math.random() * 8) + 1;
+          const savedTime = target.remainingTime;
+          target.isGhost = true;
+          target.ghostReason = 'forced';
+          target.ghostTimeAtDeath = savedTime;
+          target.remainingTime = 0;
+          target.ghostImage = `hnt_ghost_${idx}`;
+          target.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
+          addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} GHOST TOUCH: ${target.name} ghosted!`, basic: true });
+        } else {
+          addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} GHOST TOUCH: missed (10% chance failed)`, basic: true });
+        }
+      }
+      break;
+    }
+    case 'sacrificial_lamb': {
+      const alive = game.players.filter(p => !p.isGhost && !p.isEliminated && p.tokens > 0);
+      if (alive.length > 0) {
+        const victim = alive[Math.floor(Math.random() * alive.length)];
+        victim.tokens = Math.max(0, victim.tokens - 1);
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} SACRIFICIAL LAMB: ${victim.name} loses 1 trophy`, value: -1, basic: true });
+      }
+      break;
+    }
+    case 'wild_card': {
+      const alive = game.players.filter(p => !p.isGhost && !p.isEliminated);
+      if (alive.length > 1) {
+        const times = alive.map(p => p.remainingTime);
+        let shuffled = [...times];
+        let attempts = 0;
+        do {
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+          attempts++;
+        } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
+        alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} WILD CARD: all time banks redistributed!`, basic: true });
+      }
+      break;
+    }
+    case 'echo': {
+      const target = game.players.find(p => p.id === targetId);
+      if (target) {
+        const lastBid = target.bidHistory?.length ? target.bidHistory[target.bidHistory.length - 1] : null;
+        if (lastBid != null) {
+          target.echoForcedBid = lastBid;
+          addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} forced to replay ${lastBid.toFixed(1)}s next round`, basic: true });
+        } else {
+          addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} has no bid history — no effect`, basic: true });
+        }
+      }
+      break;
+    }
+    case 'marked': {
+      const target = game.players.find(p => p.id === targetId);
+      if (target) {
+        target.markedBy = activator.id;
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} MARKED: ${target.name} is marked — ghosted on next win`, basic: true });
+      }
+      break;
+    }
+    case 'corrupt': {
+      const target = game.players.find(p => p.id === targetId && p.isBot);
+      if (target) {
+        target.corruptRoundsLeft = 3;
+        target.personality = 'aggressive';
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CORRUPT: ${target.name} is now AGGRESSIVE for 3 rounds!`, basic: true });
+      }
+      break;
+    }
+    case 'pattern_lock': {
+      const target = game.players.find(p => p.id === targetId);
+      if (target && target.bidHistory && target.bidHistory.length > 0) {
+        const maxBid = Math.max(...target.bidHistory);
+        target.patternLockMinBid = maxBid;
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} PATTERN LOCK: ${target.name} must bid ≥${maxBid.toFixed(1)}s next round`, basic: true });
+      } else {
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} PATTERN LOCK: ${targetId ? game.players.find(p => p.id === targetId)?.name ?? 'target' : 'target'} has no history — no effect`, basic: true });
+      }
+      break;
+    }
+    case 'last_will': {
+      if (targetId && curseType) {
+        activator.pendingLastWill = { targetId, curseType };
+        const tName = game.players.find(p => p.id === targetId)?.name ?? 'target';
+        const curseName = curseType === 'time' ? 'loses 20s' : 'loses 1 trophy';
+        addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} LAST WILL: if eliminated, ${tName} ${curseName}`, basic: true });
+      }
+      break;
+    }
+    case 'death_wish': {
+      activator.deathWishActive = true;
+      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} DEATH WISH: win=+2 trophies | lose=-15s extra`, basic: true });
+      break;
+    }
+    case 'blood_pact': {
+      activator.bloodPactActive = true;
+      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} BLOOD PACT: all losers also pay the winner's bid time`, basic: true });
+      break;
+    }
+    case 'cursed_dice': {
+      activator.cursedDiceActive = true;
+      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CURSED DICE: ±20s after round end (50/50)`, basic: true });
+      break;
+    }
+    case 'final_writ': {
+      activator.finalWritActive = true;
+      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} FINAL WRIT: will auto-win the final round`, basic: true });
+      break;
+    }
+    case 'seance': {
+      const ghosts = game.players.filter(p => p.isGhost && !p.isEliminated);
+      if (ghosts.length < 2) {
+        // Not enough ghosts — refund the relic
+        activator.relicConsumed = false;
+        return { success: false, error: 'Not enough ghosts (need 2+)' };
+      }
+      ghosts.forEach(ghost => {
+        const reviveTime = Math.max(45, ghost.ghostTimeAtDeath ?? 0);
+        ghost.isGhost = false;
+        ghost.remainingTime = reviveTime;
+        ghost.ghostImage = undefined;
+        ghost.ghostAbility = null;
+        ghost.ghostAbilityUsed = false;
+        ghost.possessionTargetId = undefined;
+        ghost.possessionRoundsLeft = undefined;
+        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived by Séance with ${reviveTime.toFixed(1)}s!`, basic: true });
+      });
+      activator.tokens += 1;
+      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} SÉANCE: ${ghosts.length} ghost(s) revived! +1 trophy`, value: 1, basic: true });
+      break;
+    }
+    case 'protocol_forcer': {
+      const darkPool = DARK_PROTOCOLS;
+      const picked = darkPool[Math.floor(Math.random() * darkPool.length)];
+      game.forcedProtocolNextRound = picked;
+      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} PROTOCOL FORCER: next round will be ${picked}`, basic: true });
+      break;
+    }
+    case 'tribunal': {
+      // Start a vote
+      const target = game.players.find(p => p.id === targetId);
+      if (!target) { activator.relicConsumed = false; return { success: false, error: 'Invalid target' }; }
+      const allVoters = game.players.filter(p => !p.isEliminated);
+      const votes: Record<string, string> = {};
+      // Bots auto-vote randomly
+      allVoters.filter(p => p.isBot).forEach(b => {
+        votes[b.id] = Math.random() < 0.5 ? 'A' : 'B';
+      });
+      game.pendingVote = {
+        relicId: 'tribunal',
+        activatorId: activator.id,
+        targetId: target.id,
+        options: [
+          { id: 'A', label: `${target.name} loses 15s next round` },
+          { id: 'B', label: `${target.name} must bid ≥30s next round (or forfeit)` },
+        ],
+        votes,
+        deadline: Date.now() + 30000,
+      };
+      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} TRIBUNAL: vote started targeting ${target.name}`, basic: true });
+      // Schedule auto-resolve
+      setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+      break;
+    }
+    case 'conclave': {
+      const allVoters = game.players.filter(p => !p.isEliminated);
+      const votes: Record<string, string> = {};
+      const options = ['A', 'B', 'C', 'D'];
+      allVoters.filter(p => p.isBot).forEach(b => {
+        votes[b.id] = options[Math.floor(Math.random() * options.length)];
+      });
+      game.pendingVote = {
+        relicId: 'conclave',
+        activatorId: activator.id,
+        options: [
+          { id: 'A', label: 'Cut everyone\'s time bank in half' },
+          { id: 'B', label: 'Skip next round as a tie (no bids)' },
+          { id: 'C', label: '100% protocols for the rest of the game' },
+          { id: 'D', label: 'Overclock — bottom 2 players lose a trophy' },
+        ],
+        votes,
+        deadline: Date.now() + 30000,
+      };
+      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CONCLAVE: vote started!`, basic: true });
+      setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+      break;
+    }
+    default:
+      break;
+  }
+
+  broadcastGameState(lobbyCode);
+  return { success: true };
+}
+
+// ─── Vote Relic: Cast ─────────────────────────────────────────────────────────
+
+export function castVoteRelic(
+  lobbyCode: string,
+  socketId: string,
+  optionId: string,
+): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.pendingVote || game.pendingVote.resolved) return { success: false, error: 'No active vote' };
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player || player.isEliminated) return { success: false, error: 'Invalid player' };
+  const valid = game.pendingVote.options.find(o => o.id === optionId);
+  if (!valid) return { success: false, error: 'Invalid option' };
+
+  game.pendingVote.votes[player.id] = optionId;
+
+  // Check if all human non-eliminated players have voted → resolve early
+  const humanVoters = game.players.filter(p => !p.isBot && !p.isEliminated);
+  const allHumansVoted = humanVoters.every(p => game.pendingVote!.votes[p.id]);
+  broadcastGameState(lobbyCode);
+  if (allHumansVoted) {
+    resolveVoteRelic(lobbyCode);
+  }
+  return { success: true };
+}
+
+// ─── Vote Relic: Resolve ──────────────────────────────────────────────────────
+
+function resolveVoteRelic(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.pendingVote || game.pendingVote.resolved) return;
+  const vote = game.pendingVote;
+  vote.resolved = true;
+
+  // Count votes
+  const tally: Record<string, number> = {};
+  vote.options.forEach(o => { tally[o.id] = 0; });
+  Object.values(vote.votes).forEach(v => { tally[v] = (tally[v] ?? 0) + 1; });
+
+  // Pick winner (ties: alphabetical order of option id)
+  const sorted = [...vote.options].sort((a, b) => {
+    const diff = (tally[b.id] ?? 0) - (tally[a.id] ?? 0);
+    if (diff !== 0) return diff;
+    return a.id.localeCompare(b.id);
+  });
+  const winner = sorted[0];
+
+  addGameLogEntry(game, {
+    type: 'ability',
+    message: `VOTE RESOLVED: ${winner.label} (${tally[winner.id]} vote${tally[winner.id] !== 1 ? 's' : ''})`,
+    basic: true,
+  });
+
+  if (vote.relicId === 'tribunal') {
+    const target = game.players.find(p => p.id === vote.targetId);
+    if (target) {
+      if (winner.id === 'A') {
+        target.tribunalTimePenalty = (target.tribunalTimePenalty ?? 0) + 15;
+        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL A: -15s at start of next round`, value: -15, basic: true });
+      } else {
+        target.tribunalMinBid = 30;
+        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL B: must bid ≥30s next round`, basic: true });
+      }
+    }
+  } else if (vote.relicId === 'conclave') {
+    switch (winner.id) {
+      case 'A': {
+        game.players.forEach(p => {
+          if (!p.isEliminated && !p.isGhost) {
+            p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10;
+          }
+        });
+        addGameLogEntry(game, { type: 'ability', message: 'CONCLAVE A: All time banks halved!', basic: true });
+        break;
+      }
+      case 'B': {
+        game.skipNextRound = true;
+        addGameLogEntry(game, { type: 'ability', message: 'CONCLAVE B: Next round will be skipped as a tie!', basic: true });
+        break;
+      }
+      case 'C': {
+        game.protocolsAlwaysOn = true;
+        addGameLogEntry(game, { type: 'ability', message: 'CONCLAVE C: Protocols will trigger every round for the rest of the game!', basic: true });
+        break;
+      }
+      case 'D': {
+        const alive = game.players.filter(p => !p.isEliminated && !p.isGhost);
+        if (alive.length >= 2) {
+          const sorted2 = [...alive].sort((a, b) => a.tokens - b.tokens);
+          const minTokens = sorted2[0].tokens;
+          const bottom2 = sorted2.filter(p => p.tokens === minTokens).slice(0, 2);
+          if (bottom2.length < 2) bottom2.push(sorted2[1]);
+          const targetSet = new Set(bottom2.slice(0, 2).map(p => p.id));
+          game.players.filter(p => targetSet.has(p.id)).forEach(p => {
+            p.tokens = Math.max(0, p.tokens - 1);
+            addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} CONCLAVE D: -1 trophy (bottom 2)`, value: -1, basic: true });
+          });
+        }
+        addGameLogEntry(game, { type: 'ability', message: 'CONCLAVE D: Bottom 2 players lost a trophy!', basic: true });
+        break;
+      }
+    }
+  }
+
+  // Emit a targeted event so clients know the vote resolved
+  if (emitToLobby) {
+    emitToLobby(lobbyCode, 'vote_relic_resolved', {
+      relicId: vote.relicId,
+      winnerId: winner.id,
+      winnerLabel: winner.label,
+      tally,
+    });
+  }
+
+  broadcastGameState(lobbyCode);
 }

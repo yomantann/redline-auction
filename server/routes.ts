@@ -19,6 +19,8 @@ import {
   selectDriverInGame,
   confirmDriverInGame,
   broadcastGameState,
+  activateRelicMP,
+  castVoteRelic,
   type GameDuration
 } from "./gameEngine";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
@@ -726,6 +728,22 @@ export async function registerRoutes(
       // Broadcast updated state to all players
       broadcastGameState(lobbyCode);
       if (callback) callback?.({ success: true });
+    });
+
+    // Haunted mode: activate a relic (MP)
+    socket.on("activate_relic", (data: { relicId: string; targetId?: string; curseType?: 'time' | 'trophy' }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in a lobby" }); return; }
+      const result = activateRelicMP(lobbyCode, socket.id, data.relicId, data.targetId, data.curseType);
+      if (callback) callback?.(result);
+    });
+
+    // Haunted mode: cast a vote for an active relic vote
+    socket.on("cast_relic_vote", (data: { optionId: string }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in a lobby" }); return; }
+      const result = castVoteRelic(lobbyCode, socket.id, data.optionId);
+      if (callback) callback?.(result);
     });
 
     // Handle disconnection
