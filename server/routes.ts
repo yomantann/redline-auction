@@ -9,6 +9,7 @@ import {
   playerPressBid,
   playerReleaseBid, 
   playerAcknowledgeRoundEnd,
+  playerOverclockClick,
   getGameState, 
   removePlayerFromGame,
   disconnectPlayerFromGame,
@@ -744,6 +745,17 @@ export async function registerRoutes(
       if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in a lobby" }); return; }
       const result = castVoteRelic(lobbyCode, socket.id, data.optionId);
       if (callback) callback?.(result);
+    // OVERCLOCK CLICK: player clicks during OVERCLOCK protocol phase
+    socket.on("overclock_click", (callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      
+      playerOverclockClick(lobbyCode, socket.id);
+      
+      if (callback) callback({ success: true });
     });
 
     // Handle disconnection

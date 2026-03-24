@@ -1,9 +1,10 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import bgStandard from "../../assets/generated_images/bg_standard_5.png";
-import bgSocial from "../../assets/generated_images/bg_social_1.png";
-import bgBio from "../../assets/generated_images/bg_bio_fuel_v6.png";
-import bgHaunted from "../../assets/generated_images/Haunted/hnt_bg_1.png";
+import bgStandard from "../../assets/generated_images/BG/bg_standard_7.png";
+import bgSocial from "../../assets/generated_images/BG/bg_social_1.png";
+import bgBio from "../../assets/generated_images/BG/bg_bio_fuel_v6.png";
+import bgHaunt from "../../assets/generated_images/BG/hnt_bg_8.png";
+import bgWager from "../../assets/generated_images/BG/wgr_bg_2.png";
 
 type RealityMode = "STANDARD" | "SOCIAL_OVERDRIVE" | "BIO_FUEL" | "HAUNTED";
 

@@ -15,7 +15,7 @@ interface Player {
   driverAbility?: string; // Driver ability description
   isHolding?: boolean; // Added for Peek Logic
   roundImpact?: string; // New field for limit break impact
-  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // Structured logs
+  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[]; // Structured logs
   netImpact?: number; // Net of all positive and negative impacts
   selectedItem?: string; // Haunted mode: selected item name
   isGhost?: boolean; // Haunted mode: player converted to ghost on elimination
@@ -196,8 +196,11 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
                         player.impactLogs.map((log, i) => (
                             <span key={i} className={cn(
                                 "text-xs font-bold whitespace-nowrap flex items-center gap-1",
-                                log.type === 'gain' ? "text-emerald-400" : 
-                                log.type === 'loss' ? "text-red-400" : "text-zinc-400"
+                                log.type === 'gain'   ? "text-emerald-400" :
+                                log.type === 'loss'   ? "text-red-400"     :
+                                log.type === 'trophy' ? "text-amber-400"   :
+                                log.type === 'forced' ? "text-orange-400"  :
+                                "text-zinc-400"
                             )}>
                                 {log.value} 
                                 <span className="text-[9px] opacity-70 font-mono uppercase tracking-wider bg-black/40 px-1 rounded border border-white/5">{log.reason}</span>

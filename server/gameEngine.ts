@@ -76,6 +76,7 @@ export type ProtocolType =
   | 'UNDERDOG_VICTORY' | 'TIME_TAX' | 'PRIVATE_CHANNEL'
   | 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'NOISE_CANCEL'
   | 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND'
+  | 'OVERCLOCK' | 'CALIBRATION'
   | null;
 
 // Protocol pools by variant
@@ -83,7 +84,8 @@ const STANDARD_PROTOCOLS: ProtocolType[] = [
   'DATA_BLACKOUT', 'DOUBLE_STAKES', 'SYSTEM_FAILURE', 
   'OPEN_HAND', 'MUTE_PROTOCOL', 
   'NO_LOOK', 'THE_MOLE', 'PANIC_ROOM',
-  'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL'
+  'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL',
+  'OVERCLOCK', 'CALIBRATION'
 ];
 
 const SOCIAL_PROTOCOLS: ProtocolType[] = [
@@ -196,6 +198,7 @@ export interface GameSettings {
   abilitiesEnabled: boolean;
   variant: GameVariant;
   gameDuration: GameDuration;
+  allowedProtocols?: ProtocolType[];
 }
 
 export interface PendingRelicVote {
@@ -214,7 +217,7 @@ export interface GameState {
   players: GamePlayer[];
   round: number;
   totalRounds: number;
-  phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'round_end' | 'game_over';
+  phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
   roundStartTime: number | null;
   countdownRemaining: number;
   gameDuration: GameDuration;
@@ -239,6 +242,8 @@ export interface GameState {
   voteQueue?: PendingRelicVote[];                  // Queued votes waiting for current vote to resolve
   protocolsAlwaysOn?: boolean;                    // Conclave C: 100% protocol trigger rest of game
   skipNextRound?: boolean;                        // Conclave B: skip next round as tie
+  overclockClickCounts: Record<string, number>; // Click counts per player during OVERCLOCK protocol
+  calibrationTargetSeconds: number | null; // Target hold time for CALIBRATION protocol (11-40s)
 }
 
 // Active games storage
@@ -510,6 +515,7 @@ export function createGame(
     abilitiesEnabled: lobbySettings?.abilitiesEnabled || false,
     variant: lobbySettings?.variant || 'STANDARD',
     gameDuration: mappedDuration,
+    allowedProtocols: lobbySettings?.allowedProtocols,
   };
   
   const gameState: GameState = {
@@ -542,6 +548,8 @@ export function createGame(
     voteQueue: [],
     protocolsAlwaysOn: false,
     skipNextRound: false,
+    overclockClickCounts: {},
+    calibrationTargetSeconds: null,
   };
   
   activeGames.set(lobbyCode, gameState);
@@ -681,7 +689,11 @@ function startCountdown(lobbyCode: string) {
     
     if (g.countdownRemaining <= 0) {
       clearInterval(interval);
-      startBidding(lobbyCode);
+      if (g.activeProtocol === 'OVERCLOCK') {
+        startOverclock(lobbyCode);
+      } else {
+        startBidding(lobbyCode);
+      }
     } else {
       broadcastGameState(lobbyCode);
     }
@@ -840,6 +852,68 @@ function startBidding(lobbyCode: string) {
   }, 100);
   
   gameIntervals.set(`${lobbyCode}_bidding`, interval);
+}
+
+function startOverclock(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
+
+  game.phase = 'overclock';
+  game.roundWinner = null;
+  game.eliminatedThisRound = [];
+
+  // Reset click counts and bids for all active players
+  game.overclockClickCounts = {};
+  game.players.forEach(p => {
+    if (!p.isEliminated) {
+      game.overclockClickCounts[p.id] = 0;
+      p.currentBid = 0;
+      p.isHolding = false;
+    } else {
+      p.currentBid = null;
+    }
+  });
+
+  // Assign random click counts to bots (85-120 clicks)
+  game.players.forEach(p => {
+    if (p.isBot && !p.isEliminated) {
+      game.overclockClickCounts[p.id] = Math.floor(Math.random() * 36) + 85; // 85-120
+    }
+  });
+
+  broadcastGameState(lobbyCode);
+  log(`OVERCLOCK phase started for round ${game.round} in lobby ${lobbyCode}`, "game");
+
+  const startTime = Date.now();
+
+  // Broadcast every 500ms so clients see updated click counts
+  const interval = setInterval(() => {
+    const g = activeGames.get(lobbyCode);
+    if (!g || g.phase !== 'overclock') {
+      clearInterval(interval);
+      return;
+    }
+    const elapsed = (Date.now() - startTime) / 1000;
+    if (elapsed >= 15) {
+      clearInterval(interval);
+      endRound(lobbyCode);
+      return;
+    }
+    broadcastGameState(lobbyCode);
+  }, 500);
+
+  gameIntervals.set(`${lobbyCode}_overclock`, interval);
+}
+
+export function playerOverclockClick(lobbyCode: string, socketId: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || game.phase !== 'overclock') return;
+
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player || player.isEliminated || player.isBot) return;
+
+  game.overclockClickCounts[player.id] = (game.overclockClickCounts[player.id] || 0) + 1;
+  // No individual broadcast - state is synced every 500ms in the overclock interval
 }
 
 function getDriverBidAdjustment(driverId: string | undefined, holdTime: number, game: GameState, player: GamePlayer): { holdTime: number; reason?: string } {
@@ -1031,6 +1105,21 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
 
     holdTime += Math.random() * 0.8;
     holdTime = Math.min(maxHoldTime, Math.max(0.5, holdTime));
+
+    // CALIBRATION: Override hold time last so bot always stays within ±7s of target
+    if (game.activeProtocol === 'CALIBRATION' && game.calibrationTargetSeconds !== null) {
+      const target = game.calibrationTargetSeconds;
+      // Bots bid within 0.2–7.0 seconds of the target (random offset in either direction)
+      // Hold time = target - minBid (since currentBid = elapsed + minBid)
+      const offsetMagnitude = 0.2 + Math.random() * 6.8; // 0.2 to 7.0
+      const offsetSign = Math.random() < 0.5 ? -1 : 1;
+      const baseHold = Math.max(0.5, target - minBidTime);
+      holdTime = baseHold + offsetSign * offsetMagnitude;
+      // Avoid elimination: cap hold time so currentBid (holdTime + minBidTime) won't exceed remainingTime
+      const safeMaxHold = Math.max(0.5, p.remainingTime - minBidTime - 0.5);
+      holdTime = Math.min(safeMaxHold, Math.max(0.5, holdTime));
+    }
+
     bids[p.id] = parseFloat(holdTime.toFixed(1));
   });
 
@@ -1090,7 +1179,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
     switch (ability.triggerCondition) {
       case 'WIN':
         if (isWinner) {
-          // Special case for Spirit Shield (harambe) - only Round 1
+          // Special case for Spirit Shield - only Round 1
           if (player.selectedDriver === 'guardian_h' && game.round !== 1) break;
           triggered = true;
         }
@@ -1098,7 +1187,7 @@ function processAbilities(game: GameState, winnerId: string | null) {
         
       case 'LOSE':
         if (!isWinner && winnerId) {
-          // HIDE PAIN (harold): only triggers if lost by >15s margin
+          // HIDE PAIN (Pain Hider): only triggers if lost by >15s margin
           if (player.selectedDriver === 'pain_hider') {
             const winnerPlayer = game.players.find(p => p.id === winnerId);
             const winnerBidVal = winnerPlayer?.currentBid || 0;
@@ -1196,18 +1285,17 @@ function processAbilities(game: GameState, winnerId: string | null) {
             // Cheese Tax: target the winner
             target = game.players.find(p => p.id === targetId);
           } else if (player.selectedDriver === 'executive_p') {
-            // Axe Swing: target the player with the most time REMAINING after subtracting their
-            // current-round bid (i.e., effective post-bid time = remainingTime - currentBid).
-            // This avoids targeting someone who bid heavily and will end the round with little time,
-            // and remains correct in PANIC_ROOM rounds where bids are proportionally larger.
-            const nonEliminated = game.players.filter(p => p.id !== player.id && !p.isEliminated && !immunePlayerIds.includes(p.id));
+            // Axe Swing: target the player with the most time REMAINING after bid deduction.
+            // Bids are deducted before processAbilities runs, so remainingTime is already post-bid.
+            const nonEliminated = game.players.filter(p => 
+              p.id !== player.id && 
+              !p.isEliminated && 
+              !game.eliminatedThisRound.includes(p.id) && 
+              !immunePlayerIds.includes(p.id)
+            );
             if (nonEliminated.length > 0) {
-              // Sort by post-bid effective time descending; take the first (richest) player
-              const sorted = [...nonEliminated].sort((a, b) => {
-                const aEffective = Math.max(0, a.remainingTime - (a.currentBid || 0));
-                const bEffective = Math.max(0, b.remainingTime - (b.currentBid || 0));
-                return bEffective - aEffective;
-              });
+              // Sort by post-bid remaining time descending; take the first (richest) player
+              const sorted = [...nonEliminated].sort((a, b) => b.remainingTime - a.remainingTime);
               target = sorted[0];
             }
           } else if (player.selectedDriver === 'accuser' || player.selectedDriver === 'hotwired') {
@@ -1306,18 +1394,212 @@ function endRound(lobbyCode: string) {
   const wasGhostAtRoundStart = new Map<string, boolean>();
   game.players.forEach(p => wasGhostAtRoundStart.set(p.id, !!p.isGhost));
   
+
+  // --- OVERCLOCK PROTOCOL: Click-count based winner/loser determination ---
+  if (game.activeProtocol === 'OVERCLOCK') {
+    const overclockActivePlayers = game.players.filter(p => !p.isEliminated);
+    if (overclockActivePlayers.length > 0) {
+      const clickCounts = game.overclockClickCounts;
+      const maxClicks = Math.max(...overclockActivePlayers.map(p => clickCounts[p.id] || 0));
+      const minClicks = Math.min(...overclockActivePlayers.map(p => clickCounts[p.id] || 0));
+
+      // Winner: most clicks → gets a token
+      const topClickers = overclockActivePlayers.filter(p => (clickCounts[p.id] || 0) === maxClicks);
+      const topWinner = topClickers[Math.floor(Math.random() * topClickers.length)];
+      topWinner.tokens += 1;
+      game.roundWinner = { id: topWinner.id, name: topWinner.name, bid: maxClicks };
+      topWinner.protocolWinsEarned.push('OVERCLOCK');
+
+      addGameLogEntry(game, {
+        type: 'win',
+        playerId: topWinner.id,
+        playerName: topWinner.name,
+        message: `OVERCLOCK: ${topWinner.name} wins with ${maxClicks} clicks!`,
+        basic: true,
+      });
+      log(`OVERCLOCK winner: ${topWinner.name} with ${maxClicks} clicks in lobby ${lobbyCode}`, "game");
+
+      // Loser: least clicks → -35s timebank (only if different click count from winner)
+      if (minClicks < maxClicks) {
+        const bottomClickers = overclockActivePlayers.filter(p => (clickCounts[p.id] || 0) === minClicks);
+        const loser = bottomClickers[Math.floor(Math.random() * bottomClickers.length)];
+        const penalty = 35;
+        loser.remainingTime = Math.max(0, loser.remainingTime - penalty);
+        loser.netImpact -= penalty;
+        loser.roundImpacts.push({ type: 'OVERCLOCK_PENALTY', value: -penalty, source: 'OVERCLOCK' });
+        if (loser.remainingTime === 0 && !loser.isEliminated) {
+          loser.isEliminated = true;
+          if (!game.eliminatedThisRound.includes(loser.id)) {
+            game.eliminatedThisRound.push(loser.id);
+          }
+        }
+        addGameLogEntry(game, {
+          type: 'protocol',
+          playerId: loser.id,
+          playerName: loser.name,
+          message: `OVERCLOCK: ${loser.name} had fewest clicks (${minClicks}) — loses 35s!`,
+          value: -penalty,
+          basic: true,
+        });
+        log(`OVERCLOCK loser: ${loser.name} with ${minClicks} clicks, -35s in lobby ${lobbyCode}`, "game");
+      }
+    }
+
+    // Skip normal bid-based winner determination; jump to post-winner processing
+    const winnerId = game.roundWinner?.id || null;
+
+    // Emit overclock result reveal
+    if (emitToLobby) {
+      emitToLobby(lobbyCode, 'protocol_reveal', {
+        protocol: 'OVERCLOCK',
+        msg: 'OVERCLOCK RESULTS',
+        sub: game.roundWinner ? `${game.roundWinner.name} clicked the most (${game.roundWinner.bid})!` : 'No winner',
+      });
+    }
+
+    // Process pending impacts, abilities, and finalize round
+    game.players.forEach(p => {
+      if (p.pendingRoundImpacts && p.pendingRoundImpacts.length > 0) {
+        p.roundImpacts.push(...p.pendingRoundImpacts);
+        p.pendingRoundImpacts = [];
+      }
+    });
+    processAbilities(game, winnerId);
+    game.players.forEach(p => {
+      if (p.remainingTime < 0) p.remainingTime = 0;
+      if (p.remainingTime === 0 && !p.isEliminated) {
+        p.isEliminated = true;
+        if (!game.eliminatedThisRound.includes(p.id)) {
+          game.eliminatedThisRound.push(p.id);
+        }
+      }
+    });
+
+    broadcastGameState(lobbyCode);
+    processRealityModeAbilities(game, winnerId, 'end');
+
+    game.players.forEach(p => {
+      if (!p.isBot && !p.isEliminated) {
+        (p as any).roundEndAcknowledged = false;
+      } else {
+        (p as any).roundEndAcknowledged = true;
+      }
+    });
+
+    if (game.eliminatedThisRound.length > 0 && game.firstEliminatedIds.length === 0) {
+      game.firstEliminatedIds = [...game.eliminatedThisRound];
+    }
+
+    const activePlayers = game.players.filter(p => !p.isEliminated);
+    const activeHumans = activePlayers.filter(p => !p.isBot);
+    if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
+      setTimeout(() => endGame(lobbyCode), 3000);
+    } else if (activeHumans.length === 0 && game.isMultiplayer) {
+      game.round = game.totalRounds;
+      setTimeout(() => endGame(lobbyCode), 3000);
+    }
+
+    recordGameSnapshot({
+      gameId: game.gameId,
+      snapshotType: game.eliminatedThisRound.length > 0 ? 'elimination' : 'round_end',
+      roundNumber: game.round,
+      winnerPlayerId: game.roundWinner?.id || null,
+      winningHoldTime: null,
+      minBidSeconds: getMinBidPenalty(game.settings.gameDuration),
+      eliminatedPlayerIds: game.eliminatedThisRound,
+      momentFlagsTriggered: [],
+      protocolsTriggered: ['OVERCLOCK'],
+      limitBreaksTriggered: [],
+      playerPositions: game.players.map(p => ({
+        playerId: p.id,
+        tokens: p.tokens,
+        remainingTime: p.remainingTime,
+        isEliminated: p.isEliminated,
+      })),
+      lobbyCode: game.lobbyCode,
+      gameSettings: {
+        difficulty: game.settings.difficulty,
+        variant: game.settings.variant,
+        gameDuration: game.settings.gameDuration,
+        protocolsEnabled: game.settings.protocolsEnabled,
+        abilitiesEnabled: game.settings.abilitiesEnabled,
+      },
+      isMultiplayer: 1,
+    });
+    return;
+  }
+
+  // Deduct bid time first so overbidding eliminations are reflected in winner determination
+  game.players.forEach(p => {
+    if (p.currentBid && p.currentBid > 0) {
+      p.totalTimeBid += p.currentBid;
+      addGameLogEntry(game, {
+        type: 'bid',
+        playerId: p.id,
+        playerName: p.name,
+        message: `${p.name} bid ${p.currentBid.toFixed(1)}s`,
+        value: p.currentBid,
+      });
+      // THE_MOLE: Mole's bid is free (no time deduction)
+      if (game.activeProtocol === 'THE_MOLE' && p.id === game.molePlayerId) {
+        addGameLogEntry(game, {
+          type: 'protocol',
+          playerId: p.id,
+          playerName: p.name,
+          message: `${p.name}'s bid was FREE (Mole)`,
+          value: p.currentBid,
+        });
+      } else {
+        p.remainingTime -= p.currentBid;
+        if (p.remainingTime <= 0) {
+          p.remainingTime = 0;
+          p.isEliminated = true;
+          if (!game.eliminatedThisRound.includes(p.id)) {
+            game.eliminatedThisRound.push(p.id);
+            addGameLogEntry(game, {
+              type: 'elimination',
+              playerId: p.id,
+              playerName: p.name,
+              message: `${p.name} was eliminated (ran out of time)`,
+              basic: true,
+            });
+          }
+        }
+      }
+    }
+  });
+  
   // Find winner (highest bid among non-eliminated, non-ghost)
   const participants = game.players.filter(p => !p.isEliminated && !p.isGhost && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
+
+  // Find winner (highest bid among non-eliminated, or closest to target for CALIBRATION)
+  const participants = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
   
   let winnerId: string | null = null;
   
   if (participants.length > 0) {
-    const sorted = [...participants].sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    // CALIBRATION: winner = closest bid to calibrationTargetSeconds
+    let sorted: typeof participants;
+    if (game.activeProtocol === 'CALIBRATION' && game.calibrationTargetSeconds !== null) {
+      const target = game.calibrationTargetSeconds;
+      sorted = [...participants].sort((a, b) => {
+        const aDiff = Math.abs((a.currentBid || 0) - target);
+        const bDiff = Math.abs((b.currentBid || 0) - target);
+        return aDiff - bDiff;
+      });
+    } else {
+      sorted = [...participants].sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    }
+
     const topBid = sorted[0].currentBid || 0;
     const secondBid = sorted[1]?.currentBid || 0;
     // Detect a tie: top two bids round to the same displayed value (1 decimal place)
     const roundTo1 = (n: number) => Math.round(n * 10) / 10;
-    const isTie = sorted.length >= 2 && roundTo1(topBid) === roundTo1(secondBid);
+    const isTie = sorted.length >= 2 && (
+      game.activeProtocol === 'CALIBRATION' && game.calibrationTargetSeconds !== null
+        ? Math.abs(roundTo1(topBid) - game.calibrationTargetSeconds) === Math.abs(roundTo1(secondBid) - game.calibrationTargetSeconds)
+        : roundTo1(topBid) === roundTo1(secondBid)
+    );
 
     if (!isTie) {
       const winner = sorted[0];
@@ -1335,11 +1617,15 @@ function endRound(lobbyCode: string) {
         winner.shortestWinBidTime = winnerBidTime;
       }
 
+      const winMsg = game.activeProtocol === 'CALIBRATION' && game.calibrationTargetSeconds !== null
+        ? `${winner.name} won round ${game.round} with closest bid (${winner.currentBid?.toFixed(1)}s, target ${game.calibrationTargetSeconds}s)`
+        : `${winner.name} won round ${game.round} with ${winner.currentBid?.toFixed(1)}s bid${game.isDoubleTokensRound ? ' (2x tokens!)' : ''}`;
+
       addGameLogEntry(game, {
         type: 'win',
         playerId: winner.id,
         playerName: winner.name,
-        message: `${winner.name} won round ${game.round} with ${winner.currentBid?.toFixed(1)}s bid${game.isDoubleTokensRound ? ' (2x tokens!)' : ''}`,
+        message: winMsg,
         value: winner.currentBid || 0,
         basic: true,
       });
@@ -1671,68 +1957,6 @@ function endRound(lobbyCode: string) {
     });
   }
   
-  // Log all bids and deduct time
-  game.players.forEach(p => {
-    if (p.currentBid && p.currentBid > 0) {
-      // Track total time bid for stats
-      p.totalTimeBid += p.currentBid;
-      
-      addGameLogEntry(game, {
-        type: 'bid',
-        playerId: p.id,
-        playerName: p.name,
-        message: `${p.name} bid ${p.currentBid.toFixed(1)}s`,
-        value: p.currentBid,
-      });
-      
-      // THE_MOLE: Mole's bid is free (no time deduction)
-      if (game.activeProtocol === 'THE_MOLE' && p.id === game.molePlayerId) {
-        // Free bid - no time deduction, no netImpact change (matches singleplayer)
-        addGameLogEntry(game, {
-          type: 'protocol',
-          playerId: p.id,
-          playerName: p.name,
-          message: `${p.name}'s bid was FREE (Mole)`,
-          value: p.currentBid,
-        });
-      } else {
-        p.remainingTime -= p.currentBid;
-        // Track bid history
-        if (p.currentBid > 0) {
-          p.bidHistory = [...(p.bidHistory ?? []), p.currentBid];
-        }
-        if (p.remainingTime <= 0) {
-          p.remainingTime = 0;
-          if (game.settings.variant === 'HAUNTED') {
-            // Haunted: become a ghost instead of eliminated
-            p.isGhost = true;
-            p.ghostReason = 'natural';
-            if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
-            addGameLogEntry(game, {
-              type: 'elimination',
-              playerId: p.id,
-              playerName: p.name,
-              message: `${p.name} became a ghost`,
-              basic: true,
-            });
-          } else {
-            p.isEliminated = true;
-            if (!game.eliminatedThisRound.includes(p.id)) {
-              game.eliminatedThisRound.push(p.id);
-              addGameLogEntry(game, {
-                type: 'elimination',
-                playerId: p.id,
-                playerName: p.name,
-                message: `${p.name} was eliminated (ran out of time)`,
-                basic: true,
-              });
-            }
-          }
-        }
-      }
-    }
-  });
-  
   // Handle THE_MOLE protocol penalties (AFTER all deductions and ability effects)
   if (game.activeProtocol === 'THE_MOLE' && game.molePlayerId) {
     const molePlayer = game.players.find(p => p.id === game.molePlayerId);
@@ -1799,11 +2023,13 @@ function endRound(lobbyCode: string) {
     const winnerPlayer = game.players.find(p => p.id === winnerId);
     if (winnerPlayer) {
       const winnerBid = winnerPlayer.currentBid || 0;
+      const isCalibration = game.activeProtocol === 'CALIBRATION' && game.calibrationTargetSeconds !== null;
       const sortedByBid = [...participants]
         .filter(p => p.currentBid !== null)
         .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
       const secondBid = sortedByBid.length > 1 ? sortedByBid[1].currentBid || 0 : 0;
-      const margin = winnerBid - secondBid;
+      // For CALIBRATION: use absolute bid difference so margin is always non-negative
+      const margin = isCalibration ? Math.abs(winnerBid - secondBid) : winnerBid - secondBid;
       
       if (game.round === 1) {
         winnerPlayer.momentFlagsEarned.push('SMUG_CONFIDENCE');
@@ -2396,6 +2622,25 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       });
       break;
     }
+    case 'OVERCLOCK': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'OVERCLOCK',
+        msg: 'OVERCLOCK',
+        sub: 'After prepare to bid: click the button as many times as you can in 15 seconds! Most clicks wins — least clicks loses 10s.',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'CALIBRATION': {
+      const target = game.calibrationTargetSeconds;
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'CALIBRATION',
+        msg: 'CALIBRATION',
+        sub: `Hold as close to ${target}s as possible! Closest bid wins. Farthest loses nothing extra — but elimination still applies.`,
+        targetPlayerId: null,
+      });
+      break;
+    }
   }
 }
 
@@ -2523,6 +2768,12 @@ function selectProtocolForRound(game: GameState): ProtocolType {
       break;
   }
   
+  // Filter by allowedProtocols if configured (per-protocol toggle buttons)
+  if (game.settings.allowedProtocols && game.settings.allowedProtocols.length > 0) {
+    protocolPool = protocolPool.filter(p => game.settings.allowedProtocols!.includes(p));
+    if (protocolPool.length === 0) return null;
+  }
+  
   // Filter out recently used protocols (avoid repetition)
   const recentProtocols = game.protocolHistory.slice(-3);
   const availableProtocols = protocolPool.filter(p => !recentProtocols.includes(p));
@@ -2596,6 +2847,8 @@ function startWaitingForReady(lobbyCode: string) {
       }
     });
   }
+  
+  game.overclockClickCounts = {};
   
   // --- MP: BOT RELIC ACTIVATION ---
   // Bots with unconsumed relics activate them at the start of each round (before players go ready).
@@ -2841,6 +3094,9 @@ function startWaitingForReady(lobbyCode: string) {
   // Select protocol for this round
   const protocol = selectProtocolForRound(game);
   game.activeProtocol = protocol;
+  if (!protocol) {
+    game.calibrationTargetSeconds = null;
+  }
   if (protocol) {
     game.protocolHistory.push(protocol);
     addGameLogEntry(game, {
@@ -2851,6 +3107,12 @@ function startWaitingForReady(lobbyCode: string) {
     // Handle specific protocol effects at round start
     if (protocol === 'DOUBLE_STAKES' || protocol === 'PANIC_ROOM') {
       game.isDoubleTokensRound = true;
+    }
+    if (protocol === 'CALIBRATION') {
+      // Generate random target time between 11 and 40 seconds
+      game.calibrationTargetSeconds = Math.floor(Math.random() * 30) + 11;
+    } else {
+      game.calibrationTargetSeconds = null;
     }
     if (protocol === 'THE_MOLE') {
       const activePlayers = game.players.filter(p => !p.isEliminated && !p.isBot && !(p.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled));
@@ -3008,6 +3270,26 @@ function calculateBonusTrophies(game: GameState): BonusTrophyResult[] {
         return withWins.filter(p => p.shortestWinBidTime === min).map(p => ({ id: p.id, name: p.name }));
       },
     },
+    {
+      id: 'BOT_BID',
+      name: 'Bot Bid',
+      desc: 'Random CPU (bot) award',
+      getCandidates: () => {
+        // Award to one random non-eliminated bot, or one random panic_bot driver player if no bots present
+        const activeBots = allPlayers.filter(p => p.isBot && !p.isEliminated);
+        if (activeBots.length > 0) {
+          const chosen = activeBots[Math.floor(Math.random() * activeBots.length)];
+          return [{ id: chosen.id, name: chosen.name }];
+        }
+        // Fall back to panic_bot driver players if no bots available
+        const panicBotPlayers = allPlayers.filter(p => !p.isBot && !p.isEliminated && p.selectedDriver === 'panic_bot');
+        if (panicBotPlayers.length > 0) {
+          const chosen = panicBotPlayers[Math.floor(Math.random() * panicBotPlayers.length)];
+          return [{ id: chosen.id, name: chosen.name }];
+        }
+        return [];
+      },
+    },
   ];
 
   // Pick 2 unique criteria at random from valid ones (Fisher-Yates shuffle)
@@ -3034,7 +3316,9 @@ function endGame(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
   if (!game) return;
 
-  // Guard against running endGame twice (e.g. triggered by a player leaving after already being called)
+  // Guard against running endGame twice (e.g. triggered by a player leaving during the 3-second
+  // post-round delay, while a setTimeout for endGame is also pending from endRound, or when
+  // playerAcknowledgeRoundEnd fires before the scheduled setTimeout).
   if (game.phase === 'game_over') return;
 
   // Award Bonus Trophies if protocols are enabled and bonus trophies are enabled (before final placement sort)
@@ -3200,7 +3484,7 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
       return;
     }
 
-    // JAWLINE (gigachad): No penalty during countdown
+    // JAWLINE (AlphaPrime): No penalty during countdown
     const ability = player.selectedDriver ? DRIVER_ABILITIES[player.selectedDriver] : null;
     if (ability?.name === 'JAWLINE' && game.settings.abilitiesEnabled) {
       player.penaltyAppliedThisRound = true;
@@ -3275,8 +3559,8 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
     // detection when two players both release on the same displayed second.
     // Fall back to the fresh computation only if the tick hasn't updated the bid yet
     // (player released within the very first 100ms of the bidding phase).
-    player.currentBid = (player.currentBid != null && player.currentBid > 0)
-      ? Math.round(player.currentBid * 10) / 10
+    player.currentBid = (player.currentBid ?? 0) > 0
+      ? Math.round((player.currentBid ?? 0) * 10) / 10
       : Math.round((playerElapsed + minBid) * 10) / 10;
     
     log(`${player.name} released at ${(player.currentBid as number).toFixed(1)}s (${playerElapsed.toFixed(1)}s hold + ${minBid}s minBid) in lobby ${lobbyCode}`, "game");
@@ -3466,6 +3750,9 @@ export function broadcastGameState(lobbyCode: string) {
     // Relic game-state fields
     pendingVote: game.pendingVote || null,
     protocolsAlwaysOn: game.protocolsAlwaysOn || false,
+    
+    overclockClickCounts: game.overclockClickCounts,
+    calibrationTargetSeconds: game.calibrationTargetSeconds,
   };
   
   emitToLobby(lobbyCode, 'game_state', stateForClients);

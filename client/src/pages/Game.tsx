@@ -9,19 +9,6 @@ import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Mail, Heart } from 'lucide-react';
 
-
-import bioAccuserOption1 from "../assets/generated_images/bio_accuser_girl_pointing_v5.png";
-import bioPanicBotOption3 from "../assets/generated_images/bio_panic_bot_option3.png";
-
-import socialSadmanOption3 from "../assets/generated_images/social_sadman_option3.png";
-import socialRainbowDashOption1 from "../assets/generated_images/social_rainbow_dash_option1.png";
-import socialGuardianHOption1 from "../assets/generated_images/social_guardian_h_option1.png";
-import socialFrostybyteOption1 from "../assets/generated_images/social_frostybyte_option1.png";
-import socialExecutivePOption1 from "../assets/generated_images/social_executive_p_detailed_v4.png";
-
-import socialPainHiderOption1 from "../assets/generated_images/social_pain_hider_life_support_v6.png";
-import socialPanicBotOption1 from "../assets/generated_images/social_panic_bot_toy_v2.png";
-import socialAccuserOption1 from "../assets/generated_images/social_accuser_pointing_v4.png";
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
 
 // Define OverlayItem interface locally to match GameOverlay
@@ -62,72 +49,72 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 // Import Generated Images
-import charHarambe from '@assets/generated_images/cyberpunk_gorilla_guardian.png';
-import charPopcat from '@assets/generated_images/cyberpunk_popcat.png';
-import charWinter from '@assets/generated_images/cyberpunk_winter_soldier.png';
-import charPepe from '@assets/generated_images/cyberpunk_sad_green_alien_analyst.png';
-import charNyan from '@assets/generated_images/fast_cyberpunk_rainbow_rabbit_character.png';
-import charKaren from '@assets/generated_images/cyberpunk_yelling_commander.png';
-import charFine from '@assets/generated_images/cyberpunk_burning_pilot.png';
-import charBf from '@assets/generated_images/cyberpunk_distracted_pilot.png';
-import charRat from '@assets/generated_images/cyberpunk_rat_sniper_rooftop.png';
-import charBaldwin from '@assets/generated_images/cyberpunk_anointed_royal_masked_figure.png';
-import charSigma from '@assets/generated_images/cyberpunk_sigma_executive.png';
-import charGigachad from '@assets/generated_images/cyberpunk_gigachad.png';
-import charThinker from '@assets/generated_images/roll_safe_medium_shot.png';
-import charDisaster from '@assets/generated_images/cyberpunk_disaster_girl.png';
-import charButtons from '@assets/generated_images/cyberpunk_two_buttons.png';
-import charHarold from '@assets/generated_images/cyberpunk_hide_pain_harold.png';
+import charGuardian from '@assets/generated_images/guardian.png';
+import charClick from '@assets/generated_images/click.png';
+import charFrost from '@assets/generated_images/frost.png';
+import charSadman from '@assets/generated_images/sadman.png';
+import charDash from '@assets/generated_images/dash.png';
+import charAccuser from '@assets/generated_images/accuser.png';
+import charLowflame from '@assets/generated_images/lowflame.png';
+import charWandering from '@assets/generated_images/wandering.png';
+import charRind from '@assets/generated_images/rind.png';
+import charAnointed from '@assets/generated_images/anointed.png';
+import charExecutive from '@assets/generated_images/executive.png';
+import charAlpha from '@assets/generated_images/alpha.png';
+import charRoll from '@assets/generated_images/roll.png';
+import charHotwired from '@assets/generated_images/hotwired.png';
+import charPanic from '@assets/generated_images/panic.png';
+import charPain from '@assets/generated_images/pain.png';
+import charPrimate from '@assets/generated_images/primate.png';
 
-import charDangerZone from '@assets/generated_images/edgy_cyberpunk_femme_fatale.png';
-import charMonkeyHaircut from '@assets/generated_images/cool_monkey_haircut_chef_background.png';
-import charIdolCore from '@assets/generated_images/glamorous_kpop_idol_star.png';
-import charPromKing from '@assets/generated_images/cool_cyberpunk_prom_king.png';
-import charRockShush from '@assets/generated_images/cute_rock_with_shush_gesture.png';
-import charRollSafe from '@assets/generated_images/roll_safe_black_character.png';
 
 // Social Mode Images
-import socialHarambe from '../assets/generated_images/social_harambe.png';
-import socialPopcat from '../assets/generated_images/social_popcat.png';
-import socialWinter from '../assets/generated_images/social_winter.png';
-import socialPepe from '../assets/generated_images/social_pepe.png';
-import socialNyan from '../assets/generated_images/social_nyan.png';
-import socialKaren from '../assets/generated_images/social_karen.png';
-import socialFine from '../assets/generated_images/social_fine.png';
-import socialBf from '../assets/generated_images/social_bf.png';
-import socialRat from '../assets/generated_images/social_rat.png';
-import socialBaldwin from '../assets/generated_images/social_baldwin.png';
-import socialSigma from '../assets/generated_images/social_sigma.png';
-import socialGigachad from '../assets/generated_images/social_gigachad.png';
-import socialThinker from '../assets/generated_images/social_thinker.png';
-import socialDisaster from '../assets/generated_images/social_disaster.png';
-import socialPrimate from '../assets/generated_images/social_primate.png';
-import socialHarold from '../assets/generated_images/social_harold.png';
-import socialPromKing from '../assets/generated_images/social_prom_king.png';
-import socialIdolCore from '../assets/generated_images/social_idol_core.png';
-import socialTank from '../assets/generated_images/social_tank.png';
-import socialDangerZone from '../assets/generated_images/social_danger_zone.png';
+import socialSadman from "../assets/generated_images/SOCIAL/social_sadman_option3.png";
+import socialDash from "../assets/generated_images/SOCIAL/social_rainbow_dash_option1.png";
+import socialGuardian from "../assets/generated_images/SOCIAL/social_guardian_h_option1.png";
+import socialFrost from "../assets/generated_images/SOCIAL/social_frostybyte_option1.png";
+import socialExecutive from "../assets/generated_images/SOCIAL/social_executive_p_detailed_v4.png";
+import socialPain from "../assets/generated_images/SOCIAL/social_pain_hider_life_support_v6.png";
+import socialPanic from "../assets/generated_images/SOCIAL/social_panic_bot_toy_v2.png";
+import socialAccuser from "../assets/generated_images/SOCIAL/social_accuser_pointing_v4.png";
+import socialClick from '../assets/generated_images/SOCIAL/social_click.png';
+import socialLowflame from '../assets/generated_images/SOCIAL/social_lowflame.png';
+import socialWandering from '../assets/generated_images/SOCIAL/social_wandering.png';
+import socialRind from '../assets/generated_images/SOCIAL/social_rind.png';
+import socialAnointed from '../assets/generated_images/SOCIAL/social_anointed.png';
+import socialAlpha from '../assets/generated_images/SOCIAL/social_alpha.png';
+import socialRoll from '../assets/generated_images/SOCIAL/social_roll.png';
+import socialHotwired from '../assets/generated_images/SOCIAL/social_hotwired.png';
+import socialPrimate from '../assets/generated_images/SOCIAL/social_primate.png';
+
+import charIdolCore from '../assets/generated_images/SOCIAL/social_idol.png';
+import charPromKing from '../assets/generated_images/SOCIAL/social_prom.png';
+import socialTank from '../assets/generated_images/SOCIAL/social_tank.png';
+import socialDangerZone from '../assets/generated_images/SOCIAL/social_danger_zone.png';
 
 // Bio Mode Images
-import bioHarambe from '../assets/generated_images/bio_guardian_h_gorilla_pushups_v4.png';
-import bioPopcat from '../assets/generated_images/bio_popcat.png';
-import bioWinter from '../assets/generated_images/bio_frostbyte_v4.png';
-import bioPepe from '../assets/generated_images/bio_pepe.png';
-import bioNyan from '../assets/generated_images/bio_nyan.png';
-import bioFine from '../assets/generated_images/bio_low_flame_no_text_v3.png';
-import bioBf from '../assets/generated_images/bio_bf.png';
-import bioRat from '../assets/generated_images/bio_rind_mouse_sniper_v4.png';
-import bioBaldwin from '../assets/generated_images/bio_baldwin.png';
-import bioSigma from '../assets/generated_images/bio_executive_p_axe_v5.png';
-import bioGigachad from '../assets/generated_images/bio_gigachad.png';
-import bioThinker from '../assets/generated_images/bio_thinker.png';
-import bioDisaster from '../assets/generated_images/bio_hotwired_bar_on_fire_v6.png';
-import bioPrimate from '../assets/generated_images/bio_primate.png';
-import bioHarold from '../assets/generated_images/bio_harold.png';
-import bioPromKing from '../assets/generated_images/social_prom_king.png';
-import bioIdolCore from '../assets/generated_images/bio_idol_core.png';
-import bioTank from '../assets/generated_images/bio_tank.png';
-import bioDangerZone from '../assets/generated_images/bio_danger_zone.png';
+import bioPanic from "../assets/generated_images/BIO/bio_panic_bot_option3.png";
+import bioAccuser from "../assets/generated_images/BIO/bio_accuser_girl_pointing_v5.png";
+import bioGuardian from '../assets/generated_images/BIO/bio_guardian_h_gorilla_pushups_v4.png';
+import bioClick from '../assets/generated_images/BIO/bio_click.png';
+import bioFrost from '../assets/generated_images/BIO/bio_frostbyte_v4.png';
+import bioSadman from '../assets/generated_images/BIO/bio_sadman.png';
+import bioDash from '../assets/generated_images/BIO/bio_dash.png';
+import bioLowflame from '../assets/generated_images/BIO/bio_low_flame_no_text_v3.png';
+import bioWandering from '../assets/generated_images/BIO/bio_wandering.png';
+import bioRind from '../assets/generated_images/BIO/bio_rind_mouse_sniper_v4.png';
+import bioAnointed from '../assets/generated_images/BIO/bio_anointed.png';
+import bioExecutive from '../assets/generated_images/BIO/bio_executive_p_axe_v5.png';
+import bioAlpha from '../assets/generated_images/BIO/bio_alpha.png';
+import bioRoll from '../assets/generated_images/BIO/bio_roll.png';
+import bioHotwired from '../assets/generated_images/BIO/bio_hotwired_bar_on_fire_v6.png';
+import bioPrimate from '../assets/generated_images/BIO/bio_primate.png';
+import bioPain from '../assets/generated_images/BIO/bio_pain.png';
+
+import bioPromKing from '../assets/generated_images/BIO/bio_prom.png';
+import bioIdolCore from '../assets/generated_images/BIO/bio_idol_core.png';
+import charRockShush from '../assets/generated_images/BIO/bio_tank.png';
+import charDangerZone from '../assets/generated_images/BIO/bio_danger.png';
 
 // Haunted Mode: per-driver images (first image per driver)
 import hntGuardian from '../assets/generated_images/Haunted/hnt_guardian_1.png';
@@ -219,13 +206,13 @@ const STANDARD_TOTAL_ROUNDS = 9;
 const STANDARD_INITIAL_TIME = 300.0;
 const LONG_TOTAL_ROUNDS = 18;
 const LONG_INITIAL_TIME = 600.0;
-const SHORT_TOTAL_ROUNDS = 9; // Changed from 5 to 9 as requested
+const SHORT_TOTAL_ROUNDS = 9; // Changed from 5 to 9
 const SHORT_INITIAL_TIME = 150.0;
 
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -239,6 +226,7 @@ type ProtocolType =
   | 'NO_LOOK' | 'LOCK_ON' 
   | 'THE_MOLE' | 'PANIC_ROOM' 
   | 'UNDERDOG_VICTORY' | 'TIME_TAX' | 'PRIVATE_CHANNEL'
+  | 'OVERCLOCK' | 'CALIBRATION'
   | SocialProtocol
   | BioProtocol
   | null;
@@ -291,7 +279,7 @@ interface Player {
   personality?: BotPersonality;
   characterIcon?: string | React.ReactNode; // Can be image URL or icon
   roundImpact?: string; // Legacy string for backward compatibility
-  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' }[]; // NEW: Structured logs
+  impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[]; // NEW: Structured logs
   // Multiplayer driver info
   selectedDriver?: string; // Driver ID for multiplayer
   driverName?: string; // Driver/character name
@@ -363,110 +351,110 @@ interface Character {
 
 const CHARACTERS: Character[] = [
   { 
-    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charHarambe, imageSocial: socialGuardianHOption1, imageBio: bioHarambe, imageHaunted: hntGuardian, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charGuardian, imageSocial: socialGuardian, imageBio: bioGuardian, imageHaunted: hntGuardian, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
     ability: { name: 'SPIRIT SHIELD', description: '+11s if you win Round 1.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Designate a player immune to social dares each round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Others cannot release button until you finish a sip.' }
   },
   { 
-    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charPopcat, imageSocial: socialPopcat, imageBio: bioPopcat, imageHaunted: hntClick, description: 'Hyperactive timing precision.', color: 'text-pink-400',
+    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charClick, imageSocial: socialClick, imageBio: bioClick, imageHaunted: hntClick, description: 'Hyperactive timing precision.', color: 'text-pink-400',
     ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'MISCLICK', description: 'Chance 1 player must hold bid without using hands.' },
     bioAbility: { name: 'MOUTH POP', description: '1 round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
-    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charWinter, imageSocial: socialFrostybyteOption1, imageBio: bioWinter, imageHaunted: hntFrost, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charFrost, imageSocial: socialFrost, imageBio: bioFrost, imageHaunted: hntFrost, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: 'Chance you may ignore all social interactions.' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 round: 1 opponent forced to win or drink.' }
   },
   { 
-    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charPepe, imageSocial: socialSadmanOption3, imageBio: bioPepe, imageHaunted: hntSadman, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charSadman, imageSocial: socialSadman, imageBio: bioSadman, imageHaunted: hntSadman, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'SAD STORY', description: 'Chance 1 random player shares a sad story.' },
     bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you can change your drinking buddy.' }
   },
   { 
-    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charNyan, imageSocial: socialRainbowDashOption1, imageBio: bioNyan, imageHaunted: hntDash, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charDash, imageSocial: socialDash, imageBio: bioDash, imageHaunted: hntDash, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: 'Chance 1 random opponent must speak 2x speed.' },
     bioAbility: { name: 'RAINBOW SHOT', description: 'Chance 1 random player mixes two drinks.' }
   },
   { 
-    id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charKaren, imageSocial: socialAccuserOption1,
-    imageBio: bioAccuserOption1, imageHaunted: hntAccuser,
+    id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charAccuser, imageSocial: socialAccuser,
+    imageBio: bioAccuser, imageHaunted: hntAccuser,
     description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
     socialAbility: { name: 'COMPLAINT', description: 'Chance everyone votes on winner\'s punishment.' },
     bioAbility: { name: 'SPILL HAZARD', description: 'Chance to accuse someone of spilling; they drink.' }
   },
   { 
-    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charFine, imageSocial: socialFine, imageBio: bioFine, imageHaunted: hntLowflame, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charLowflame, imageSocial: socialLowflame, imageBio: bioLowflame, imageHaunted: hntLowflame, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
     ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: 'Chance to choose a player to answer a truth.' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks.' }
   },
   { 
-    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charBf, imageSocial: socialBf, imageBio: bioBf, imageHaunted: hntWander, description: 'Always looking for a better deal.', color: 'text-blue-400',
+    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charWandering, imageSocial: socialWandering, imageBio: bioWandering, imageHaunted: hntWander, description: 'Always looking for a better deal.', color: 'text-blue-400',
     ability: { name: 'SNEAK PEEK', description: 'See 1 random player holding. All other banks scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'DISTRACTION', description: 'Chance to point at something; anyone who looks must drop buzzer.' },
     bioAbility: { name: 'THE EX', description: 'Chance 1 random player toasts to an ex.' }
   },
   { 
-    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRat, imageSocial: socialRat, imageBio: bioRat, imageHaunted: hntRind, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRind, imageSocial: socialRind, imageBio: bioRind, imageHaunted: hntRind, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: 'Chance 1 random player must reveal someone\'s tell.' },
     bioAbility: { name: 'SCAVENGE', description: 'Chance 1 random player finishes someone else\'s drink.' }
   },
   { 
-    id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charBaldwin, imageSocial: socialBaldwin,
-    imageBio: bioBaldwin, imageHaunted: hntAnnointed,
+    id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charAnointed, imageSocial: socialAnointed,
+    imageBio: bioAnointed, imageHaunted: hntAnnointed,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 20s refund if you bid within 0.4s of 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: 'Chance everyone is commanded silent' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round: Make a rule for remainder of game.' }
   },
   { 
-    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charSigma, imageSocial: socialExecutivePOption1, imageBio: bioSigma, imageHaunted: hntExec, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charExecutive, imageSocial: socialExecutive, imageBio: bioExecutive, imageHaunted: hntExec, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
     ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
     socialAbility: { name: 'CC\'D', description: 'Chance 1 random player must copy your actions next round.' },
     bioAbility: { name: 'REASSIGNED', description: 'Chance to choose 1 player to take a drink.' }
   },
   { 
-    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charGigachad, imageSocial: socialGigachad, imageBio: bioGigachad, imageHaunted: hntAlpha, description: 'Peak performance in every bid.', color: 'text-zinc-300',
+    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charAlpha, imageSocial: socialAlpha, imageBio: bioAlpha, imageHaunted: hntAlpha, description: 'Peak performance in every bid.', color: 'text-zinc-300',
     ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'MOG', description: 'Chance 1 random player must do 10 pushups or ff next round.' },
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall.' }
   },
   { 
-    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charThinker, imageSocial: socialThinker, imageBio: bioThinker, imageHaunted: hntRoll, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charRoll, imageSocial: socialRoll, imageBio: bioRoll, imageHaunted: hntRoll, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules.' },
     bioAbility: { name: 'BIG BRAIN', description: 'Chance option to have everyone pass drink to the left.' }
   },
   { 
-    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charDisaster, imageSocial: socialDisaster, imageBio: bioDisaster, imageHaunted: hntHotwired, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charHotwired, imageSocial: socialHotwired, imageBio: bioHotwired, imageHaunted: hntHotwired, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
     ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
     socialAbility: { name: 'VIRAL MOMENT', description: '1 random round target must re-enact a meme.' },
     bioAbility: { name: 'SPICY', description: 'Chance everyone drinks.' }
   },
   { 
-    id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charButtons, imageSocial: socialPanicBotOption1,
-    imageBio: bioPanicBotOption3, imageHaunted: hntPanic,
+    id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charPanic, imageSocial: socialPanic,
+    imageBio: bioPanic,  imageHaunted: hntPanic,
     description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drop button.' },
     bioAbility: { name: 'EMERGENCY MEETING', description: 'Chance everyone must point at another to gang up on next round.' }
   },
   { 
-    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charMonkeyHaircut, imageSocial: socialPrimate, imageBio: bioPrimate, imageHaunted: hntPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
+    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charPrimate, imageSocial: socialPrimate, imageBio: bioPrimate, imageHaunted: hntPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
     ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s over second place.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'FRESH CUT', description: 'Chance 1 random player must compliment everyone.' },
     bioAbility: { name: 'GREEDY GRAB', description: 'Chance previous winner must burn 40s next round or finish drink.' }
   },
   { 
-    id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charHarold, imageSocial: socialPainHiderOption1,
-    imageBio: bioHarold, imageHaunted: hntPain,
+    id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charPain, imageSocial: socialPain,
+    imageBio: bioPain, imageHaunted: hntPain,
     description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'BOOMER', description: 'You forgot what your power was.' },
@@ -801,6 +789,26 @@ function calculateSpBonusTrophies(players: Player[]): SpBonusTrophyResult[] {
         return withWins.filter(p => p.shortestWinBidTime === min).map(p => ({ id: p.id, name: p.name }));
       },
     },
+    {
+      id: 'BOT_BID',
+      name: 'Bot Bid',
+      desc: 'Random CPU (bot) award',
+      getCandidates: () => {
+        // Award to one random non-eliminated bot
+        const activeBots = players.filter(p => p.isBot && !p.isEliminated);
+        if (activeBots.length > 0) {
+          const chosen = activeBots[Math.floor(Math.random() * activeBots.length)];
+          return [{ id: chosen.id, name: chosen.name }];
+        }
+        // Fall back to panic_bot driver players if no bots present
+        const panicBotPlayers = players.filter(p => !p.isBot && !p.isEliminated && p.selectedDriver === 'panic_bot');
+        if (panicBotPlayers.length > 0) {
+          const chosen = panicBotPlayers[Math.floor(Math.random() * panicBotPlayers.length)];
+          return [{ id: chosen.id, name: chosen.name }];
+        }
+        return [];
+      },
+    },
   ];
 
   // Pick 2 unique criteria at random from valid ones (Fisher-Yates shuffle)
@@ -949,11 +957,19 @@ export default function Game() {
   const [activeProtocol, setActiveProtocol] = useState<ProtocolType>(null);
   const [readyHoldTime, setReadyHoldTime] = useState(0);
   const [moleTarget, setMoleTarget] = useState<string | null>(null);
-  const [peekTargetId, setPeekTargetId] = useState<string | null>(null); // New state for Sadman/Pepe peek
+  const [peekTargetId, setPeekTargetId] = useState<string | null>(null); // New state for Sadman peek
   const [scrambledPlayers, setScrambledPlayers] = useState<string[]>([]); // New state for Wandering Eye scramble
   const [frostbyteAbilityUsed, setFrostbyteAbilityUsed] = useState(false); // Track Frostbyte single use
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
   const [showProtocolSelect, setShowProtocolSelect] = useState(false);
+
+  // OVERCLOCK protocol state (singleplayer)
+  const [overclockActive, setOverclockActive] = useState(false);
+  const [overclockTimeLeft, setOverclockTimeLeft] = useState(10);
+  const [overclockClickCounts, setOverclockClickCounts] = useState<Record<string, number>>({});
+
+  // CALIBRATION protocol state (singleplayer)
+  const [calibrationTarget, setCalibrationTarget] = useState<number | null>(null);
 
   const [expandedDriverCategoryId, setExpandedDriverCategoryId] = useState<string | null>(null);
   const [allowedProtocols, setAllowedProtocols] = useState<ProtocolType[]>([
@@ -961,7 +977,8 @@ export default function Game() {
         'OPEN_HAND', 'MUTE_PROTOCOL', 
         'NO_LOOK', 
         'THE_MOLE', 'PANIC_ROOM',
-        'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL'
+        'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL',
+        'OVERCLOCK', 'CALIBRATION'
   ]);
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
@@ -1307,7 +1324,7 @@ export default function Game() {
   const [multiplayerGameState, setMultiplayerGameState] = useState<{
     round: number;
     totalRounds: number;
-    phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'round_end' | 'game_over';
+    phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
     countdownRemaining: number;
     elapsedTime: number;
     players: Array<{
@@ -1380,6 +1397,8 @@ export default function Game() {
       resolved?: boolean;
     } | null;
     protocolsAlwaysOn?: boolean;
+    overclockClickCounts?: Record<string, number>;
+    calibrationTargetSeconds?: number | null;
   } | null>(null);
   
   // Socket connection
@@ -1568,6 +1587,8 @@ export default function Game() {
           setCountdown(state.countdownRemaining);
         } else if (state.phase === 'bidding') {
           setPhase('bidding');
+        } else if (state.phase === 'overclock') {
+          setPhase('overclock');
         } else if (state.phase === 'round_end') {
           setPhase('round_end');
           if (state.roundWinner) {
@@ -2064,6 +2085,12 @@ export default function Game() {
         case 'HYDRATE': msg = "HYDRATION CHECK"; sub = "Everyone Take a Sip!"; break;
         case 'BOTTOMS_UP': msg = "BOTTOMS UP"; sub = "Loser Finishes Drink!"; break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water Only This Round!"; break;
+        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as fast as you can for 15 seconds! Most clicks wins, least loses 35s."; break;
+        case 'CALIBRATION': {
+          const calSecs = multiplayerGameState?.calibrationTargetSeconds;
+          msg = "CALIBRATION"; sub = calSecs ? `Hold as close to ${calSecs}s as possible! Closest bid wins.` : "Hold as close to target as possible! Closest bid wins.";
+          break;
+        }
         default: if (!detailHandled.includes(mpProtocol)) { msg = "PROTOCOL ACTIVE"; sub = mpProtocol; } break;
       }
       
@@ -2160,10 +2187,12 @@ export default function Game() {
       interval = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
-            // Start Auction
-            // Trigger Overlay removed as requested
-            // setOverlay({ type: "round_start", message: "AUCTION START" });
-            setPhase('bidding');
+            // Check if OVERCLOCK protocol is active - start click phase instead of bidding
+            if (activeProtocol === 'OVERCLOCK') {
+              setPhase('overclock');
+            } else {
+              setPhase('bidding');
+            }
             return 0;
           }
           return prev - 1;
@@ -2171,7 +2200,43 @@ export default function Game() {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [phase]);
+  }, [phase, activeProtocol]);
+
+  // OVERCLOCK Phase Logic - Singleplayer only
+  const overclockCountsRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    if (phase === 'overclock' && !isMultiplayer) {
+      // Initialize click counts for all players
+      const initialCounts: Record<string, number> = {};
+      players.forEach(p => {
+        if (!p.isEliminated) {
+          // Bots get random 85-120 clicks immediately
+          initialCounts[p.id] = p.isBot ? Math.floor(Math.random() * 36) + 85 : 0;
+        }
+      });
+      overclockCountsRef.current = initialCounts;
+      setOverclockClickCounts(initialCounts);
+      setOverclockActive(true);
+      setOverclockTimeLeft(15);
+
+      // 15-second countdown timer
+      const interval = setInterval(() => {
+        setOverclockTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setOverclockActive(false);
+            // Use ref to get latest counts (state may be stale in closure)
+            endOverclockRound(overclockCountsRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [phase, isMultiplayer]);
 
   // Main Bidding Timer (Precision) - Singleplayer only
   useEffect(() => {
@@ -2325,7 +2390,7 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (phase === 'ready') {
+    if (phase === 'ready' || phase === 'countdown') {
       const newBotBids: Record<string, number> = {};
 
       const minBidTime = getTimerStart();
@@ -2509,15 +2574,28 @@ export default function Game() {
           } else {
             newBotBids[p.id] = parseFloat(bid.toFixed(1));
           }
+          // CALIBRATION: Override bid last so bot always stays within ±7s of target
+          if (activeProtocol === 'CALIBRATION' && calibrationTarget !== null) {
+            const baseHold = Math.max(0.5, calibrationTarget - minBidTime);
+            // Bots bid within 0.2–7.0 seconds of the target (random offset in either direction)
+            const offsetMagnitude = 0.2 + Math.random() * 6.8; // 0.2 to 7.0
+            const offsetSign = Math.random() < 0.5 ? -1 : 1;
+            bid = baseHold + offsetSign * offsetMagnitude;
+            // Avoid elimination: cap hold time so currentBid won't exceed remainingTime
+            const safeMaxHold = Math.max(0.5, p.remainingTime - minBidTime - 0.5);
+            bid = Math.min(safeMaxHold, Math.max(0.5, bid));
+          }
+
+          newBotBids[p.id] = parseFloat(bid.toFixed(1));
         }
       });
 
       setBotBids(newBotBids);
     }
-  }, [phase, round, totalRounds, activeProtocol, gameDuration, variant]);
+  }, [phase, round, totalRounds, activeProtocol, gameDuration, variant, calibrationTarget]);
 
   // Check bot bids during bidding phase
-  // Also check for PEEK abilities (Sadman Logic / Pepe)
+  // Also check for PEEK abilities (Sadman Logic)
   useEffect(() => {
     if (phase === 'bidding') {
       // Release bots
@@ -3006,6 +3084,9 @@ export default function Game() {
         } else {
           console.log('[Game] Button down during bidding - already released');
         }
+      } else if (currentPhase === 'overclock') {
+        // OVERCLOCK: send click to server
+        socket.emit("overclock_click");
       }
       return;
     }
@@ -3013,6 +3094,13 @@ export default function Game() {
     // Single-player logic
     if (phase === 'ready') {
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: true } : p));
+    } else if (phase === 'overclock') {
+       // OVERCLOCK: each press counts as a click
+       setOverclockClickCounts(prev => {
+         const updated = { ...prev, p1: (prev['p1'] || 0) + 1 };
+         overclockCountsRef.current = updated;
+         return updated;
+       });
     } else if (phase === 'bidding' || phase === 'countdown') {
         // CLICK TO STOP / SUBMIT
         const p1 = players.find(p => p.id === 'p1');
@@ -3101,7 +3189,7 @@ export default function Game() {
            }
            let penalty = getPenalty();
 
-           // ALPHA PRIME (Gigachad) EXCEPTION: "JAWLINE" - only when abilities (limit breaks) are ON
+           // ALPHA PRIME EXCEPTION: "JAWLINE" - only when abilities (limit breaks) are ON
            if (selectedCharacter?.ability?.name === 'JAWLINE' && abilitiesEnabled) {
              penalty = 0;
              toast({
@@ -3223,7 +3311,7 @@ export default function Game() {
       // Build Protocol Pool
       // Standard protocols and Reality Mode protocols are configured separately.
       // Goal: any enabled options should trigger uniformly.
-      const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX','PRIVATE_CHANNEL'];
+      const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX','PRIVATE_CHANNEL','OVERCLOCK','CALIBRATION'];
       const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
 
@@ -3242,6 +3330,15 @@ export default function Game() {
       // Use forced protocol if available, otherwise pick from pool
       const newProtocol: ProtocolType = forcedProtocolValue ?? pick(combinedPool);
       setActiveProtocol(newProtocol);
+
+      // CALIBRATION: Set the target time immediately when protocol is selected
+      let newCalibrationTarget: number | null = null;
+      if (newProtocol === 'CALIBRATION') {
+        newCalibrationTarget = Math.floor(Math.random() * 26) + 15; // 15-40s
+        setCalibrationTarget(newCalibrationTarget);
+      } else {
+        setCalibrationTarget(null);
+      }
       
       let msg = "PROTOCOL INITIATED";
       let sub = "Unknown Effect";
@@ -3322,6 +3419,10 @@ export default function Game() {
             msg = "LINKED SYSTEMS"; sub = `${b1} & ${b2} are drinking buddies this round!`; 
             break;
         case 'WATER_ROUND': msg = "COOLANT FLUSH"; sub = "Water only this round!"; break;
+        case 'OVERCLOCK': msg = "OVERCLOCK"; sub = "After prepare to bid: click as many times as you can in 15 seconds! Most clicks wins — least loses 35s."; break;
+        case 'CALIBRATION': {
+          msg = "CALIBRATION"; sub = `Hold as close to ${newCalibrationTarget}s as possible! Closest bid wins.`; break;
+        }
       }
       
       // Filter out popups that shouldn't be seen by the player (targeted/secret protocols only)
@@ -3369,6 +3470,7 @@ export default function Game() {
       }
     } else {
       setActiveProtocol(null);
+      setCalibrationTarget(null);
     }
 
     // --- ABILITY TRIGGERS: PREPARE_TO_BID ---
@@ -3675,6 +3777,175 @@ export default function Game() {
     overLimitToastShownRef.current = false; // Reset over-limit flag
   };
 
+  // End Overclock Round Logic (singleplayer) - processes click count results
+  const endOverclockRound = (counts: Record<string, number>) => {
+    setPhase('round_end');
+
+    const activePlayers = players.filter(p => !p.isEliminated);
+    if (activePlayers.length === 0) return;
+
+    const maxClicks = Math.max(...activePlayers.map(p => counts[p.id] || 0));
+    const minClicks = Math.min(...activePlayers.map(p => counts[p.id] || 0));
+
+    const topClickers = activePlayers.filter(p => (counts[p.id] || 0) === maxClicks);
+    const topWinner = topClickers[Math.floor(Math.random() * topClickers.length)];
+    let winnerId: string | null = topWinner.id;
+    let winnerName: string = topWinner.name;
+
+    // Award token to winner
+    setPlayers(prev => prev.map(p => {
+      if (p.id === topWinner.id) {
+        return { ...p, tokens: p.tokens + 1, protocolWins: [...(p.protocolWins || []), 'OVERCLOCK'] };
+      }
+      return p;
+    }));
+
+    // Loser: least clicks → -35s (only if different from winner)
+    let loserName: string | null = null;
+    if (minClicks < maxClicks) {
+      const bottomClickers = activePlayers.filter(p => (counts[p.id] || 0) === minClicks);
+      const loser = bottomClickers[Math.floor(Math.random() * bottomClickers.length)];
+      loserName = loser.name;
+      setPlayers(prev => prev.map(p => {
+        if (p.id === loser.id) {
+          const newTime = Math.max(0, p.remainingTime - 35);
+          const isElim = newTime <= 0;
+          return { ...p, remainingTime: newTime, isEliminated: isElim || p.isEliminated };
+        }
+        return p;
+      }));
+    }
+
+    // Show results overlay
+    addOverlay("protocol_alert", "OVERCLOCK RESULTS",
+      `${winnerName} clicked the most (${maxClicks})!${loserName ? ` ${loserName} had fewest — loses 35s.` : ''}`
+    );
+
+    // Process abilities for OVERCLOCK round (ALWAYS, WIN, and LOSE triggers)
+    if (abilitiesEnabled) {
+      const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
+
+      // Pre-compute ability data from current players state so animations match state updates
+      const rollSafeId = players.find(p => {
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        return char?.id === 'roll_safe';
+      })?.id;
+
+      const disruptEffects: { targetId: string; amount: number }[] = [];
+      players.forEach(p => {
+        if (p.isEliminated) return;
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        const ab = char?.ability;
+        if (!ab) return;
+        if (ab.name === 'MANAGER CALL') {
+          const validTargets = players.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId);
+          if (validTargets.length > 0) {
+            const target = validTargets[Math.floor(Math.random() * validTargets.length)];
+            disruptEffects.push({ targetId: target.id, amount: 2.0 });
+          }
+        } else if (ab.name === 'BURN IT') {
+          players.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId)
+            .forEach(target => disruptEffects.push({ targetId: target.id, amount: 1.0 }));
+        } else if (ab.name === 'AXE SWING') {
+          const eligible = players.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId);
+          if (eligible.length > 0) {
+            const richest = eligible.reduce((a, b) => a.remainingTime > b.remainingTime ? a : b);
+            disruptEffects.push({ targetId: richest.id, amount: 2.0 });
+          }
+        }
+      });
+
+      const cheeseTaxCount = players.filter(p => {
+        if (p.isEliminated || p.id === topWinner.id || topWinner.id === rollSafeId) return false;
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        return char?.ability?.name === 'CHEESE TAX';
+      }).length;
+
+      // Pre-compute PANIC MASH random outcomes so state update and animation use the same value
+      const panicMashOutcomes: Record<string, number> = {};
+      players.filter(p => !p.isEliminated).forEach(p => {
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        if (char?.ability?.name === 'PANIC MASH') {
+          panicMashOutcomes[p.id] = Math.random() > 0.5 ? 3.0 : -3.0;
+        }
+      });
+
+      // Apply all ability effects
+      setPlayers(prev => prev.map(p => {
+        if (p.isEliminated) return p;
+        const char = p.isBot
+          ? allChars.find(c =>
+              p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
+          : selectedCharacter;
+        const ab = char?.ability;
+        const isClickWinner = p.id === topWinner.id;
+
+        let newTime = p.remainingTime;
+
+        // ALWAYS TIME_REFUND abilities
+        if (ab?.effect === 'TIME_REFUND') {
+          if (ab.name === 'CYRO FREEZE') newTime += 1.0;
+          if (ab.name === 'PANIC MASH') newTime += panicMashOutcomes[p.id] ?? (Math.random() > 0.5 ? 3.0 : -3.0);
+        }
+        // WIN TIME_REFUND: Spirit Shield (+11s for click winner on round 1)
+        if (isClickWinner && ab?.name === 'SPIRIT SHIELD' && round === 1) newTime += 11.0;
+
+        // LOSE DISRUPT: Cheese Tax (non-winner steals 2s from click winner)
+        if (!isClickWinner && ab?.name === 'CHEESE TAX' && topWinner.id !== rollSafeId) newTime += 2.0;
+
+        // Apply incoming DISRUPT effects (if not Roll Safe immune)
+        if (p.id !== rollSafeId) {
+          disruptEffects.filter(d => d.targetId === p.id).forEach(d => { newTime -= d.amount; });
+        }
+
+        // Apply Cheese Tax damage received by the winner
+        if (isClickWinner) newTime -= cheeseTaxCount * 2.0;
+
+        const isElim = newTime <= 0 || p.isEliminated;
+        return { ...p, remainingTime: Math.max(0, newTime), isEliminated: isElim };
+      }));
+
+      // Trigger ability animations
+      players.filter(p => !p.isEliminated).forEach(p => {
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        const ab = char?.ability;
+        if (!ab) return;
+        const isClickWinner = p.id === topWinner.id;
+
+        if (ab.effect === 'TIME_REFUND') {
+          if (ab.name === 'CYRO FREEZE') triggerAnimation(p.id, 'TIME_REFUND', '+1s');
+          if (ab.name === 'PANIC MASH') {
+            const refund = panicMashOutcomes[p.id];
+            if (refund !== undefined) triggerAnimation(p.id, 'TIME_REFUND', `${refund > 0 ? '+' : ''}${refund}s`);
+          }
+        }
+        if (isClickWinner && ab.name === 'SPIRIT SHIELD' && round === 1) {
+          triggerAnimation(p.id, 'TIME_REFUND', '+11s');
+        }
+        if (!isClickWinner && ab.name === 'CHEESE TAX' && topWinner.id !== rollSafeId) {
+          triggerAnimation(p.id, 'TIME_REFUND', '+2s');
+        }
+      });
+      // Damage animations for disrupt targets
+      disruptEffects.forEach(d => triggerAnimation(d.targetId, 'DAMAGE', `-${d.amount}s`));
+      // Damage animation on winner from cheese tax
+      if (cheeseTaxCount > 0 && topWinner.id !== rollSafeId) {
+        triggerAnimation(topWinner.id, 'DAMAGE', `-${cheeseTaxCount * 2}s`);
+      }
+    }
+
+    setRoundWinner({ name: topWinner.name, time: maxClicks });
+
+    // Record snapshot
+    recordSingleplayerSnapshot('round_end', players, round, winnerId, maxClicks, [], 'OVERCLOCK');
+
+    // Check if game over
+    const activePls = players.filter(p => !p.isEliminated);
+    if (activePls.length <= 1 || round >= totalRounds) {
+      setTimeout(() => setPhase('game_end'), 3000);
+    }
+  };
+
   // End Round Logic
   const endRound = (finalTime: number) => {
     setPhase('round_end');
@@ -3703,7 +3974,7 @@ export default function Game() {
     
     // 2. CALCULATE PRELIMINARY TIME & ELIMINATION (Pre-Winner)
     
-    // First, identify Roll Safe (Thinker) if present - immune to all abilities.
+    // First, identify Roll Safe if present - immune to all abilities.
     // Only resolve this when abilities are enabled; when abilities are off, roll_safe
     // is treated as a normal player and should not receive any special immunity.
     const rollSafeId = abilitiesEnabled
@@ -3721,7 +3992,9 @@ export default function Game() {
             if (sourcePlayer.isEliminated || sourcePlayer.isGhost || sourcePlayer.remainingTime <= 0) return;
             
             const character = sourcePlayer.isBot 
-                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
+                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => 
+                    sourcePlayer.selectedDriver ? c.id === sourcePlayer.selectedDriver : c.name === sourcePlayer.name
+                  ) 
                 : selectedCharacter;
             
             if (character?.ability?.effect === 'DISRUPT') {
@@ -3774,12 +4047,14 @@ export default function Game() {
 
         let newTime = p.remainingTime;
         let roundImpact = "";
-        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
+        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[] = [];
         let roundNetImpactNum = 0; // Track numeric impact from abilities/protocols (not bids)
 
         // Bid Deduction (Only if bid exists) - NOT tracked in netImpact (player choice)
         if (p.currentBid !== null && p.currentBid > 0) {
-             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
              const hasFireWall = playerChar?.ability?.name === 'FIRE WALL';
              
              // MOLE Exception
@@ -3835,12 +4110,12 @@ export default function Game() {
     // Let's re-run the logic for STEP A with this correction.
     
     tempPlayersState = players.map(p => {
-        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "", impactLogs: [] as { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[], roundNetImpactNum: 0 };
+        if (p.isEliminated) return { ...p, tempTime: 0, roundImpact: "", impactLogs: [] as { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[], roundNetImpactNum: 0 };
 
         let newTime = p.remainingTime;
         let roundImpact = "";
         let roundNetImpactNum = 0;
-        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' }[] = [];
+        let impactLogs: { value: string, reason: string, type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[] = [];
 
         // Bid Deduction
         if (p.currentBid !== null && p.currentBid > 0) {
@@ -3884,7 +4159,9 @@ export default function Game() {
          players.forEach(sourcePlayer => {
             if (sourcePlayer.isEliminated) return;
             const character = sourcePlayer.isBot 
-                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === sourcePlayer.name) 
+                ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => 
+                    sourcePlayer.selectedDriver ? c.id === sourcePlayer.selectedDriver : c.name === sourcePlayer.name
+                  ) 
                 : selectedCharacter;
             
             if (character?.ability?.name === 'AXE SWING') {
@@ -3916,6 +4193,8 @@ export default function Game() {
     }
 
     // C. FINAL PASS: Refunds + Elimination Check
+    // Collect always-trigger TIME_REFUND ability animations to merge into newAbilities later
+    const alwaysAbilityAnimations: { playerId: string; ability: string; effect: string; impactValue: string }[] = [];
     let playersState = tempPlayersState.map(p => {
         if (p.isEliminated) return p;
 
@@ -3925,7 +4204,9 @@ export default function Game() {
         let roundNetImpactNum = p.roundNetImpactNum || 0; // Carry forward from previous steps
         let selfGain = 0;
         
-        const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+        const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
 
         // Refunds
         if (abilitiesEnabled && playerChar?.ability?.effect === 'TIME_REFUND') {
@@ -3945,6 +4226,7 @@ export default function Game() {
                 roundImpact += ` ${refund > 0 ? '+' : ''}${refund.toFixed(1)}s (${ab.name})`;
                 impactLogs.push({ value: `${refund > 0 ? '+' : ''}${refund.toFixed(1)}s`, reason: ab.name, type: refund > 0 ? 'gain' : 'loss' });
                 selfGain += refund;
+                alwaysAbilityAnimations.push({ playerId: p.id, ability: ab.name, effect: 'TIME_REFUND', impactValue: `${refund > 0 ? '+' : ''}${refund}s` });
             }
         }
 
@@ -3990,7 +4272,17 @@ export default function Game() {
         !p.isGhost
     );
 
-    validParticipants.sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    // CALIBRATION: sort by closest to target instead of highest bid
+    if (activeProtocol === 'CALIBRATION' && calibrationTarget !== null) {
+      const target = calibrationTarget;
+      validParticipants.sort((a, b) => {
+        const aDiff = Math.abs((a.currentBid || 0) - target);
+        const bDiff = Math.abs((b.currentBid || 0) - target);
+        return aDiff - bDiff;
+      });
+    } else {
+      validParticipants.sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
+    }
 
     let winnerId: string | null = null;
     let winnerName: string | null = null;
@@ -3998,7 +4290,11 @@ export default function Game() {
 
     if (validParticipants.length > 0) {
         const potentialWinner = validParticipants[0];
-        const isTie = validParticipants.some(p => p.id !== potentialWinner.id && Math.round((p.currentBid || 0) * 10) / 10 === Math.round((potentialWinner.currentBid || 0) * 10) / 10);
+        // Tie check: for CALIBRATION, tie = same distance from target
+        const isTie = activeProtocol === 'CALIBRATION' && calibrationTarget !== null
+          ? validParticipants.some(p => p.id !== potentialWinner.id && 
+              Math.abs((p.currentBid || 0) - calibrationTarget) === Math.abs((potentialWinner.currentBid || 0) - calibrationTarget))
+          : validParticipants.some(p => p.id !== potentialWinner.id && Math.round((p.currentBid || 0) * 10) / 10 === Math.round((potentialWinner.currentBid || 0) * 10) / 10);
         
         if (!isTie) {
             winnerId = potentialWinner.id;
@@ -4010,8 +4306,9 @@ export default function Game() {
           setRoundLog(prev => [`>> DEADLOCK SYNC: Tie detected! No tokens awarded.`, ...prev]);
         }
     } else {
-        if (participants.length > 0) {
-             setOverlay({ type: "protocol_alert", message: "TOTAL WIPEOUT", subMessage: "All participants eliminated." });
+        const allPlayersEliminated = playersState.every(p => p.isEliminated);
+        if (allPlayersEliminated) {
+             addOverlay("protocol_alert", "TOTAL WIPEOUT", "All players eliminated.");
         }
     }
 
@@ -4026,7 +4323,7 @@ export default function Game() {
             if (moleIdx >= 0) {
                 playersState[moleIdx].tokens -= 1;
                 playersState[moleIdx].roundImpact = (playersState[moleIdx].roundImpact || "") + " -1 Token (Mole Suicide)";
-                playersState[moleIdx].impactLogs!.push({ value: "-1 Token", reason: "Mole Suicide", type: 'loss' });
+                playersState[moleIdx].impactLogs!.push({ value: "-1 Token", reason: "Mole Suicide", type: 'trophy' });
                 setRoundLog(prev => [`>> MOLE FAILURE: ${rawWinner.name} held too long and LOST a trophy!`, ...prev]);
                 setTimeout(() => addOverlay("protocol_alert", "MOLE REVEALED", `${rawWinner.name} was the Mole and got eliminated! -1 trophy.`), 1500);
             }
@@ -4036,6 +4333,9 @@ export default function Game() {
     // 5. APPLY WINNER REWARDS & CONDITIONAL ABILITIES
     const extraLogs: string[] = [];
     const newAbilities: any[] = []; 
+
+    // Include always-trigger TIME_REFUND animations (CYRO FREEZE, PANIC MASH, RAINBOW RUN, ROYAL DECREE)
+    newAbilities.push(...alwaysAbilityAnimations);
 
     // Handle Post-Round Triggers for Social/Bio Modes - REMOVED DUPLICATE BLOCK
 
@@ -4067,7 +4367,9 @@ export default function Game() {
              newTokens += tokensToAdd;
 
              if (abilitiesEnabled) {
-                const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+                const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
                 const ab = playerChar?.ability;
                 
                 if (ab) {
@@ -4095,20 +4397,20 @@ export default function Game() {
                              if ((p.currentBid || 0) - secondPlace <= 1.1) {
                                  newTokens += 1;
                                  impact += " +1 Token (Hyper Click)";
-                                 impactLogs.push({ value: "+1 Token", reason: "Hyper Click", type: 'gain' });
+                                 impactLogs.push({ value: "+1 Token", reason: "Hyper Click", type: 'trophy' });
                                  newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                              }
                          }
                          if (ab.name === 'TO THE MOON' && (p.currentBid || 0) > 30) {
                              newTokens += 1;
                              impact += " +1 Token (Moon)";
-                             impactLogs.push({ value: "+1 Token", reason: "To The Moon", type: 'gain' });
+                             impactLogs.push({ value: "+1 Token", reason: "To The Moon", type: 'trophy' });
                              newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                          }
                          if (ab.name === 'DIVIDEND' && round % 3 === 0) {
                              newTokens += 1;
                              impact += " +1 Token (Dividend)";
-                             impactLogs.push({ value: "+1 Token", reason: "Dividend", type: 'gain' });
+                             impactLogs.push({ value: "+1 Token", reason: "Dividend", type: 'trophy' });
                              newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
                          }
                     }
@@ -4130,7 +4432,7 @@ export default function Game() {
              if (margin > 7) {
                newTokens -= 2;
                impact += " -2 Tokens (Mole Win > 7s)";
-               impactLogs.push({ value: "-2 Tokens", reason: "Mole Win > 7s", type: 'loss' });
+               impactLogs.push({ value: "-2 Tokens", reason: "Mole Win > 7s", type: 'trophy' });
              } else {
                impact += " +0 (Mole Win Safe)";
                impactLogs.push({ value: "+0", reason: "Mole Win (<=7s)", type: 'neutral' });
@@ -4138,8 +4440,9 @@ export default function Game() {
         }
         
         if (abilitiesEnabled && p.id !== winnerId && winnerId && !p.isEliminated) {
-             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
-             const curseM = ghostCurseActive && variant === 'HAUNTED' ? 3 : 1;
+             const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter; const curseM = ghostCurseActive && variant === 'HAUNTED' ? 3 : 1;
              if (playerChar?.ability?.name === 'CHEESE TAX') {
                  // Cheese Tax does NOT trigger if the winner is roll_safe (immune to abilities).
                  // rollSafeId is only non-undefined when abilitiesEnabled (see definition above).
@@ -4177,7 +4480,9 @@ export default function Game() {
     if (winnerId && abilitiesEnabled) {
         finalPlayers.forEach(p => {
              if (p.id !== winnerId && !p.isEliminated) {
-                 const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c => c.name === p.name) : selectedCharacter;
+                 const playerChar = p.isBot ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
+                    p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name
+                  ) : selectedCharacter;
                  if (playerChar?.ability?.name === 'CHEESE TAX') {
                      const w = finalPlayers.find(fp => fp.id === winnerId);
                      // Roll Safe Immunity: rollSafeId is only non-undefined when abilitiesEnabled
@@ -4521,7 +4826,7 @@ export default function Game() {
          triggerAnimation(ab.playerId, ab.effect === 'TIME_REFUND' ? 'TIME_REFUND' : 'TOKEN_BOOST', ab.impactValue);
          if (ab.targetId) triggerAnimation(ab.targetId, 'DAMAGE', ab.impactValue);
     });
-    
+
     // SINGLE PLAYER ELIMINATION CHECK
     // "If the main player is eliminated... Immediately resolve the game"
     // SIMULATE REMAINING ROUNDS so bots get trophies
@@ -4858,7 +5163,9 @@ export default function Game() {
        const secondPlayer = validParticipants.length > 1 ? validParticipants[1] : null;
        const winnerBid = winnerPlayer.currentBid || 0;
        const secondBid = secondPlayer?.currentBid || 0;
-       const margin = winnerBid - secondBid;
+       // For CALIBRATION: use absolute bid difference so margin is always non-negative
+       const isCalibration = activeProtocol === 'CALIBRATION' && calibrationTarget !== null;
+       const margin = isCalibration ? Math.abs(winnerBid - secondBid) : winnerBid - secondBid;
 
        // 1. Smug Confidence (Round 1 Win)
        if (round === 1 && winnerId === 'p1') {
@@ -4875,7 +5182,7 @@ export default function Game() {
        }
        
        // 3. Genius Move (Margin <= 5s)
-       if (secondPlayer && margin <= 5 && winnerId === 'p1') {
+       if (secondPlayer && margin <= 5 && margin > 0 && winnerId === 'p1') {
          setTimeout(() => addOverlay("genius_move", "GENIUS MOVE", `Won by just ${margin.toFixed(1)}s`), 500);
          momentCount++;
          roundMomentFlags.push('GENIUS_MOVE');
@@ -5078,6 +5385,14 @@ export default function Game() {
             ? `${winnerName} chooses — ${loserNames.length > 0 ? loserNames.join(', ') : 'others'} who must answer or abide!`
             : 'No winner this round!';
         setTimeout(() => addOverlay("social_event", "TRUTH OR DARE", sub), 2000);
+    }
+
+    // CALIBRATION reveal: show results at round end
+    if (activeProtocol === 'CALIBRATION' && calibrationTarget !== null) {
+      const revealSub = winnerId && winnerName
+        ? `${winnerName} was closest to ${calibrationTarget}s with ${winnerTime.toFixed(1)}s!`
+        : `Target was ${calibrationTarget}s — no winner this round.`;
+      setTimeout(() => addOverlay("protocol_alert", "CALIBRATION RESULTS", revealSub), 1500);
     }
 
     // LAST ONE STANDING: win final round with at least one elimination this round
@@ -5776,7 +6091,8 @@ export default function Game() {
       bonusTrophiesEnabled,
       abilitiesEnabled,
       variant,
-      gameDuration: serverDuration
+      gameDuration: serverDuration,
+      allowedProtocols
     };
     
     socket.emit("create_lobby", { playerName, settings, isPublic: isPublicLobby }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
@@ -5887,7 +6203,7 @@ export default function Game() {
     const serverDuration = gameDuration === 'short' ? 'sprint' : gameDuration;
     
     // Build settings string to detect actual changes
-    const settingsKey = JSON.stringify({ difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
+    const settingsKey = JSON.stringify({ difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration: serverDuration, allowedProtocols });
     if (settingsKey === prevSettingsRef.current) return;
     prevSettingsRef.current = settingsKey;
     
@@ -5898,11 +6214,12 @@ export default function Game() {
         bonusTrophiesEnabled,
         abilitiesEnabled,
         variant,
-        gameDuration: serverDuration
+        gameDuration: serverDuration,
+        allowedProtocols
       }
     });
     console.log('[Lobby] Settings updated:', { difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration: serverDuration });
-  }, [socket, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration]);
+  }, [socket, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration, allowedProtocols]);
 
   const handleStartMultiplayerGame = useCallback(() => {
     if (!socket) return;
@@ -6030,6 +6347,55 @@ export default function Game() {
         : effectivePhase === 'game_over' ? 'game_end'
         : effectivePhase)
       : phase;
+
+    // Handle OVERCLOCK phase (both singleplayer and multiplayer)
+    if (renderPhase === 'overclock') {
+      const mpClickCounts = isMultiplayer ? (multiplayerGameState?.overclockClickCounts || {}) : overclockClickCounts;
+      const myId = isMultiplayer ? myMultiplayerPlayer?.id : 'p1';
+      const myClicks = myId ? (mpClickCounts[myId] || 0) : 0;
+      const myEliminated = isMultiplayer ? myMultiplayerPlayer?.isEliminated : players.find(p => p.id === 'p1')?.isEliminated;
+      const timeDisplay = isMultiplayer ? '...' : overclockTimeLeft;
+      const sortedForDisplay = displayPlayers.filter(p => !p.isEliminated).map(p => ({
+        ...p,
+        clicks: mpClickCounts[p.id] || 0,
+      })).sort((a, b) => b.clicks - a.clicks);
+
+      return (
+        <div className="flex flex-col items-center justify-center h-[450px] space-y-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-display text-yellow-400 tracking-widest">⚡ OVERCLOCK</h2>
+            <p className="text-zinc-400 text-sm mt-1">Click the button as many times as you can!</p>
+            <div className="mt-2 text-4xl font-mono text-white font-bold">
+              {isMultiplayer ? '15s' : `${timeDisplay}s`}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-6xl font-mono font-bold text-yellow-300">{myClicks}</div>
+            <p className="text-zinc-500 text-xs uppercase tracking-widest mt-1">Your Clicks</p>
+          </div>
+          <div>
+            {myEliminated ? (
+              <div className="text-zinc-600 text-lg uppercase tracking-widest">ELIMINATED</div>
+            ) : (
+              <AuctionButton
+                onPress={handlePress}
+                onRelease={() => {}}
+                isPressed={false}
+                showPulse={overclockActive || (isMultiplayer && effectivePhase === 'overclock')}
+              />
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 justify-center max-w-sm">
+            {sortedForDisplay.map(p => (
+              <div key={p.id} className="flex flex-col items-center bg-zinc-900 rounded px-3 py-1 border border-zinc-700">
+                <span className="text-xs text-zinc-400">{p.name}</span>
+                <span className="text-lg font-mono font-bold text-yellow-300">{p.clicks}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
     
     switch (renderPhase) {
       case 'intro':
@@ -6063,11 +6429,13 @@ export default function Game() {
                             {[
                               {
                                 id: 'standard_hud',
-                                title: 'HUD & SIGNAL',
-                                subtitle: 'Visibility, noise, scramble',
+                                title: 'HUD & MECHANICS',
+                                subtitle: 'Visibility & Interaction ',
                                 items: [
                                   { id: 'DATA_BLACKOUT', label: 'DATA BLACKOUT', desc: 'Hides all timers' },
                                   { id: 'SYSTEM_FAILURE', label: 'SYSTEM FAILURE', desc: 'HUD glitches & scramble' },
+                                  { id: 'OVERCLOCK', label: 'OVERCLOCK', desc: 'Click race: most clicks wins, least loses 35s' },
+                                  { id: 'CALIBRATION', label: 'CALIBRATION', desc: 'Hold closest to a random target time to win' },
                                 ]
                               },
                               {
@@ -7970,7 +8338,7 @@ export default function Game() {
              <div className="h-[100px] flex flex-col items-center justify-center space-y-2"> 
               <h2 className="text-3xl font-display text-destructive">PREPARE TO BID</h2>
                <p className="text-muted-foreground">
-                 {`Release now to abandon auction (-${(isMultiplayer ? (multiplayerGameState?.minBid ?? 2) : getTimerStart()).toFixed(1)}s)`}
+                 {`Release now to abandon auction (-${Math.max(0, isMultiplayer ? (multiplayerGameState?.minBid ?? 2) : getTimerStart()).toFixed(1)}s)`}
                </p>
             </div>
             
@@ -7979,7 +8347,7 @@ export default function Game() {
                </div>
                
                <div className="z-20 text-9xl font-display font-black text-destructive animate-ping absolute pointer-events-none">
-                  {isMultiplayer ? multiplayerGameState?.countdownRemaining : countdown}
+                  {isMultiplayer ? Math.max(0, multiplayerGameState?.countdownRemaining ?? 0) : Math.max(0, countdown)}
                </div>
 
                <div className="z-10 relative">
@@ -8042,9 +8410,18 @@ export default function Game() {
         const fireWallHudImmune = selectedCharacter?.id === 'low_flame' && abilitiesEnabled;
         const isBlackout = (activeProtocol === 'DATA_BLACKOUT' || activeProtocol === 'SYSTEM_FAILURE') && !fireWallHudImmune;
         const displayTime = isMultiplayer ? currentPlayerBid : currentTime;
+        const calTarget = isMultiplayer ? (multiplayerGameState?.calibrationTargetSeconds ?? null) : calibrationTarget;
         
         return (
           <div className="flex flex-col items-center justify-center h-[450px]">
+            {/* CALIBRATION Target Banner */}
+            {activeProtocol === 'CALIBRATION' && calTarget !== null && (
+              <div className="mb-2 px-4 py-2 rounded-lg bg-yellow-500/15 border border-yellow-500/30 text-center">
+                <span className="text-xs text-yellow-400 uppercase tracking-widest font-bold">⚙ CALIBRATION TARGET: </span>
+                <span className="text-xl font-mono font-bold text-yellow-300">{calTarget}s</span>
+                <span className="text-xs text-yellow-400/60 ml-2">— closest bid wins</span>
+              </div>
+            )}
                         {/* Timer Area */}
                          <div className="h-[120px] flex items-center justify-center mb-0">
                             {isMultiplayer ? (
@@ -8227,24 +8604,32 @@ export default function Game() {
               
               return (
                 <div className="space-y-2">
-                  <Button 
-                    onClick={() => {
-                      if (socket && !hasAcknowledged) {
-                        socket.emit("player_ready_next");
-                        console.log('[Game] Emitted player_ready_next');
-                      }
-                    }} 
-                    size="lg" 
-                    className={cn(
-                      "w-full",
-                      hasAcknowledged 
-                        ? "bg-green-600 hover:bg-green-600 text-white" 
-                        : "bg-white text-black hover:bg-zinc-200"
-                    )}
-                    disabled={hasAcknowledged}
-                  >
-                    {hasAcknowledged ? "WAITING FOR OTHERS..." : "NEXT ROUND"}
-                  </Button>
+                  <div className="relative">
+                    <Button 
+                      onClick={() => {
+                        if (socket && !hasAcknowledged) {
+                          socket.emit("player_ready_next");
+                          console.log('[Game] Emitted player_ready_next');
+                        }
+                      }} 
+                      size="lg" 
+                      className={cn(
+                        "w-full",
+                        hasAcknowledged 
+                          ? "bg-green-600 hover:bg-green-600 text-white" 
+                          : "bg-white text-black hover:bg-zinc-200"
+                      )}
+                      disabled={hasAcknowledged}
+                    >
+                      {hasAcknowledged ? "WAITING FOR OTHERS..." : "NEXT ROUND"}
+                    </Button>
+                    {/* Inline Overlay anchored directly below the Next Round button */}
+                    <GameOverlay
+                      overlays={overlays}
+                      onDismiss={removeOverlay}
+                      inline={true}
+                    />
+                  </div>
                   <div className="flex justify-center gap-2">
                     {mpHumanPlayers.map(p => (
                       <div 
@@ -8265,16 +8650,18 @@ export default function Game() {
                 </div>
               );
             })() : (
-              <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
-                NEXT ROUND
-              </Button>
+              <div className="relative">
+                <Button onClick={nextRound} size="lg" className="w-full bg-white text-black hover:bg-zinc-200">
+                  NEXT ROUND
+                </Button>
+                {/* Inline Overlay anchored directly below the Next Round button */}
+                <GameOverlay
+                  overlays={overlays}
+                  onDismiss={removeOverlay}
+                  inline={true}
+                />
+              </div>
             )}
-            {/* Inline Overlay for Round End Phase */}
-             <GameOverlay 
-               overlays={overlays}
-               onDismiss={removeOverlay}
-               inline={true}
-             />
           </motion.div>
         );
 
@@ -8941,7 +9328,7 @@ export default function Game() {
                   </div>
                   <div className="flex gap-2">
                     <span className="text-yellow-500">•</span>
-                    <span>Bug fixed with a dup hidden moment</span>
+                    <span>2 new standard protocols added</span>
                   </div>
                 </div>
               </div>
@@ -9100,18 +9487,20 @@ export default function Game() {
                   <AlertTriangle size={14} className="text-red-400" />
                   <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                 </div>
-                <div className="text-[10px] uppercase tracking-widest text-red-300/70">11 protocols</div>
+                <div className="text-[10px] uppercase tracking-widest text-red-300/70">13 protocols</div>
               </summary>
 
               <div className="px-4 pb-4 space-y-3">
                 {[ 
                   {
                     id: 'db_standard_hud',
-                    title: 'HUD & SIGNAL',
-                    subtitle: 'Visibility, noise, scramble',
+                    title: 'HUD & MECHANICS',
+                    subtitle: 'Visibility & Interaction',
                     items: [
                       { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
                       { name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual" },
+                      { name: "OVERCLOCK", desc: "After prepare to bid: click the button as many times as you can in 15 seconds. Most clicks wins the round token. Least clicks loses 35s.", type: "Interactive" },
+                      { name: "CALIBRATION", desc: "A random target hold time (15-40s) is assigned. Players hold as close to the target as possible.", type: "Precision" },
                     ]
                   },
                   {
