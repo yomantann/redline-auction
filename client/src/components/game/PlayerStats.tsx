@@ -1,6 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { User, Cpu, Trophy, Clock, Zap } from "lucide-react";
+import { User, Cpu, Trophy, Clock, Zap, Ghost } from "lucide-react";
 
 interface Player {
   id: string;
@@ -17,6 +17,8 @@ interface Player {
   roundImpact?: string; // New field for limit break impact
   impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[]; // Structured logs
   netImpact?: number; // Net of all positive and negative impacts
+  selectedItem?: string; // Haunted mode: selected item name
+  isGhost?: boolean; // Haunted mode: player converted to ghost on elimination
 }
 
 interface PlayerStatsProps {
@@ -62,7 +64,8 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       isCurrentPlayer 
         ? "bg-primary/5 border-primary/30 shadow-[0_0_15px_rgba(255,215,0,0.1)]" 
         : "bg-card/50 border-white/5",
-      player.isEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
+      player.isGhost && "opacity-70 border-teal-500/40 bg-teal-950/20",
+      !player.isGhost && player.isEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
     data-testid={`player-card-${player.id}`}
@@ -95,13 +98,14 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
         <div className="flex items-center gap-2">
           <div className={cn(
             "w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border border-white/10 bg-black/40",
-            isCurrentPlayer ? "border-primary/50" : ""
+            isCurrentPlayer ? "border-primary/50" : "",
+            player.isGhost && "border-teal-500/40 opacity-60"
           )}>
             {typeof player.characterIcon === 'string' ? (
                <img 
                  src={player.characterIcon} 
                  alt={player.name} 
-                 className="w-full h-full object-cover" 
+                 className={cn("w-full h-full object-cover", player.isGhost && "grayscale opacity-70")}
                  loading="lazy" 
                  decoding="async"
                  onError={(e) => { 
@@ -121,12 +125,17 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
              )}
           </div>
           <div className="flex flex-col">
-            <span className={cn("font-display font-bold tracking-wide leading-tight", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isEliminated && "text-red-500")}>
+            <span className={cn("font-display font-bold tracking-wide leading-tight", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isGhost && "text-teal-400", !player.isGhost && player.isEliminated && "text-red-500")}>
               {player.name}
             </span>
             {player.driverName && (
               <span className="text-[10px] text-primary/70 leading-tight" title={player.driverAbility}>
                 {player.driverName}
+              </span>
+            )}
+            {player.selectedItem && (
+              <span className="text-[10px] text-teal-400/70 leading-tight cursor-default" title="Haunted Item">
+                🔮 {player.selectedItem}
               </span>
             )}
           </div>
@@ -147,12 +156,17 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
               </div>
           )}
         </div>
-        {player.hasBidThisRound === false && !player.isEliminated && (
+        {player.hasBidThisRound === false && !player.isEliminated && !player.isGhost && (
            <span className="text-[10px] bg-accent/20 text-accent px-2 py-0.5 rounded border border-accent/20">
              BIDDING
            </span>
         )}
-        {player.isEliminated && (
+        {player.isGhost && (
+            <span className="text-[10px] bg-teal-950 text-teal-400 px-2 py-0.5 rounded border border-teal-500/20 font-bold flex items-center gap-1">
+              <Ghost size={10} /> GHOST
+           </span>
+        )}
+        {!player.isGhost && player.isEliminated && (
             <span className="text-[10px] bg-red-950 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold">
              ELIMINATED
            </span>

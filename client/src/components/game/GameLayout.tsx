@@ -6,7 +6,7 @@ import bgBio from "../../assets/generated_images/BG/bg_bio_fuel_v6.png";
 import bgHaunt from "../../assets/generated_images/BG/hnt_bg_8.png";
 import bgWager from "../../assets/generated_images/BG/wgr_bg_2.png";
 
-type RealityMode = "STANDARD" | "SOCIAL_OVERDRIVE" | "BIO_FUEL";
+type RealityMode = "STANDARD" | "SOCIAL_OVERDRIVE" | "BIO_FUEL" | "HAUNTED";
 
 interface GameLayoutProps {
   children: React.ReactNode;
@@ -15,7 +15,11 @@ interface GameLayoutProps {
 }
 
 export function GameLayout({ children, className, variant = "STANDARD" }: GameLayoutProps) {
-  const background = variant === "SOCIAL_OVERDRIVE" ? bgSocial : variant === "BIO_FUEL" ? bgBio : bgStandard;
+  const background =
+    variant === "SOCIAL_OVERDRIVE" ? bgSocial :
+    variant === "BIO_FUEL" ? bgBio :
+    variant === "HAUNTED" ? bgHaunted :
+    bgStandard;
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground no-callout">
@@ -35,6 +39,7 @@ export function GameLayout({ children, className, variant = "STANDARD" }: GameLa
           "fixed inset-0 z-0 pointer-events-none",
           variant === "SOCIAL_OVERDRIVE" && "bg-gradient-to-b from-purple-950/40 via-background/80 to-background",
           variant === "BIO_FUEL" && "bg-gradient-to-b from-orange-950/35 via-background/80 to-background",
+          variant === "HAUNTED" && "bg-gradient-to-b from-teal-950/50 via-background/85 to-background",
           variant === "STANDARD" && "bg-gradient-to-b from-background/55 via-background/85 to-background"
         )}
       />

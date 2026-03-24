@@ -19,6 +19,9 @@ import {
   setEmitToPlayerCallback,
   selectDriverInGame,
   confirmDriverInGame,
+  broadcastGameState,
+  activateRelicMP,
+  castVoteRelic,
   type GameDuration
 } from "./gameEngine";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
@@ -43,7 +46,7 @@ interface GameSettings {
   protocolsEnabled: boolean;
   bonusTrophiesEnabled: boolean;
   abilitiesEnabled: boolean;
-  variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+  variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
   gameDuration: GameDuration; // 'short' | 'standard' | 'long'
 }
 
@@ -649,6 +652,99 @@ export async function registerRoutes(
       if (callback) callback({ success: true });
     });
 
+    // Haunted mode: player selects a haunted item/relic
+    socket.on("select_haunted_item", (data: { itemId: string; itemName: string }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback?.({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      const game = getGameState(lobbyCode);
+      if (!game) { if (callback) callback?.({ success: false, error: "No active game" }); return; }
+      const player = game.players.find(p => p.socketId === socket.id);
+      if (player) {
+        player.selectedItem = data.itemName;
+        // Broadcast updated state to all players in lobby
+        io.to(lobbyCode).emit("game_state_update", { players: game.players.map(p => ({ id: p.id, selectedItem: p.selectedItem })) });
+      }
+      if (callback) callback?.({ success: true });
+    });
+
+    // Haunted mode: player resolves a ghost ability (from client-side interactive phase)
+    socket.on("resolve_ghost_ability", (data: { 
+      ability: string; 
+      targetId?: string; 
+      accepted?: boolean;
+      offerAmount?: number;
+    }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in lobby" }); return; }
+      const game = getGameState(lobbyCode);
+      if (!game) { if (callback) callback?.({ success: false, error: "No game" }); return; }
+      const player = game.players.find(p => p.socketId === socket.id);
+      if (!player || !player.isGhost) { if (callback) callback?.({ success: false, error: "Not a ghost" }); return; }
+
+      if (data.ability === 'possession' && data.targetId) {
+        player.possessionTargetId = data.targetId;
+        player.possessionRoundsLeft = 3;
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'purgatory') {
+        player.possessionRoundsLeft = 2;
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'vendetta_win') {
+        player.isGhost = false;
+        player.remainingTime = 30;
+        const target = game.players.find(p => p.id === data.targetId);
+        if (target) target.remainingTime = Math.max(0, target.remainingTime * 0.75);
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'vendetta_lose') {
+        // Ghost stays ghost; alive player already unaffected (they won)
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'bargain' && data.targetId && data.offerAmount && data.accepted) {
+        const target = game.players.find(p => p.id === data.targetId);
+        if (target && player.tokens >= data.offerAmount) {
+          player.tokens -= data.offerAmount;
+          target.tokens += data.offerAmount;
+          player.remainingTime += data.offerAmount * 40;
+          target.remainingTime = Math.max(0, target.remainingTime - data.offerAmount * 40);
+        }
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'curse') {
+        game.ghostCurseActive = true;
+        player.ghostAbilityUsed = true;
+      } else if (data.ability === 'reaper' && data.targetId) {
+        const target = game.players.find(p => p.id === data.targetId);
+        if (target && !target.isGhost && !target.isEliminated) {
+          const idx = Math.floor(Math.random() * 8) + 1;
+          const savedTime = target.remainingTime;
+          target.isGhost = true;
+          target.remainingTime = 0;
+          target.ghostImage = `hnt_ghost_${idx}`;
+          target.ghostReason = 'forced';
+          target.ghostTimeAtDeath = savedTime;
+        }
+        player.ghostAbilityUsed = true;
+      }
+
+      // Broadcast updated state to all players
+      broadcastGameState(lobbyCode);
+      if (callback) callback?.({ success: true });
+    });
+
+    // Haunted mode: activate a relic (MP)
+    socket.on("activate_relic", (data: { relicId: string; targetId?: string; curseType?: 'time' | 'trophy' }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in a lobby" }); return; }
+      const result = activateRelicMP(lobbyCode, socket.id, data.relicId, data.targetId, data.curseType);
+      if (callback) callback?.(result);
+    });
+
+    // Haunted mode: cast a vote for an active relic vote
+    socket.on("cast_relic_vote", (data: { optionId: string }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in a lobby" }); return; }
+      const result = castVoteRelic(lobbyCode, socket.id, data.optionId);
+      if (callback) callback?.(result);
     // OVERCLOCK CLICK: player clicks during OVERCLOCK protocol phase
     socket.on("overclock_click", (callback?) => {
       const lobbyCode = playerToLobby.get(socket.id);
