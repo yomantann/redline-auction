@@ -1708,8 +1708,8 @@ export default function Game() {
       const initialCounts: Record<string, number> = {};
       players.forEach(p => {
         if (!p.isEliminated) {
-          // Bots get random 15-50 clicks immediately
-          initialCounts[p.id] = p.isBot ? Math.floor(Math.random() * 36) + 15 : 0;
+          // Bots get random 85-120 clicks immediately
+          initialCounts[p.id] = p.isBot ? Math.floor(Math.random() * 36) + 85 : 0;
         }
       });
       overclockCountsRef.current = initialCounts;
@@ -1862,7 +1862,7 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (phase === 'ready') {
+    if (phase === 'ready' || phase === 'countdown') {
       const newBotBids: Record<string, number> = {};
 
       const minBidTime = getTimerStart();
@@ -2053,7 +2053,7 @@ export default function Game() {
 
       setBotBids(newBotBids);
     }
-  }, [phase, round, totalRounds, activeProtocol, gameDuration, variant]);
+  }, [phase, round, totalRounds, activeProtocol, gameDuration, variant, calibrationTarget]);
 
   // Check bot bids during bidding phase
   // Also check for PEEK abilities (Sadman Logic)
@@ -2674,89 +2674,115 @@ export default function Game() {
 
     // Process abilities for OVERCLOCK round (ALWAYS, WIN, and LOSE triggers)
     if (abilitiesEnabled) {
-      setPlayers(prev => {
-        // Find roll_safe player (immune to all abilities)
-        const rollSafeId = prev.find(p => {
-          const char = p.isBot
-            ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
-                p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
-            : selectedCharacter;
-          return char?.id === 'roll_safe';
-        })?.id;
+      const allChars = [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS];
 
-        // Collect DISRUPT effects (MANAGER CALL, BURN IT, AXE SWING)
-        const disruptEffects: { targetId: string; amount: number }[] = [];
-        prev.forEach(p => {
-          if (p.isEliminated) return;
-          const char = p.isBot
-            ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
-                p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
-            : selectedCharacter;
-          const ab = char?.ability;
-          if (!ab) return;
-          if (ab.name === 'MANAGER CALL') {
-            const validTargets = prev.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId);
-            if (validTargets.length > 0) {
-              const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-              disruptEffects.push({ targetId: target.id, amount: 2.0 });
-            }
-          } else if (ab.name === 'BURN IT') {
-            prev.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId)
-              .forEach(target => disruptEffects.push({ targetId: target.id, amount: 1.0 }));
-          } else if (ab.name === 'AXE SWING') {
-            const eligible = prev.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId);
-            if (eligible.length > 0) {
-              const richest = eligible.reduce((a, b) => a.remainingTime > b.remainingTime ? a : b);
-              disruptEffects.push({ targetId: richest.id, amount: 2.0 });
-            }
+      // Pre-compute ability data from current players state so animations match state updates
+      const rollSafeId = players.find(p => {
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        return char?.id === 'roll_safe';
+      })?.id;
+
+      const disruptEffects: { targetId: string; amount: number }[] = [];
+      players.forEach(p => {
+        if (p.isEliminated) return;
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        const ab = char?.ability;
+        if (!ab) return;
+        if (ab.name === 'MANAGER CALL') {
+          const validTargets = players.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId);
+          if (validTargets.length > 0) {
+            const target = validTargets[Math.floor(Math.random() * validTargets.length)];
+            disruptEffects.push({ targetId: target.id, amount: 2.0 });
           }
-        });
-
-        // Count cheese tax sources targeting the winner
-        const cheeseTaxCount = prev.filter(p => {
-          if (p.isEliminated || p.id === topWinner.id || topWinner.id === rollSafeId) return false;
-          const char = p.isBot
-            ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
-                p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
-            : selectedCharacter;
-          return char?.ability?.name === 'CHEESE TAX';
-        }).length;
-
-        // Apply all ability effects
-        return prev.map(p => {
-          if (p.isEliminated) return p;
-          const char = p.isBot
-            ? [...CHARACTERS, ...SOCIAL_CHARACTERS, ...BIO_CHARACTERS].find(c =>
-                p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
-            : selectedCharacter;
-          const ab = char?.ability;
-          const isClickWinner = p.id === topWinner.id;
-
-          let newTime = p.remainingTime;
-
-          // ALWAYS TIME_REFUND abilities
-          if (ab?.effect === 'TIME_REFUND') {
-            if (ab.name === 'CYRO FREEZE') newTime += 1.0;
-            if (ab.name === 'PANIC MASH') newTime += Math.random() > 0.5 ? 3.0 : -3.0;
+        } else if (ab.name === 'BURN IT') {
+          players.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId)
+            .forEach(target => disruptEffects.push({ targetId: target.id, amount: 1.0 }));
+        } else if (ab.name === 'AXE SWING') {
+          const eligible = players.filter(pl => pl.id !== p.id && !pl.isEliminated && pl.id !== rollSafeId);
+          if (eligible.length > 0) {
+            const richest = eligible.reduce((a, b) => a.remainingTime > b.remainingTime ? a : b);
+            disruptEffects.push({ targetId: richest.id, amount: 2.0 });
           }
-          // WIN TIME_REFUND: Spirit Shield (+11s for click winner on round 1)
-          if (isClickWinner && ab?.name === 'SPIRIT SHIELD' && round === 1) newTime += 11.0;
-
-          // LOSE DISRUPT: Cheese Tax (non-winner steals 2s from click winner)
-          if (!isClickWinner && ab?.name === 'CHEESE TAX' && topWinner.id !== rollSafeId) newTime += 2.0;
-
-          // Apply incoming DISRUPT effects (if not Roll Safe immune)
-          if (p.id !== rollSafeId) {
-            disruptEffects.filter(d => d.targetId === p.id).forEach(d => { newTime -= d.amount; });
-          }
-
-          // Apply Cheese Tax damage received by the winner
-          if (isClickWinner) newTime -= cheeseTaxCount * 2.0;
-
-          const isElim = newTime <= 0 || p.isEliminated;
-          return { ...p, remainingTime: Math.max(0, newTime), isEliminated: isElim };
-        });
+        }
       });
+
+      const cheeseTaxCount = players.filter(p => {
+        if (p.isEliminated || p.id === topWinner.id || topWinner.id === rollSafeId) return false;
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        return char?.ability?.name === 'CHEESE TAX';
+      }).length;
+
+      // Pre-compute PANIC MASH random outcomes so state update and animation use the same value
+      const panicMashOutcomes: Record<string, number> = {};
+      players.filter(p => !p.isEliminated).forEach(p => {
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        if (char?.ability?.name === 'PANIC MASH') {
+          panicMashOutcomes[p.id] = Math.random() > 0.5 ? 3.0 : -3.0;
+        }
+      });
+
+      // Apply all ability effects
+      setPlayers(prev => prev.map(p => {
+        if (p.isEliminated) return p;
+        const char = p.isBot
+          ? allChars.find(c =>
+              p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
+          : selectedCharacter;
+        const ab = char?.ability;
+        const isClickWinner = p.id === topWinner.id;
+
+        let newTime = p.remainingTime;
+
+        // ALWAYS TIME_REFUND abilities
+        if (ab?.effect === 'TIME_REFUND') {
+          if (ab.name === 'CYRO FREEZE') newTime += 1.0;
+          if (ab.name === 'PANIC MASH') newTime += panicMashOutcomes[p.id] ?? (Math.random() > 0.5 ? 3.0 : -3.0);
+        }
+        // WIN TIME_REFUND: Spirit Shield (+11s for click winner on round 1)
+        if (isClickWinner && ab?.name === 'SPIRIT SHIELD' && round === 1) newTime += 11.0;
+
+        // LOSE DISRUPT: Cheese Tax (non-winner steals 2s from click winner)
+        if (!isClickWinner && ab?.name === 'CHEESE TAX' && topWinner.id !== rollSafeId) newTime += 2.0;
+
+        // Apply incoming DISRUPT effects (if not Roll Safe immune)
+        if (p.id !== rollSafeId) {
+          disruptEffects.filter(d => d.targetId === p.id).forEach(d => { newTime -= d.amount; });
+        }
+
+        // Apply Cheese Tax damage received by the winner
+        if (isClickWinner) newTime -= cheeseTaxCount * 2.0;
+
+        const isElim = newTime <= 0 || p.isEliminated;
+        return { ...p, remainingTime: Math.max(0, newTime), isEliminated: isElim };
+      }));
+
+      // Trigger ability animations
+      players.filter(p => !p.isEliminated).forEach(p => {
+        const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
+        const ab = char?.ability;
+        if (!ab) return;
+        const isClickWinner = p.id === topWinner.id;
+
+        if (ab.effect === 'TIME_REFUND') {
+          if (ab.name === 'CYRO FREEZE') triggerAnimation(p.id, 'TIME_REFUND', '+1s');
+          if (ab.name === 'PANIC MASH') {
+            const refund = panicMashOutcomes[p.id];
+            if (refund !== undefined) triggerAnimation(p.id, 'TIME_REFUND', `${refund > 0 ? '+' : ''}${refund}s`);
+          }
+        }
+        if (isClickWinner && ab.name === 'SPIRIT SHIELD' && round === 1) {
+          triggerAnimation(p.id, 'TIME_REFUND', '+11s');
+        }
+        if (!isClickWinner && ab.name === 'CHEESE TAX' && topWinner.id !== rollSafeId) {
+          triggerAnimation(p.id, 'TIME_REFUND', '+2s');
+        }
+      });
+      // Damage animations for disrupt targets
+      disruptEffects.forEach(d => triggerAnimation(d.targetId, 'DAMAGE', `-${d.amount}s`));
+      // Damage animation on winner from cheese tax
+      if (cheeseTaxCount > 0 && topWinner.id !== rollSafeId) {
+        triggerAnimation(topWinner.id, 'DAMAGE', `-${cheeseTaxCount * 2}s`);
+      }
     }
 
     setRoundWinner({ name: topWinner.name, time: maxClicks });
@@ -3011,6 +3037,8 @@ export default function Game() {
     }
 
     // C. FINAL PASS: Refunds + Elimination Check
+    // Collect always-trigger TIME_REFUND ability animations to merge into newAbilities later
+    const alwaysAbilityAnimations: { playerId: string; ability: string; effect: string; impactValue: string }[] = [];
     let playersState = tempPlayersState.map(p => {
         if (p.isEliminated) return p;
 
@@ -3042,6 +3070,7 @@ export default function Game() {
                 roundImpact += ` ${refund > 0 ? '+' : ''}${refund}s (${ab.name})`;
                 impactLogs.push({ value: `${refund > 0 ? '+' : ''}${refund.toFixed(1)}s`, reason: ab.name, type: refund > 0 ? 'gain' : 'loss' });
                 selfGain += refund;
+                alwaysAbilityAnimations.push({ playerId: p.id, ability: ab.name, effect: 'TIME_REFUND', impactValue: `${refund > 0 ? '+' : ''}${refund}s` });
             }
         }
 
@@ -3128,6 +3157,9 @@ export default function Game() {
     // 5. APPLY WINNER REWARDS & CONDITIONAL ABILITIES
     const extraLogs: string[] = [];
     const newAbilities: any[] = []; 
+
+    // Include always-trigger TIME_REFUND animations (CYRO FREEZE, PANIC MASH, RAINBOW RUN, ROYAL DECREE)
+    newAbilities.push(...alwaysAbilityAnimations);
 
     // Handle Post-Round Triggers for Social/Bio Modes - REMOVED DUPLICATE BLOCK
 
