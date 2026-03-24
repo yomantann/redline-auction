@@ -2597,6 +2597,247 @@ function startWaitingForReady(lobbyCode: string) {
     });
   }
   
+  // --- MP: BOT RELIC ACTIVATION ---
+  // Bots with unconsumed relics activate them at the start of each round (before players go ready).
+  // Activation chance increases toward the end of the game.
+  if (game.settings.variant === 'HAUNTED') {
+    const isLateGame = game.round >= Math.ceil(game.totalRounds * 0.6);
+    const isFinalRounds = game.round >= game.totalRounds - 1;
+    const botActivationChance = isFinalRounds ? 0.9 : isLateGame ? 0.6 : 0.3;
+
+    const GMAP_BOT: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
+      1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
+    };
+    const DARK_POOL_BOT: ProtocolType[] = ['PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
+
+    game.players.forEach(bot => {
+      if (!bot.isBot || bot.isGhost || bot.isEliminated) return;
+      if (!bot.selectedItem || bot.relicConsumed) return;
+      if (Math.random() > botActivationChance) return;
+
+      const relic = bot.selectedItem;
+      const alive = game.players.filter(p => !p.isGhost && !p.isEliminated);
+      const opponents = alive.filter(p => p.id !== bot.id);
+      const botOpps = opponents.filter(p => p.isBot);
+      const pickRandom = <T,>(arr: T[]): T | undefined => arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : undefined;
+
+      bot.relicConsumed = true;
+
+      switch (relic) {
+        case 'jackpot': {
+          const roll = Math.random();
+          if (roll < 0.25) {
+            bot.remainingTime = Math.min(bot.remainingTime + 40, 9999);
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): +40s`, value: 40, basic: true });
+          } else if (roll < 0.5) {
+            bot.tokens += 2;
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): +2 trophies`, value: 2, basic: true });
+          } else if (roll < 0.75) {
+            bot.remainingTime = Math.max(0, bot.remainingTime - 30);
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): -30s`, value: -30, basic: true });
+          } else {
+            const idx = Math.floor(Math.random() * 6) + 1;
+            const saved = bot.remainingTime;
+            bot.isGhost = true;
+            bot.ghostReason = 'forced';
+            bot.ghostTimeAtDeath = saved;
+            bot.remainingTime = 0;
+            bot.ghostImage = `hnt_ghost_${idx}`;
+            bot.ghostAbility = GMAP_BOT[idx] ?? null;
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): ghosted`, basic: true });
+          }
+          break;
+        }
+        case 'ghost_touch': {
+          const target = pickRandom(opponents);
+          if (target) {
+            if (Math.random() < 0.10) {
+              const idx = Math.floor(Math.random() * 6) + 1;
+              const saved = target.remainingTime;
+              target.isGhost = true;
+              target.ghostReason = 'forced';
+              target.ghostTimeAtDeath = saved;
+              target.remainingTime = 0;
+              target.ghostImage = `hnt_ghost_${idx}`;
+              target.ghostAbility = GMAP_BOT[idx] ?? null;
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} GHOST TOUCH (bot): ${target.name} ghosted!`, basic: true });
+            } else {
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} GHOST TOUCH (bot): missed`, basic: true });
+            }
+          }
+          break;
+        }
+        case 'sacrificial_lamb': {
+          const victims = alive.filter(p => p.tokens > 0);
+          const victim = pickRandom(victims);
+          if (victim) {
+            victim.tokens = Math.max(0, victim.tokens - 1);
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} SACRIFICIAL LAMB (bot): ${victim.name} -1 trophy`, value: -1, basic: true });
+          }
+          break;
+        }
+        case 'wild_card': {
+          if (alive.length > 1) {
+            const times = alive.map(p => p.remainingTime);
+            let shuffled = [...times];
+            let attempts = 0;
+            do {
+              for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+              }
+              attempts++;
+            } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
+            alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} WILD CARD (bot): time banks redistributed`, basic: true });
+          }
+          break;
+        }
+        case 'death_wish': {
+          bot.deathWishActive = true;
+          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} DEATH WISH (bot): win=+2, lose=-15s`, basic: true });
+          break;
+        }
+        case 'blood_pact': {
+          bot.bloodPactActive = true;
+          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} BLOOD PACT (bot): all losers share winner's bid cost`, basic: true });
+          break;
+        }
+        case 'cursed_dice': {
+          bot.cursedDiceActive = true;
+          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CURSED DICE (bot): ±20s after round end`, basic: true });
+          break;
+        }
+        case 'seance': {
+          const ghosts = game.players.filter(p => p.isGhost && !p.isEliminated);
+          if (ghosts.length >= 2) {
+            ghosts.forEach(ghost => {
+              const reviveTime = Math.max(45, ghost.ghostTimeAtDeath ?? 0);
+              ghost.isGhost = false;
+              ghost.remainingTime = reviveTime;
+              ghost.ghostImage = undefined;
+              ghost.ghostAbility = null;
+              ghost.ghostAbilityUsed = false;
+              ghost.possessionTargetId = undefined;
+              ghost.possessionRoundsLeft = undefined;
+              addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived by bot Séance with ${reviveTime.toFixed(1)}s!`, basic: true });
+            });
+            bot.tokens += 1;
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} SÉANCE (bot): ${ghosts.length} ghost(s) revived, +1 trophy`, value: 1, basic: true });
+          } else {
+            bot.relicConsumed = false; // not enough ghosts, don't waste it
+          }
+          break;
+        }
+        case 'protocol_forcer': {
+          const picked = DARK_POOL_BOT[Math.floor(Math.random() * DARK_POOL_BOT.length)];
+          game.forcedProtocolNextRound = picked;
+          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} PROTOCOL FORCER (bot): next round will be ${picked}`, basic: true });
+          break;
+        }
+        case 'last_will': {
+          const target = pickRandom(opponents);
+          if (target) {
+            const curseType: 'time' | 'trophy' = Math.random() < 0.5 ? 'time' : 'trophy';
+            bot.pendingLastWill = { targetId: target.id, curseType };
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} LAST WILL (bot): if ghosted, ${target.name} ${curseType === 'time' ? 'loses 20s' : 'loses 1 trophy'}`, basic: true });
+          } else {
+            bot.relicConsumed = false;
+          }
+          break;
+        }
+        case 'echo': {
+          const echoTarget = pickRandom(opponents.filter(p => (p.bidHistory?.length ?? 0) > 0));
+          if (echoTarget && echoTarget.bidHistory && echoTarget.bidHistory.length > 0) {
+            const lastBid = echoTarget.bidHistory[echoTarget.bidHistory.length - 1];
+            echoTarget.echoForcedBid = lastBid;
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} ECHO (bot): ${echoTarget.name} forced to replay ${lastBid.toFixed(1)}s`, basic: true });
+          } else {
+            bot.relicConsumed = false; // no valid history target
+          }
+          break;
+        }
+        case 'marked': {
+          const target = pickRandom(opponents);
+          if (target) {
+            target.markedBy = bot.id;
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} MARKED (bot): ${target.name} is marked — ghosted on next win`, basic: true });
+          }
+          break;
+        }
+        case 'corrupt': {
+          const botTarget = pickRandom(botOpps);
+          if (botTarget) {
+            botTarget.corruptRoundsLeft = 3;
+            botTarget.personality = 'aggressive';
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CORRUPT (bot): ${botTarget.name} is now AGGRESSIVE for 3 rounds`, basic: true });
+          } else {
+            bot.relicConsumed = false;
+          }
+          break;
+        }
+        case 'pattern_lock': {
+          const lockTarget = pickRandom(opponents.filter(p => (p.bidHistory?.length ?? 0) > 0));
+          if (lockTarget && lockTarget.bidHistory && lockTarget.bidHistory.length > 0) {
+            const maxBid = Math.max(...lockTarget.bidHistory);
+            lockTarget.patternLockMinBid = maxBid;
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} PATTERN LOCK (bot): ${lockTarget.name} must bid ≥${maxBid.toFixed(1)}s next round`, basic: true });
+          } else {
+            bot.relicConsumed = false;
+          }
+          break;
+        }
+        case 'final_writ': {
+          bot.finalWritActive = true;
+          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} FINAL WRIT (bot): will auto-win the final round`, basic: true });
+          break;
+        }
+        case 'tribunal': {
+          // Bot simulates a tribunal directly (no interactive vote UI)
+          const target = pickRandom(opponents);
+          if (target) {
+            const winnerOption = Math.random() < 0.5 ? 'A' : 'B';
+            if (winnerOption === 'A') {
+              target.tribunalTimePenalty = (target.tribunalTimePenalty ?? 0) + 15;
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): ${target.name} -15s next round`, value: -15, basic: true });
+            } else {
+              target.tribunalMinBid = 30;
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): ${target.name} must bid ≥30s next round`, basic: true });
+            }
+          }
+          break;
+        }
+        case 'conclave': {
+          // Bot resolves conclave directly (simulated majority)
+          const options = ['A', 'B', 'C', 'D'];
+          const picked2 = options[Math.floor(Math.random() * options.length)];
+          if (picked2 === 'A') {
+            alive.forEach(p => { p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10; });
+            addGameLogEntry(game, { type: 'ability', message: `${bot.name} CONCLAVE (bot) A: all time banks halved!`, basic: true });
+          } else if (picked2 === 'B') {
+            game.skipNextRound = true;
+            addGameLogEntry(game, { type: 'ability', message: `${bot.name} CONCLAVE (bot) B: next round skipped!`, basic: true });
+          } else if (picked2 === 'C') {
+            game.protocolsAlwaysOn = true;
+            addGameLogEntry(game, { type: 'ability', message: `${bot.name} CONCLAVE (bot) C: protocols always on!`, basic: true });
+          } else {
+            const sortedD = [...alive].sort((a, b) => a.tokens - b.tokens);
+            const minTok = sortedD[0]?.tokens;
+            const bottom2 = sortedD.filter(p => p.tokens === minTok).slice(0, 2);
+            if (bottom2.length < 2 && sortedD[1]) bottom2.push(sortedD[1]);
+            bottom2.slice(0, 2).forEach(p => {
+              p.tokens = Math.max(0, p.tokens - 1);
+              addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} CONCLAVE (bot) D: -1 trophy`, value: -1, basic: true });
+            });
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    });
+  }
+
   // Select protocol for this round
   const protocol = selectProtocolForRound(game);
   game.activeProtocol = protocol;

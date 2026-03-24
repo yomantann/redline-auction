@@ -3454,6 +3454,219 @@ export default function Game() {
         }
     }
 
+    // --- SP: BOT RELIC ACTIVATION ---
+    // Bots with unconsumed relics get a chance to use them at the start of each round.
+    // They fire relics with increasing urgency as the game progresses (later rounds = higher chance).
+    if (variant === 'HAUNTED') {
+      const isLateGameRound = round >= Math.ceil(totalRounds * 0.6);
+      const isFinalRounds = round >= totalRounds - 1;
+      const botActivationChance = isFinalRounds ? 0.9 : isLateGameRound ? 0.6 : 0.3;
+
+      setPlayers(prev => {
+        const next = prev.map(p => ({ ...p }));
+
+        // Determine who is available to target
+        const alivePlayers = next.filter(p => !p.isGhost && !p.isEliminated);
+        const aliveOpponents = alivePlayers.filter(p => p.id !== 'p1');
+        const botOpponents = aliveOpponents.filter(p => p.isBot);
+
+        next.forEach(bot => {
+          if (!bot.isBot || bot.isGhost || bot.isEliminated) return;
+          if (!bot.selectedItem || bot.relicConsumed) return;
+          if (Math.random() > botActivationChance) return; // probabilistic activation
+
+          const relic = bot.selectedItem;
+          const alive = next.filter(p => !p.isGhost && !p.isEliminated);
+          const opponents = alive.filter(p => p.id !== bot.id);
+          const pickRandom = <T,>(arr: T[]): T | undefined => arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : undefined;
+
+          bot.relicConsumed = true;
+
+          switch (relic) {
+            case 'jackpot': {
+              const roll = Math.random();
+              if (roll < 0.25) {
+                bot.remainingTime = Math.min(bot.remainingTime + 40, 9999);
+              } else if (roll < 0.5) {
+                bot.tokens += 2;
+              } else if (roll < 0.75) {
+                bot.remainingTime = Math.max(0, bot.remainingTime - 30);
+              } else {
+                const ghostData = assignGhostImage();
+                const saved = bot.remainingTime;
+                bot.isGhost = true;
+                bot.ghostReason = 'forced';
+                bot.ghostTimeAtDeath = saved;
+                bot.ghostAbility = ghostData.ghostAbility;
+                bot.characterIcon = ghostData.characterIcon;
+                bot.ghostImage = ghostData.ghostImage;
+                bot.remainingTime = 0;
+              }
+              break;
+            }
+            case 'ghost_touch': {
+              const target = pickRandom(opponents);
+              if (target && Math.random() < 0.10) {
+                const ghostData = assignGhostImage();
+                const saved = target.remainingTime;
+                target.isGhost = true;
+                target.ghostReason = 'forced';
+                target.ghostTimeAtDeath = saved;
+                target.ghostAbility = ghostData.ghostAbility;
+                target.characterIcon = ghostData.characterIcon;
+                target.ghostImage = ghostData.ghostImage;
+                target.remainingTime = 0;
+              }
+              break;
+            }
+            case 'sacrificial_lamb': {
+              const victims = alive.filter(p => p.tokens > 0);
+              const victim = pickRandom(victims);
+              if (victim) victim.tokens = Math.max(0, victim.tokens - 1);
+              break;
+            }
+            case 'wild_card': {
+              if (alive.length > 1) {
+                const times = alive.map(p => p.remainingTime);
+                let shuffled = [...times];
+                let attempts = 0;
+                do {
+                  for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                  }
+                  attempts++;
+                } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
+                alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
+              }
+              break;
+            }
+            case 'death_wish': {
+              bot.deathWishActive = true;
+              break;
+            }
+            case 'blood_pact': {
+              bot.bloodPactActive = true;
+              break;
+            }
+            case 'cursed_dice': {
+              bot.cursedDiceActive = true;
+              break;
+            }
+            case 'seance': {
+              const ghosts = next.filter(p => p.isGhost && !p.isEliminated);
+              if (ghosts.length >= 2) {
+                ghosts.forEach(ghost => {
+                  const reviveTime = Math.max(45, ghost.ghostTimeAtDeath ?? 0);
+                  ghost.isGhost = false;
+                  ghost.remainingTime = reviveTime;
+                  ghost.ghostImage = undefined;
+                  ghost.ghostAbility = null;
+                  ghost.ghostAbilityUsed = false;
+                  ghost.possessionTargetId = undefined;
+                  ghost.possessionRoundsLeft = undefined;
+                });
+                bot.tokens += 1;
+              } else {
+                // Not enough ghosts — return relic
+                bot.relicConsumed = false;
+              }
+              break;
+            }
+            case 'protocol_forcer': {
+              // Bot queues a random dark protocol (same pool as the item description)
+              const DARK_POOL: ProtocolType[] = ['PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
+              const picked = DARK_POOL[Math.floor(Math.random() * DARK_POOL.length)];
+              (bot as any).forcedProtocolNextRound = true;
+              (bot as any).forcedProtocolValue = picked;
+              break;
+            }
+            case 'last_will': {
+              const target = pickRandom(opponents);
+              if (target) {
+                const curseType = Math.random() < 0.5 ? 'time' : 'trophy';
+                bot.pendingLastWill = { targetId: target.id, curseType };
+              }
+              break;
+            }
+            case 'echo': {
+              const target = pickRandom(opponents.filter(p => (p.bidHistory?.length ?? 0) > 0));
+              if (target && (target.bidHistory?.length ?? 0) > 0) {
+                const lastBid = target.bidHistory![target.bidHistory!.length - 1];
+                target.echoForcedBid = lastBid;
+              }
+              break;
+            }
+            case 'marked': {
+              const target = pickRandom(opponents);
+              if (target) target.markedBy = bot.id;
+              break;
+            }
+            case 'corrupt': {
+              const botTarget = pickRandom(botOpponents.filter(p => p.id !== bot.id));
+              if (botTarget) {
+                botTarget.corruptRoundsLeft = 3;
+                botTarget.personality = 'aggressive';
+              } else {
+                bot.relicConsumed = false; // no valid bot target
+              }
+              break;
+            }
+            case 'pattern_lock': {
+              const target = pickRandom(opponents.filter(p => (p.bidHistory?.length ?? 0) > 0));
+              if (target && (target.bidHistory?.length ?? 0) > 0) {
+                const maxBid = Math.max(...target.bidHistory!);
+                target.patternLockMinBid = maxBid;
+              } else {
+                bot.relicConsumed = false; // no history to lock
+              }
+              break;
+            }
+            case 'final_writ': {
+              bot.finalWritActive = true;
+              break;
+            }
+            case 'tribunal': {
+              // Bots don't trigger interactive vote UI — resolve effect directly (simulated vote)
+              const target = pickRandom(opponents);
+              if (target) {
+                const winnerOption = Math.random() < 0.5 ? 'A' : 'B';
+                if (winnerOption === 'A') {
+                  target.tribunalTimePenalty = (target.tribunalTimePenalty ?? 0) + 15;
+                } else {
+                  target.tribunalMinBid = 30;
+                }
+              }
+              break;
+            }
+            case 'conclave': {
+              // Bots resolve conclave via simulated majority vote
+              const outcomes = ['A', 'B', 'C', 'D'];
+              const pick2 = outcomes[Math.floor(Math.random() * outcomes.length)];
+              if (pick2 === 'A') {
+                alive.forEach(p => { p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10; });
+              } else if (pick2 === 'B') {
+                (window as any).__conclaveSkipNextRound = true;
+              } else if (pick2 === 'C') {
+                (window as any).__conclaveProtocolsAlwaysOn = true;
+              } else {
+                const sorted = [...alive].sort((a, b) => a.tokens - b.tokens);
+                const minTok = sorted[0]?.tokens;
+                const bottom2 = sorted.filter(p => p.tokens === minTok).slice(0, 2);
+                if (bottom2.length < 2 && sorted[1]) bottom2.push(sorted[1]);
+                bottom2.slice(0, 2).forEach(p => { p.tokens = Math.max(0, p.tokens - 1); });
+              }
+              break;
+            }
+            default:
+              break;
+          }
+        });
+
+        return next;
+      });
+    }
+
     // Start timer at minimum bid time (penalty value)
     const minBidTime = getTimerStart();
     setCurrentTime(minBidTime);
