@@ -135,6 +135,25 @@ import hntPanic from '../assets/generated_images/Haunted/hnt_panic_3.png';
 import hntPrimate from '../assets/generated_images/Haunted/hnt_primate_1.png';
 import hntPain from '../assets/generated_images/Haunted/hnt_pain_1.png';
 
+// Wager Mode: per-driver images
+import wgrGuardian from '../assets/generated_images/Wager/wgr_guardian_1.png';
+import wgrClick from '../assets/generated_images/Wager/wgr_click_1.png';
+import wgrFrost from '../assets/generated_images/Wager/wgr_frost_1.png';
+import wgrSadman from '../assets/generated_images/Wager/wgr_sad_1.png';
+import wgrDash from '../assets/generated_images/Wager/wgr_dash_1.png';
+import wgrAccuser from '../assets/generated_images/Wager/wgr_accuser_1.png';
+import wgrLowflame from '../assets/generated_images/Wager/wgr_lowflame_1.png';
+import wgrWander from '../assets/generated_images/Wager/wgr_wander_1.png';
+import wgrRind from '../assets/generated_images/Wager/wgr_rind_1.png';
+import wgrAnnointed from '../assets/generated_images/Wager/wgr_annointed_1.png';
+import wgrExec from '../assets/generated_images/Wager/wgr_exec_1.png';
+import wgrAlpha from '../assets/generated_images/Wager/wgr_alpha_1.png';
+import wgrRoll from '../assets/generated_images/Wager/wgr_roll_1.png';
+import wgrHotwired from '../assets/generated_images/Wager/wgr_hot_1.png';
+import wgrPanic from '../assets/generated_images/Wager/wgr_panic_1.png';
+import wgrPrimate from '../assets/generated_images/Wager/wgr_primate_1.png';
+import wgrPain from '../assets/generated_images/Wager/wgr_pain_1.png';
+
 // Haunted Mode: ghost images (used when player becomes a ghost)
 import hntGhost1 from '../assets/generated_images/Haunted/hnt_ghost_reaper.png';
 import hntGhost2 from '../assets/generated_images/Haunted/hnt_ghost_curse.png';
@@ -197,6 +216,27 @@ const HAUNTED_DRIVER_IMAGES: Record<string, string> = {
   pain_hider: hntPain,
 };
 
+// Map driver ID -> wager image
+const WAGER_DRIVER_IMAGES: Record<string, string> = {
+  guardian_h: wgrGuardian,
+  click_click: wgrClick,
+  frostbyte: wgrFrost,
+  sadman: wgrSadman,
+  rainbow_dash: wgrDash,
+  accuser: wgrAccuser,
+  low_flame: wgrLowflame,
+  wandering_eye: wgrWander,
+  the_rind: wgrRind,
+  anointed: wgrAnnointed,
+  executive_p: wgrExec,
+  alpha_prime: wgrAlpha,
+  roll_safe: wgrRoll,
+  hotwired: wgrHotwired,
+  panic_bot: wgrPanic,
+  primate: wgrPrimate,
+  pain_hider: wgrPain,
+};
+
 
 import { AbilityAnimation, AnimationType } from "@/components/game/AbilityAnimation";
 import logoFuturistic from '@assets/generated_images/redline_auction_futuristic_logo_red_neon.png';
@@ -212,7 +252,7 @@ const SHORT_INITIAL_TIME = 150.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'wager_phase' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -322,6 +362,18 @@ interface Player {
   finalWritActive?: boolean;             // Final Writ: this player auto-wins the final round
   tribunalTimePenalty?: number;          // Tribunal A: lose Ns at start of next round
   tribunalMinBid?: number;               // Tribunal B: must bid at least Ns next round
+  // Wager mode fields
+  wagerTargetId?: string;          // WAGER: which player this player wagered on
+  wagerPercent?: number;           // WAGER: percentage of time bank wagered (0-75)
+  wagerAmount?: number;            // WAGER: calculated wager amount in seconds
+  isDoubleDown?: boolean;          // WAGER: double-or-nothing toggle
+  wagerResolved?: boolean;         // WAGER: has this round's wager been resolved?
+  wagerWon?: boolean;              // WAGER: outcome of last wager (true=won, false=lost)
+  wagerReviving?: boolean;         // WAGER: ghost player wagering trophies for revival
+  ghostTrophies?: number;          // WAGER: trophies available for ghost wagers
+  sidePotWagerHigh?: boolean;      // WAGER: side pot - predict winning bid exceeds threshold
+  sidePotResolved?: boolean;       // WAGER: side pot resolved this round
+  sidePotWon?: boolean;            // WAGER: side pot outcome
 }
 
 interface Character {
@@ -332,6 +384,7 @@ interface Character {
   imageSocial?: string; // New: Social Mode Image
   imageBio?: string;    // New: Bio-Fuel Mode Image
   imageHaunted?: string; // New: Haunted Mode Image
+  imageWager?: string;  // New: Wager Mode Image
   description: string;
   color: string;
   ability?: {
@@ -351,110 +404,110 @@ interface Character {
 
 const CHARACTERS: Character[] = [
   { 
-    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charGuardian, imageSocial: socialGuardian, imageBio: bioGuardian, imageHaunted: hntGuardian, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charGuardian, imageSocial: socialGuardian, imageBio: bioGuardian, imageHaunted: hntGuardian, imageWager: wgrGuardian, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
     ability: { name: 'SPIRIT SHIELD', description: '+11s if you win Round 1.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Designate a player immune to social dares each round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Others cannot release button until you finish a sip.' }
   },
   { 
-    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charClick, imageSocial: socialClick, imageBio: bioClick, imageHaunted: hntClick, description: 'Hyperactive timing precision.', color: 'text-pink-400',
+    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charClick, imageSocial: socialClick, imageBio: bioClick, imageHaunted: hntClick, imageWager: wgrClick, description: 'Hyperactive timing precision.', color: 'text-pink-400',
     ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'MISCLICK', description: 'Chance 1 player must hold bid without using hands.' },
     bioAbility: { name: 'MOUTH POP', description: '1 round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
-    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charFrost, imageSocial: socialFrost, imageBio: bioFrost, imageHaunted: hntFrost, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charFrost, imageSocial: socialFrost, imageBio: bioFrost, imageHaunted: hntFrost, imageWager: wgrFrost, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: 'Chance you may ignore all social interactions.' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 round: 1 opponent forced to win or drink.' }
   },
   { 
-    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charSadman, imageSocial: socialSadman, imageBio: bioSadman, imageHaunted: hntSadman, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charSadman, imageSocial: socialSadman, imageBio: bioSadman, imageHaunted: hntSadman, imageWager: wgrSadman, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'SAD STORY', description: 'Chance 1 random player shares a sad story.' },
     bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you can change your drinking buddy.' }
   },
   { 
-    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charDash, imageSocial: socialDash, imageBio: bioDash, imageHaunted: hntDash, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charDash, imageSocial: socialDash, imageBio: bioDash, imageHaunted: hntDash, imageWager: wgrDash, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: 'Chance 1 random opponent must speak 2x speed.' },
     bioAbility: { name: 'RAINBOW SHOT', description: 'Chance 1 random player mixes two drinks.' }
   },
   { 
     id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charAccuser, imageSocial: socialAccuser,
-    imageBio: bioAccuser, imageHaunted: hntAccuser,
+    imageBio: bioAccuser, imageHaunted: hntAccuser, imageWager: wgrAccuser,
     description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
     socialAbility: { name: 'COMPLAINT', description: 'Chance everyone votes on winner\'s punishment.' },
     bioAbility: { name: 'SPILL HAZARD', description: 'Chance to accuse someone of spilling; they drink.' }
   },
   { 
-    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charLowflame, imageSocial: socialLowflame, imageBio: bioLowflame, imageHaunted: hntLowflame, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charLowflame, imageSocial: socialLowflame, imageBio: bioLowflame, imageHaunted: hntLowflame, imageWager: wgrLowflame, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
     ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: 'Chance to choose a player to answer a truth.' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks.' }
   },
   { 
-    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charWandering, imageSocial: socialWandering, imageBio: bioWandering, imageHaunted: hntWander, description: 'Always looking for a better deal.', color: 'text-blue-400',
+    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charWandering, imageSocial: socialWandering, imageBio: bioWandering, imageHaunted: hntWander, imageWager: wgrWander, description: 'Always looking for a better deal.', color: 'text-blue-400',
     ability: { name: 'SNEAK PEEK', description: 'See 1 random player holding. All other banks scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'DISTRACTION', description: 'Chance to point at something; anyone who looks must drop buzzer.' },
     bioAbility: { name: 'THE EX', description: 'Chance 1 random player toasts to an ex.' }
   },
   { 
-    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRind, imageSocial: socialRind, imageBio: bioRind, imageHaunted: hntRind, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRind, imageSocial: socialRind, imageBio: bioRind, imageHaunted: hntRind, imageWager: wgrRind, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: 'Chance 1 random player must reveal someone\'s tell.' },
     bioAbility: { name: 'SCAVENGE', description: 'Chance 1 random player finishes someone else\'s drink.' }
   },
   { 
     id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charAnointed, imageSocial: socialAnointed,
-    imageBio: bioAnointed, imageHaunted: hntAnnointed,
+    imageBio: bioAnointed, imageHaunted: hntAnnointed, imageWager: wgrAnnointed,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 20s refund if you bid within 0.4s of 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: 'Chance everyone is commanded silent' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round: Make a rule for remainder of game.' }
   },
   { 
-    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charExecutive, imageSocial: socialExecutive, imageBio: bioExecutive, imageHaunted: hntExec, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charExecutive, imageSocial: socialExecutive, imageBio: bioExecutive, imageHaunted: hntExec, imageWager: wgrExec, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
     ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
     socialAbility: { name: 'CC\'D', description: 'Chance 1 random player must copy your actions next round.' },
     bioAbility: { name: 'REASSIGNED', description: 'Chance to choose 1 player to take a drink.' }
   },
   { 
-    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charAlpha, imageSocial: socialAlpha, imageBio: bioAlpha, imageHaunted: hntAlpha, description: 'Peak performance in every bid.', color: 'text-zinc-300',
+    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charAlpha, imageSocial: socialAlpha, imageBio: bioAlpha, imageHaunted: hntAlpha, imageWager: wgrAlpha, description: 'Peak performance in every bid.', color: 'text-zinc-300',
     ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'MOG', description: 'Chance 1 random player must do 10 pushups or ff next round.' },
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall.' }
   },
   { 
-    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charRoll, imageSocial: socialRoll, imageBio: bioRoll, imageHaunted: hntRoll, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charRoll, imageSocial: socialRoll, imageBio: bioRoll, imageHaunted: hntRoll, imageWager: wgrRoll, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules.' },
     bioAbility: { name: 'BIG BRAIN', description: 'Chance option to have everyone pass drink to the left.' }
   },
   { 
-    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charHotwired, imageSocial: socialHotwired, imageBio: bioHotwired, imageHaunted: hntHotwired, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charHotwired, imageSocial: socialHotwired, imageBio: bioHotwired, imageHaunted: hntHotwired, imageWager: wgrHotwired, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
     ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
     socialAbility: { name: 'VIRAL MOMENT', description: '1 random round target must re-enact a meme.' },
     bioAbility: { name: 'SPICY', description: 'Chance everyone drinks.' }
   },
   { 
     id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charPanic, imageSocial: socialPanic,
-    imageBio: bioPanic,  imageHaunted: hntPanic,
+    imageBio: bioPanic,  imageHaunted: hntPanic, imageWager: wgrPanic,
     description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drop button.' },
     bioAbility: { name: 'EMERGENCY MEETING', description: 'Chance everyone must point at another to gang up on next round.' }
   },
   { 
-    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charPrimate, imageSocial: socialPrimate, imageBio: bioPrimate, imageHaunted: hntPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
+    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charPrimate, imageSocial: socialPrimate, imageBio: bioPrimate, imageHaunted: hntPrimate, imageWager: wgrPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
     ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s over second place.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'FRESH CUT', description: 'Chance 1 random player must compliment everyone.' },
     bioAbility: { name: 'GREEDY GRAB', description: 'Chance previous winner must burn 40s next round or finish drink.' }
   },
   { 
     id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charPain, imageSocial: socialPain,
-    imageBio: bioPain, imageHaunted: hntPain,
+    imageBio: bioPain, imageHaunted: hntPain, imageWager: wgrPain,
     description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'BOOMER', description: 'You forgot what your power was.' },
@@ -464,7 +517,7 @@ const CHARACTERS: Character[] = [
 
 // New Types for Refactored Game Modes
 type GameDifficulty = 'COMPETITIVE' | 'CASUAL';
-type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
+type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED' | 'WAGER';
 
 // Haunted Mode: 16 placeholder items
 interface HauntedItem {
@@ -1199,6 +1252,7 @@ export default function Game() {
       if (prev === 'STANDARD') return 'SOCIAL_OVERDRIVE';
       if (prev === 'SOCIAL_OVERDRIVE') return 'BIO_FUEL';
       if (prev === 'BIO_FUEL') return 'HAUNTED';
+      if (prev === 'HAUNTED') return 'WAGER';
       return 'STANDARD';
     });
   };
@@ -1209,6 +1263,7 @@ export default function Game() {
       case 'SOCIAL_OVERDRIVE': return <PartyPopper size={12} />;
       case 'BIO_FUEL': return <Martini size={12} />;
       case 'HAUNTED': return <Skull size={12} />;
+      case 'WAGER': return <Trophy size={12} />;
     }
   };
 
@@ -1218,6 +1273,7 @@ export default function Game() {
       case 'SOCIAL_OVERDRIVE': return "text-purple-400";
       case 'BIO_FUEL': return "text-orange-400";
       case 'HAUNTED': return "text-teal-400";
+      case 'WAGER': return "text-yellow-400";
     }
   };
   
@@ -2370,6 +2426,7 @@ export default function Game() {
 
       const pickIcon = (c: Character) => {
         if (variant === 'HAUNTED' && c.imageHaunted) return c.imageHaunted;
+        if (variant === 'WAGER' && c.imageWager) return c.imageWager;
         if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
         if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
         return c.image;

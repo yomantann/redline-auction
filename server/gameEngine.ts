@@ -39,6 +39,8 @@ const SOCIAL_DRIVER_IDS = [
 const BIO_DRIVER_IDS = [
   'tank', 'danger_zone'
 ];
+// Wager mode uses same drivers as standard
+const WAGER_DRIVER_IDS = [...STANDARD_DRIVER_IDS];
 
 // Driver ID to display name mapping (matches client-side character names)
 const DRIVER_NAMES: Record<string, string> = {
@@ -67,7 +69,7 @@ const DRIVER_NAMES: Record<string, string> = {
 
 export type BotPersonality = typeof BOT_PERSONALITIES[number];
 export type GameDuration = 'standard' | 'long' | 'short';
-export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
+export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED' | 'WAGER';
 export type ProtocolType = 
   | 'DATA_BLACKOUT' | 'DOUBLE_STAKES' | 'SYSTEM_FAILURE' 
   | 'OPEN_HAND' | 'MUTE_PROTOCOL' 
@@ -163,6 +165,18 @@ export interface GamePlayer {
   finalWritActive?: boolean;      // Final Writ relic: this player auto-wins the final round
   tribunalTimePenalty?: number;   // Tribunal option A: lose Ns at start of next round
   tribunalMinBid?: number;        // Tribunal option B: must bid at least Ns next round
+  // Wager mode fields
+  wagerTargetId?: string;          // WAGER: which player this player wagered on
+  wagerPercent?: number;           // WAGER: percentage of time bank wagered (0-75)
+  wagerAmount?: number;            // WAGER: calculated wager amount in seconds
+  isDoubleDown?: boolean;          // WAGER: double-or-nothing toggle
+  wagerResolved?: boolean;         // WAGER: has this round's wager been resolved?
+  wagerWon?: boolean;              // WAGER: outcome of last wager (true=won, false=lost)
+  wagerReviving?: boolean;         // WAGER: ghost player wagering trophies for revival
+  ghostTrophies?: number;          // WAGER: trophies available for ghost wagers
+  sidePotWagerHigh?: boolean;      // WAGER: side pot - predict winning bid exceeds threshold
+  sidePotResolved?: boolean;       // WAGER: side pot outcome resolved
+  sidePotWon?: boolean;            // WAGER: side pot outcome (true=won)
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -217,7 +231,7 @@ export interface GameState {
   players: GamePlayer[];
   round: number;
   totalRounds: number;
-  phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
+  phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
   roundStartTime: number | null;
   countdownRemaining: number;
   gameDuration: GameDuration;
@@ -244,6 +258,10 @@ export interface GameState {
   skipNextRound?: boolean;                        // Conclave B: skip next round as tie
   overclockClickCounts: Record<string, number>; // Click counts per player during OVERCLOCK protocol
   calibrationTargetSeconds: number | null; // Target hold time for CALIBRATION protocol (11-40s)
+  wagerPhaseActive?: boolean;      // WAGER: true when wager_phase is running
+  wagerPhaseDeadline?: number;     // WAGER: unix timestamp when wager phase ends
+  previousRoundWinnerId?: string;  // WAGER: winner of the previous round (for double-or-nothing)
+  roundStartTimeBanks?: Record<string, number>; // WAGER: time banks at start of round (for underdog bonus)
 }
 
 // Active games storage
