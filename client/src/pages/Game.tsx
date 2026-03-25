@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast"; // Added toast hook
 import { useSocket } from "@/lib/socket";
@@ -2163,11 +2163,7 @@ export default function Game() {
   // Simulate Bots Getting Ready
   useEffect(() => {
     if (phase === 'ready') {
-      // Bots "Ready Up" after random delays
       // When player is a ghost and only bots remain, use much shorter delays to speed up the round
-      const p1IsGhost = variant === 'HAUNTED' && !isMultiplayer && (players.find(p => p.id === 'p1')?.isGhost ?? false);
-      const nonGhostActive = players.filter(p => !p.isGhost && !p.isEliminated);
-      const isBotOnlyRound = p1IsGhost && nonGhostActive.length > 0 && nonGhostActive.every(p => p.isBot);
       const timeoutIds: NodeJS.Timeout[] = [];
       
       players.forEach(p => {
@@ -2184,7 +2180,7 @@ export default function Game() {
 
       return () => timeoutIds.forEach(clearTimeout);
     }
-  }, [phase]);
+  }, [phase, isBotOnlyRound]);
 
   // Countdown Timer
   useEffect(() => {
@@ -3779,10 +3775,7 @@ export default function Game() {
     const minBidTime = getTimerStart();
     setCurrentTime(minBidTime);
     // When only bots remain active (ghost spectator mode), use a shorter countdown
-    const p1IsGhostNow = variant === 'HAUNTED' && !isMultiplayer && (players.find(p => p.id === 'p1')?.isGhost ?? false);
-    const nonGhostActiveNow = players.filter(p => !p.isGhost && !p.isEliminated);
-    const isBotOnlyNow = p1IsGhostNow && nonGhostActiveNow.length > 0 && nonGhostActiveNow.every(p => p.isBot);
-    setCountdown(isBotOnlyNow ? 1 : COUNTDOWN_SECONDS);
+    setCountdown(isBotOnlyRound ? 1 : COUNTDOWN_SECONDS);
     setPhase('countdown');
     overLimitToastShownRef.current = false; // Reset over-limit flag
   };
@@ -4665,7 +4658,7 @@ export default function Game() {
           }
           ghost.ghostAbilityUsed = true;
           // 3-round fallback revival for bargain ghosts (no targets or bot path)
-          if (ghost.possessionRoundsLeft === undefined) ghost.possessionRoundsLeft = 3;
+          ghost.possessionRoundsLeft = 3;
         } else if (ghost.ghostAbility === 'purgatory') {
           // PURGATORY: bot sets purgatory countdown using possessionRoundsLeft = 2
           ghost.possessionRoundsLeft = 2;
@@ -5920,14 +5913,10 @@ export default function Game() {
 
   // Auto-advance round_end when only bots remain active (ghost spectator mode in haunted)
   useEffect(() => {
-    if (phase !== 'round_end' || isMultiplayer || variant !== 'HAUNTED') return;
-    const p1IsGhost = players.find(p => p.id === 'p1')?.isGhost ?? false;
-    const nonGhostActive = players.filter(p => !p.isGhost && !p.isEliminated);
-    const isBotOnlyRound = p1IsGhost && nonGhostActive.length > 0 && nonGhostActive.every(p => p.isBot);
-    if (!isBotOnlyRound) return;
+    if (phase !== 'round_end' || !isBotOnlyRound) return;
     const timer = setTimeout(() => nextRound(), 1500);
     return () => clearTimeout(timer);
-  }, [phase, players]);
+  }, [phase, isBotOnlyRound]);
 
   const selectRandomCharacter = () => {
       // Pool based on variant
@@ -6097,6 +6086,16 @@ export default function Game() {
   const currentPlayerIsGhost = isMultiplayer
     ? (myMultiplayerPlayer?.isGhost ?? false)
     : (players.find(p => p.id === 'p1')?.isGhost ?? false);
+
+  // Computed: true when player is a ghost (haunted SP) and all active non-ghost players are bots
+  // Used to speed up bot-only rounds (faster ready delays, shorter countdown, auto-advance round_end)
+  const isBotOnlyRound = useMemo(() => {
+    if (isMultiplayer || variant !== 'HAUNTED') return false;
+    const p1IsGhost = players.find(p => p.id === 'p1')?.isGhost ?? false;
+    if (!p1IsGhost) return false;
+    const nonGhostActive = players.filter(p => !p.isGhost && !p.isEliminated);
+    return nonGhostActive.length > 0 && nonGhostActive.every(p => p.isBot);
+  }, [players, isMultiplayer, variant]);
 
   // Now define playerIsReady and playerBid AFTER currentPlayerIsHolding is defined
   const playerIsReady = isMultiplayer 
