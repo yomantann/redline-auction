@@ -120,28 +120,28 @@ import charDangerZone from '../assets/generated_images/BIO/bio_danger.png';
 import hntGuardian from '../assets/generated_images/Haunted/hnt_guardian_1.png';
 import hntClick from '../assets/generated_images/Haunted/hnt_click_1.png';
 import hntFrost from '../assets/generated_images/Haunted/hnt_frost_1.png';
-import hntSadman from '../assets/generated_images/Haunted/hnt_sadman_1.png';
-import hntDash from '../assets/generated_images/Haunted/hnt_dash_1.png';
-import hntAccuser from '../assets/generated_images/Haunted/hnt_accuser_1.png';
+import hntSadman from '../assets/generated_images/Haunted/hnt_sadman_3.png';
+import hntDash from '../assets/generated_images/Haunted/hnt_dash_4.png';
+import hntAccuser from '../assets/generated_images/Haunted/hnt_accuser_3.png';
 import hntLowflame from '../assets/generated_images/Haunted/hnt_lowflame_1.png';
 import hntWander from '../assets/generated_images/Haunted/hnt_wander_1.png';
 import hntRind from '../assets/generated_images/Haunted/hnt_rind_1.png';
 import hntAnnointed from '../assets/generated_images/Haunted/hnt_annointed_1.png';
-import hntExec from '../assets/generated_images/Haunted/hnt_exec_1.png';
+import hntExec from '../assets/generated_images/Haunted/hnt_exec_3.png';
 import hntAlpha from '../assets/generated_images/Haunted/hnt_alpha_1.png';
-import hntRoll from '../assets/generated_images/Haunted/hnt_roll_1.png';
+import hntRoll from '../assets/generated_images/Haunted/hnt_roll_2.png';
 import hntHotwired from '../assets/generated_images/Haunted/hnt_hotwired_1.png';
-import hntPanic from '../assets/generated_images/Haunted/hnt_panic_1.png';
+import hntPanic from '../assets/generated_images/Haunted/hnt_panic_3.png';
 import hntPrimate from '../assets/generated_images/Haunted/hnt_primate_1.png';
 import hntPain from '../assets/generated_images/Haunted/hnt_pain_1.png';
 
 // Haunted Mode: ghost images (used when player becomes a ghost)
-import hntGhost1 from '../assets/generated_images/Haunted/hnt_ghost_1.png';
-import hntGhost2 from '../assets/generated_images/Haunted/hnt_ghost_2.png';
-import hntGhost3 from '../assets/generated_images/Haunted/hnt_ghost_3.png';
-import hntGhost4 from '../assets/generated_images/Haunted/hnt_ghost_4.png';
-import hntGhost5 from '../assets/generated_images/Haunted/hnt_ghost_5.png';
-import hntGhost6 from '../assets/generated_images/Haunted/hnt_ghost_6.png';
+import hntGhost1 from '../assets/generated_images/Haunted/hnt_ghost_reaper.png';
+import hntGhost2 from '../assets/generated_images/Haunted/hnt_ghost_curse.png';
+import hntGhost3 from '../assets/generated_images/Haunted/hnt_ghost_vendetta.png';
+import hntGhost4 from '../assets/generated_images/Haunted/hnt_ghost_bargain.png';
+import hntGhost5 from '../assets/generated_images/Haunted/hnt_ghost_possession.png';
+import hntGhost6 from '../assets/generated_images/Haunted/hnt_ghost_purgatory.png';
 
 // Pool of ghost images for random assignment on ghosting (6 ghosts; duplicates allowed)
 const GHOST_IMAGES = [hntGhost1, hntGhost2, hntGhost3, hntGhost4, hntGhost5, hntGhost6];
@@ -487,7 +487,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     id: 'ghost_touch',
     number: '01',
     name: 'Ghost Touch',
-    icon: '☠️',
+    icon: '👻',
     category: 'Cursed',
     target: 'Opponent',
     description: 'Target one opponent. 10% chance they are immediately ghosted — removed from play and spectating. Ghost comeback criteria assigned at ghost time.',
@@ -591,7 +591,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     id: 'last_will',
     number: '10',
     name: 'Last Will',
-    icon: '📜',
+    icon: '⚰️',
     category: 'Cursed',
     target: 'Opponent',
     description: 'Activate before a round. If you are eliminated this round, choose now: one opponent loses 20s OR loses 1 trophy when you go out. If you survive the round, nothing happens — relic still consumed.',
@@ -611,7 +611,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     id: 'marked',
     number: '14',
     name: 'Marked',
-    icon: '🎯',
+    icon: '👁️',
     category: 'Cursed',
     target: 'Opponent',
     description: "Choose one opponent. The next time they win a round, they are immediately ghosted after receiving their trophy. The mark persists until it fires. You also have a 50% chance of being ghosted when it triggers.",
@@ -642,7 +642,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     id: 'final_writ',
     number: '12',
     name: 'Final Writ',
-    icon: '📋',
+    icon: '✒️',
     category: 'Cursed',
     target: 'Self',
     description: "The final round is automatically skipped. You are declared the winner of that round's trophy — regardless of any other effects or relics that were going to be played. Consumed immediately on activation.",
@@ -2801,9 +2801,9 @@ export default function Game() {
               target.characterIcon = ghostData.characterIcon;
               target.ghostImage = ghostData.ghostImage;
               target.remainingTime = 0;
-              setTimeout(() => addOverlay('ability_trigger', '☠️ GHOST TOUCH FIRED', `${target.name} was consumed by the curse!`, 3000), 200);
+              setTimeout(() => addOverlay('ability_trigger', '👻 GHOST TOUCH FIRED', `${target.name} was consumed by the curse!`, 3000), 200);
             } else {
-              setTimeout(() => addOverlay('ability_trigger', '☠️ GHOST TOUCH: MISSED', `The curse didn't take. ${target.name} survives — this time.`, 3000), 200);
+              setTimeout(() => addOverlay('ability_trigger', '👻 GHOST TOUCH: MISSED', `The curse didn't take. ${target.name} survives — this time.`, 3000), 200);
             }
           }
           break;
@@ -2852,7 +2852,7 @@ export default function Game() {
           const target = next.find(p => p.id === targetId);
           if (target) {
             target.markedBy = activatorId;
-            setTimeout(() => addOverlay('ability_trigger', '🎯 MARKED', `${target.name} is marked. The next time they win a round, they will be ghosted.`, 3000), 200);
+            setTimeout(() => addOverlay('ability_trigger', '👁️ MARKED', `${target.name} is marked. The next time they win a round, they will be ghosted.`, 3000), 200);
           }
           break;
         }
@@ -2881,7 +2881,7 @@ export default function Game() {
             activator.pendingLastWill = { targetId, curseType };
             const curseName = curseType === 'time' ? 'loses 20s' : 'loses 1 trophy';
             const tName = next.find(p => p.id === targetId)?.name ?? 'target';
-            setTimeout(() => addOverlay('ability_trigger', '📜 LAST WILL SET', `If you are ghosted this round, ${tName} ${curseName}. Survive to prevent it.`, 3000), 200);
+            setTimeout(() => addOverlay('ability_trigger', '⚰️ LAST WILL SET', `If you are ghosted this round, ${tName} ${curseName}. Survive to prevent it.`, 3000), 200);
           }
           break;
         }
@@ -2923,7 +2923,7 @@ export default function Game() {
         }
         case 'final_writ': {
           activator.finalWritActive = true;
-          setTimeout(() => addOverlay('ability_trigger', '📋 FINAL WRIT', 'You will automatically win the final round\'s trophy. The last page is written.', 4000), 200);
+          setTimeout(() => addOverlay('ability_trigger', '✒️ FINAL WRIT', 'You will automatically win the final round\'s trophy. The last page is written.', 4000), 200);
           break;
         }
         case 'protocol_forcer': {
@@ -3275,7 +3275,7 @@ export default function Game() {
         setPlayers(prev => prev.map(p =>
           p.id === finalWritHolder.id ? { ...p, tokens: p.tokens + 1, finalWritActive: false, relicConsumed: true } : p
         ));
-        setTimeout(() => addOverlay('ability_trigger', '📋 FINAL WRIT ACTIVATED', `${finalWritHolder.name} skips the final round and claims the trophy!`, 5000), 200);
+        setTimeout(() => addOverlay('ability_trigger', '✒️ FINAL WRIT ACTIVATED', `${finalWritHolder.name} skips the final round and claims the trophy!`, 5000), 200);
         // Go straight to round_end via endRound with no bids
         setPhase('round_end');
         return;
@@ -4728,10 +4728,10 @@ export default function Game() {
             if (willTarget) {
               if (p.pendingLastWill.curseType === 'time') {
                 willTarget.remainingTime = Math.max(0, willTarget.remainingTime - 20);
-                setTimeout(() => addOverlay('protocol_alert', '📜 LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 20s.`, 3500), 1000);
+                setTimeout(() => addOverlay('protocol_alert', '⚰️ LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 20s.`, 3500), 1000);
               } else {
                 willTarget.tokens = Math.max(0, willTarget.tokens - 1);
-                setTimeout(() => addOverlay('protocol_alert', '📜 LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 1 trophy.`, 3500), 1000);
+                setTimeout(() => addOverlay('protocol_alert', '⚰️ LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 1 trophy.`, 3500), 1000);
               }
             }
           }
@@ -4788,7 +4788,7 @@ export default function Game() {
           p.ghostImage = ghostData.ghostImage;
           p.remainingTime = 0;
           p.markedBy = undefined;
-          setTimeout(() => addOverlay('protocol_alert', '🎯 MARK TRIGGERED', `${p.name} won — and was immediately ghosted by the mark!`, 0), 800);
+          setTimeout(() => addOverlay('protocol_alert', '👁️ MARK TRIGGERED', `${p.name} won — and was immediately ghosted by the mark!`, 0), 800);
           // 50% chance the marker is also ghosted
           if (marker && !marker.isGhost && !marker.isEliminated && Math.random() < 0.5) {
             const markerGhost = assignGhostImage();
@@ -4800,7 +4800,7 @@ export default function Game() {
             marker.characterIcon = markerGhost.characterIcon;
             marker.ghostImage = markerGhost.ghostImage;
             marker.remainingTime = 0;
-            setTimeout(() => addOverlay('protocol_alert', '🎯 MARK BACKLASH', `The mark also claimed ${marker.name}!`, 0), 1400);
+            setTimeout(() => addOverlay('protocol_alert', '👁️ MARK BACKLASH', `The mark also claimed ${marker.name}!`, 0), 1400);
           }
         }
 

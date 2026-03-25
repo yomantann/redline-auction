@@ -1571,9 +1571,6 @@ function endRound(lobbyCode: string) {
   
   // Find winner (highest bid among non-eliminated, non-ghost)
   const participants = game.players.filter(p => !p.isEliminated && !p.isGhost && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
-
-  // Find winner (highest bid among non-eliminated, or closest to target for CALIBRATION)
-  const participants = game.players.filter(p => !p.isEliminated && p.currentBid !== null && p.currentBid > 0 && !game.eliminatedThisRound.includes(p.id));
   
   let winnerId: string | null = null;
   

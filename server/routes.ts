@@ -169,6 +169,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
   // Initialize Socket.IO
   io = new SocketIOServer(httpServer, {
     cors: {
@@ -745,6 +746,8 @@ export async function registerRoutes(
       if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in a lobby" }); return; }
       const result = castVoteRelic(lobbyCode, socket.id, data.optionId);
       if (callback) callback?.(result);
+      });
+    
     // OVERCLOCK CLICK: player clicks during OVERCLOCK protocol phase
     socket.on("overclock_click", (callback?) => {
       const lobbyCode = playerToLobby.get(socket.id);

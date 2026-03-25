@@ -18,7 +18,7 @@ export function GameLayout({ children, className, variant = "STANDARD" }: GameLa
   const background =
     variant === "SOCIAL_OVERDRIVE" ? bgSocial :
     variant === "BIO_FUEL" ? bgBio :
-    variant === "HAUNTED" ? bgHaunted :
+    variant === "HAUNTED" ? bgHaunt :
     bgStandard;
 
   return (
@@ -39,8 +39,8 @@ export function GameLayout({ children, className, variant = "STANDARD" }: GameLa
           "fixed inset-0 z-0 pointer-events-none",
           variant === "SOCIAL_OVERDRIVE" && "bg-gradient-to-b from-purple-950/40 via-background/80 to-background",
           variant === "BIO_FUEL" && "bg-gradient-to-b from-orange-950/35 via-background/80 to-background",
-          variant === "HAUNTED" && "bg-gradient-to-b from-teal-950/50 via-background/85 to-background",
-          variant === "STANDARD" && "bg-gradient-to-b from-background/55 via-background/85 to-background"
+          variant === "HAUNTED" && "bg-gradient-to-b from-teal-950/50 via-background/65 to-background",
+          variant === "STANDARD" && "bg-gradient-to-b from-background/55 via-background/75 to-background"
         )}
       />
 
