@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast"; // Added toast hook
 import { useSocket } from "@/lib/socket";
@@ -2163,12 +2163,14 @@ export default function Game() {
   // Simulate Bots Getting Ready
   useEffect(() => {
     if (phase === 'ready') {
-      // Bots "Ready Up" after random delays
+      // When player is a ghost and only bots remain, use much shorter delays to speed up the round
       const timeoutIds: NodeJS.Timeout[] = [];
       
       players.forEach(p => {
         if (p.isBot && !p.isHolding) {
-          const delay = Math.random() * 2000 + 500; // 0.5s to 2.5s
+          const delay = isBotOnlyRound
+            ? Math.random() * 200 + 50   // 50–250ms when bot-only (speedup)
+            : Math.random() * 2000 + 500; // 0.5s to 2.5s normally
           const id = setTimeout(() => {
              setPlayers(prev => prev.map(pl => pl.id === p.id ? { ...pl, isHolding: true } : pl));
           }, delay);
@@ -2178,7 +2180,7 @@ export default function Game() {
 
       return () => timeoutIds.forEach(clearTimeout);
     }
-  }, [phase]);
+  }, [phase, isBotOnlyRound]);
 
   // Countdown Timer
   useEffect(() => {
@@ -3772,7 +3774,8 @@ export default function Game() {
     // Start timer at minimum bid time (penalty value)
     const minBidTime = getTimerStart();
     setCurrentTime(minBidTime);
-    setCountdown(COUNTDOWN_SECONDS);
+    // When only bots remain active (ghost spectator mode), use a shorter countdown
+    setCountdown(isBotOnlyRound ? 1 : COUNTDOWN_SECONDS);
     setPhase('countdown');
     overLimitToastShownRef.current = false; // Reset over-limit flag
   };
@@ -4561,6 +4564,8 @@ export default function Game() {
             setTimeout(() => addOverlay('protocol_alert', '💀 REAPER STRIKES', reaperMsg, 4000), 1200);
           }
           ghost.ghostAbilityUsed = true;
+          // 3-round fallback revival for reaper ghosts
+          ghost.possessionRoundsLeft = 3;
 
         } else if (ghost.ghostAbility === 'curse') {
           // CURSE: triple all driver ability values for alive players
@@ -4570,6 +4575,8 @@ export default function Game() {
             : `🔮 CURSE: ${ghost.name}'s ghost cursed the arena — all driver abilities are tripled!`;
           setTimeout(() => addOverlay('protocol_alert', '🔮 CURSE ACTIVATED', curseMsg, 4000), 1200);
           ghost.ghostAbilityUsed = true;
+          // 3-round fallback revival for curse ghosts
+          ghost.possessionRoundsLeft = 3;
 
         } else if (ghost.ghostAbility === 'possession') {
           // POSSESSION: for bots, auto-pick a random alive player; for p1, show the pick phase
@@ -4603,11 +4610,15 @@ export default function Game() {
             setVendettaP1Released(false);
             setVendettaHoldStart(null);
             ghost.ghostAbilityUsed = true;
+            // 3-round fallback revival in case vendetta doesn't revive
+            ghost.possessionRoundsLeft = 3;
             setPlayers([...finalPlayers]);
             setPhase('ghost_vendetta');
             return; // Wait for vendetta to resolve
           }
           ghost.ghostAbilityUsed = true;
+          // 3-round fallback revival (no targets available)
+          ghost.possessionRoundsLeft = 3;
 
         } else if (ghost.ghostAbility === 'bargain') {
           // BARGAIN: p1 or bot offers trophies to an alive player
@@ -4638,12 +4649,16 @@ export default function Game() {
                 }
               }
             } else {
+              // 3-round fallback revival in case bargain doesn't revive
+              ghost.possessionRoundsLeft = 3;
               setPlayers([...finalPlayers]);
               setPhase('ghost_bargain');
               return; // Wait for bargain to resolve
             }
           }
           ghost.ghostAbilityUsed = true;
+          // 3-round fallback revival for bargain ghosts (no targets or bot path)
+          ghost.possessionRoundsLeft = 3;
         } else if (ghost.ghostAbility === 'purgatory') {
           // PURGATORY: bot sets purgatory countdown using possessionRoundsLeft = 2
           ghost.possessionRoundsLeft = 2;
@@ -4653,12 +4668,11 @@ export default function Game() {
       }
 
       // Check POSSESSION revive conditions for existing possessing ghosts
-      // Also checks PURGATORY countdown (which reuses possessionRoundsLeft with no targetId)
+      // Also checks fallback countdown for all other ghost types (purgatory, reaper, curse, vendetta, bargain)
       const isFinalRound = round >= totalRounds;
       finalPlayers.forEach(ghost => {
         if (!ghost.isGhost || ghost.possessionRoundsLeft === undefined) return;
         const hasPossessionTarget = !!ghost.possessionTargetId;
-        const isPurgatory = ghost.ghostAbility === 'purgatory' && !hasPossessionTarget;
 
         if (hasPossessionTarget) {
           // POSSESSION logic
@@ -4684,8 +4698,9 @@ export default function Game() {
           } else {
             ghost.possessionRoundsLeft = (ghost.possessionRoundsLeft ?? 3) - 1;
           }
-        } else if (isPurgatory) {
-          // PURGATORY countdown (uses possessionRoundsLeft, no target)
+        } else {
+          // Generic fallback countdown for all non-possession ghosts
+          // (covers purgatory, reaper, curse, vendetta, bargain)
           const roundsLeft = ghost.possessionRoundsLeft - 1;
           if (roundsLeft <= 0) {
             if (isFinalRound) {
@@ -4706,7 +4721,11 @@ export default function Game() {
               ghost.remainingTime = Math.max(10, reviveTime);
               ghost.possessionRoundsLeft = undefined;
               if (ghost.id === 'p1') {
-                setTimeout(() => addOverlay('ability_trigger', '🌑 PURGATORY RETURN', `Purgatory expires — you return with ${ghost.remainingTime.toFixed(1)}s!`, 4000), 600);
+                const abilityLabel = ghost.ghostAbility === 'purgatory' ? '🌑 PURGATORY RETURN' : '🔄 FALLBACK REVIVAL';
+                const abilityMsg = ghost.ghostAbility === 'purgatory'
+                  ? `Purgatory expires — you return with ${ghost.remainingTime.toFixed(1)}s!`
+                  : `3-round fallback triggered — you return with ${ghost.remainingTime.toFixed(1)}s!`;
+                setTimeout(() => addOverlay('ability_trigger', abilityLabel, abilityMsg, 4000), 600);
               }
             }
           } else {
@@ -5892,6 +5911,13 @@ export default function Game() {
     }
   };
 
+  // Auto-advance round_end when only bots remain active (ghost spectator mode in haunted)
+  useEffect(() => {
+    if (phase !== 'round_end' || !isBotOnlyRound) return;
+    const timer = setTimeout(() => nextRound(), 1500);
+    return () => clearTimeout(timer);
+  }, [phase, isBotOnlyRound]);
+
   const selectRandomCharacter = () => {
       // Pool based on variant
       let pool = [...CHARACTERS];
@@ -6060,6 +6086,16 @@ export default function Game() {
   const currentPlayerIsGhost = isMultiplayer
     ? (myMultiplayerPlayer?.isGhost ?? false)
     : (players.find(p => p.id === 'p1')?.isGhost ?? false);
+
+  // Computed: true when player is a ghost (haunted SP) and all active non-ghost players are bots
+  // Used to speed up bot-only rounds (faster ready delays, shorter countdown, auto-advance round_end)
+  const isBotOnlyRound = useMemo(() => {
+    if (isMultiplayer || variant !== 'HAUNTED') return false;
+    const p1IsGhost = players.find(p => p.id === 'p1')?.isGhost ?? false;
+    if (!p1IsGhost) return false;
+    const nonGhostActive = players.filter(p => !p.isGhost && !p.isEliminated);
+    return nonGhostActive.length > 0 && nonGhostActive.every(p => p.isBot);
+  }, [players, isMultiplayer, variant]);
 
   // Now define playerIsReady and playerBid AFTER currentPlayerIsHolding is defined
   const playerIsReady = isMultiplayer 
@@ -7641,6 +7677,16 @@ export default function Game() {
           Everyone: 'text-yellow-400/80',
           Opponent: 'text-red-400/80',
         };
+        const TARGET_GROUP_STYLES: Record<string, string> = {
+          Everyone: 'bg-yellow-950/20 border border-yellow-500/20 rounded-xl p-3',
+          Self: 'bg-cyan-950/20 border border-cyan-500/20 rounded-xl p-3',
+          Opponent: 'bg-red-950/20 border border-red-500/20 rounded-xl p-3',
+        };
+        const TARGET_GROUP_LABELS: Record<string, string> = {
+          Everyone: '🌐 Affects Everyone',
+          Self: '🎯 Affects Self',
+          Opponent: '⚔️ Affects Opponent',
+        };
         const handleRelicSelect = (item: HauntedItem) => {
           if (isMultiplayer && socket) {
             socket.emit('select_haunted_item', { itemId: item.id, itemName: item.name });
@@ -7662,6 +7708,55 @@ export default function Game() {
             setPhase('ready');
           }
         };
+        const handleRandomRelicSelect = () => {
+          const pick = HAUNTED_ITEMS[Math.floor(Math.random() * HAUNTED_ITEMS.length)];
+          handleRelicSelect(pick);
+        };
+
+        const relicGroups: Array<{ target: string; items: HauntedItem[] }> = [
+          { target: 'Everyone', items: HAUNTED_ITEMS.filter(i => i.target === 'Everyone') },
+          { target: 'Self', items: HAUNTED_ITEMS.filter(i => i.target === 'Self') },
+          { target: 'Opponent', items: HAUNTED_ITEMS.filter(i => i.target === 'Opponent') },
+        ];
+
+        const renderRelicCard = (item: HauntedItem) => (
+          <motion.button
+            key={item.id}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleRelicSelect(item)}
+            className="flex gap-4 p-4 rounded-xl border border-teal-500/20 bg-black/50 hover:border-teal-400/50 hover:bg-teal-950/20 transition-all text-left"
+            data-testid={`card-haunted-item-${item.id}`}
+          >
+            {/* Icon + number */}
+            <div className="flex-shrink-0 flex flex-col items-center gap-1 w-12">
+              <span className="text-3xl leading-none">{item.icon}</span>
+              <span className="text-[9px] text-zinc-600 font-mono">{item.number}</span>
+            </div>
+
+            {/* Card body */}
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-sm text-teal-100 leading-tight">{item.name}</span>
+                {item.voteType && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded border border-yellow-500/40 bg-yellow-900/20 text-yellow-400">⬆ VOTE</span>
+                )}
+                {item.botOnly && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-600/60 bg-zinc-800/60 text-zinc-400">🤖 BOT TARGET</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={`text-[9px] px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[item.category]}`}>{item.category}</span>
+                <span className={`text-[9px] font-medium ${TARGET_COLORS[item.target]}`}>→ {item.target}</span>
+              </div>
+              <p className="text-[10px] text-zinc-400 leading-snug line-clamp-2">{item.description}</p>
+              <p className="text-[10px] text-zinc-600 italic leading-tight">{item.flavour}</p>
+              {item.ghostNote && (
+                <p className="text-[10px] text-teal-500/60 leading-tight">👻 {item.ghostNote}</p>
+              )}
+            </div>
+          </motion.button>
+        );
 
         return (
           <motion.div
@@ -7674,46 +7769,26 @@ export default function Game() {
                 <Skull size={32} className="text-teal-400" /> RELIC SELECTION
               </h2>
               <p className="text-zinc-400 text-sm">Choose one relic to carry into the auction. Its curse travels with you.</p>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={handleRandomRelicSelect}
+                className="mt-3 px-5 py-2 rounded-lg border border-teal-500/40 bg-teal-950/30 text-teal-300 text-sm font-bold hover:bg-teal-900/50 hover:border-teal-400/60 transition-all"
+              >
+                🎲 Random Relic
+              </motion.button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {HAUNTED_ITEMS.map((item) => (
-                <motion.button
-                  key={item.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleRelicSelect(item)}
-                  className="flex gap-4 p-4 rounded-xl border border-teal-500/20 bg-black/50 hover:border-teal-400/50 hover:bg-teal-950/20 transition-all text-left"
-                  data-testid={`card-haunted-item-${item.id}`}
-                >
-                  {/* Icon + number */}
-                  <div className="flex-shrink-0 flex flex-col items-center gap-1 w-12">
-                    <span className="text-3xl leading-none">{item.icon}</span>
-                    <span className="text-[9px] text-zinc-600 font-mono">{item.number}</span>
+            <div className="space-y-5">
+              {relicGroups.map(group => group.items.length > 0 && (
+                <div key={group.target} className={TARGET_GROUP_STYLES[group.target]}>
+                  <div className={`text-xs font-bold uppercase tracking-widest mb-3 ${TARGET_COLORS[group.target]}`}>
+                    {TARGET_GROUP_LABELS[group.target]}
                   </div>
-
-                  {/* Card body */}
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-sm text-teal-100 leading-tight">{item.name}</span>
-                      {item.voteType && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded border border-yellow-500/40 bg-yellow-900/20 text-yellow-400">⬆ VOTE</span>
-                      )}
-                      {item.botOnly && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-600/60 bg-zinc-800/60 text-zinc-400">🤖 BOT TARGET</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[item.category]}`}>{item.category}</span>
-                      <span className={`text-[9px] font-medium ${TARGET_COLORS[item.target]}`}>→ {item.target}</span>
-                    </div>
-                    <p className="text-[10px] text-zinc-400 leading-snug line-clamp-2">{item.description}</p>
-                    <p className="text-[10px] text-zinc-600 italic leading-tight">{item.flavour}</p>
-                    {item.ghostNote && (
-                      <p className="text-[10px] text-teal-500/60 leading-tight">👻 {item.ghostNote}</p>
-                    )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {group.items.map(item => renderRelicCard(item))}
                   </div>
-                </motion.button>
+                </div>
               ))}
             </div>
 
@@ -7984,8 +8059,15 @@ export default function Game() {
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
                   <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
                   <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
-                  {purgatoryLeft !== undefined && (
-                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}</div>
+                  {purgatoryLeft !== undefined && ghostPlayer?.possessionTargetId && (
+                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''} (or when target is eliminated)</div>
+                  )}
+                  {purgatoryLeft !== undefined && !ghostPlayer?.possessionTargetId && (
+                    <div className="text-zinc-500 text-xs mt-1">
+                      {ghostPlayer?.ghostAbility === 'purgatory'
+                        ? `⌛ Returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`
+                        : `🔄 3-round fallback: returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`}
+                    </div>
                   )}
                 </div>
               )}
@@ -8323,8 +8405,15 @@ export default function Game() {
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
                   <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
                   <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
-                  {purgatoryLeft !== undefined && (
-                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}</div>
+                  {purgatoryLeft !== undefined && ghostPlayer?.possessionTargetId && (
+                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''} (or when target is eliminated)</div>
+                  )}
+                  {purgatoryLeft !== undefined && !ghostPlayer?.possessionTargetId && (
+                    <div className="text-zinc-500 text-xs mt-1">
+                      {ghostPlayer?.ghostAbility === 'purgatory'
+                        ? `⌛ Returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`
+                        : `🔄 3-round fallback: returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`}
+                    </div>
                   )}
                 </div>
               )}
@@ -8397,8 +8486,15 @@ export default function Game() {
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
                   <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
                   <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
-                  {purgatoryLeft !== undefined && (
-                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}</div>
+                  {purgatoryLeft !== undefined && ghostPlayer?.possessionTargetId && (
+                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''} (or when target is eliminated)</div>
+                  )}
+                  {purgatoryLeft !== undefined && !ghostPlayer?.possessionTargetId && (
+                    <div className="text-zinc-500 text-xs mt-1">
+                      {ghostPlayer?.ghostAbility === 'purgatory'
+                        ? `⌛ Returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`
+                        : `🔄 3-round fallback: returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`}
+                    </div>
                   )}
                 </div>
               )}
@@ -9723,6 +9819,24 @@ export default function Game() {
                         STATS HIDDEN IN COMPETITIVE MODE
                     </div>
                  )}
+
+                 {/* Haunted Mode: Show held relic info */}
+                 {variant === 'HAUNTED' && selectedPlayerStats?.selectedItem && (() => {
+                   const relicDef = HAUNTED_ITEMS.find(r => r.id === selectedPlayerStats.selectedItem);
+                   if (!relicDef) return null;
+                   return (
+                     <div className="bg-teal-950/30 p-3 rounded border border-teal-500/20">
+                       <h4 className="text-xs font-bold text-teal-300 mb-1 flex items-center gap-1">
+                         <span>{relicDef.icon}</span> RELIC — {relicDef.name}
+                         {selectedPlayerStats.relicConsumed && (
+                           <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded border border-zinc-600/50 bg-zinc-800/50 text-zinc-500">CONSUMED</span>
+                         )}
+                       </h4>
+                       <p className="text-[10px] text-zinc-400 leading-snug">{relicDef.description}</p>
+                       {relicDef.flavour && <p className="text-[10px] text-zinc-600 italic mt-1">{relicDef.flavour}</p>}
+                     </div>
+                   );
+                 })()}
             </div>
         </DialogContent>
       </Dialog>
