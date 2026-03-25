@@ -2160,6 +2160,17 @@ export default function Game() {
     };
   }, [phase, players]);
 
+  // Computed: true when player is a ghost (haunted SP) and all active non-ghost players are bots
+  // Used to speed up bot-only rounds (faster ready delays, shorter countdown, auto-advance round_end)
+  // NOTE: Must be declared before any useEffect that references it in a dependency array.
+  const isBotOnlyRound = useMemo(() => {
+    if (isMultiplayer || variant !== 'HAUNTED') return false;
+    const p1IsGhost = players.find(p => p.id === 'p1')?.isGhost ?? false;
+    if (!p1IsGhost) return false;
+    const nonGhostActive = players.filter(p => !p.isGhost && !p.isEliminated);
+    return nonGhostActive.length > 0 && nonGhostActive.every(p => p.isBot);
+  }, [players, isMultiplayer, variant]);
+
   // Simulate Bots Getting Ready
   useEffect(() => {
     if (phase === 'ready') {
@@ -2733,7 +2744,6 @@ export default function Game() {
       const ghostWins = ghostHold > aliveHold;
       setPlayers(prev => prev.map(p => {
         if (ghostWins && p.id === vendettaGhostId) return { ...p, isGhost: false, remainingTime: 30, ghostAbilityUsed: true };
-        if (!ghostWins && p.id === vendettaAliveId) return { ...p, remainingTime: Math.max(0, p.remainingTime * 0.75) };
         if (ghostWins && p.id === vendettaAliveId) return { ...p, remainingTime: Math.max(0, p.remainingTime * 0.75) };
         return p;
       }));
@@ -2754,6 +2764,13 @@ export default function Game() {
       ghostAbility: ability,
       characterIcon: GHOST_IMAGES[idx - 1],
     };
+  };
+
+  // Helper: build a ghost ability message for popups
+  const buildGhostAbilityMsg = (prefix: string, ghostAbility: GhostAbilityType): string => {
+    const abilityName = ghostAbility ? GHOST_ABILITY_NAMES[ghostAbility] : null;
+    const abilityDesc = ghostAbility ? GHOST_ABILITY_DESCS[ghostAbility] : null;
+    return abilityName ? `${prefix} Your ghost ability: ${abilityName} — ${abilityDesc}` : prefix;
   };
 
   // Helper: immediately fire a relic effect for the given player (SP only)
@@ -2786,7 +2803,8 @@ export default function Game() {
             activator.characterIcon = ghostData.characterIcon;
             activator.ghostImage = ghostData.ghostImage;
             activator.remainingTime = 0;
-            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 👻 GHOSTED!', 'The wheel chose the worst outcome. You are now a ghost.', 0), 200);
+            const jackpotGhostMsg = buildGhostAbilityMsg('The wheel chose the worst outcome. You are now a ghost.', ghostData.ghostAbility);
+            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 👻 GHOSTED!', jackpotGhostMsg, 0), 200);
           }
           break;
         }
@@ -3620,6 +3638,10 @@ export default function Game() {
                 target.characterIcon = ghostData.characterIcon;
                 target.ghostImage = ghostData.ghostImage;
                 target.remainingTime = 0;
+                if (target.id === 'p1') {
+                  const ghostMsg = buildGhostAbilityMsg(`${bot.name}'s Ghost Touch claimed you — you are now a ghost.`, ghostData.ghostAbility);
+                  setTimeout(() => addOverlay('time_out', '👻 GHOST TOUCH', ghostMsg, 0), 400);
+                }
               }
               break;
             }
@@ -3660,6 +3682,8 @@ export default function Game() {
             case 'seance': {
               const ghosts = next.filter(p => p.isGhost && !p.isEliminated);
               if (ghosts.length >= 2) {
+                const p1WasGhost = ghosts.some(g => g.id === 'p1');
+                let p1ReviveTime = 0;
                 ghosts.forEach(ghost => {
                   const reviveTime = Math.max(45, ghost.ghostTimeAtDeath ?? 0);
                   ghost.isGhost = false;
@@ -3669,8 +3693,12 @@ export default function Game() {
                   ghost.ghostAbilityUsed = false;
                   ghost.possessionTargetId = undefined;
                   ghost.possessionRoundsLeft = undefined;
+                  if (ghost.id === 'p1') p1ReviveTime = reviveTime;
                 });
                 bot.tokens += 1;
+                if (p1WasGhost) {
+                  setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE REVIVAL', `A bot used Séance — you've been revived with ${p1ReviveTime.toFixed(1)}s!`, 4000), 400);
+                }
               } else {
                 // Not enough ghosts — return relic
                 bot.relicConsumed = false;
@@ -4528,11 +4556,10 @@ export default function Game() {
     const p1IsGhostNow = finalPlayers.find(p => p.id === 'p1')?.isGhost;
     if (variant === 'HAUNTED' && !p1WasAlreadyGhost && p1IsGhostNow) {
       const p1Ghost = finalPlayers.find(p => p.id === 'p1');
-      const abilityName = p1Ghost?.ghostAbility ? GHOST_ABILITY_NAMES[p1Ghost.ghostAbility] : null;
-      const abilityDesc = p1Ghost?.ghostAbility ? GHOST_ABILITY_DESCS[p1Ghost.ghostAbility] : null;
-      const ghostMsg = abilityName
-        ? `You became a ghost. Your ghost ability: ${abilityName} — ${abilityDesc}`
-        : 'You ran out of time and became a ghost. You can no longer win — but the haunting continues.';
+      const ghostMsg = buildGhostAbilityMsg(
+        'You ran out of time and became a ghost. You can no longer win — but the haunting continues.',
+        p1Ghost?.ghostAbility ?? null
+      );
       setTimeout(() => addOverlay('time_out', '👻 GHOSTED', ghostMsg, 0), 800);
     }
 
@@ -4808,6 +4835,11 @@ export default function Game() {
           p.remainingTime = 0;
           p.markedBy = undefined;
           setTimeout(() => addOverlay('protocol_alert', '👁️ MARK TRIGGERED', `${p.name} won — and was immediately ghosted by the mark!`, 0), 800);
+          // Notify p1 of their new ghost ability when ghosted by mark
+          if (p.id === 'p1') {
+            const ghostMsg = buildGhostAbilityMsg('You won but the Mark ghosted you into the spirit world.', p.ghostAbility ?? null);
+            setTimeout(() => addOverlay('time_out', '👻 GHOSTED', ghostMsg, 0), 1400);
+          }
           // 50% chance the marker is also ghosted
           if (marker && !marker.isGhost && !marker.isEliminated && Math.random() < 0.5) {
             const markerGhost = assignGhostImage();
@@ -4820,6 +4852,11 @@ export default function Game() {
             marker.ghostImage = markerGhost.ghostImage;
             marker.remainingTime = 0;
             setTimeout(() => addOverlay('protocol_alert', '👁️ MARK BACKLASH', `The mark also claimed ${marker.name}!`, 0), 1400);
+            // Notify p1 if the backlash ghosted them (p1 was the marker)
+            if (marker.id === 'p1') {
+              const mGhostMsg = buildGhostAbilityMsg('The Mark backlash claimed you — you are now a ghost.', markerGhost.ghostAbility);
+              setTimeout(() => addOverlay('time_out', '👻 MARK BACKLASH', mGhostMsg, 0), 2000);
+            }
           }
         }
 
@@ -6087,16 +6124,6 @@ export default function Game() {
     ? (myMultiplayerPlayer?.isGhost ?? false)
     : (players.find(p => p.id === 'p1')?.isGhost ?? false);
 
-  // Computed: true when player is a ghost (haunted SP) and all active non-ghost players are bots
-  // Used to speed up bot-only rounds (faster ready delays, shorter countdown, auto-advance round_end)
-  const isBotOnlyRound = useMemo(() => {
-    if (isMultiplayer || variant !== 'HAUNTED') return false;
-    const p1IsGhost = players.find(p => p.id === 'p1')?.isGhost ?? false;
-    if (!p1IsGhost) return false;
-    const nonGhostActive = players.filter(p => !p.isGhost && !p.isEliminated);
-    return nonGhostActive.length > 0 && nonGhostActive.every(p => p.isBot);
-  }, [players, isMultiplayer, variant]);
-
   // Now define playerIsReady and playerBid AFTER currentPlayerIsHolding is defined
   const playerIsReady = isMultiplayer 
     ? currentPlayerIsHolding 
@@ -6754,7 +6781,7 @@ export default function Game() {
               {/* Row 2: Reality Modes */}
               <div className={cn("flex flex-col items-center gap-2", currentLobby && "opacity-50 pointer-events-none")}>
                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">REALITY MODES</h3>
-                 <div className="flex items-center justify-center gap-2">
+                 <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
                     <button
                       onClick={() => setVariant('STANDARD')}
                       disabled={!!currentLobby}
