@@ -662,12 +662,12 @@ export async function registerRoutes(
       sidePotHigh: boolean | null;
     }, callback?) => {
       const lobbyCode = playerToLobby.get(socket.id);
-      if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in lobby" }); return; }
+      if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in lobby" }); return; }
       const game = getGameState(lobbyCode);
-      if (!game) { if (callback) callback?.({ success: false, error: "No game" }); return; }
-      if (game.phase !== 'wager_phase') { if (callback) callback?.({ success: false, error: "Not in wager phase" }); return; }
+      if (!game) { if (callback) callback({ success: false, error: "No game" }); return; }
+      if (game.phase !== 'wager_phase') { if (callback) callback({ success: false, error: "Not in wager phase" }); return; }
       const player = game.players.find(p => p.socketId === socket.id);
-      if (!player) { if (callback) callback?.({ success: false, error: "Player not found" }); return; }
+      if (!player) { if (callback) callback({ success: false, error: "Player not found" }); return; }
 
       const maxWager = Math.round(player.remainingTime * 0.75 * 10) / 10;
       const clampedAmount = Math.min(maxWager, Math.max(0, data.amount));
@@ -685,7 +685,7 @@ export async function registerRoutes(
       player.sidePotWagerHigh = data.sidePotHigh ?? undefined;
 
       broadcastGameState(lobbyCode);
-      if (callback) callback?.({ success: true });
+      if (callback) callback({ success: true });
     });
 
     // Haunted mode: player selects a haunted item/relic

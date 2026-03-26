@@ -4624,7 +4624,7 @@ export default function Game() {
 
         // Check underdog bonus: did target have lowest time bank?
         const activeFinalPlayers = finalPlayers.filter(fp => !fp.isEliminated && !fp.isGhost);
-        const minTime = Math.min(...activeFinalPlayers.map(fp => fp.remainingTime));
+        const minTime = activeFinalPlayers.length > 0 ? Math.min(...activeFinalPlayers.map(fp => fp.remainingTime)) : 0;
         const targetRemainingTime = finalPlayers.find(fp => fp.id === p.wagerTargetId)?.remainingTime ?? 999;
         const targetIsUnderdog = targetWon && targetRemainingTime <= minTime;
 
@@ -4636,7 +4636,7 @@ export default function Game() {
         }
 
         // Side pot: did the winning bid exceed SIDE_POT_THRESHOLD?
-        const sidePotWon = winnerTime >= SIDE_POT_THRESHOLD ? (p.sidePotWagerHigh === true) : (p.sidePotWagerHigh === false);
+        const sidePotWon = (winnerTime >= SIDE_POT_THRESHOLD) === (p.sidePotWagerHigh === true);
         const sidePotDelta = sidePotWon ? 3 : -1;
 
         wagerAdjustments.push({ id: p.id, delta: reward + (p.sidePotWagerHigh !== undefined ? sidePotDelta : 0) });
@@ -6112,7 +6112,7 @@ export default function Game() {
             default: percent = 25;
           }
           percent = Math.min(75, percent);
-          const amount = Math.floor((p.remainingTime * percent) / 100 * 10) / 10;
+          const amount = Math.round((p.remainingTime * percent) / 100 * 10) / 10;
           const isDoubleDown = prevRoundWinnerId !== null && Math.random() < 0.2; // 20% chance bots go double-or-nothing
           const finalTarget = (isDoubleDown && prevRoundWinnerId) ? prevRoundWinnerId : target.id;
           return {

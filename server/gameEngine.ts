@@ -2881,7 +2881,8 @@ function resolveWagers(game: GameState, winnerId: string | null, winnerBid: numb
     const targetWon = p.wagerTargetId === winnerId;
     const startBanks = game.roundStartTimeBanks || {};
     const targetStartTime = startBanks[p.wagerTargetId] ?? 9999;
-    const minStartTime = Math.min(...Object.values(startBanks).filter((t): t is number => typeof t === 'number'));
+    const startBankValues = Object.values(startBanks).filter((t): t is number => typeof t === 'number');
+    const minStartTime = startBankValues.length > 0 ? Math.min(...startBankValues) : 0;
     const targetIsUnderdog = targetWon && targetStartTime <= minStartTime;
 
     let timeDelta = 0;
@@ -2892,8 +2893,8 @@ function resolveWagers(game: GameState, winnerId: string | null, winnerBid: numb
       timeDelta = -p.wagerAmount;
     }
 
-    // Side pot
-    const sidePotWon = winnerBid >= SIDE_POT_THRESHOLD ? (p.sidePotWagerHigh === true) : (p.sidePotWagerHigh === false);
+    // Side pot: did the winning bid exceed the threshold?
+    const sidePotWon = (winnerBid >= SIDE_POT_THRESHOLD) === (p.sidePotWagerHigh === true);
     const sidePotDelta = p.sidePotWagerHigh !== undefined ? (sidePotWon ? 3 : -1) : 0;
     const totalDelta = timeDelta + sidePotDelta;
 
