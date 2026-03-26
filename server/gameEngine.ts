@@ -39,8 +39,7 @@ const SOCIAL_DRIVER_IDS = [
 const BIO_DRIVER_IDS = [
   'tank', 'danger_zone'
 ];
-// Wager mode uses same drivers as standard
-const WAGER_DRIVER_IDS = [...STANDARD_DRIVER_IDS];
+// Wager mode uses same drivers as standard (no separate ID list needed)
 
 // Driver ID to display name mapping (matches client-side character names)
 const DRIVER_NAMES: Record<string, string> = {
@@ -172,6 +171,7 @@ export interface GamePlayer {
   isDoubleDown?: boolean;          // WAGER: double-or-nothing toggle
   wagerResolved?: boolean;         // WAGER: has this round's wager been resolved?
   wagerWon?: boolean;              // WAGER: outcome of last wager (true=won, false=lost)
+  wagerReward?: number;            // WAGER: actual time delta from wager (positive=gain, negative=loss)
   wagerReviving?: boolean;         // WAGER: ghost player wagering trophies for revival
   ghostTrophies?: number;          // WAGER: trophies available for ghost wagers
   sidePotWagerHigh?: boolean;      // WAGER: side pot - predict winning bid exceeds threshold
@@ -2827,8 +2827,20 @@ function startWagerPhase(lobbyCode: string) {
     game.roundStartTimeBanks![p.id] = p.remainingTime;
   });
 
-  // Assign bot wagers
+  // Assign bot wagers (reset all player wager fields first)
   const activePlayers = game.players.filter(p => !p.isEliminated && !p.isGhost);
+  // Clear previous-round wager state from all players
+  game.players.forEach(p => {
+    p.wagerTargetId = undefined;
+    p.wagerPercent = undefined;
+    p.wagerAmount = undefined;
+    p.isDoubleDown = undefined;
+    p.wagerResolved = false;
+    p.wagerWon = undefined;
+    p.wagerReward = undefined;
+    p.sidePotWagerHigh = undefined;
+    p.sidePotWon = undefined;
+  });
   activePlayers.forEach(bot => {
     if (!bot.isBot) return;
     const opponents = activePlayers.filter(op => op.id !== bot.id);
@@ -2914,6 +2926,7 @@ function resolveWagers(game: GameState, winnerId: string | null, winnerBid: numb
 
     p.wagerResolved = true;
     p.wagerWon = targetWon;
+    p.wagerReward = timeDelta;
     p.sidePotWon = sidePotDelta > 0 ? true : (sidePotDelta < 0 ? false : undefined);
 
     addGameLogEntry(game, {

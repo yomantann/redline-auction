@@ -369,6 +369,7 @@ interface Player {
   isDoubleDown?: boolean;          // WAGER: double-or-nothing toggle
   wagerResolved?: boolean;         // WAGER: has this round's wager been resolved?
   wagerWon?: boolean;              // WAGER: outcome of last wager (true=won, false=lost)
+  wagerReward?: number;            // WAGER: actual time delta from wager (positive=gain, negative=loss)
   wagerReviving?: boolean;         // WAGER: ghost player wagering trophies for revival
   ghostTrophies?: number;          // WAGER: trophies available for ghost wagers
   sidePotWagerHigh?: boolean;      // WAGER: side pot - predict winning bid exceeds threshold
@@ -1027,6 +1028,8 @@ export default function Game() {
     sidePotHigh: boolean;
   }>({ targetId: null, percent: 25, amount: 0, isDoubleDown: false, sidePotHigh: false });
   const [prevRoundWinnerId, setPrevRoundWinnerId] = useState<string | null>(null);
+  // Snapshot of time banks at the start of each wager phase (for underdog bonus)
+  const roundStartTimeBanksRef = useRef<Record<string, number>>({});
   const [wagerRoundResults, setWagerRoundResults] = useState<Array<{
     playerId: string;
     playerName: string;
@@ -1655,6 +1658,8 @@ export default function Game() {
           const msLeft = deadline ? Math.max(0, deadline - Date.now()) : 10000;
           setWagerPhaseTimeLeft(Math.ceil(msLeft / 1000));
           setPlayerWager({ targetId: null, percent: 25, amount: 0, isDoubleDown: false, sidePotHigh: false });
+          // Sync previous round winner for double-or-nothing feature
+          setPrevRoundWinnerId((state as any).previousRoundWinnerId ?? null);
           setPhase('wager_phase');
         } else if (state.phase === 'waiting_for_ready') {
           // In Haunted mode, check if player's item was already selected; if not, go to item select
@@ -1680,6 +1685,27 @@ export default function Game() {
           setPhase('round_end');
           if (state.roundWinner) {
             setRoundWinner({ name: state.roundWinner.name, time: state.roundWinner.bid });
+          }
+          // Populate wager results for WAGER mode from server player states
+          if (state.settings?.variant === 'WAGER') {
+            const results = state.players
+              .filter((p: any) => p.wagerResolved && p.wagerAmount > 0 && p.wagerTargetId)
+              .map((p: any) => {
+                const targetPlayer = state.players.find((op: any) => op.id === p.wagerTargetId);
+                return {
+                  playerId: p.id,
+                  playerName: p.name,
+                  targetId: p.wagerTargetId,
+                  targetName: targetPlayer?.name ?? null,
+                  wagerAmount: p.wagerAmount,
+                  isDoubleDown: p.isDoubleDown ?? false,
+                  sidePotHigh: p.sidePotWagerHigh ?? false,
+                  won: p.wagerWon ?? false,
+                  reward: p.wagerReward ?? (p.wagerWon ? p.wagerAmount * 1.5 : -p.wagerAmount),
+                  sidePotWon: p.sidePotWon ?? null,
+                };
+              });
+            setWagerRoundResults(results);
           }
         } else if (state.phase === 'game_over') {
           setPhase('game_end');
@@ -4622,11 +4648,13 @@ export default function Game() {
         const targetWon = p.wagerTargetId === winnerId;
         let reward = 0;
 
-        // Check underdog bonus: did target have lowest time bank?
-        const activeFinalPlayers = finalPlayers.filter(fp => !fp.isEliminated && !fp.isGhost);
-        const minTime = activeFinalPlayers.length > 0 ? Math.min(...activeFinalPlayers.map(fp => fp.remainingTime)) : 0;
-        const targetRemainingTime = finalPlayers.find(fp => fp.id === p.wagerTargetId)?.remainingTime ?? 999;
-        const targetIsUnderdog = targetWon && targetRemainingTime <= minTime;
+        // Check underdog bonus: did target have lowest time bank at START of round?
+        // Use roundStartTimeBanks snapshot (captured at wager phase start), matching server behavior.
+        const startBanks = roundStartTimeBanksRef.current;
+        const startBankValues = Object.values(startBanks).filter((t): t is number => typeof t === 'number');
+        const minStartTime = startBankValues.length > 0 ? Math.min(...startBankValues) : 0;
+        const targetStartTime = startBanks[p.wagerTargetId] ?? 999;
+        const targetIsUnderdog = targetWon && targetStartTime <= minStartTime;
 
         if (targetWon) {
           const multiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
@@ -4675,6 +4703,7 @@ export default function Game() {
             isGhost: revived ? false : p.isGhost,
             wagerResolved: true,
             wagerWon: newWagerResults.find(r => r.playerId === p.id)?.won ?? undefined,
+            wagerReward: newWagerResults.find(r => r.playerId === p.id)?.reward ?? undefined,
           };
         }));
       }
@@ -6048,6 +6077,7 @@ export default function Game() {
         // In wager mode, show wager phase before ready
         setPlayerWager({ targetId: null, percent: 25, amount: 0, isDoubleDown: false, sidePotHigh: false });
         setWagerPhaseTimeLeft(10);
+        setWagerRoundResults([]); // Clear previous round's wager results
         setPhase('wager_phase');
       } else {
         setPhase('ready');
@@ -6057,7 +6087,19 @@ export default function Game() {
           isHolding: false, 
           currentBid: null, 
           roundImpact: undefined,
-          impactLogs: undefined // Clear logs for next round
+          impactLogs: undefined, // Clear logs for next round
+          // Reset wager fields so stale data doesn't linger between rounds
+          ...(variant === 'WAGER' ? {
+            wagerTargetId: undefined,
+            wagerPercent: undefined,
+            wagerAmount: undefined,
+            isDoubleDown: undefined,
+            wagerResolved: false,
+            wagerWon: undefined,
+            wagerReward: undefined,
+            sidePotWagerHigh: undefined,
+            sidePotWon: undefined,
+          } : {}),
       }))); 
       setReadyHoldTime(0);
       setPlayerAbilityUsed(false); // Reset ability usage
@@ -6090,9 +6132,14 @@ export default function Game() {
     // In multiplayer, time is set from server state; just run local countdown display
     if (!isMultiplayer) {
       setWagerPhaseTimeLeft(10);
+      // Snapshot time banks at round start for underdog bonus calculation (mirrors server roundStartTimeBanks)
       // Auto-assign bot wagers
       setPlayers(prev => {
         const allActive = prev.filter(p => !p.isEliminated && !p.isGhost);
+        // Capture time banks before bids for underdog detection
+        const snapshot: Record<string, number> = {};
+        allActive.forEach(p => { snapshot[p.id] = p.remainingTime; });
+        roundStartTimeBanksRef.current = snapshot;
         return prev.map(p => {
           if (!p.isBot) return p;
           if (p.isEliminated || p.isGhost) return p;
