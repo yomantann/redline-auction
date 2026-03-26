@@ -3898,7 +3898,7 @@ export default function Game() {
     const minBidTime = getTimerStart();
     setCurrentTime(minBidTime);
     // When only bots remain active (ghost spectator mode), use a shorter countdown
-    setCountdown(isBotOnlyRound ? 1 : COUNTDOWN_SECONDS);
+    setCountdown(isBotOnlyRound ? 3 : COUNTDOWN_SECONDS);
     setPhase('countdown');
     overLimitToastShownRef.current = false; // Reset over-limit flag
   };
