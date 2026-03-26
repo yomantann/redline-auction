@@ -4606,7 +4606,7 @@ export default function Game() {
 
     // WAGER MODE: resolve wagers
     if (variant === 'WAGER' && winnerId) {
-      const sidePotThreshold = 20; // seconds - "winning bid exceeds X seconds?"
+      const SIDE_POT_THRESHOLD = 20; // seconds - "winning bid exceeds X seconds?"
       const newWagerResults: typeof wagerRoundResults = [];
       const wagerAdjustments: { id: string; delta: number }[] = [];
 
@@ -4615,10 +4615,11 @@ export default function Game() {
         const targetWon = p.wagerTargetId === winnerId;
         let reward = 0;
 
-        // Check underdog bonus: did target have lowest time bank at round start?
-        const minTime = Math.min(...finalPlayers.filter(fp => !fp.isEliminated && !fp.isGhost).map(fp => (fp as any).wagerRoundStartTime ?? fp.remainingTime));
-        const targetIsUnderdog = targetWon &&
-          ((finalPlayers.find(fp => fp.id === p.wagerTargetId) as any)?.wagerRoundStartTime ?? finalPlayers.find(fp => fp.id === p.wagerTargetId)?.remainingTime ?? 999) <= minTime;
+        // Check underdog bonus: did target have lowest time bank?
+        const activeFinalPlayers = finalPlayers.filter(fp => !fp.isEliminated && !fp.isGhost);
+        const minTime = Math.min(...activeFinalPlayers.map(fp => fp.remainingTime));
+        const targetRemainingTime = finalPlayers.find(fp => fp.id === p.wagerTargetId)?.remainingTime ?? 999;
+        const targetIsUnderdog = targetWon && targetRemainingTime <= minTime;
 
         if (targetWon) {
           const multiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
@@ -4627,8 +4628,8 @@ export default function Game() {
           reward = -p.wagerAmount;
         }
 
-        // Side pot: did the winning bid exceed sidePotThreshold?
-        const sidePotWon = winnerTime >= sidePotThreshold ? (p.sidePotWagerHigh === true) : (p.sidePotWagerHigh === false);
+        // Side pot: did the winning bid exceed SIDE_POT_THRESHOLD?
+        const sidePotWon = winnerTime >= SIDE_POT_THRESHOLD ? (p.sidePotWagerHigh === true) : (p.sidePotWagerHigh === false);
         const sidePotDelta = sidePotWon ? 3 : -1;
 
         wagerAdjustments.push({ id: p.id, delta: reward + (p.sidePotWagerHigh !== undefined ? sidePotDelta : 0) });
@@ -6103,7 +6104,7 @@ export default function Game() {
         }
         percent = Math.min(75, percent);
         const amount = Math.floor((p.remainingTime * percent) / 100 * 10) / 10;
-        const isDoubleDown = prevRoundWinnerId !== null && Math.random() < 0.2;
+        const isDoubleDown = prevRoundWinnerId !== null && Math.random() < 0.2; // 20% chance bots go double-or-nothing
         const finalTarget = (isDoubleDown && prevRoundWinnerId) ? prevRoundWinnerId : target.id;
         return {
           ...p,
@@ -7897,6 +7898,7 @@ export default function Game() {
         const p1 = players.find(p => p.id === 'p1');
         const maxWager = p1 ? Math.floor(p1.remainingTime * 0.75 * 10) / 10 : 0;
         const prevWinner = prevRoundWinnerId ? players.find(p => p.id === prevRoundWinnerId) : null;
+        const currentWagerAmount = Math.round((p1?.remainingTime ?? 0) * playerWager.percent / 100 * 10) / 10;
 
         const handleWagerConfirm = () => {
           setPlayers(prev => prev.map(p => {
@@ -8007,7 +8009,7 @@ export default function Game() {
                   className="flex-1 accent-yellow-400"
                 />
                 <div className="text-xl font-mono font-bold text-yellow-400 w-24 text-right">
-                  {playerWager.percent}% <span className="text-sm text-zinc-500">({Math.round((p1?.remainingTime ?? 0) * playerWager.percent / 100 * 10) / 10}s)</span>
+                  {playerWager.percent}% <span className="text-sm text-zinc-500">({currentWagerAmount}s)</span>
                 </div>
               </div>
               <div className="text-xs text-zinc-600">
