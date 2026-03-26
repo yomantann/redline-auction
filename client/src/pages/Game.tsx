@@ -1503,6 +1503,21 @@ export default function Game() {
 
     const handleGameState = (state: typeof multiplayerGameState) => {
       console.log('[Game] State update:', state?.phase, 'Round:', state?.round);
+
+      // MP revival detection: notify p1 if they just transitioned from ghost → alive
+      if (state && socket) {
+        const prev = prevMpPlayersRef.current;
+        const myPlayer = state.players.find((p: any) => p.socketId === socket.id);
+        if (myPlayer) {
+          const prevMe = prev.find((p: any) => p.id === myPlayer.id);
+          if (prevMe && prevMe.isGhost && !(myPlayer as any).isGhost && !(myPlayer as any).isEliminated) {
+            const reviveTime = ((myPlayer as any).remainingTime ?? 0).toFixed(1);
+            addOverlay('ability_trigger', '🔄 REVIVED', `You have been revived with ${reviveTime}s!`, 0);
+          }
+        }
+        prevMpPlayersRef.current = state.players as any[];
+      }
+
       setMultiplayerGameState(state);
       
       // Sync phase with server state for multiplayer
@@ -1682,8 +1697,11 @@ export default function Game() {
         resolved: true,
         winnerLabel: data.winnerLabel,
       });
-      // Auto-dismiss after 5s
-      setTimeout(() => setVoteRelicState(null), 5000);
+    };
+
+    const handleRelicBroadcast = (data: { title: string; message: string; victimId?: string }) => {
+      // Show a broadcast overlay for relic activations visible to all players
+      addOverlay('ability_trigger', data.title, data.message, 0);
     };
 
     socket.on('lobby_update', handleLobbyUpdate);
@@ -1694,6 +1712,7 @@ export default function Game() {
     socket.on('protocol_reveal', handleProtocolReveal);
     socket.on('bonus_trophy_award', handleBonusTrophyAward);
     socket.on('vote_relic_resolved', handleVoteRelicResolved);
+    socket.on('relic_broadcast', handleRelicBroadcast);
 
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
@@ -1704,6 +1723,7 @@ export default function Game() {
       socket.off('protocol_reveal', handleProtocolReveal);
       socket.off('bonus_trophy_award', handleBonusTrophyAward);
       socket.off('vote_relic_resolved', handleVoteRelicResolved);
+      socket.off('relic_broadcast', handleRelicBroadcast);
     };
   }, [socket]);
 
@@ -1769,6 +1789,7 @@ export default function Game() {
   const redemptionShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_REDEMPTION has been shown
   const nailInCoffinShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_NAIL_IN_THE_COFFIN has been shown
   const bonusTrophiesAwardedRef = useRef<boolean>(false); // MP: prevent bonus trophy overlays from showing more than once per game
+  const prevMpPlayersRef = useRef<any[]>([]); // MP: track previous player states for revival detection
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -2833,7 +2854,11 @@ export default function Game() {
           if (victims.length > 0) {
             const victim = victims[Math.floor(Math.random() * victims.length)];
             victim.tokens = Math.max(0, victim.tokens - 1);
-            setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `${victim.name} loses 1 trophy. The lamb is chosen. Not by you.`, 0), 200);
+            if (victim.id === 'p1') {
+              setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `You are the chosen lamb — you lose 1 trophy!`, 0), 200);
+            } else {
+              setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `${victim.name} loses 1 trophy. The lamb is chosen. Not by you.`, 0), 200);
+            }
           }
           break;
         }
@@ -3054,14 +3079,11 @@ export default function Game() {
           const minTok = sorted2[0].tokens;
           const bottom2Ids = new Set(sorted2.filter(p => p.tokens === minTok).slice(0, 2).map(p => p.id));
           if (bottom2Ids.size < 2) bottom2Ids.add(sorted2[1].id);
-          return prev.map(p => bottom2Ids.has(p.id) ? { ...p, tokens: Math.max(0, p.tokens - 1) } : p);
+          return prev.map(p => bottom2Ids.has(p.id) ? { ...p, tokens: p.tokens - 1 } : p);
         });
         setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', 'Bottom 2 players each lose 1 trophy!', 0), 200);
       }
     }
-
-    // Auto-dismiss result after 5s
-    setTimeout(() => setVoteRelicState(null), 5000);
   };
 
   const handlePress = () => {
@@ -3648,7 +3670,12 @@ export default function Game() {
             case 'sacrificial_lamb': {
               const victims = alive.filter(p => p.tokens > 0);
               const victim = pickRandom(victims);
-              if (victim) victim.tokens = Math.max(0, victim.tokens - 1);
+              if (victim) {
+                victim.tokens = Math.max(0, victim.tokens - 1);
+                if (victim.id === 'p1') {
+                  setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `You are the chosen lamb — you lose 1 trophy!`, 0), 200);
+                }
+              }
               break;
             }
             case 'wild_card': {
@@ -3786,7 +3813,7 @@ export default function Game() {
                 const minTok = sorted[0]?.tokens;
                 const bottom2 = sorted.filter(p => p.tokens === minTok).slice(0, 2);
                 if (bottom2.length < 2 && sorted[1]) bottom2.push(sorted[1]);
-                bottom2.slice(0, 2).forEach(p => { p.tokens = Math.max(0, p.tokens - 1); });
+                bottom2.slice(0, 2).forEach(p => { p.tokens = p.tokens - 1; });
               }
               break;
             }
@@ -4657,8 +4684,8 @@ export default function Game() {
             setBargainOffer(1);
             setBargainTimeLeft(30);
             ghost.ghostAbilityUsed = true;
-            // For bots: auto-resolve after random time
-            if (ghost.isBot) {
+            // For bots: auto-resolve after random time (unless targeting p1 who gets to respond)
+            if (ghost.isBot && target.id !== 'p1') {
               // Bot ghost randomly decides offer (random trophies for time)
               const botOffer = Math.min(ghost.tokens, Math.floor(Math.random() * 3) + 1);
               const targetPlayer = finalPlayers.find(fp => fp.id === target.id);
@@ -4676,6 +4703,7 @@ export default function Game() {
                 }
               }
             } else {
+              // p1 is ghost OR bot ghost targeting p1 — show bargain UI
               // 3-round fallback revival in case bargain doesn't revive
               ghost.possessionRoundsLeft = 3;
               setPlayers([...finalPlayers]);
@@ -8394,11 +8422,12 @@ export default function Game() {
 
           {/* Vote Relic result overlay */}
           {voteRelicState?.resolved && voteRelicState.winnerLabel && (
-            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 pointer-events-none">
+            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
               <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full text-center space-y-3">
                 <h3 className="text-lg font-bold text-teal-300">VOTE RESULT</h3>
                 <p className="text-zinc-200 text-sm font-semibold">{voteRelicState.winnerLabel}</p>
                 <p className="text-zinc-500 text-xs">Effect applied!</p>
+                <button onClick={() => setVoteRelicState(null)} className="mt-2 px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition-colors">Dismiss</button>
               </div>
             </div>
           )}

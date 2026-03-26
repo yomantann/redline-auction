@@ -3076,8 +3076,7 @@ function startWaitingForReady(lobbyCode: string) {
             const bottom2 = sortedD.filter(p => p.tokens === minTok).slice(0, 2);
             if (bottom2.length < 2 && sortedD[1]) bottom2.push(sortedD[1]);
             bottom2.slice(0, 2).forEach(p => {
-              p.tokens = Math.max(0, p.tokens - 1);
-              addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} CONCLAVE (bot) D: -1 trophy`, value: -1, basic: true });
+              p.tokens = p.tokens - 1;
             });
           }
           break;
@@ -3832,6 +3831,7 @@ export function activateRelicMP(
         const victim = alive[Math.floor(Math.random() * alive.length)];
         victim.tokens = Math.max(0, victim.tokens - 1);
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} SACRIFICIAL LAMB: ${victim.name} loses 1 trophy`, value: -1, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🐑 SACRIFICIAL LAMB', message: `${activator.name} used Sacrificial Lamb — ${victim.name} loses 1 trophy!`, victimId: victim.id });
       }
       break;
     }
@@ -3850,6 +3850,7 @@ export function activateRelicMP(
         } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
         alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} WILD CARD: all time banks redistributed!`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🌀 WILD CARD', message: `${activator.name} used Wild Card — all time banks redistributed!` });
       }
       break;
     }
@@ -3911,6 +3912,7 @@ export function activateRelicMP(
     case 'blood_pact': {
       activator.bloodPactActive = true;
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} BLOOD PACT: all losers also pay the winner's bid time`, basic: true });
+      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🩸 BLOOD PACT', message: `${activator.name} activated Blood Pact — all non-winners will pay the winner's bid time this round!` });
       break;
     }
     case 'cursed_dice': {
@@ -3943,6 +3945,7 @@ export function activateRelicMP(
       });
       activator.tokens += 1;
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} SÉANCE: ${ghosts.length} ghost(s) revived! +1 trophy`, value: 1, basic: true });
+      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🕯️ SÉANCE', message: `${activator.name} performed a Séance — ${ghosts.length} ghost(s) revived!` });
       break;
     }
     case 'protocol_forcer': {
@@ -4119,7 +4122,7 @@ function resolveVoteRelic(lobbyCode: string) {
           if (bottom2.length < 2) bottom2.push(sorted2[1]);
           const targetSet = new Set(bottom2.slice(0, 2).map(p => p.id));
           game.players.filter(p => targetSet.has(p.id)).forEach(p => {
-            p.tokens = Math.max(0, p.tokens - 1);
+            p.tokens = p.tokens - 1;
             addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} CONCLAVE D: -1 trophy (bottom 2)`, value: -1, basic: true });
           });
         }
