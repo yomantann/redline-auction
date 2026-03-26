@@ -2833,7 +2833,7 @@ export default function Game() {
           if (victims.length > 0) {
             const victim = victims[Math.floor(Math.random() * victims.length)];
             victim.tokens = Math.max(0, victim.tokens - 1);
-            setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `${victim.name} loses 1 trophy. The lamb is chosen. Not by you.`, 3000), 200);
+            setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `${victim.name} loses 1 trophy. The lamb is chosen. Not by you.`, 0), 200);
           }
           break;
         }
@@ -2851,7 +2851,7 @@ export default function Game() {
               attempts++;
             } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
             alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
-            setTimeout(() => addOverlay('ability_trigger', '🌀 WILD CARD', "All time banks redistributed! Nobody gets their own.", 3000), 200);
+            setTimeout(() => addOverlay('ability_trigger', '🌀 WILD CARD', "All time banks redistributed! Nobody gets their own.", 0), 200);
           }
           break;
         }
@@ -2912,7 +2912,7 @@ export default function Game() {
         }
         case 'blood_pact': {
           activator.bloodPactActive = true;
-          setTimeout(() => addOverlay('ability_trigger', '🩸 BLOOD PACT', "If anyone wins this round, all non-winners also lose the winner's bid time.", 3000), 200);
+          setTimeout(() => addOverlay('ability_trigger', '🩸 BLOOD PACT', "If anyone wins this round, all non-winners also lose the winner's bid time.", 0), 200);
           break;
         }
         case 'cursed_dice': {
@@ -2938,7 +2938,7 @@ export default function Game() {
             ghost.possessionRoundsLeft = undefined;
           });
           activator.tokens += 1;
-          setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE', `${ghosts.length} ghost(s) revived! You gain +1 trophy.`, 4000), 200);
+          setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE', `${ghosts.length} ghost(s) revived! You gain +1 trophy.`, 0), 200);
           break;
         }
         case 'final_writ': {
@@ -3034,18 +3034,18 @@ export default function Game() {
         if (winner.id === 'B') return { ...p, tribunalMinBid: 30 };
         return p;
       }));
-      setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -15s next round.` : `${vs.targetName} must bid ≥30s next round.`, 4000), 200);
+      setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -15s next round.` : `${vs.targetName} must bid ≥30s next round.`, 0), 200);
     } else if (vs.relicId === 'conclave') {
       if (winner.id === 'A') {
         setPlayers(prev => prev.map(p => (!p.isEliminated && !p.isGhost) ? { ...p, remainingTime: Math.floor(p.remainingTime / 2 * 10) / 10 } : p));
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE A', 'All time banks halved!', 4000), 200);
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE A', 'All time banks halved!', 0), 200);
       } else if (winner.id === 'B') {
         // Mark skip-next-round on local state; handled in startCountdown
         (window as any).__conclaveSkipNextRound = true;
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE B', 'Next round will be skipped as a tie!', 4000), 200);
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE B', 'Next round will be skipped as a tie!', 0), 200);
       } else if (winner.id === 'C') {
         (window as any).__conclaveProtocolsAlwaysOn = true;
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE C', '100% protocols for the rest of the game!', 4000), 200);
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE C', '100% protocols for the rest of the game!', 0), 200);
       } else if (winner.id === 'D') {
         setPlayers(prev => {
           const alive = prev.filter(p => !p.isEliminated && !p.isGhost);
@@ -3056,7 +3056,7 @@ export default function Game() {
           if (bottom2Ids.size < 2) bottom2Ids.add(sorted2[1].id);
           return prev.map(p => bottom2Ids.has(p.id) ? { ...p, tokens: Math.max(0, p.tokens - 1) } : p);
         });
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', 'Bottom 2 players each lose 1 trophy!', 4000), 200);
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', 'Bottom 2 players each lose 1 trophy!', 0), 200);
       }
     }
 
@@ -4588,7 +4588,7 @@ export default function Game() {
             const reaperMsg = ghost.id === 'p1'
               ? `💀 REAPER: Your ghost ability dragged ${target.name} into the spirit world!`
               : `💀 REAPER: ${ghost.name}'s ghost ability ghosted ${target.name}!`;
-            setTimeout(() => addOverlay('protocol_alert', '💀 REAPER STRIKES', reaperMsg, 4000), 1200);
+            setTimeout(() => addOverlay('protocol_alert', '💀 REAPER STRIKES', reaperMsg, 0), 1200);
           }
           ghost.ghostAbilityUsed = true;
           // 3-round fallback revival for reaper ghosts
@@ -4600,7 +4600,7 @@ export default function Game() {
           const curseMsg = ghost.id === 'p1'
             ? `🔮 CURSE: Your ghostly curse triples all driver abilities for the rest of the game!`
             : `🔮 CURSE: ${ghost.name}'s ghost cursed the arena — all driver abilities are tripled!`;
-          setTimeout(() => addOverlay('protocol_alert', '🔮 CURSE ACTIVATED', curseMsg, 4000), 1200);
+          setTimeout(() => addOverlay('protocol_alert', '🔮 CURSE ACTIVATED', curseMsg, 0), 1200);
           ghost.ghostAbilityUsed = true;
           // 3-round fallback revival for curse ghosts
           ghost.possessionRoundsLeft = 3;
@@ -4719,7 +4719,7 @@ export default function Game() {
               ghost.possessionTargetId = undefined;
               ghost.possessionRoundsLeft = undefined;
               if (ghost.id === 'p1') {
-                setTimeout(() => addOverlay('ability_trigger', '👁️ POSSESSION REVIVE', "Your latched target triggered your revival! You're back with 45s!", 4000), 600);
+                setTimeout(() => addOverlay('ability_trigger', '👁️ POSSESSION REVIVE', "Your latched target triggered your revival! You're back with 45s!", 0), 600);
               }
             }
           } else {
@@ -4752,7 +4752,7 @@ export default function Game() {
                 const abilityMsg = ghost.ghostAbility === 'purgatory'
                   ? `Purgatory expires — you return with ${ghost.remainingTime.toFixed(1)}s!`
                   : `3-round fallback triggered — you return with ${ghost.remainingTime.toFixed(1)}s!`;
-                setTimeout(() => addOverlay('ability_trigger', abilityLabel, abilityMsg, 4000), 600);
+                setTimeout(() => addOverlay('ability_trigger', abilityLabel, abilityMsg, 0), 600);
               }
             }
           } else {
@@ -7375,7 +7375,7 @@ export default function Game() {
                   className="flex flex-col items-center p-3 sm:p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden min-w-0"
                 >
                   <div className={cn("w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full mb-2 sm:mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10 flex-shrink-0", char.color)}>
-                     <img src={getCharImage(char)} alt={char.name} className="w-full h-full object-cover" />
+                     <img src={getCharImage(char)} alt={char.name} className={cn("w-full h-full object-cover", variant === 'HAUNTED' && char.imageHaunted && "object-top")} />
                   </div>
                   <h3 className="font-bold text-sm sm:text-lg md:text-xl text-white mb-0.5 sm:mb-1 w-full leading-tight" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
                   <p className="text-[10px] sm:text-sm text-primary/80 uppercase tracking-wider mb-1 sm:mb-2 font-display w-full leading-tight" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
@@ -8080,7 +8080,7 @@ export default function Game() {
                 <p className="text-zinc-500 text-sm mt-1">Spectating Round {round} / {totalRounds}</p>
               </div>
               {ghostImg && (
-                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-cover rounded-full border-2 border-teal-500/40" />
+                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-contain rounded-full border-2 border-teal-500/40 bg-zinc-900" />
               )}
               {abilityName && (
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
@@ -8426,7 +8426,7 @@ export default function Game() {
                 <p className="text-zinc-500 text-sm mt-1">Spectating Round {round} / {totalRounds}</p>
               </div>
               {ghostImg && (
-                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-cover rounded-full border-2 border-teal-500/40" />
+                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-contain rounded-full border-2 border-teal-500/40 bg-zinc-900" />
               )}
               {abilityName && (
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
@@ -8507,7 +8507,7 @@ export default function Game() {
                 <p className="text-zinc-500 text-sm mt-1">Spectating Round {round} / {totalRounds}</p>
               </div>
               {ghostImg && (
-                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-cover rounded-full border-2 border-teal-500/40" />
+                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-contain rounded-full border-2 border-teal-500/40 bg-zinc-900" />
               )}
               {abilityName && (
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
