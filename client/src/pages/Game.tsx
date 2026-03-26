@@ -1016,6 +1016,30 @@ export default function Game() {
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
   const [showProtocolSelect, setShowProtocolSelect] = useState(false);
 
+  // WAGER mode state
+  const [wagerPhaseTimeLeft, setWagerPhaseTimeLeft] = useState(10);
+  const wagerPhaseTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [playerWager, setPlayerWager] = useState<{
+    targetId: string | null;
+    percent: number;
+    amount: number;
+    isDoubleDown: boolean;
+    sidePotHigh: boolean;
+  }>({ targetId: null, percent: 25, amount: 0, isDoubleDown: false, sidePotHigh: false });
+  const [prevRoundWinnerId, setPrevRoundWinnerId] = useState<string | null>(null);
+  const [wagerRoundResults, setWagerRoundResults] = useState<Array<{
+    playerId: string;
+    playerName: string;
+    targetId: string | null;
+    targetName: string | null;
+    wagerAmount: number;
+    isDoubleDown: boolean;
+    sidePotHigh: boolean;
+    won: boolean | null;
+    reward: number;
+    sidePotWon: boolean | null;
+  }>>([]);
+
   // OVERCLOCK protocol state (singleplayer)
   const [overclockActive, setOverclockActive] = useState(false);
   const [overclockTimeLeft, setOverclockTimeLeft] = useState(10);
@@ -4579,7 +4603,78 @@ export default function Game() {
     setPlayers(finalPlayers);
     const updatedPlayers = finalPlayers;
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
-    
+
+    // WAGER MODE: resolve wagers
+    if (variant === 'WAGER' && winnerId) {
+      const sidePotThreshold = 20; // seconds - "winning bid exceeds X seconds?"
+      const newWagerResults: typeof wagerRoundResults = [];
+      const wagerAdjustments: { id: string; delta: number }[] = [];
+
+      finalPlayers.forEach(p => {
+        if (!p.wagerAmount || p.wagerAmount <= 0 || !p.wagerTargetId || p.wagerResolved) return;
+        const targetWon = p.wagerTargetId === winnerId;
+        let reward = 0;
+
+        // Check underdog bonus: did target have lowest time bank at round start?
+        const minTime = Math.min(...finalPlayers.filter(fp => !fp.isEliminated && !fp.isGhost).map(fp => (fp as any).wagerRoundStartTime ?? fp.remainingTime));
+        const targetIsUnderdog = targetWon &&
+          ((finalPlayers.find(fp => fp.id === p.wagerTargetId) as any)?.wagerRoundStartTime ?? finalPlayers.find(fp => fp.id === p.wagerTargetId)?.remainingTime ?? 999) <= minTime;
+
+        if (targetWon) {
+          const multiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
+          reward = Math.round(p.wagerAmount * multiplier * 10) / 10;
+        } else {
+          reward = -p.wagerAmount;
+        }
+
+        // Side pot: did the winning bid exceed sidePotThreshold?
+        const sidePotWon = winnerTime >= sidePotThreshold ? (p.sidePotWagerHigh === true) : (p.sidePotWagerHigh === false);
+        const sidePotDelta = sidePotWon ? 3 : -1;
+
+        wagerAdjustments.push({ id: p.id, delta: reward + (p.sidePotWagerHigh !== undefined ? sidePotDelta : 0) });
+
+        // Ghost revival: if ghost wagered and won, revive with winning bid amount
+        if (p.isGhost && (p.ghostTrophies ?? 0) > 0 && targetWon) {
+          wagerAdjustments.push({ id: p.id, delta: winnerTime });
+        }
+
+        newWagerResults.push({
+          playerId: p.id,
+          playerName: p.name,
+          targetId: p.wagerTargetId,
+          targetName: finalPlayers.find(fp => fp.id === p.wagerTargetId)?.name ?? null,
+          wagerAmount: p.wagerAmount,
+          isDoubleDown: p.isDoubleDown ?? false,
+          sidePotHigh: p.sidePotWagerHigh ?? false,
+          won: targetWon,
+          reward,
+          sidePotWon: p.sidePotWagerHigh !== undefined ? sidePotWon : null,
+        });
+      });
+
+      // Apply wager adjustments
+      if (wagerAdjustments.length > 0) {
+        setPlayers(prev => prev.map(p => {
+          const adj = wagerAdjustments.filter(a => a.id === p.id);
+          if (adj.length === 0) return p;
+          const totalDelta = adj.reduce((sum, a) => sum + a.delta, 0);
+          const newTime = Math.max(0, p.remainingTime + totalDelta);
+          const wasGhost = p.isGhost;
+          const revived = wasGhost && totalDelta > 0;
+          return {
+            ...p,
+            remainingTime: newTime,
+            isGhost: revived ? false : p.isGhost,
+            wagerResolved: true,
+            wagerWon: newWagerResults.find(r => r.playerId === p.id)?.won ?? undefined,
+          };
+        }));
+      }
+
+      setWagerRoundResults(newWagerResults);
+      setPrevRoundWinnerId(winnerId);
+    }
+
     // Haunted mode: notify p1 they became a ghost this round
     const p1WasAlreadyGhost = players.find(p => p.id === 'p1')?.isGhost;
     const p1IsGhostNow = finalPlayers.find(p => p.id === 'p1')?.isGhost;
@@ -5941,7 +6036,14 @@ export default function Game() {
       setAnimations([]);
       
       setRound(prev => prev + 1);
-      setPhase('ready');
+      if (variant === 'WAGER') {
+        // In wager mode, show wager phase before ready
+        setPlayerWager({ targetId: null, percent: 25, amount: 0, isDoubleDown: false, sidePotHigh: false });
+        setWagerPhaseTimeLeft(10);
+        setPhase('wager_phase');
+      } else {
+        setPhase('ready');
+      }
       setPlayers(prev => prev.map(p => ({ 
           ...p, 
           isHolding: false, 
@@ -5968,6 +6070,69 @@ export default function Game() {
     }
   };
 
+  // Wager phase: countdown timer
+  useEffect(() => {
+    if (phase !== 'wager_phase') {
+      if (wagerPhaseTimerRef.current) {
+        clearInterval(wagerPhaseTimerRef.current);
+        wagerPhaseTimerRef.current = null;
+      }
+      return;
+    }
+    setWagerPhaseTimeLeft(10);
+    // Auto-assign bot wagers
+    setPlayers(prev => {
+      const allActive = prev.filter(p => !p.isEliminated && !p.isGhost);
+      return prev.map(p => {
+        if (!p.isBot) return p;
+        if (p.isEliminated || p.isGhost) return p;
+        // Bot picks a random opponent
+        const opponents = allActive.filter(op => op.id !== p.id);
+        if (opponents.length === 0) return p;
+        const target = opponents[Math.floor(Math.random() * opponents.length)];
+        // Wager percent based on personality
+        let percent = 25;
+        switch (p.personality) {
+          case 'aggressive': percent = 50 + Math.floor(Math.random() * 25); break;
+          case 'conservative': percent = 10 + Math.floor(Math.random() * 15); break;
+          case 'balanced': percent = 20 + Math.floor(Math.random() * 20); break;
+          case 'random': percent = 10 + Math.floor(Math.random() * 65); break;
+          case 'adaptive': percent = 25 + Math.floor(Math.random() * 25); break;
+          case 'psychological': percent = 30 + Math.floor(Math.random() * 30); break;
+          default: percent = 25;
+        }
+        percent = Math.min(75, percent);
+        const amount = Math.floor((p.remainingTime * percent) / 100 * 10) / 10;
+        const isDoubleDown = prevRoundWinnerId !== null && Math.random() < 0.2;
+        const finalTarget = (isDoubleDown && prevRoundWinnerId) ? prevRoundWinnerId : target.id;
+        return {
+          ...p,
+          wagerTargetId: finalTarget ?? undefined,
+          wagerPercent: percent,
+          wagerAmount: amount,
+          isDoubleDown,
+          wagerResolved: false,
+          wagerWon: undefined,
+          sidePotWagerHigh: Math.random() < 0.5,
+        };
+      });
+    });
+    wagerPhaseTimerRef.current = setInterval(() => {
+      setWagerPhaseTimeLeft(prev => {
+        if (prev <= 1) {
+          if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
+          // Transition to ready phase
+          setPhase('ready');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
+    };
+  }, [phase]);
+
   // Auto-advance round_end when only bots remain active (ghost spectator mode in haunted)
   useEffect(() => {
     if (phase !== 'round_end' || !isBotOnlyRound) return;
@@ -5992,6 +6157,7 @@ export default function Game() {
 
     const pickIcon = (c: Character) => {
       if (variant === 'HAUNTED' && c.imageHaunted) return c.imageHaunted;
+      if (variant === 'WAGER' && c.imageWager) return c.imageWager;
       if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
       if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
       return c.image;
@@ -6014,6 +6180,9 @@ export default function Game() {
     // In Haunted mode, go to item selection screen instead of ready
     if (variant === 'HAUNTED') {
       setPhase('haunted_item_select');
+    } else if (variant === 'WAGER') {
+      // In Wager mode, go to wager phase before the first round
+      setPhase('wager_phase');
     } else {
       setPhase('ready');
     }
@@ -7722,6 +7891,175 @@ export default function Game() {
         );
       }
 
+      case 'wager_phase': {
+        const activePlayers = players.filter(p => !p.isEliminated && !p.isGhost);
+        const opponents = activePlayers.filter(p => p.id !== 'p1');
+        const p1 = players.find(p => p.id === 'p1');
+        const maxWager = p1 ? Math.floor(p1.remainingTime * 0.75 * 10) / 10 : 0;
+        const prevWinner = prevRoundWinnerId ? players.find(p => p.id === prevRoundWinnerId) : null;
+
+        const handleWagerConfirm = () => {
+          setPlayers(prev => prev.map(p => {
+            if (p.id !== 'p1') return p;
+            const target = playerWager.isDoubleDown && prevRoundWinnerId
+              ? prevRoundWinnerId
+              : playerWager.targetId;
+            const amount = Math.min(maxWager, playerWager.amount);
+            return {
+              ...p,
+              wagerTargetId: target ?? undefined,
+              wagerPercent: playerWager.percent,
+              wagerAmount: amount,
+              isDoubleDown: playerWager.isDoubleDown,
+              wagerResolved: false,
+              wagerWon: undefined,
+              sidePotWagerHigh: playerWager.sidePotHigh,
+            };
+          }));
+          if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
+          setPhase('ready');
+        };
+
+        const handleSkipWager = () => {
+          if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
+          setPhase('ready');
+        };
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-2xl mx-auto space-y-6"
+            data-testid="screen-wager-phase"
+          >
+            {/* Header */}
+            <div className="text-center">
+              <h2 className="text-4xl font-display font-bold text-yellow-300 mb-1 flex items-center justify-center gap-3">
+                <Trophy size={32} className="text-yellow-400" /> WAGER PHASE
+              </h2>
+              <p className="text-zinc-400 text-sm">Pick a player and wager your time. Win if they win.</p>
+              <div className="mt-2 text-2xl font-mono font-bold text-yellow-400">
+                {wagerPhaseTimeLeft}s
+              </div>
+            </div>
+
+            {/* Target Selection */}
+            <div className="space-y-3">
+              <div className="text-xs uppercase tracking-widest text-zinc-500 font-bold">Pick Your Target</div>
+
+              {/* Double or Nothing toggle */}
+              {prevWinner && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-yellow-950/30 border border-yellow-500/30">
+                  <button
+                    onClick={() => setPlayerWager(prev => ({ ...prev, isDoubleDown: !prev.isDoubleDown, targetId: !prev.isDoubleDown ? prevRoundWinnerId : prev.targetId }))}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition-all",
+                      playerWager.isDoubleDown
+                        ? "bg-yellow-500 text-black"
+                        : "bg-zinc-800 text-zinc-400 hover:bg-yellow-900/50 hover:text-yellow-300"
+                    )}
+                  >
+                    🎲 DOUBLE OR NOTHING
+                  </button>
+                  <span className="text-xs text-zinc-500">
+                    Auto-targets: <span className="text-yellow-400">{prevWinner.name}</span> (last winner) · 2.5x reward
+                  </span>
+                </div>
+              )}
+
+              {!playerWager.isDoubleDown && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {opponents.map(opp => (
+                    <button
+                      key={opp.id}
+                      onClick={() => setPlayerWager(prev => ({ ...prev, targetId: opp.id }))}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all",
+                        playerWager.targetId === opp.id
+                          ? "border-yellow-400 bg-yellow-950/40 text-yellow-200"
+                          : "border-zinc-700 bg-zinc-900/50 text-zinc-400 hover:border-yellow-500/50"
+                      )}
+                    >
+                      <div className="font-bold text-sm">{opp.name}</div>
+                      <div className="text-xs text-zinc-500 mt-0.5">{opp.remainingTime.toFixed(1)}s</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Wager Amount */}
+            <div className="space-y-3">
+              <div className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                Wager Amount (max 75% of your bank)
+              </div>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min={5}
+                  max={75}
+                  step={5}
+                  value={playerWager.percent}
+                  onChange={e => {
+                    const pct = parseInt(e.target.value);
+                    const amt = Math.round((p1?.remainingTime ?? 0) * pct / 100 * 10) / 10;
+                    setPlayerWager(prev => ({ ...prev, percent: pct, amount: amt }));
+                  }}
+                  className="flex-1 accent-yellow-400"
+                />
+                <div className="text-xl font-mono font-bold text-yellow-400 w-24 text-right">
+                  {playerWager.percent}% <span className="text-sm text-zinc-500">({Math.round((p1?.remainingTime ?? 0) * playerWager.percent / 100 * 10) / 10}s)</span>
+                </div>
+              </div>
+              <div className="text-xs text-zinc-600">
+                Reward: {playerWager.isDoubleDown ? '2.5x' : '1.5x'} wager · Base reward on win
+              </div>
+            </div>
+
+            {/* Side Pot */}
+            <div className="space-y-2">
+              <div className="text-xs uppercase tracking-widest text-zinc-500 font-bold">Side Pot (Optional)</div>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-700">
+                <span className="text-xs text-zinc-400">Will the winning bid exceed 20s?</span>
+                <div className="flex gap-2 ml-auto">
+                  <button
+                    onClick={() => setPlayerWager(prev => ({ ...prev, sidePotHigh: true }))}
+                    className={cn(
+                      "px-3 py-1 rounded text-xs font-bold transition-all",
+                      playerWager.sidePotHigh === true ? "bg-green-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                    )}
+                  >YES</button>
+                  <button
+                    onClick={() => setPlayerWager(prev => ({ ...prev, sidePotHigh: false }))}
+                    className={cn(
+                      "px-3 py-1 rounded text-xs font-bold transition-all",
+                      playerWager.sidePotHigh === false ? "bg-red-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                    )}
+                  >NO</button>
+                </div>
+              </div>
+              <div className="text-xs text-zinc-600">Correct: +3s bonus · Wrong: -1s penalty</div>
+            </div>
+
+            {/* Confirm Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleWagerConfirm}
+                disabled={!playerWager.isDoubleDown && !playerWager.targetId}
+                className="flex-1 py-3 rounded-lg bg-yellow-600 text-black font-bold hover:bg-yellow-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ✓ Place Wager
+              </button>
+              <button
+                onClick={handleSkipWager}
+                className="px-4 py-3 rounded-lg bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-all"
+              >
+                Skip
+              </button>
+            </div>
+          </motion.div>
+        );
+      }
+
       case 'haunted_item_select': {
         const CATEGORY_COLORS: Record<string, string> = {
           Cursed: 'bg-red-900/40 text-red-300 border-red-500/30',
@@ -7896,6 +8234,7 @@ export default function Game() {
         // Get variant-specific image for a character
         const getDriverImage = (char: typeof CHARACTERS[0]) => {
           if (variant === 'HAUNTED' && char.imageHaunted) return char.imageHaunted;
+          if (variant === 'WAGER' && char.imageWager) return char.imageWager;
           if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) return char.imageSocial;
           if (variant === 'BIO_FUEL' && char.imageBio) return char.imageBio;
           return char.image;
@@ -8694,6 +9033,26 @@ export default function Game() {
                 </div>
               )}
             </div>
+
+            {/* WAGER MODE: Wager Results */}
+            {variant === 'WAGER' && wagerRoundResults.length > 0 && (
+              <div className="w-full bg-yellow-950/20 p-4 rounded border border-yellow-500/20 space-y-2">
+                <h4 className="text-xs uppercase tracking-wider text-yellow-500/70 mb-2">Wager Results</h4>
+                {wagerRoundResults.map(r => (
+                  <div key={r.playerId} className="flex justify-between items-center text-sm">
+                    <span className="text-zinc-300">{r.playerName} → <span className="text-zinc-400">{r.targetName ?? '—'}</span></span>
+                    <span className={cn("font-mono font-bold", r.won ? "text-green-400" : "text-red-400")}>
+                      {r.won ? `+${r.reward.toFixed(1)}s` : `${r.reward.toFixed(1)}s`}
+                      {r.sidePotWon !== null && (
+                        <span className={cn("ml-2 text-xs", r.sidePotWon ? "text-green-300" : "text-red-300")}>
+                          side {r.sidePotWon ? '+3s' : '-1s'}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="w-full bg-card/50 p-4 rounded border border-white/5 space-y-2">
               <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Bid History</h4>
