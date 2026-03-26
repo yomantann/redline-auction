@@ -1853,8 +1853,8 @@ function endRound(lobbyCode: string) {
         ghost.ghostAbilityUsed = true;
 
       } else if (ghost.ghostAbility === 'purgatory') {
-        // PURGATORY: 2-round countdown, then revive with min alive player's time bank
-        ghost.possessionRoundsLeft = 2;
+        // PURGATORY: init at 3 to account for same-round decrement → 2 full rounds as ghost
+        ghost.possessionRoundsLeft = 3;
         ghost.ghostAbilityUsed = true;
         addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} PURGATORY: counting down 2 rounds...`, basic: true });
       }
@@ -3787,12 +3787,15 @@ export function activateRelicMP(
       if (roll < 0.25) {
         activator.remainingTime = Math.min(activator.remainingTime + 40, 9999);
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: +40s`, value: 40, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 🎯 LUCKY!', message: `${activator.name} hit Jackpot — +40s added!` });
       } else if (roll < 0.5) {
         activator.tokens += 2;
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: +2 trophies`, value: 2, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 🏆 JACKPOT!', message: `${activator.name} hit Jackpot — +2 trophies awarded!` });
       } else if (roll < 0.75) {
         activator.remainingTime = Math.max(0, activator.remainingTime - 30);
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: -30s`, value: -30, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 💀 CURSED!', message: `${activator.name} hit Jackpot — −30s removed!` });
       } else {
         const idx = Math.floor(Math.random() * 6) + 1;
         const savedTime = activator.remainingTime;
@@ -3803,6 +3806,7 @@ export function activateRelicMP(
         activator.ghostImage = `hnt_ghost_${idx}`;
         activator.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: GHOSTED`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 👻 GHOSTED!', message: `${activator.name} hit Jackpot — they've been ghosted!` });
       }
       break;
     }
@@ -3819,8 +3823,10 @@ export function activateRelicMP(
           target.ghostImage = `hnt_ghost_${idx}`;
           target.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
           addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} GHOST TOUCH: ${target.name} ghosted!`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '👻 GHOST TOUCH', message: `${activator.name} used Ghost Touch — ${target.name} has been ghosted!`, victimId: target.id });
         } else {
           addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} GHOST TOUCH: missed (10% chance failed)`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '👻 GHOST TOUCH: MISSED', message: `${activator.name} used Ghost Touch on ${target.name} — curse missed!` });
         }
       }
       break;
@@ -3861,8 +3867,10 @@ export function activateRelicMP(
         if (lastBid != null) {
           target.echoForcedBid = lastBid;
           addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} forced to replay ${lastBid.toFixed(1)}s next round`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO', message: `${activator.name} used Echo — ${target.name} must replay their last bid (${lastBid.toFixed(1)}s) next round!`, victimId: target.id });
         } else {
           addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} has no bid history — no effect`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO: NO HISTORY', message: `${activator.name} used Echo on ${target.name} — no bid history, no effect.` });
         }
       }
       break;
@@ -3872,6 +3880,7 @@ export function activateRelicMP(
       if (target) {
         target.markedBy = activator.id;
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} MARKED: ${target.name} is marked — ghosted on next win`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '👁️ MARKED', message: `${activator.name} marked ${target.name} — they will be ghosted on their next win!`, victimId: target.id });
       }
       break;
     }
@@ -3881,6 +3890,7 @@ export function activateRelicMP(
         target.corruptRoundsLeft = 3;
         target.personality = 'aggressive';
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CORRUPT: ${target.name} is now AGGRESSIVE for 3 rounds!`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🦠 CORRUPT', message: `${activator.name} corrupted ${target.name} — they go AGGRESSIVE for 3 rounds!`, victimId: target.id });
       }
       break;
     }
@@ -3890,8 +3900,13 @@ export function activateRelicMP(
         const maxBid = Math.max(...target.bidHistory);
         target.patternLockMinBid = maxBid;
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} PATTERN LOCK: ${target.name} must bid ≥${maxBid.toFixed(1)}s next round`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔒 PATTERN LOCK', message: `${activator.name} locked ${target.name}'s pattern — must bid ≥${maxBid.toFixed(1)}s next round!`, victimId: target.id });
       } else {
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} PATTERN LOCK: ${targetId ? game.players.find(p => p.id === targetId)?.name ?? 'target' : 'target'} has no history — no effect`, basic: true });
+        if (emitToLobby && targetId) {
+          const tName = game.players.find(p => p.id === targetId)?.name ?? 'target';
+          emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔒 PATTERN LOCK: NO HISTORY', message: `${activator.name} used Pattern Lock on ${tName} — no bid history, no effect.` });
+        }
       }
       break;
     }
@@ -3901,12 +3916,14 @@ export function activateRelicMP(
         const tName = game.players.find(p => p.id === targetId)?.name ?? 'target';
         const curseName = curseType === 'time' ? 'loses 20s' : 'loses 1 trophy';
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} LAST WILL: if eliminated, ${tName} ${curseName}`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚰️ LAST WILL SET', message: `${activator.name} set their Last Will — if ghosted, ${tName} ${curseName}!` });
       }
       break;
     }
     case 'death_wish': {
       activator.deathWishActive = true;
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} DEATH WISH: win=+2 trophies | lose=-15s extra`, basic: true });
+      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 DEATH WISH', message: `${activator.name} activated Death Wish — win for +2 trophies, lose and forfeit extra 15s!` });
       break;
     }
     case 'blood_pact': {
@@ -3918,11 +3935,13 @@ export function activateRelicMP(
     case 'cursed_dice': {
       activator.cursedDiceActive = true;
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CURSED DICE: ±20s after round end (50/50)`, basic: true });
+      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎲 CURSED DICE', message: `${activator.name} armed Cursed Dice — 50/50 chance of ±20s after this round!` });
       break;
     }
     case 'final_writ': {
       activator.finalWritActive = true;
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} FINAL WRIT: will auto-win the final round`, basic: true });
+      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '✒️ FINAL WRIT', message: `${activator.name} activated Final Writ — they will automatically win the final round!` });
       break;
     }
     case 'seance': {
@@ -3953,6 +3972,7 @@ export function activateRelicMP(
       const picked = darkPool[Math.floor(Math.random() * darkPool.length)];
       game.forcedProtocolNextRound = picked;
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} PROTOCOL FORCER: next round will be ${picked}`, basic: true });
+      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⛓️ PROTOCOL FORCER', message: `${activator.name} used Protocol Forcer — next round will run: ${picked}!` });
       break;
     }
     case 'tribunal': {
@@ -3977,6 +3997,7 @@ export function activateRelicMP(
         deadline: Date.now() + 30000,
       };
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} TRIBUNAL: vote started targeting ${target.name}`, basic: true });
+      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL VOTE STARTED', message: `${activator.name} called a Tribunal against ${target.name}! Vote now.`, victimId: target.id });
       if (game.pendingVote && !game.pendingVote.resolved) {
         // Another vote is active — queue this one
         if (!game.voteQueue) game.voteQueue = [];
@@ -4009,6 +4030,7 @@ export function activateRelicMP(
         deadline: Date.now() + 30000,
       };
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CONCLAVE: vote started!`, basic: true });
+      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🗳️ CONCLAVE VOTE STARTED', message: `${activator.name} called a Conclave! Vote now.` });
       if (game.pendingVote && !game.pendingVote.resolved) {
         // Another vote is active — queue this one
         if (!game.voteQueue) game.voteQueue = [];
