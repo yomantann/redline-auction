@@ -653,6 +653,41 @@ export async function registerRoutes(
       if (callback) callback({ success: true });
     });
 
+    // WAGER mode: player submits wager
+    socket.on("submit_wager", (data: {
+      targetId: string | null;
+      percent: number;
+      amount: number;
+      isDoubleDown: boolean;
+      sidePotHigh: boolean | null;
+    }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback?.({ success: false, error: "Not in lobby" }); return; }
+      const game = getGameState(lobbyCode);
+      if (!game) { if (callback) callback?.({ success: false, error: "No game" }); return; }
+      if (game.phase !== 'wager_phase') { if (callback) callback?.({ success: false, error: "Not in wager phase" }); return; }
+      const player = game.players.find(p => p.socketId === socket.id);
+      if (!player) { if (callback) callback?.({ success: false, error: "Player not found" }); return; }
+
+      const maxWager = Math.round(player.remainingTime * 0.75 * 10) / 10;
+      const clampedAmount = Math.min(maxWager, Math.max(0, data.amount));
+      const clampedPercent = Math.min(75, Math.max(0, data.percent));
+      const target = data.isDoubleDown && game.previousRoundWinnerId
+        ? game.previousRoundWinnerId
+        : data.targetId;
+
+      player.wagerTargetId = target ?? undefined;
+      player.wagerPercent = clampedPercent;
+      player.wagerAmount = clampedAmount;
+      player.isDoubleDown = data.isDoubleDown;
+      player.wagerResolved = false;
+      player.wagerWon = undefined;
+      player.sidePotWagerHigh = data.sidePotHigh ?? undefined;
+
+      broadcastGameState(lobbyCode);
+      if (callback) callback?.({ success: true });
+    });
+
     // Haunted mode: player selects a haunted item/relic
     socket.on("select_haunted_item", (data: { itemId: string; itemName: string }, callback?) => {
       const lobbyCode = playerToLobby.get(socket.id);

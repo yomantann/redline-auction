@@ -1392,7 +1392,7 @@ export default function Game() {
       protocolsEnabled: boolean;
       bonusTrophiesEnabled: boolean;
       abilitiesEnabled: boolean;
-      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED' | 'WAGER';
       gameDuration: 'sprint' | 'standard' | 'long' | 'short';
     };
     maxPlayers: number;
@@ -1404,7 +1404,7 @@ export default function Game() {
   const [multiplayerGameState, setMultiplayerGameState] = useState<{
     round: number;
     totalRounds: number;
-    phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
+    phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
     countdownRemaining: number;
     elapsedTime: number;
     players: Array<{
@@ -1447,7 +1447,7 @@ export default function Game() {
       protocolsEnabled: boolean;
       bonusTrophiesEnabled: boolean;
       abilitiesEnabled: boolean;
-      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED' | 'WAGER';
       gameDuration?: 'sprint' | 'standard' | 'long' | 'short';
     };
     activeProtocol: string | null;
@@ -1649,6 +1649,13 @@ export default function Game() {
         
         if (state.phase === 'driver_selection') {
           setPhase('mp_driver_select');
+        } else if (state.phase === 'wager_phase') {
+          // Server-driven wager phase for MP - show wager UI, with deadline countdown
+          const deadline = (state as any).wagerPhaseDeadline;
+          const msLeft = deadline ? Math.max(0, deadline - Date.now()) : 10000;
+          setWagerPhaseTimeLeft(Math.ceil(msLeft / 1000));
+          setPlayerWager({ targetId: null, percent: 25, amount: 0, isDoubleDown: false, sidePotHigh: false });
+          setPhase('wager_phase');
         } else if (state.phase === 'waiting_for_ready') {
           // In Haunted mode, check if player's item was already selected; if not, go to item select
           const myMpPlayer = socket ? state.players.find((p: any) => p.socketId === socket.id) : null;
@@ -6080,50 +6087,53 @@ export default function Game() {
       }
       return;
     }
-    setWagerPhaseTimeLeft(10);
-    // Auto-assign bot wagers
-    setPlayers(prev => {
-      const allActive = prev.filter(p => !p.isEliminated && !p.isGhost);
-      return prev.map(p => {
-        if (!p.isBot) return p;
-        if (p.isEliminated || p.isGhost) return p;
-        // Bot picks a random opponent
-        const opponents = allActive.filter(op => op.id !== p.id);
-        if (opponents.length === 0) return p;
-        const target = opponents[Math.floor(Math.random() * opponents.length)];
-        // Wager percent based on personality
-        let percent = 25;
-        switch (p.personality) {
-          case 'aggressive': percent = 50 + Math.floor(Math.random() * 25); break;
-          case 'conservative': percent = 10 + Math.floor(Math.random() * 15); break;
-          case 'balanced': percent = 20 + Math.floor(Math.random() * 20); break;
-          case 'random': percent = 10 + Math.floor(Math.random() * 65); break;
-          case 'adaptive': percent = 25 + Math.floor(Math.random() * 25); break;
-          case 'psychological': percent = 30 + Math.floor(Math.random() * 30); break;
-          default: percent = 25;
-        }
-        percent = Math.min(75, percent);
-        const amount = Math.floor((p.remainingTime * percent) / 100 * 10) / 10;
-        const isDoubleDown = prevRoundWinnerId !== null && Math.random() < 0.2; // 20% chance bots go double-or-nothing
-        const finalTarget = (isDoubleDown && prevRoundWinnerId) ? prevRoundWinnerId : target.id;
-        return {
-          ...p,
-          wagerTargetId: finalTarget ?? undefined,
-          wagerPercent: percent,
-          wagerAmount: amount,
-          isDoubleDown,
-          wagerResolved: false,
-          wagerWon: undefined,
-          sidePotWagerHigh: Math.random() < 0.5,
-        };
+    // In multiplayer, time is set from server state; just run local countdown display
+    if (!isMultiplayer) {
+      setWagerPhaseTimeLeft(10);
+      // Auto-assign bot wagers
+      setPlayers(prev => {
+        const allActive = prev.filter(p => !p.isEliminated && !p.isGhost);
+        return prev.map(p => {
+          if (!p.isBot) return p;
+          if (p.isEliminated || p.isGhost) return p;
+          // Bot picks a random opponent
+          const opponents = allActive.filter(op => op.id !== p.id);
+          if (opponents.length === 0) return p;
+          const target = opponents[Math.floor(Math.random() * opponents.length)];
+          // Wager percent based on personality
+          let percent = 25;
+          switch (p.personality) {
+            case 'aggressive': percent = 50 + Math.floor(Math.random() * 25); break;
+            case 'conservative': percent = 10 + Math.floor(Math.random() * 15); break;
+            case 'balanced': percent = 20 + Math.floor(Math.random() * 20); break;
+            case 'random': percent = 10 + Math.floor(Math.random() * 65); break;
+            case 'adaptive': percent = 25 + Math.floor(Math.random() * 25); break;
+            case 'psychological': percent = 30 + Math.floor(Math.random() * 30); break;
+            default: percent = 25;
+          }
+          percent = Math.min(75, percent);
+          const amount = Math.floor((p.remainingTime * percent) / 100 * 10) / 10;
+          const isDoubleDown = prevRoundWinnerId !== null && Math.random() < 0.2; // 20% chance bots go double-or-nothing
+          const finalTarget = (isDoubleDown && prevRoundWinnerId) ? prevRoundWinnerId : target.id;
+          return {
+            ...p,
+            wagerTargetId: finalTarget ?? undefined,
+            wagerPercent: percent,
+            wagerAmount: amount,
+            isDoubleDown,
+            wagerResolved: false,
+            wagerWon: undefined,
+            sidePotWagerHigh: Math.random() < 0.5,
+          };
+        });
       });
-    });
+    }
     wagerPhaseTimerRef.current = setInterval(() => {
       setWagerPhaseTimeLeft(prev => {
         if (prev <= 1) {
           if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
-          // Transition to ready phase
-          setPhase('ready');
+          // In singleplayer, auto-transition to ready phase
+          if (!isMultiplayer) setPhase('ready');
           return 0;
         }
         return prev - 1;
@@ -7042,6 +7052,21 @@ export default function Game() {
                     >
                       HAUNTED
                     </button>
+                    <button
+                      onClick={() => setVariant('WAGER')}
+                      disabled={!!currentLobby}
+                      className={cn(
+                        'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
+                        variant === 'WAGER'
+                          ? 'bg-yellow-500/20 border-yellow-500 text-yellow-300'
+                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300',
+                        currentLobby && 'cursor-not-allowed'
+                      )}
+                      title={currentLobby ? 'Settings locked - set by lobby host' : "WAGER: Bet your time on players before each round. Risk it all or play it safe."}
+                      data-testid="button-intro-variant-wager"
+                    >
+                      WAGER
+                    </button>
                  </div>
               </div>
 
@@ -7901,28 +7926,43 @@ export default function Game() {
         const currentWagerAmount = Math.round((p1?.remainingTime ?? 0) * playerWager.percent / 100 * 10) / 10;
 
         const handleWagerConfirm = () => {
-          setPlayers(prev => prev.map(p => {
-            if (p.id !== 'p1') return p;
-            const target = playerWager.isDoubleDown && prevRoundWinnerId
-              ? prevRoundWinnerId
-              : playerWager.targetId;
-            const amount = Math.min(maxWager, playerWager.amount);
-            return {
-              ...p,
-              wagerTargetId: target ?? undefined,
-              wagerPercent: playerWager.percent,
-              wagerAmount: amount,
+          const target = playerWager.isDoubleDown && prevRoundWinnerId
+            ? prevRoundWinnerId
+            : playerWager.targetId;
+          const amount = Math.min(maxWager, playerWager.amount || currentWagerAmount);
+          
+          if (isMultiplayer && socket) {
+            socket.emit('submit_wager', {
+              targetId: target,
+              percent: playerWager.percent,
+              amount,
               isDoubleDown: playerWager.isDoubleDown,
-              wagerResolved: false,
-              wagerWon: undefined,
-              sidePotWagerHigh: playerWager.sidePotHigh,
-            };
-          }));
+              sidePotHigh: playerWager.sidePotHigh,
+            });
+          } else {
+            setPlayers(prev => prev.map(p => {
+              if (p.id !== 'p1') return p;
+              return {
+                ...p,
+                wagerTargetId: target ?? undefined,
+                wagerPercent: playerWager.percent,
+                wagerAmount: amount,
+                isDoubleDown: playerWager.isDoubleDown,
+                wagerResolved: false,
+                wagerWon: undefined,
+                sidePotWagerHigh: playerWager.sidePotHigh,
+              };
+            }));
+          }
           if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
           setPhase('ready');
         };
 
         const handleSkipWager = () => {
+          if (isMultiplayer && socket) {
+            // Submit empty wager to server
+            socket.emit('submit_wager', { targetId: null, percent: 0, amount: 0, isDoubleDown: false, sidePotHigh: null });
+          }
           if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
           setPhase('ready');
         };
@@ -9640,7 +9680,9 @@ export default function Game() {
                             ? 'SOCIAL OVERDRIVE: Adds social dares and group prompts.'
                             : variant === 'BIO_FUEL'
                               ? 'BIO-FUEL: Adds drinking prompts and 21+ content.'
-                              : 'HAUNTED: Ghost mechanics and spectral bidding.'
+                              : variant === 'HAUNTED'
+                                ? 'HAUNTED: Ghost mechanics and spectral bidding.'
+                                : 'WAGER: Bet your time on other players before each round.'
                       }
                       data-testid="button-toggle-variant"
                     >

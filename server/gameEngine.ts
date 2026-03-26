@@ -2406,6 +2406,12 @@ function endRound(lobbyCode: string) {
     }
   }
   
+  // --- WAGER MODE: Resolve wagers after winner determination ---
+  if (game.settings.variant === 'WAGER' && winnerId) {
+    resolveWagers(game, winnerId, game.roundWinner?.bid ?? 0);
+    game.previousRoundWinnerId = winnerId;
+  }
+
   broadcastGameState(lobbyCode);
   
   // Process reality mode abilities (social/bio) at end of round
@@ -2810,6 +2816,113 @@ function addGameLogEntry(game: GameState, entry: Omit<GameLogEntry, 'round' | 't
   });
 }
 
+// Start the wager phase (WAGER variant only) then transition to waiting_for_ready
+function startWagerPhase(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
+
+  // Snapshot time banks at round start for underdog bonus calculation
+  game.roundStartTimeBanks = {};
+  game.players.forEach(p => {
+    game.roundStartTimeBanks![p.id] = p.remainingTime;
+  });
+
+  // Assign bot wagers
+  const activePlayers = game.players.filter(p => !p.isEliminated && !p.isGhost);
+  activePlayers.forEach(bot => {
+    if (!bot.isBot) return;
+    const opponents = activePlayers.filter(op => op.id !== bot.id);
+    if (opponents.length === 0) return;
+    const target = opponents[Math.floor(Math.random() * opponents.length)];
+    let percent = 25;
+    switch (bot.personality) {
+      case 'aggressive': percent = 50 + Math.floor(Math.random() * 25); break;
+      case 'conservative': percent = 10 + Math.floor(Math.random() * 15); break;
+      case 'balanced': percent = 20 + Math.floor(Math.random() * 20); break;
+      case 'random': percent = 10 + Math.floor(Math.random() * 65); break;
+      case 'adaptive': percent = 25 + Math.floor(Math.random() * 25); break;
+      case 'psychological': percent = 30 + Math.floor(Math.random() * 30); break;
+      default: percent = 25;
+    }
+    percent = Math.min(75, percent);
+    const amount = Math.round(bot.remainingTime * percent / 100 * 10) / 10;
+    const isDoubleDown = game.previousRoundWinnerId !== undefined && Math.random() < 0.2;
+    const wagerTarget = isDoubleDown && game.previousRoundWinnerId ? game.previousRoundWinnerId : target.id;
+    bot.wagerTargetId = wagerTarget;
+    bot.wagerPercent = percent;
+    bot.wagerAmount = amount;
+    bot.isDoubleDown = isDoubleDown;
+    bot.wagerResolved = false;
+    bot.wagerWon = undefined;
+    bot.sidePotWagerHigh = Math.random() < 0.5;
+  });
+
+  game.phase = 'wager_phase';
+  game.wagerPhaseActive = true;
+  game.wagerPhaseDeadline = Date.now() + 10000; // 10 seconds
+  broadcastGameState(lobbyCode);
+  log(`Wager phase started for lobby ${lobbyCode} (round ${game.round})`, "game");
+
+  // Auto-advance after 10 seconds
+  setTimeout(() => {
+    const g = activeGames.get(lobbyCode);
+    if (!g || g.phase !== 'wager_phase') return;
+    g.wagerPhaseActive = false;
+    startWaitingForReady(lobbyCode);
+  }, 10000);
+}
+
+// Resolve wagers at round end (WAGER variant)
+function resolveWagers(game: GameState, winnerId: string | null, winnerBid: number) {
+  if (!winnerId) return;
+  const SIDE_POT_THRESHOLD = 20;
+  game.players.forEach(p => {
+    if (!p.wagerAmount || p.wagerAmount <= 0 || !p.wagerTargetId || p.wagerResolved) return;
+    const targetWon = p.wagerTargetId === winnerId;
+    const startBanks = game.roundStartTimeBanks || {};
+    const targetStartTime = startBanks[p.wagerTargetId] ?? 9999;
+    const minStartTime = Math.min(...Object.values(startBanks).filter((t): t is number => typeof t === 'number'));
+    const targetIsUnderdog = targetWon && targetStartTime <= minStartTime;
+
+    let timeDelta = 0;
+    if (targetWon) {
+      const multiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
+      timeDelta = Math.round(p.wagerAmount * multiplier * 10) / 10;
+    } else {
+      timeDelta = -p.wagerAmount;
+    }
+
+    // Side pot
+    const sidePotWon = winnerBid >= SIDE_POT_THRESHOLD ? (p.sidePotWagerHigh === true) : (p.sidePotWagerHigh === false);
+    const sidePotDelta = p.sidePotWagerHigh !== undefined ? (sidePotWon ? 3 : -1) : 0;
+    const totalDelta = timeDelta + sidePotDelta;
+
+    // Ghost revival via wager
+    if (p.isGhost && targetWon && (p.ghostTrophies ?? 0) > 0) {
+      const reviveTime = winnerBid;
+      p.isGhost = false;
+      p.remainingTime = Math.max(10, reviveTime + totalDelta);
+      p.ghostTrophies = (p.ghostTrophies ?? 1) - 1;
+      addGameLogEntry(game, {
+        type: 'ability', playerId: p.id, playerName: p.name,
+        message: `${p.name} WAGER REVIVAL: wager won, revived with ${p.remainingTime.toFixed(1)}s!`, basic: true
+      });
+    } else {
+      p.remainingTime = Math.max(0, p.remainingTime + totalDelta);
+    }
+
+    p.wagerResolved = true;
+    p.wagerWon = targetWon;
+    p.sidePotWon = sidePotDelta > 0 ? true : (sidePotDelta < 0 ? false : undefined);
+
+    addGameLogEntry(game, {
+      type: 'ability', playerId: p.id, playerName: p.name,
+      message: `${p.name} WAGER: targeted ${game.players.find(op => op.id === p.wagerTargetId)?.name ?? p.wagerTargetId} — ${targetWon ? `WON +${timeDelta.toFixed(1)}s` : `LOST -${p.wagerAmount.toFixed(1)}s`}`,
+      value: timeDelta, basic: true,
+    });
+  });
+}
+
 // Start the waiting_for_ready phase (used for each round)
 function startWaitingForReady(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
@@ -2837,6 +2950,12 @@ function startWaitingForReady(lobbyCode: string) {
       setTimeout(() => endGame(lobbyCode), 3000);
       return;
     }
+  }
+
+  // --- WAGER MODE: Start wager phase before waiting_for_ready ---
+  if (game.settings.variant === 'WAGER') {
+    startWagerPhase(lobbyCode);
+    return;
   }
 
   game.phase = 'waiting_for_ready';
