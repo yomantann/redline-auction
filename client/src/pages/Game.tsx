@@ -3880,7 +3880,7 @@ export default function Game() {
                 const minTok = sorted[0]?.tokens;
                 const bottom2 = sorted.filter(p => p.tokens === minTok).slice(0, 2);
                 if (bottom2.length < 2 && sorted[1]) bottom2.push(sorted[1]);
-                bottom2.slice(0, 2).forEach(p => { p.tokens = p.tokens - 1; });
+                bottom2.slice(0, 2).forEach(p => { p.tokens = Math.max(0, p.tokens - 1); });
                 setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', `${bot.name} called Conclave D — bottom 2 players each lose 1 trophy!`, 0), 200);
               }
               break;
@@ -6224,7 +6224,7 @@ export default function Game() {
     ? (myMultiplayerPlayer?.isGhost ?? false)
     : (players.find(p => p.id === 'p1')?.isGhost ?? false);
 
-  // MP ghost ability auto-activation: for purgatory and curse, emit resolve_ghost_ability automatically
+  // MP ghost ability auto-activation: for purgatory, curse, and vendetta, emit resolve_ghost_ability automatically
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -6243,12 +6243,32 @@ export default function Game() {
           }
         }
       });
+    } else if (ability === 'vendetta' && !mpVendettaEmitted) {
+      // Auto-resolve vendetta for MP (hold-button mechanic not feasible across sockets); random outcome
+      const aliveTargets = (isMultiplayer && multiplayerGameState?.players
+        ? multiplayerGameState.players
+        : players
+      ).filter((p: any) => !p.isGhost && !p.isEliminated);
+      const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)] as any;
+      const ghostWins = Math.random() > 0.5;
+      if (target) {
+        setMpVendettaEmitted(true);
+        const abilityKey = ghostWins ? 'vendetta_win' : 'vendetta_lose';
+        socket.emit('resolve_ghost_ability', { ability: abilityKey, targetId: target.id }, (res: any) => {
+          if (res?.success) {
+            addOverlay('ability_trigger', '⚔️ VENDETTA', ghostWins
+              ? 'Vendetta resolved — you won! Revived with 30s!'
+              : 'Vendetta resolved — you lost. No revival.', 0);
+          }
+        });
+      }
     }
   // intentional: run whenever ghost ability/used state changes
   }, [isMultiplayer, socket, variant,
     (myMultiplayerPlayer as any)?.ghostAbility,
     (myMultiplayerPlayer as any)?.ghostAbilityUsed,
     (myMultiplayerPlayer as any)?.isGhost,
+    mpVendettaEmitted,
   ]);
 
   // Now define playerIsReady and playerBid AFTER currentPlayerIsHolding is defined
@@ -8905,23 +8925,11 @@ export default function Game() {
                       </div>
                     </div>
                   )}
-                  {mpGhostAbility === 'vendetta' && !mpVendettaEmitted && (() => {
-                    // Auto-resolve vendetta for MP (hold-button mechanic not feasible cross-socket); random outcome
-                    const target = aliveForGhost[Math.floor(Math.random() * aliveForGhost.length)];
-                    const ghostWins = Math.random() > 0.5;
-                    if (target) {
-                      setMpVendettaEmitted(true);
-                      const abilityKey = ghostWins ? 'vendetta_win' : 'vendetta_lose';
-                      socket.emit('resolve_ghost_ability', { ability: abilityKey, targetId: target.id }, (res: any) => {
-                        if (res?.success) {
-                          addOverlay('ability_trigger', '⚔️ VENDETTA', ghostWins
-                            ? 'Vendetta resolved — you won! Revived with 30s!'
-                            : 'Vendetta resolved — you lost. No revival.', 0);
-                        }
-                      });
-                    }
-                    return <div className="text-zinc-500 text-xs italic">Resolving Vendetta…</div>;
-                  })()}
+                  {mpGhostAbility === 'vendetta' && (
+                    <div className="text-zinc-500 text-xs italic">
+                      {mpVendettaEmitted ? 'Vendetta resolved — see overlay for result.' : 'Resolving Vendetta…'}
+                    </div>
+                  )}
                   {mpGhostAbility === 'bargain' && (
                     <div className="space-y-2">
                       <p className="text-xs text-zinc-400">Offer trophies for time:</p>
