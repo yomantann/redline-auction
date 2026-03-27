@@ -37,7 +37,7 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle, ChevronDown
+  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle, ChevronDown, Ghost
 } from "lucide-react";
 
 import { 
@@ -269,6 +269,10 @@ type ProtocolType =
   | 'OVERCLOCK' | 'CALIBRATION'
   | SocialProtocol
   | BioProtocol
+  // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
+  | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
+  // WAGER mode protocols (placeholder — mechanics not yet implemented)
+  | 'WAGER_JACKPOT' | 'WAGER_FORCED_BET' | 'WAGER_BLIND' | 'WAGER_ALL_IN'
   | null;
 
 // ... (Existing Characters)
@@ -1058,7 +1062,9 @@ export default function Game() {
         'NO_LOOK', 
         'THE_MOLE', 'PANIC_ROOM',
         'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL',
-        'OVERCLOCK', 'CALIBRATION'
+        'OVERCLOCK', 'CALIBRATION',
+        'HAUNTED_SEANCE', 'HAUNTED_CURSE_ECHO', 'HAUNTED_WAIL', 'HAUNTED_MIRROR',
+        'WAGER_JACKPOT', 'WAGER_FORCED_BET', 'WAGER_BLIND', 'WAGER_ALL_IN',
   ]);
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
@@ -3430,6 +3436,8 @@ export default function Game() {
       const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX','PRIVATE_CHANNEL','OVERCLOCK','CALIBRATION'];
       const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
+      const HAUNTED_SET = ['HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR'];
+      const WAGER_SET = ['WAGER_JACKPOT','WAGER_FORCED_BET','WAGER_BLIND','WAGER_ALL_IN'];
 
       const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
 
@@ -3438,7 +3446,11 @@ export default function Game() {
         ? (allowedProtocols || []).filter(p => SOCIAL_SET.includes(p as any))
         : (variant === 'BIO_FUEL')
           ? (allowedProtocols || []).filter(p => BIO_SET.includes(p as any))
-          : [];
+          : (variant === 'HAUNTED')
+            ? (allowedProtocols || []).filter(p => HAUNTED_SET.includes(p as any))
+            : (variant === 'WAGER')
+              ? (allowedProtocols || []).filter(p => WAGER_SET.includes(p as any))
+              : [];
 
       const combinedPool: ProtocolType[] = [...standardPool, ...modePool];
       if (combinedPool.length === 0 && !forcedProtocolValue) return;
@@ -3539,6 +3551,16 @@ export default function Game() {
         case 'CALIBRATION': {
           msg = "CALIBRATION"; sub = `Hold as close to ${newCalibrationTarget}s as possible! Closest bid wins.`; break;
         }
+        // HAUNTED placeholder protocols
+        case 'HAUNTED_SEANCE':     msg = "SÉANCE ROUND";  sub = "One player must close their eyes while bidding. (Coming soon)"; break;
+        case 'HAUNTED_CURSE_ECHO': msg = "CURSE ECHO";    sub = "The echo of last round's winning bid haunts this one. (Coming soon)"; break;
+        case 'HAUNTED_WAIL':       msg = "SPIRIT WAIL";   sub = "Bid above 20s or pay a time penalty. (Coming soon)"; break;
+        case 'HAUNTED_MIRROR':     msg = "DARK MIRROR";   sub = "Lowest valid bid wins this round's trophy. (Coming soon)"; break;
+        // WAGER placeholder protocols
+        case 'WAGER_JACKPOT':    msg = "WAGER JACKPOT"; sub = "All wager rewards are doubled this round. (Coming soon)"; break;
+        case 'WAGER_FORCED_BET': msg = "FORCED BET";    sub = "Skipping the wager phase is not allowed this round. (Coming soon)"; break;
+        case 'WAGER_BLIND':      msg = "BLIND WAGER";   sub = "Wager targets are hidden until the round ends. (Coming soon)"; break;
+        case 'WAGER_ALL_IN':     msg = "ALL IN";         sub = "Minimum wager is 50% of your time bank. (Coming soon)"; break;
       }
       
       // Filter out popups that shouldn't be seen by the player (targeted/secret protocols only)
@@ -6741,7 +6763,7 @@ export default function Game() {
                               <AlertTriangle size={14} className="text-red-400" />
                               <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND','HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR','WAGER_JACKPOT','WAGER_FORCED_BET','WAGER_BLIND','WAGER_ALL_IN'].includes(p as any)).length} selected</div>
                           </summary>
 
                           <div className="px-4 pb-4 space-y-3">
@@ -6884,6 +6906,78 @@ export default function Game() {
                                 <div className="space-y-1">
                                   <h4 className="text-sm font-bold text-orange-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
                                   <p className="text-xs text-orange-400" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+
+                        {/* HAUNTED */}
+                        <details className="rounded-lg border border-teal-500/20 bg-teal-950/15 overflow-hidden" data-testid="section-protocol-config-haunted">
+                          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Ghost size={14} className="text-teal-400" />
+                              <div className="text-sm font-bold text-teal-200 tracking-widest">HAUNTED</div>
+                              <span className="text-[10px] text-teal-500/70 italic ml-1">coming soon</span>
+                            </div>
+                            <div className="text-[10px] uppercase tracking-widest text-teal-400/70">{allowedProtocols.filter(p => ['HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR'].includes(p as any)).length} selected</div>
+                          </summary>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
+                            {[
+                              { id: 'HAUNTED_SEANCE',     label: 'SÉANCE ROUND',  desc: 'One player must close their eyes while bidding.' },
+                              { id: 'HAUNTED_CURSE_ECHO', label: 'CURSE ECHO',    desc: 'Last round\'s winning bid echoes as the minimum.' },
+                              { id: 'HAUNTED_WAIL',       label: 'SPIRIT WAIL',   desc: 'Bid above 20s or pay a time penalty.' },
+                              { id: 'HAUNTED_MIRROR',     label: 'DARK MIRROR',   desc: 'Lowest valid bid wins this round\'s trophy.' },
+                            ].map((p) => (
+                              <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-teal-950/20 border border-teal-500/10" data-testid={`row-protocol-config-${p.id}`}>
+                                <Switch
+                                  checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                  disabled={variant !== 'HAUNTED'}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                    else setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                  }}
+                                  data-testid={`switch-protocol-${p.id}`}
+                                />
+                                <div className="space-y-1">
+                                  <h4 className="text-sm font-bold text-teal-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
+                                  <p className="text-xs text-teal-400/80" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+
+                        {/* WAGER */}
+                        <details className="rounded-lg border border-yellow-600/20 bg-yellow-950/15 overflow-hidden" data-testid="section-protocol-config-wager">
+                          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Trophy size={14} className="text-yellow-400" />
+                              <div className="text-sm font-bold text-yellow-200 tracking-widest">WAGER</div>
+                              <span className="text-[10px] text-yellow-500/70 italic ml-1">coming soon</span>
+                            </div>
+                            <div className="text-[10px] uppercase tracking-widest text-yellow-400/70">{allowedProtocols.filter(p => ['WAGER_JACKPOT','WAGER_FORCED_BET','WAGER_BLIND','WAGER_ALL_IN'].includes(p as any)).length} selected</div>
+                          </summary>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
+                            {[
+                              { id: 'WAGER_JACKPOT',    label: 'WAGER JACKPOT', desc: 'All wager rewards are doubled this round.' },
+                              { id: 'WAGER_FORCED_BET', label: 'FORCED BET',    desc: 'Skipping the wager phase is not allowed.' },
+                              { id: 'WAGER_BLIND',      label: 'BLIND WAGER',   desc: 'Wager targets are hidden until round ends.' },
+                              { id: 'WAGER_ALL_IN',     label: 'ALL IN',        desc: 'Minimum wager is 50% of your time bank.' },
+                            ].map((p) => (
+                              <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-yellow-950/20 border border-yellow-600/10" data-testid={`row-protocol-config-${p.id}`}>
+                                <Switch
+                                  checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                  disabled={variant !== 'WAGER'}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                    else setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                  }}
+                                  data-testid={`switch-protocol-${p.id}`}
+                                />
+                                <div className="space-y-1">
+                                  <h4 className="text-sm font-bold text-yellow-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
+                                  <p className="text-xs text-yellow-400/80" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
                                 </div>
                               </div>
                             ))}

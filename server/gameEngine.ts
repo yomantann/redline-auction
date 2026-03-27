@@ -78,6 +78,10 @@ export type ProtocolType =
   | 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'NOISE_CANCEL'
   | 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND'
   | 'OVERCLOCK' | 'CALIBRATION'
+  // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
+  | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
+  // WAGER mode protocols (placeholder — mechanics not yet implemented)
+  | 'WAGER_JACKPOT' | 'WAGER_FORCED_BET' | 'WAGER_BLIND' | 'WAGER_ALL_IN'
   | null;
 
 // Protocol pools by variant
@@ -95,6 +99,16 @@ const SOCIAL_PROTOCOLS: ProtocolType[] = [
 
 const BIO_PROTOCOLS: ProtocolType[] = [
   'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'
+];
+
+// HAUNTED mode protocol pool (placeholder — effects coming in future release)
+const HAUNTED_PROTOCOLS: ProtocolType[] = [
+  'HAUNTED_SEANCE', 'HAUNTED_CURSE_ECHO', 'HAUNTED_WAIL', 'HAUNTED_MIRROR'
+];
+
+// WAGER mode protocol pool (placeholder — effects coming in future release)
+const WAGER_PROTOCOLS: ProtocolType[] = [
+  'WAGER_JACKPOT', 'WAGER_FORCED_BET', 'WAGER_BLIND', 'WAGER_ALL_IN'
 ];
 
 // Driver/Character ability definitions (minimal for server-side processing)
@@ -2662,6 +2676,80 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       });
       break;
     }
+    // ── HAUNTED protocols (placeholder — full mechanics not yet implemented) ──
+    case 'HAUNTED_SEANCE': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'HAUNTED_SEANCE',
+        msg: 'SÉANCE ROUND',
+        sub: 'The spirits speak… one player must close their eyes while bidding. (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'HAUNTED_CURSE_ECHO': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'HAUNTED_CURSE_ECHO',
+        msg: 'CURSE ECHO',
+        sub: 'The echo of last round\'s winning bid haunts this one. (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'HAUNTED_WAIL': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'HAUNTED_WAIL',
+        msg: 'SPIRIT WAIL',
+        sub: 'A spectral wail rattles the auction floor. Bid above 20s or pay a time penalty. (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'HAUNTED_MIRROR': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'HAUNTED_MIRROR',
+        msg: 'DARK MIRROR',
+        sub: 'The mirror reverses fate — lowest valid bid wins this round\'s trophy. (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    // ── WAGER protocols (placeholder — full mechanics not yet implemented) ──
+    case 'WAGER_JACKPOT': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'WAGER_JACKPOT',
+        msg: 'WAGER JACKPOT',
+        sub: 'All wager rewards are doubled this round. High risk, high reward! (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'WAGER_FORCED_BET': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'WAGER_FORCED_BET',
+        msg: 'FORCED BET',
+        sub: 'Skipping the wager is not allowed this round — everyone must place a bet. (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'WAGER_BLIND': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'WAGER_BLIND',
+        msg: 'BLIND WAGER',
+        sub: 'Wager targets are kept secret from everyone until the round ends. (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'WAGER_ALL_IN': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'WAGER_ALL_IN',
+        msg: 'ALL IN',
+        sub: 'Minimum wager this round is 50% of your time bank. Fortune favours the bold! (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
   }
 }
 
@@ -2786,6 +2874,12 @@ function selectProtocolForRound(game: GameState): ProtocolType {
       break;
     case 'BIO_FUEL':
       protocolPool = [...protocolPool, ...BIO_PROTOCOLS];
+      break;
+    case 'HAUNTED':
+      protocolPool = [...protocolPool, ...HAUNTED_PROTOCOLS];
+      break;
+    case 'WAGER':
+      protocolPool = [...protocolPool, ...WAGER_PROTOCOLS];
       break;
   }
   
