@@ -1023,6 +1023,20 @@ export default function Game() {
     targetId?: string;
   } | null>(null);
   const voteTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const spVoteQueueRef = useRef<Array<{
+    relicId: string;
+    activatorName: string;
+    targetName?: string;
+    targetId?: string;
+    options: { id: string; label: string }[];
+    votes: Record<string, string>;
+    timeLeft: number;
+  }>>([]);
+
+  // MP ghost ability panel state
+  const [mpBargainOffer, setMpBargainOffer] = useState(1);
+  const [mpBargainTarget, setMpBargainTarget] = useState<string | null>(null);
+  const [mpVendettaEmitted, setMpVendettaEmitted] = useState(false);
 
   // Singleplayer snapshot recording - write-only to database
   const recordSingleplayerSnapshot = async (
@@ -1503,6 +1517,21 @@ export default function Game() {
 
     const handleGameState = (state: typeof multiplayerGameState) => {
       console.log('[Game] State update:', state?.phase, 'Round:', state?.round);
+
+      // MP revival detection: notify p1 if they just transitioned from ghost → alive
+      if (state && socket) {
+        const prev = prevMpPlayersRef.current;
+        const myPlayer = state.players.find((p: any) => p.socketId === socket.id);
+        if (myPlayer) {
+          const prevMe = prev.find((p: any) => p.id === myPlayer.id);
+          if (prevMe && prevMe.isGhost && !(myPlayer as any).isGhost && !(myPlayer as any).isEliminated) {
+            const reviveTime = ((myPlayer as any).remainingTime ?? 0).toFixed(1);
+            addOverlay('ability_trigger', '🔄 REVIVED', `You have been revived with ${reviveTime}s!`, 0);
+          }
+        }
+        prevMpPlayersRef.current = state.players as any[];
+      }
+
       setMultiplayerGameState(state);
       
       // Sync phase with server state for multiplayer
@@ -1682,8 +1711,14 @@ export default function Game() {
         resolved: true,
         winnerLabel: data.winnerLabel,
       });
-      // Auto-dismiss after 5s
-      setTimeout(() => setVoteRelicState(null), 5000);
+      // Also show an overlay notification for the vote result
+      const label = data.relicId === 'tribunal' ? '⚖️ TRIBUNAL RESOLVED' : '🗳️ CONCLAVE RESOLVED';
+      addOverlay('ability_trigger', label, `Vote result: ${data.winnerLabel}`, 0);
+    };
+
+    const handleRelicBroadcast = (data: { title: string; message: string; victimId?: string }) => {
+      // Show a broadcast overlay for relic activations visible to all players
+      addOverlay('ability_trigger', data.title, data.message, 0);
     };
 
     socket.on('lobby_update', handleLobbyUpdate);
@@ -1694,6 +1729,7 @@ export default function Game() {
     socket.on('protocol_reveal', handleProtocolReveal);
     socket.on('bonus_trophy_award', handleBonusTrophyAward);
     socket.on('vote_relic_resolved', handleVoteRelicResolved);
+    socket.on('relic_broadcast', handleRelicBroadcast);
 
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
@@ -1704,6 +1740,7 @@ export default function Game() {
       socket.off('protocol_reveal', handleProtocolReveal);
       socket.off('bonus_trophy_award', handleBonusTrophyAward);
       socket.off('vote_relic_resolved', handleVoteRelicResolved);
+      socket.off('relic_broadcast', handleRelicBroadcast);
     };
   }, [socket]);
 
@@ -1769,6 +1806,7 @@ export default function Game() {
   const redemptionShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_REDEMPTION has been shown
   const nailInCoffinShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_NAIL_IN_THE_COFFIN has been shown
   const bonusTrophiesAwardedRef = useRef<boolean>(false); // MP: prevent bonus trophy overlays from showing more than once per game
+  const prevMpPlayersRef = useRef<any[]>([]); // MP: track previous player states for revival detection
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -2833,7 +2871,11 @@ export default function Game() {
           if (victims.length > 0) {
             const victim = victims[Math.floor(Math.random() * victims.length)];
             victim.tokens = Math.max(0, victim.tokens - 1);
-            setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `${victim.name} loses 1 trophy. The lamb is chosen. Not by you.`, 3000), 200);
+            if (victim.id === 'p1') {
+              setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `You are the chosen lamb — you lose 1 trophy!`, 0), 200);
+            } else {
+              setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `${victim.name} loses 1 trophy. The lamb is chosen. Not by you.`, 0), 200);
+            }
           }
           break;
         }
@@ -2851,7 +2893,7 @@ export default function Game() {
               attempts++;
             } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
             alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
-            setTimeout(() => addOverlay('ability_trigger', '🌀 WILD CARD', "All time banks redistributed! Nobody gets their own.", 3000), 200);
+            setTimeout(() => addOverlay('ability_trigger', '🌀 WILD CARD', "All time banks redistributed! Nobody gets their own.", 0), 200);
           }
           break;
         }
@@ -2912,7 +2954,7 @@ export default function Game() {
         }
         case 'blood_pact': {
           activator.bloodPactActive = true;
-          setTimeout(() => addOverlay('ability_trigger', '🩸 BLOOD PACT', "If anyone wins this round, all non-winners also lose the winner's bid time.", 3000), 200);
+          setTimeout(() => addOverlay('ability_trigger', '🩸 BLOOD PACT', "If anyone wins this round, all non-winners also lose the winner's bid time.", 0), 200);
           break;
         }
         case 'cursed_dice': {
@@ -2938,7 +2980,7 @@ export default function Game() {
             ghost.possessionRoundsLeft = undefined;
           });
           activator.tokens += 1;
-          setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE', `${ghosts.length} ghost(s) revived! You gain +1 trophy.`, 4000), 200);
+          setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE', `${ghosts.length} ghost(s) revived! You gain +1 trophy.`, 0), 200);
           break;
         }
         case 'final_writ': {
@@ -2987,14 +3029,22 @@ export default function Game() {
       allPlayers.filter(p => p.isBot && !p.isEliminated).forEach(p => {
         botVotes[p.id] = opts[Math.floor(Math.random() * opts.length)]?.id ?? opts[0].id;
       });
-      setVoteRelicState({
+      const newVoteState = {
         relicId,
         activatorName: activatorPlayer?.name ?? 'Player',
         targetName: targetPlayer?.name,
+        targetId,
         options: opts,
         votes: botVotes,
         timeLeft: 20,
-      });
+      };
+      // If a vote is already active, queue this one
+      const currentVote = voteRelicState;
+      if (currentVote && !currentVote.resolved) {
+        spVoteQueueRef.current.push(newVoteState);
+        return;
+      }
+      setVoteRelicState(newVoteState);
       // Start vote countdown
       if (voteTimerRef.current) clearInterval(voteTimerRef.current);
       voteTimerRef.current = setInterval(() => {
@@ -3034,18 +3084,18 @@ export default function Game() {
         if (winner.id === 'B') return { ...p, tribunalMinBid: 30 };
         return p;
       }));
-      setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -15s next round.` : `${vs.targetName} must bid ≥30s next round.`, 4000), 200);
+      setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -15s next round.` : `${vs.targetName} must bid ≥30s next round.`, 0), 200);
     } else if (vs.relicId === 'conclave') {
       if (winner.id === 'A') {
         setPlayers(prev => prev.map(p => (!p.isEliminated && !p.isGhost) ? { ...p, remainingTime: Math.floor(p.remainingTime / 2 * 10) / 10 } : p));
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE A', 'All time banks halved!', 4000), 200);
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE A', 'All time banks halved!', 0), 200);
       } else if (winner.id === 'B') {
         // Mark skip-next-round on local state; handled in startCountdown
         (window as any).__conclaveSkipNextRound = true;
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE B', 'Next round will be skipped as a tie!', 4000), 200);
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE B', 'Next round will be skipped as a tie!', 0), 200);
       } else if (winner.id === 'C') {
         (window as any).__conclaveProtocolsAlwaysOn = true;
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE C', '100% protocols for the rest of the game!', 4000), 200);
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE C', '100% protocols for the rest of the game!', 0), 200);
       } else if (winner.id === 'D') {
         setPlayers(prev => {
           const alive = prev.filter(p => !p.isEliminated && !p.isGhost);
@@ -3054,14 +3104,32 @@ export default function Game() {
           const minTok = sorted2[0].tokens;
           const bottom2Ids = new Set(sorted2.filter(p => p.tokens === minTok).slice(0, 2).map(p => p.id));
           if (bottom2Ids.size < 2) bottom2Ids.add(sorted2[1].id);
-          return prev.map(p => bottom2Ids.has(p.id) ? { ...p, tokens: Math.max(0, p.tokens - 1) } : p);
+          return prev.map(p => bottom2Ids.has(p.id) ? { ...p, tokens: p.tokens - 1 } : p);
         });
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', 'Bottom 2 players each lose 1 trophy!', 4000), 200);
+        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', 'Bottom 2 players each lose 1 trophy!', 0), 200);
       }
     }
 
-    // Auto-dismiss result after 5s
-    setTimeout(() => setVoteRelicState(null), 5000);
+    // After a 2s delay (so player can read result), start next queued vote if any
+    setTimeout(() => {
+      const next = spVoteQueueRef.current.shift();
+      if (next) {
+        setVoteRelicState(next);
+        if (voteTimerRef.current) clearInterval(voteTimerRef.current);
+        voteTimerRef.current = setInterval(() => {
+          setVoteRelicState(vs2 => {
+            if (!vs2 || vs2.resolved) { clearInterval(voteTimerRef.current!); return vs2; }
+            const nxt = vs2.timeLeft - 1;
+            if (nxt <= 0) {
+              clearInterval(voteTimerRef.current!);
+              resolveVoteRelicSP({ ...vs2, timeLeft: 0 });
+              return { ...vs2, timeLeft: 0, resolved: true };
+            }
+            return { ...vs2, timeLeft: nxt };
+          });
+        }, 1000);
+      }
+    }, 2000);
   };
 
   const handlePress = () => {
@@ -3648,7 +3716,12 @@ export default function Game() {
             case 'sacrificial_lamb': {
               const victims = alive.filter(p => p.tokens > 0);
               const victim = pickRandom(victims);
-              if (victim) victim.tokens = Math.max(0, victim.tokens - 1);
+              if (victim) {
+                victim.tokens = Math.max(0, victim.tokens - 1);
+                if (victim.id === 'p1') {
+                  setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `You are the chosen lamb — you lose 1 trophy!`, 0), 200);
+                }
+              }
               break;
             }
             case 'wild_card': {
@@ -3664,19 +3737,23 @@ export default function Game() {
                   attempts++;
                 } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
                 alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
+                setTimeout(() => addOverlay('ability_trigger', '🌀 WILD CARD', `${bot.name} used Wild Card — all time banks redistributed!`, 0), 200);
               }
               break;
             }
             case 'death_wish': {
               bot.deathWishActive = true;
+              setTimeout(() => addOverlay('ability_trigger', '💀 DEATH WISH', `${bot.name} activated Death Wish — win for +2 trophies, lose and forfeit extra 15s!`, 0), 200);
               break;
             }
             case 'blood_pact': {
               bot.bloodPactActive = true;
+              setTimeout(() => addOverlay('ability_trigger', '🩸 BLOOD PACT', `${bot.name} activated Blood Pact — all non-winners pay the winner's bid time this round!`, 0), 200);
               break;
             }
             case 'cursed_dice': {
               bot.cursedDiceActive = true;
+              setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE', `${bot.name} armed Cursed Dice — 50/50 chance of ±20s after this round!`, 0), 200);
               break;
             }
             case 'seance': {
@@ -3697,7 +3774,9 @@ export default function Game() {
                 });
                 bot.tokens += 1;
                 if (p1WasGhost) {
-                  setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE REVIVAL', `A bot used Séance — you've been revived with ${p1ReviveTime.toFixed(1)}s!`, 4000), 400);
+                  setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE REVIVAL', `A bot used Séance — you've been revived with ${p1ReviveTime.toFixed(1)}s!`, 0), 400);
+                } else {
+                  setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE', `${bot.name} performed a Séance — ${ghosts.length} ghost(s) revived!`, 0), 400);
                 }
               } else {
                 // Not enough ghosts — return relic
@@ -3711,6 +3790,7 @@ export default function Game() {
               const picked = DARK_POOL[Math.floor(Math.random() * DARK_POOL.length)];
               (bot as any).forcedProtocolNextRound = true;
               (bot as any).forcedProtocolValue = picked;
+              setTimeout(() => addOverlay('ability_trigger', '⛓️ PROTOCOL FORCER', `${bot.name} used Protocol Forcer — next round will run: ${picked}!`, 0), 200);
               break;
             }
             case 'last_will': {
@@ -3718,6 +3798,8 @@ export default function Game() {
               if (target) {
                 const curseType = Math.random() < 0.5 ? 'time' : 'trophy';
                 bot.pendingLastWill = { targetId: target.id, curseType };
+                const curseName = curseType === 'time' ? 'loses 20s' : 'loses 1 trophy';
+                setTimeout(() => addOverlay('ability_trigger', '⚰️ LAST WILL SET', `${bot.name} set Last Will — if ghosted, ${target.name} ${curseName}!`, 0), 200);
               }
               break;
             }
@@ -3726,12 +3808,16 @@ export default function Game() {
               if (target && (target.bidHistory?.length ?? 0) > 0) {
                 const lastBid = target.bidHistory![target.bidHistory!.length - 1];
                 target.echoForcedBid = lastBid;
+                setTimeout(() => addOverlay('ability_trigger', '🔁 ECHO', `${bot.name} used Echo — ${target.name} must replay their last bid (${lastBid.toFixed(1)}s) next round!`, 0), 200);
               }
               break;
             }
             case 'marked': {
               const target = pickRandom(opponents);
-              if (target) target.markedBy = bot.id;
+              if (target) {
+                target.markedBy = bot.id;
+                setTimeout(() => addOverlay('ability_trigger', '👁️ MARKED', `${bot.name} marked ${target.name} — they will be ghosted on their next win!`, 0), 200);
+              }
               break;
             }
             case 'corrupt': {
@@ -3739,6 +3825,7 @@ export default function Game() {
               if (botTarget) {
                 botTarget.corruptRoundsLeft = 3;
                 botTarget.personality = 'aggressive';
+                setTimeout(() => addOverlay('ability_trigger', '🦠 CORRUPT', `${bot.name} corrupted ${botTarget.name} — they go AGGRESSIVE for 3 rounds!`, 0), 200);
               } else {
                 bot.relicConsumed = false; // no valid bot target
               }
@@ -3749,6 +3836,7 @@ export default function Game() {
               if (target && (target.bidHistory?.length ?? 0) > 0) {
                 const maxBid = Math.max(...target.bidHistory!);
                 target.patternLockMinBid = maxBid;
+                setTimeout(() => addOverlay('ability_trigger', '🔒 PATTERN LOCK', `${bot.name} used Pattern Lock — ${target.name} must bid ≥${maxBid.toFixed(1)}s next round!`, 0), 200);
               } else {
                 bot.relicConsumed = false; // no history to lock
               }
@@ -3756,6 +3844,7 @@ export default function Game() {
             }
             case 'final_writ': {
               bot.finalWritActive = true;
+              setTimeout(() => addOverlay('ability_trigger', '✒️ FINAL WRIT', `${bot.name} activated Final Writ — they will auto-win the final round!`, 0), 200);
               break;
             }
             case 'tribunal': {
@@ -3765,8 +3854,10 @@ export default function Game() {
                 const winnerOption = Math.random() < 0.5 ? 'A' : 'B';
                 if (winnerOption === 'A') {
                   target.tribunalTimePenalty = (target.tribunalTimePenalty ?? 0) + 15;
+                  setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', `${bot.name} called a Tribunal — ${target.name} loses 15s next round!`, 0), 200);
                 } else {
                   target.tribunalMinBid = 30;
+                  setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', `${bot.name} called a Tribunal — ${target.name} must bid ≥30s next round!`, 0), 200);
                 }
               }
               break;
@@ -3777,16 +3868,20 @@ export default function Game() {
               const pick2 = outcomes[Math.floor(Math.random() * outcomes.length)];
               if (pick2 === 'A') {
                 alive.forEach(p => { p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10; });
+                setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE A', `${bot.name} called Conclave A — all time banks halved!`, 0), 200);
               } else if (pick2 === 'B') {
                 (window as any).__conclaveSkipNextRound = true;
+                setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE B', `${bot.name} called Conclave B — next round will be skipped!`, 0), 200);
               } else if (pick2 === 'C') {
                 (window as any).__conclaveProtocolsAlwaysOn = true;
+                setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE C', `${bot.name} called Conclave C — protocols every round for the rest of the game!`, 0), 200);
               } else {
                 const sorted = [...alive].sort((a, b) => a.tokens - b.tokens);
                 const minTok = sorted[0]?.tokens;
                 const bottom2 = sorted.filter(p => p.tokens === minTok).slice(0, 2);
                 if (bottom2.length < 2 && sorted[1]) bottom2.push(sorted[1]);
                 bottom2.slice(0, 2).forEach(p => { p.tokens = Math.max(0, p.tokens - 1); });
+                setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', `${bot.name} called Conclave D — bottom 2 players each lose 1 trophy!`, 0), 200);
               }
               break;
             }
@@ -4588,11 +4683,11 @@ export default function Game() {
             const reaperMsg = ghost.id === 'p1'
               ? `💀 REAPER: Your ghost ability dragged ${target.name} into the spirit world!`
               : `💀 REAPER: ${ghost.name}'s ghost ability ghosted ${target.name}!`;
-            setTimeout(() => addOverlay('protocol_alert', '💀 REAPER STRIKES', reaperMsg, 4000), 1200);
+            setTimeout(() => addOverlay('protocol_alert', '💀 REAPER STRIKES', reaperMsg, 0), 1200);
           }
           ghost.ghostAbilityUsed = true;
-          // 3-round fallback revival for reaper ghosts
-          ghost.possessionRoundsLeft = 3;
+          // 3-round fallback revival for reaper ghosts (init 4 to account for same-round decrement → 3 full rounds)
+          ghost.possessionRoundsLeft = 4;
 
         } else if (ghost.ghostAbility === 'curse') {
           // CURSE: triple all driver ability values for alive players
@@ -4600,10 +4695,10 @@ export default function Game() {
           const curseMsg = ghost.id === 'p1'
             ? `🔮 CURSE: Your ghostly curse triples all driver abilities for the rest of the game!`
             : `🔮 CURSE: ${ghost.name}'s ghost cursed the arena — all driver abilities are tripled!`;
-          setTimeout(() => addOverlay('protocol_alert', '🔮 CURSE ACTIVATED', curseMsg, 4000), 1200);
+          setTimeout(() => addOverlay('protocol_alert', '🔮 CURSE ACTIVATED', curseMsg, 0), 1200);
           ghost.ghostAbilityUsed = true;
-          // 3-round fallback revival for curse ghosts
-          ghost.possessionRoundsLeft = 3;
+          // 3-round fallback revival for curse ghosts (init 4 to account for same-round decrement → 3 full rounds)
+          ghost.possessionRoundsLeft = 4;
 
         } else if (ghost.ghostAbility === 'possession') {
           // POSSESSION: for bots, auto-pick a random alive player; for p1, show the pick phase
@@ -4637,15 +4732,15 @@ export default function Game() {
             setVendettaP1Released(false);
             setVendettaHoldStart(null);
             ghost.ghostAbilityUsed = true;
-            // 3-round fallback revival in case vendetta doesn't revive
-            ghost.possessionRoundsLeft = 3;
+            // 3-round fallback revival in case vendetta doesn't revive (init 4 → 3 full rounds)
+            ghost.possessionRoundsLeft = 4;
             setPlayers([...finalPlayers]);
             setPhase('ghost_vendetta');
             return; // Wait for vendetta to resolve
           }
           ghost.ghostAbilityUsed = true;
-          // 3-round fallback revival (no targets available)
-          ghost.possessionRoundsLeft = 3;
+          // 3-round fallback revival (no targets available) (init 4 → 3 full rounds)
+          ghost.possessionRoundsLeft = 4;
 
         } else if (ghost.ghostAbility === 'bargain') {
           // BARGAIN: p1 or bot offers trophies to an alive player
@@ -4657,8 +4752,8 @@ export default function Game() {
             setBargainOffer(1);
             setBargainTimeLeft(30);
             ghost.ghostAbilityUsed = true;
-            // For bots: auto-resolve after random time
-            if (ghost.isBot) {
+            // For bots: auto-resolve after random time (unless targeting p1 who gets to respond)
+            if (ghost.isBot && target.id !== 'p1') {
               // Bot ghost randomly decides offer (random trophies for time)
               const botOffer = Math.min(ghost.tokens, Math.floor(Math.random() * 3) + 1);
               const targetPlayer = finalPlayers.find(fp => fp.id === target.id);
@@ -4676,20 +4771,25 @@ export default function Game() {
                 }
               }
             } else {
-              // 3-round fallback revival in case bargain doesn't revive
-              ghost.possessionRoundsLeft = 3;
+              // p1 is ghost OR bot ghost targeting p1 — show bargain UI
+              // 3-round fallback revival in case bargain doesn't revive (init 4 → 3 full rounds)
+              ghost.possessionRoundsLeft = 4;
               setPlayers([...finalPlayers]);
               setPhase('ghost_bargain');
               return; // Wait for bargain to resolve
             }
           }
           ghost.ghostAbilityUsed = true;
-          // 3-round fallback revival for bargain ghosts (no targets or bot path)
-          ghost.possessionRoundsLeft = 3;
+          // 3-round fallback revival for bargain ghosts (no targets or bot path) (init 4 → 3 full rounds)
+          ghost.possessionRoundsLeft = 4;
         } else if (ghost.ghostAbility === 'purgatory') {
-          // PURGATORY: bot sets purgatory countdown using possessionRoundsLeft = 2
-          ghost.possessionRoundsLeft = 2;
+          // PURGATORY: countdown (init 3 to account for same-round decrement → 2 full rounds as ghost)
+          ghost.possessionRoundsLeft = 3;
           ghost.ghostAbilityUsed = true;
+          const purgatoryMsg = ghost.id === 'p1'
+            ? '🌑 PURGATORY: You drift into purgatory. You will return in 2 rounds with the lowest alive player\'s time bank.'
+            : `🌑 PURGATORY: ${ghost.name} enters purgatory — returns in 2 rounds.`;
+          setTimeout(() => addOverlay('ability_trigger', '🌑 PURGATORY', purgatoryMsg, 0), 1200);
           // No immediate effect — revival checked below
         }
       }
@@ -4719,7 +4819,7 @@ export default function Game() {
               ghost.possessionTargetId = undefined;
               ghost.possessionRoundsLeft = undefined;
               if (ghost.id === 'p1') {
-                setTimeout(() => addOverlay('ability_trigger', '👁️ POSSESSION REVIVE', "Your latched target triggered your revival! You're back with 45s!", 4000), 600);
+                setTimeout(() => addOverlay('ability_trigger', '👁️ POSSESSION REVIVE', "Your latched target triggered your revival! You're back with 45s!", 0), 600);
               }
             }
           } else {
@@ -4752,7 +4852,7 @@ export default function Game() {
                 const abilityMsg = ghost.ghostAbility === 'purgatory'
                   ? `Purgatory expires — you return with ${ghost.remainingTime.toFixed(1)}s!`
                   : `3-round fallback triggered — you return with ${ghost.remainingTime.toFixed(1)}s!`;
-                setTimeout(() => addOverlay('ability_trigger', abilityLabel, abilityMsg, 4000), 600);
+                setTimeout(() => addOverlay('ability_trigger', abilityLabel, abilityMsg, 0), 600);
               }
             }
           } else {
@@ -6124,6 +6224,53 @@ export default function Game() {
     ? (myMultiplayerPlayer?.isGhost ?? false)
     : (players.find(p => p.id === 'p1')?.isGhost ?? false);
 
+  // MP ghost ability auto-activation: for purgatory, curse, and vendetta, emit resolve_ghost_ability automatically
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!isMultiplayer || !socket || variant !== 'HAUNTED') return;
+    const ghostPlayer = myMultiplayerPlayer;
+    if (!ghostPlayer || !(ghostPlayer as any).isGhost || (ghostPlayer as any).ghostAbilityUsed) return;
+    const ability = (ghostPlayer as any).ghostAbility as GhostAbilityType;
+    if (!ability) return;
+    if (ability === 'purgatory' || ability === 'curse') {
+      socket.emit('resolve_ghost_ability', { ability }, (res: any) => {
+        if (res?.success) {
+          if (ability === 'purgatory') {
+            addOverlay('ability_trigger', '🌑 PURGATORY', 'You enter purgatory — you will return in 2 rounds with the lowest alive player\'s time bank.', 0);
+          } else {
+            addOverlay('ability_trigger', '🔮 CURSE ACTIVATED', 'Your ghostly curse has been placed — all driver abilities are tripled for the rest of the game!', 0);
+          }
+        }
+      });
+    } else if (ability === 'vendetta' && !mpVendettaEmitted) {
+      // Auto-resolve vendetta for MP (hold-button mechanic not feasible across sockets); random outcome
+      const aliveTargets = (isMultiplayer && multiplayerGameState?.players
+        ? multiplayerGameState.players
+        : players
+      ).filter((p: any) => !p.isGhost && !p.isEliminated);
+      const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)] as any;
+      const ghostWins = Math.random() > 0.5;
+      if (target) {
+        setMpVendettaEmitted(true);
+        const abilityKey = ghostWins ? 'vendetta_win' : 'vendetta_lose';
+        socket.emit('resolve_ghost_ability', { ability: abilityKey, targetId: target.id }, (res: any) => {
+          if (res?.success) {
+            addOverlay('ability_trigger', '⚔️ VENDETTA', ghostWins
+              ? 'Vendetta resolved — you won! Revived with 30s!'
+              : 'Vendetta resolved — you lost. No revival.', 0);
+          }
+        });
+      }
+    }
+  // intentional: run whenever ghost ability/used state changes
+  }, [isMultiplayer, socket, variant,
+    (myMultiplayerPlayer as any)?.ghostAbility,
+    (myMultiplayerPlayer as any)?.ghostAbilityUsed,
+    (myMultiplayerPlayer as any)?.isGhost,
+    mpVendettaEmitted,
+  ]);
+
   // Now define playerIsReady and playerBid AFTER currentPlayerIsHolding is defined
   const playerIsReady = isMultiplayer 
     ? currentPlayerIsHolding 
@@ -7375,7 +7522,7 @@ export default function Game() {
                   className="flex flex-col items-center p-3 sm:p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden min-w-0"
                 >
                   <div className={cn("w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full mb-2 sm:mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10 flex-shrink-0", char.color)}>
-                     <img src={getCharImage(char)} alt={char.name} className="w-full h-full object-cover" />
+                     <img src={getCharImage(char)} alt={char.name} className={cn("w-full h-full object-cover", variant === 'HAUNTED' && char.imageHaunted && "object-top")} />
                   </div>
                   <h3 className="font-bold text-sm sm:text-lg md:text-xl text-white mb-0.5 sm:mb-1 w-full leading-tight" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
                   <p className="text-[10px] sm:text-sm text-primary/80 uppercase tracking-wider mb-1 sm:mb-2 font-display w-full leading-tight" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
@@ -8080,7 +8227,7 @@ export default function Game() {
                 <p className="text-zinc-500 text-sm mt-1">Spectating Round {round} / {totalRounds}</p>
               </div>
               {ghostImg && (
-                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-cover rounded-full border-2 border-teal-500/40" />
+                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-contain rounded-full border-2 border-teal-500/40 bg-zinc-900" />
               )}
               {abilityName && (
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
@@ -8394,11 +8541,12 @@ export default function Game() {
 
           {/* Vote Relic result overlay */}
           {voteRelicState?.resolved && voteRelicState.winnerLabel && (
-            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 pointer-events-none">
+            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
               <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full text-center space-y-3">
                 <h3 className="text-lg font-bold text-teal-300">VOTE RESULT</h3>
                 <p className="text-zinc-200 text-sm font-semibold">{voteRelicState.winnerLabel}</p>
                 <p className="text-zinc-500 text-xs">Effect applied!</p>
+                <button onClick={() => setVoteRelicState(null)} className="mt-2 px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition-colors">Dismiss</button>
               </div>
             </div>
           )}
@@ -8426,7 +8574,7 @@ export default function Game() {
                 <p className="text-zinc-500 text-sm mt-1">Spectating Round {round} / {totalRounds}</p>
               </div>
               {ghostImg && (
-                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-cover rounded-full border-2 border-teal-500/40" />
+                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-contain rounded-full border-2 border-teal-500/40 bg-zinc-900" />
               )}
               {abilityName && (
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
@@ -8507,7 +8655,7 @@ export default function Game() {
                 <p className="text-zinc-500 text-sm mt-1">Spectating Round {round} / {totalRounds}</p>
               </div>
               {ghostImg && (
-                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-cover rounded-full border-2 border-teal-500/40" />
+                <img src={ghostImg} alt="ghost" className="w-20 h-20 object-contain rounded-full border-2 border-teal-500/40 bg-zinc-900" />
               )}
               {abilityName && (
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
@@ -8724,9 +8872,100 @@ export default function Game() {
                   </div>
                 );
               }
+
+              // Ghost ability action panel for MP human ghosts
+              const mpGhostAbilityUsed = (myMultiplayerPlayer as any)?.ghostAbilityUsed;
+              const mpGhostAbility = (myMultiplayerPlayer as any)?.ghostAbility as GhostAbilityType | null;
+              const myGhostTokens = myMultiplayerPlayer?.tokens ?? 0;
+              const aliveForGhost = displayPlayers.filter(p => !p.isGhost && !p.isEliminated);
+              const ghostAbilityPanel = currentPlayerIsGhost && mpGhostAbility && !mpGhostAbilityUsed && socket ? (
+                <div className="bg-teal-950/40 border border-teal-500/40 rounded-xl p-4 mb-3 text-center space-y-3">
+                  <div className="text-teal-300 font-bold text-sm">{GHOST_ABILITY_NAMES[mpGhostAbility] ?? mpGhostAbility.toUpperCase()}</div>
+                  <div className="text-zinc-400 text-xs">{GHOST_ABILITY_DESCS[mpGhostAbility] ?? ''}</div>
+                  {(mpGhostAbility === 'purgatory' || mpGhostAbility === 'curse') && (
+                    <div className="text-zinc-500 text-xs italic">Auto-activating…</div>
+                  )}
+                  {mpGhostAbility === 'reaper' && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-zinc-400">Select a player to ghost:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {aliveForGhost.map(t => (
+                          <button key={t.id}
+                            onClick={() => {
+                              socket.emit('resolve_ghost_ability', { ability: 'reaper', targetId: t.id }, (res: any) => {
+                                if (res?.success) addOverlay('ability_trigger', '💀 REAPER', `You ghosted ${t.name}!`, 0);
+                              });
+                            }}
+                            className="flex flex-col items-center p-2 rounded-lg border border-red-500/30 bg-black/40 hover:border-red-400 text-xs text-zinc-300 transition-colors">
+                            {typeof t.characterIcon === 'string' && <img src={t.characterIcon} alt={t.name} className="w-8 h-8 rounded-full mb-1 object-cover" />}
+                            <span className="font-bold text-red-300">{t.name}</span>
+                            <span className="text-zinc-500">{t.remainingTime.toFixed(1)}s</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {mpGhostAbility === 'possession' && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-zinc-400">Latch onto a player:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {aliveForGhost.map(t => (
+                          <button key={t.id}
+                            onClick={() => {
+                              socket.emit('resolve_ghost_ability', { ability: 'possession', targetId: t.id }, (res: any) => {
+                                if (res?.success) addOverlay('ability_trigger', '👁️ POSSESSION', `You latched onto ${t.name}. You'll return when they're eliminated or in 3 rounds.`, 0);
+                              });
+                            }}
+                            className="flex flex-col items-center p-2 rounded-lg border border-teal-500/30 bg-black/40 hover:border-teal-400 text-xs text-zinc-300 transition-colors">
+                            {typeof t.characterIcon === 'string' && <img src={t.characterIcon} alt={t.name} className="w-8 h-8 rounded-full mb-1 object-cover" />}
+                            <span className="font-bold text-teal-300">{t.name}</span>
+                            <span className="text-zinc-500">{t.remainingTime.toFixed(1)}s</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {mpGhostAbility === 'vendetta' && (
+                    <div className="text-zinc-500 text-xs italic">
+                      {mpVendettaEmitted ? 'Vendetta resolved — see overlay for result.' : 'Resolving Vendetta…'}
+                    </div>
+                  )}
+                  {mpGhostAbility === 'bargain' && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-zinc-400">Offer trophies for time:</p>
+                      {aliveForGhost.length > 0 ? (
+                        <>
+                          <select value={mpBargainTarget ?? aliveForGhost[0]?.id ?? ''} onChange={e => setMpBargainTarget(e.target.value)}
+                            className="w-full bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-xs text-zinc-300">
+                            {aliveForGhost.map(t => <option key={t.id} value={t.id}>{t.name} ({t.remainingTime.toFixed(1)}s)</option>)}
+                          </select>
+                          <div className="flex items-center gap-2 justify-center">
+                            <button onClick={() => setMpBargainOffer(o => Math.max(1, o - 1))} className="w-6 h-6 rounded bg-zinc-700 text-zinc-300 text-xs">−</button>
+                            <span className="text-teal-300 font-bold text-sm">{mpBargainOffer} 🏆 → {(mpBargainOffer * 40).toFixed(0)}s</span>
+                            <button onClick={() => setMpBargainOffer(o => Math.min(myGhostTokens, o + 1))} className="w-6 h-6 rounded bg-zinc-700 text-zinc-300 text-xs">+</button>
+                          </div>
+                          <button
+                            disabled={myGhostTokens < mpBargainOffer}
+                            onClick={() => {
+                              const tid = mpBargainTarget ?? aliveForGhost[0]?.id;
+                              if (!tid) return;
+                              socket.emit('resolve_ghost_ability', { ability: 'bargain', targetId: tid, offerAmount: mpBargainOffer, accepted: true }, (res: any) => {
+                                if (res?.success) addOverlay('ability_trigger', '🤝 BARGAIN', `Bargain sent! +${(mpBargainOffer * 40).toFixed(0)}s in exchange for ${mpBargainOffer} trophy/trophies.`, 0);
+                              });
+                            }}
+                            className="w-full py-1.5 rounded bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white text-xs font-bold transition-colors">
+                            OFFER
+                          </button>
+                        </>
+                      ) : <p className="text-zinc-500 text-xs">No alive players to bargain with.</p>}
+                    </div>
+                  )}
+                </div>
+              ) : null;
               
               return (
                 <div className="space-y-2">
+                  {ghostAbilityPanel}
                   <div className="relative">
                     <Button 
                       onClick={() => {
