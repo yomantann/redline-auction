@@ -7,6 +7,7 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
+import { CoinFlip } from "@/components/game/CoinFlip";
 import { Mail, Heart } from 'lucide-react';
 
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
@@ -252,7 +253,7 @@ const SHORT_INITIAL_TIME = 150.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'wager_phase' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'wager_phase' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -1413,7 +1414,7 @@ export default function Game() {
   const [multiplayerGameState, setMultiplayerGameState] = useState<{
     round: number;
     totalRounds: number;
-    phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
+    phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'round_end' | 'game_over';
     countdownRemaining: number;
     elapsedTime: number;
     players: Array<{
@@ -1687,6 +1688,10 @@ export default function Game() {
           setPhase('bidding');
         } else if (state.phase === 'overclock') {
           setPhase('overclock');
+        } else if (state.phase === 'coin_flip_round') {
+          setPhase('coin_flip_round');
+        } else if (state.phase === 'read_the_table') {
+          setPhase('read_the_table');
         } else if (state.phase === 'round_end') {
           setPhase('round_end');
           if (state.roundWinner) {
@@ -1813,6 +1818,7 @@ export default function Game() {
     socket.on('protocol_reveal', handleProtocolReveal);
     socket.on('bonus_trophy_award', handleBonusTrophyAward);
     socket.on('vote_relic_resolved', handleVoteRelicResolved);
+    socket.on('rtt_your_dice', (data: { dice: number[] }) => { setMyRttDice(data.dice); });
 
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
@@ -1823,6 +1829,7 @@ export default function Game() {
       socket.off('protocol_reveal', handleProtocolReveal);
       socket.off('bonus_trophy_award', handleBonusTrophyAward);
       socket.off('vote_relic_resolved', handleVoteRelicResolved);
+      socket.off('rtt_your_dice');
     };
   }, [socket]);
 
@@ -2311,6 +2318,10 @@ export default function Game() {
             // Check if OVERCLOCK protocol is active - start click phase instead of bidding
             if (activeProtocol === 'OVERCLOCK') {
               setPhase('overclock');
+            } else if (activeProtocol === 'PROTOCOL_COIN_FLIP') {
+              setPhase('coin_flip_round');
+            } else if (activeProtocol === 'READ_THE_TABLE') {
+              setPhase('read_the_table');
             } else {
               setPhase('bidding');
             }
@@ -2356,6 +2367,290 @@ export default function Game() {
       }, 1000);
 
       return () => clearInterval(interval);
+    }
+  }, [phase, isMultiplayer]);
+
+  // ─── COIN FLIP ROUND (SP) ─────────────────────────────────────────────────
+  const [coinFlipTrigger, setCoinFlipTrigger] = useState(false);
+
+  const endCoinFlipRound = useCallback((winners: Array<{ id: string; name: string }>) => {
+    setCoinFlipTrigger(false);
+    setPhase('round_end');
+
+    const activePlayers = players.filter(p => !p.isEliminated);
+    if (activePlayers.length === 0) return;
+
+    const winner = winners[0];
+    if (!winner) return;
+
+    setPlayers(prev => prev.map(p => {
+      if (p.id === winner.id) return { ...p, tokens: p.tokens + 1, protocolWins: [...((p as any).protocolWins || []), 'PROTOCOL_COIN_FLIP'] };
+      return p;
+    }));
+    setRoundWinner({ name: winner.name, time: 0 });
+
+    const losers = activePlayers.filter(p => p.id !== winner.id);
+    if (losers.length > 0) {
+      setPlayers(prev => prev.map(p => {
+        if (losers.find(l => l.id === p.id)) {
+          const newTime = Math.max(0, p.remainingTime - 20);
+          return { ...p, remainingTime: newTime, isEliminated: newTime <= 0 ? true : p.isEliminated };
+        }
+        return p;
+      }));
+    }
+
+    addOverlay('protocol_alert', '🪙 COIN FLIP RESULTS',
+      `${winner.name} flipped heads and wins!${losers.length > 0 ? ` Other players each lose 20s.` : ''}`
+    );
+  }, [players, addOverlay]);
+
+  useEffect(() => {
+    if (phase === 'coin_flip_round' && !isMultiplayer) {
+      const t = setTimeout(() => setCoinFlipTrigger(true), 500);
+      return () => clearTimeout(t);
+    }
+  }, [phase, isMultiplayer]);
+
+  // ─── READ THE TABLE SP STATE ──────────────────────────────────────────────
+  interface RttSPBid { qty: number; face: number; }
+  interface RttSPChallengeResult {
+    type: 'liar' | 'spot_on';
+    challengerName: string;
+    bidderName: string;
+    bid: RttSPBid;
+    actualCount: number;
+    loserNames: string[];
+    loserDice: Record<string, number[]>;
+  }
+  interface RttSPState {
+    playerDice: Record<string, number[]>;
+    currentBid: RttSPBid | null;
+    turnOrder: string[];
+    turnIdx: number;
+    phase: 'rolling' | 'bidding' | 'challenge_result' | 'done';
+    challengeResult?: RttSPChallengeResult;
+    winnerIds: string[];
+    subRoundNum: number;
+  }
+
+  const [rttSPState, setRttSPState] = useState<RttSPState | null>(null);
+  const [rttShowBidModal, setRttShowBidModal] = useState(false);
+  const [rttBidQty, setRttBidQty] = useState(1);
+  const [rttBidFace, setRttBidFace] = useState(2);
+  const [myRttDice, setMyRttDice] = useState<number[]>([]);
+  const rttBotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const initRttSP = useCallback(() => {
+    const activePlayers = players.filter(p => !p.isEliminated);
+    const playerDice: Record<string, number[]> = {};
+    activePlayers.forEach(p => { playerDice[p.id] = Array.from({ length: 5 }, () => Math.floor(Math.random() * 6) + 1); });
+    setRttSPState({
+      playerDice,
+      currentBid: null,
+      turnOrder: activePlayers.map(p => p.id),
+      turnIdx: 0,
+      phase: 'rolling',
+      winnerIds: [],
+      subRoundNum: 1,
+    });
+    setRttShowBidModal(false);
+  }, [players]);
+
+  const endRttRound = useCallback((winnerIds: string[]) => {
+    setPhase('round_end');
+    const winnerId = winnerIds[0] ?? null;
+    const winner = players.find(p => p.id === winnerId);
+
+    if (winner) {
+      setRoundWinner({ name: winner.name, time: 0 });
+      setPlayers(prev => prev.map(p => p.id === winner.id
+        ? { ...p, tokens: p.tokens + 1, protocolWins: [...((p as any).protocolWins || []), 'READ_THE_TABLE'] }
+        : p
+      ));
+    }
+
+    addOverlay('protocol_alert', '🎲 READ THE TABLE',
+      winner ? `${winner.name} wins Liar's Dice!` : "Liar's Dice complete."
+    );
+  }, [players, addOverlay]);
+
+  const rttSPSubmitBid = useCallback((qty: number, face: number) => {
+    setRttSPState(prev => {
+      if (!prev || prev.phase !== 'bidding') return prev;
+      const cb = prev.currentBid;
+      if (cb) {
+        const higher = qty > cb.qty || (qty === cb.qty && face > cb.face);
+        if (!higher) return prev;
+      }
+      const nextIdx = (prev.turnIdx + 1) % prev.turnOrder.length;
+      return { ...prev, currentBid: { qty, face }, turnIdx: nextIdx };
+    });
+    setRttShowBidModal(false);
+  }, []);
+
+  const rttSPChallenge = useCallback((type: 'liar' | 'spot_on') => {
+    setRttSPState(prev => {
+      if (!prev || prev.phase !== 'bidding' || !prev.currentBid) return prev;
+      const bid = prev.currentBid;
+      const allDice = Object.values(prev.playerDice).flat();
+      const actualCount = bid.face === 1
+        ? allDice.filter(d => d === 1).length
+        : allDice.filter(d => d === bid.face || d === 1).length;
+
+      const challengerIdx = prev.turnIdx;
+      const challengerId = prev.turnOrder[challengerIdx];
+      const bidderIdx = ((challengerIdx - 1) + prev.turnOrder.length) % prev.turnOrder.length;
+      const bidderId = prev.turnOrder[bidderIdx];
+
+      let loserIds: string[];
+      if (type === 'liar') {
+        loserIds = bid.qty > actualCount ? [bidderId] : [challengerId];
+      } else {
+        loserIds = bid.qty === actualCount
+          ? prev.turnOrder.filter(id => id !== challengerId)
+          : [challengerId];
+      }
+
+      const challengerName = players.find(p => p.id === challengerId)?.name ?? 'Unknown';
+      const bidderName = players.find(p => p.id === bidderId)?.name ?? 'Unknown';
+
+      const newDice = { ...prev.playerDice };
+      loserIds.forEach(id => {
+        if (newDice[id] && newDice[id].length > 0) newDice[id] = newDice[id].slice(1);
+      });
+
+      const PENALTY = 10;
+      setPlayers(pp => pp.map(p => {
+        if (loserIds.includes(p.id)) {
+          const newTime = Math.max(0, p.remainingTime - PENALTY);
+          return { ...p, remainingTime: newTime, isEliminated: newTime <= 0 ? true : p.isEliminated };
+        }
+        return p;
+      }));
+
+      const activeDicePlayers = prev.turnOrder.filter(id => (newDice[id]?.length ?? 0) > 0);
+
+      if (activeDicePlayers.length <= 1) {
+        return {
+          ...prev,
+          playerDice: newDice,
+          phase: 'done' as const,
+          winnerIds: activeDicePlayers,
+          challengeResult: {
+            type, challengerName, bidderName, bid, actualCount,
+            loserNames: loserIds.map(id => players.find(p => p.id === id)?.name ?? id),
+            loserDice: newDice,
+          },
+        };
+      }
+
+      return {
+        ...prev,
+        playerDice: newDice,
+        phase: 'challenge_result' as const,
+        challengeResult: {
+          type, challengerName, bidderName, bid, actualCount,
+          loserNames: loserIds.map(id => players.find(p => p.id === id)?.name ?? id),
+          loserDice: newDice,
+        },
+      };
+    });
+  }, [players]);
+
+  // SP RTT: handle transitions between challenge_result → next sub-round, and done → round_end
+  useEffect(() => {
+    if (!rttSPState || isMultiplayer) return;
+
+    if (rttSPState.phase === 'done') {
+      const t = setTimeout(() => endRttRound(rttSPState.winnerIds), 2500);
+      return () => clearTimeout(t);
+    }
+
+    if (rttSPState.phase === 'challenge_result') {
+      const t = setTimeout(() => {
+        setRttSPState(prev => {
+          if (!prev) return prev;
+          const newOrder = prev.turnOrder.filter(id => (prev.playerDice[id]?.length ?? 0) > 0);
+          if (newOrder.length <= 1) {
+            return { ...prev, phase: 'done', winnerIds: newOrder };
+          }
+          const newDice = { ...prev.playerDice };
+          newOrder.forEach(id => {
+            const count = newDice[id]?.length ?? 0;
+            if (count > 0) newDice[id] = Array.from({ length: count }, () => Math.floor(Math.random() * 6) + 1);
+          });
+          return { ...prev, playerDice: newDice, currentBid: null, turnOrder: newOrder, turnIdx: 0, phase: 'bidding', subRoundNum: prev.subRoundNum + 1, challengeResult: undefined };
+        });
+      }, 3000);
+      return () => clearTimeout(t);
+    }
+
+    if (rttSPState.phase === 'rolling') {
+      const t = setTimeout(() => {
+        setRttSPState(prev => prev ? { ...prev, phase: 'bidding' } : prev);
+      }, 2500);
+      return () => clearTimeout(t);
+    }
+  }, [rttSPState?.phase, rttSPState?.subRoundNum, isMultiplayer, endRttRound]);
+
+  // SP RTT: bot AI turns
+  useEffect(() => {
+    if (!rttSPState || isMultiplayer || rttSPState.phase !== 'bidding') return;
+
+    const currentId = rttSPState.turnOrder[rttSPState.turnIdx];
+    const currentPlayer = players.find(p => p.id === currentId);
+    if (!currentPlayer?.isBot) return;
+
+    const botDice = rttSPState.playerDice[currentId] || [];
+    const cb = rttSPState.currentBid;
+    const totalDice = Object.values(rttSPState.playerDice).reduce((s, d) => s + d.length, 0);
+
+    let shouldCallLiar = false;
+    if (cb) {
+      const pMatch = cb.face === 1 ? 1 / 6 : 2 / 6;
+      const botKnown = cb.face === 1
+        ? botDice.filter(d => d === 1).length
+        : botDice.filter(d => d === cb.face || d === 1).length;
+      const expected = botKnown + (totalDice - botDice.length) * pMatch;
+      if (cb.qty > expected * 1.4) shouldCallLiar = true;
+    }
+
+    const delay = 800 + Math.random() * 800;
+    const t = setTimeout(() => {
+      if (!shouldCallLiar || !cb) {
+        let newQty: number, newFace: number;
+        if (!cb) {
+          const faceCounts: Record<number, number> = {};
+          botDice.forEach(d => { faceCounts[d] = (faceCounts[d] || 0) + 1; });
+          const wilds = faceCounts[1] || 0;
+          let bestFace = 2, bestCount = 0;
+          for (let f = 2; f <= 6; f++) {
+            const cnt = (faceCounts[f] || 0) + wilds;
+            if (cnt > bestCount) { bestCount = cnt; bestFace = f; }
+          }
+          newFace = bestFace; newQty = Math.max(1, bestCount);
+        } else {
+          newFace = cb.face + 1; newQty = cb.qty;
+          if (newFace > 6) { newFace = 2; newQty = cb.qty + 1; }
+        }
+        rttSPSubmitBid(newQty, newFace);
+      } else {
+        rttSPChallenge('liar');
+      }
+    }, delay);
+    rttBotTimerRef.current = t;
+    return () => clearTimeout(t);
+  }, [rttSPState, isMultiplayer, players, rttSPSubmitBid, rttSPChallenge]);
+
+  // Initialize RTT state when entering phase
+  useEffect(() => {
+    if (phase === 'read_the_table' && !isMultiplayer && !rttSPState) {
+      initRttSP();
+    }
+    if (phase !== 'read_the_table') {
+      setRttSPState(null);
+      setRttShowBidModal(false);
     }
   }, [phase, isMultiplayer]);
 
@@ -6691,6 +6986,267 @@ export default function Game() {
         : effectivePhase === 'game_over' ? 'game_end'
         : effectivePhase)
       : phase;
+
+    // Handle COIN FLIP ROUND phase
+    if (renderPhase === 'coin_flip_round') {
+      const cfActivePlayers = displayPlayers.filter(p => !p.isEliminated);
+      const mpResults = isMultiplayer ? ((multiplayerGameState as any)?.coinFlipResults ?? null) : null;
+      const mpWinnerIds: string[] = isMultiplayer ? ((multiplayerGameState as any)?.coinFlipWinnerIds ?? []) : [];
+
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[450px] space-y-6 text-center">
+          <div>
+            <h2 className="text-2xl font-display text-yellow-400 tracking-widest mb-1">🪙 COIN FLIP</h2>
+            <p className="text-zinc-400 text-sm">Flip a coin — most heads wins! Ties lead to rematches.</p>
+          </div>
+          {isMultiplayer && mpResults ? (
+            <div className="flex flex-wrap justify-center gap-4">
+              {cfActivePlayers.map(p => {
+                const face: 'heads' | 'tails' = mpResults[p.id] ?? 'tails';
+                const isWinner = mpWinnerIds.includes(p.id);
+                return (
+                  <div key={p.id} className="flex flex-col items-center gap-2">
+                    <div className={cn(
+                      "w-16 h-16 rounded-full border-2 flex items-center justify-center text-2xl",
+                      isWinner ? "border-yellow-400 bg-yellow-900/50 shadow-[0_0_16px_rgba(250,204,21,0.5)]" : "border-zinc-600 bg-zinc-800"
+                    )}>
+                      {face === 'heads' ? '👑' : '🌀'}
+                    </div>
+                    <div className="text-xs font-bold text-zinc-300">{p.name}</div>
+                    <div className={cn("text-[10px] uppercase font-bold", face === 'heads' ? "text-yellow-400" : "text-zinc-500")}>
+                      {face}{isWinner ? ' ✓' : ''}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <CoinFlip
+              players={cfActivePlayers.map(p => ({ id: p.id, name: p.name }))}
+              trigger={coinFlipTrigger}
+              onResult={endCoinFlipRound}
+              durationMs={1200}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Handle READ THE TABLE (Liar's Dice) phase
+    if (renderPhase === 'read_the_table') {
+      const rtt = rttSPState;
+      const mpRtt = isMultiplayer ? ((multiplayerGameState as any)?.liarsDiceState ?? null) : null;
+      const activeRtt: any = isMultiplayer ? mpRtt : rtt;
+
+      if (!activeRtt) {
+        return (
+          <div className="flex flex-col items-center justify-center h-[450px]">
+            <div className="text-zinc-400">Setting up Liar's Dice…</div>
+          </div>
+        );
+      }
+
+      const myId = isMultiplayer ? myMultiplayerPlayer?.id : 'p1';
+      const myDice: number[] = isMultiplayer ? myRttDice : (rtt ? (rtt.playerDice[myId ?? ''] ?? []) : []);
+      const currentTurnId = activeRtt.turnOrder?.[activeRtt.turnIdx];
+      const isMyTurn = currentTurnId === myId;
+      const currentTurnName = displayPlayers.find((p: any) => p.id === currentTurnId)?.name ?? '?';
+      const diceCounts: Record<string, number> = isMultiplayer
+        ? (mpRtt?.diceCounts ?? {})
+        : Object.fromEntries(Object.entries(rtt?.playerDice ?? {}).map(([id, d]) => [id, (d as number[]).length]));
+
+      const FACE_LABELS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+
+      return (
+        <div className="w-full max-w-xl mx-auto space-y-4 text-center" data-testid="screen-read-the-table">
+          <div>
+            <h2 className="text-2xl font-display text-orange-400 tracking-widest">🎲 READ THE TABLE</h2>
+            <p className="text-zinc-400 text-xs mt-1">Liar's Dice — Sub-round {activeRtt.subRoundNum}</p>
+          </div>
+
+          {activeRtt.phase === 'rolling' && (
+            <div className="text-center py-8">
+              <div className="text-4xl animate-bounce">🎲🎲🎲🎲🎲</div>
+              <p className="text-zinc-400 mt-3">Rolling dice…</p>
+            </div>
+          )}
+
+          {(activeRtt.phase === 'bidding' || activeRtt.phase === 'challenge_result') && (
+            <>
+              <div className="bg-zinc-900/70 rounded-xl border border-orange-500/20 p-4">
+                <div className="text-xs uppercase tracking-widest text-orange-400/70 mb-2">Your Dice</div>
+                {myDice.length > 0 ? (
+                  <div className="flex justify-center gap-3">
+                    {myDice.map((d, i) => (
+                      <div key={i} className="w-10 h-10 rounded-lg bg-zinc-800 border border-orange-500/30 flex items-center justify-center text-xl font-bold text-orange-300">
+                        {FACE_LABELS[d]}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-zinc-600 text-sm">No dice remaining</div>
+                )}
+                <div className="text-xs text-zinc-600 mt-1">Wild 1s count for any face</div>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-2">
+                {displayPlayers.filter((p: any) => !p.isEliminated).map((p: any) => {
+                  const cnt = diceCounts[p.id] ?? 0;
+                  const isActive = p.id === currentTurnId;
+                  return (
+                    <div key={p.id} className={cn(
+                      "flex flex-col items-center px-3 py-1.5 rounded-lg border text-xs",
+                      isActive ? "border-orange-400 bg-orange-900/30 text-orange-200" : "border-zinc-700 bg-zinc-900 text-zinc-400",
+                      cnt === 0 && "opacity-40"
+                    )}>
+                      <span className="font-bold">{p.name}</span>
+                      <span>{cnt} 🎲</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="bg-zinc-900/70 rounded-xl border border-zinc-700 p-3">
+                <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Current Bid</div>
+                {activeRtt.currentBid ? (
+                  <div className="text-xl font-mono font-bold text-white">
+                    {activeRtt.currentBid.qty}× {FACE_LABELS[activeRtt.currentBid.face]}
+                    <span className="text-zinc-400 text-sm ml-2">({activeRtt.currentBid.qty} or more {activeRtt.currentBid.face}s)</span>
+                  </div>
+                ) : (
+                  <div className="text-zinc-500 text-sm italic">No bid yet — first player must open</div>
+                )}
+              </div>
+
+              {activeRtt.phase === 'challenge_result' && (() => {
+                const cr = !isMultiplayer ? (activeRtt as any).challengeResult : (activeRtt as any).lastChallengeResult;
+                if (!cr) return null;
+                return (
+                  <div className="bg-red-950/40 border border-red-500/40 rounded-xl p-4 space-y-1">
+                    <div className="text-red-300 font-bold text-sm uppercase tracking-widest">
+                      {cr.type === 'liar' ? '🚨 LIAR CALLED' : '🎯 SPOT ON'}
+                    </div>
+                    <div className="text-zinc-300 text-sm">{cr.challengerName} challenged {cr.bidderName}'s bid of {cr.bid.qty}× {FACE_LABELS[cr.bid.face]}</div>
+                    <div className="text-zinc-400 text-sm">Actual count: <span className="text-white font-bold">{cr.actualCount}</span></div>
+                    <div className="text-red-400 text-sm font-bold">
+                      {(cr.loserNames ?? cr.loserIds)?.join(', ')} lose a die! (−10s)
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {isMyTurn && activeRtt.phase === 'bidding' && !isMultiplayer && (
+                <div className="flex gap-3 justify-center flex-wrap">
+                  <button
+                    onClick={() => { setRttShowBidModal(true); setRttBidQty(activeRtt.currentBid ? activeRtt.currentBid.qty : 1); setRttBidFace(activeRtt.currentBid ? Math.min(6, activeRtt.currentBid.face + 1) : 2); }}
+                    className="px-5 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm transition-all"
+                  >
+                    📢 Raise Bid
+                  </button>
+                  {activeRtt.currentBid && (
+                    <>
+                      <button
+                        onClick={() => rttSPChallenge('liar')}
+                        className="px-5 py-2.5 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold text-sm transition-all"
+                      >
+                        🚨 Call Liar
+                      </button>
+                      <button
+                        onClick={() => rttSPChallenge('spot_on')}
+                        className="px-5 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold text-sm transition-all"
+                      >
+                        🎯 Spot On
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {isMyTurn && activeRtt.phase === 'bidding' && isMultiplayer && (
+                <div className="flex gap-3 justify-center flex-wrap">
+                  <button
+                    onClick={() => { setRttShowBidModal(true); }}
+                    className="px-5 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm transition-all"
+                  >
+                    📢 Raise Bid
+                  </button>
+                  {mpRtt?.currentBid && (
+                    <>
+                      <button
+                        onClick={() => socket?.emit('rtt_challenge', { type: 'liar' })}
+                        className="px-5 py-2.5 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold text-sm transition-all"
+                      >
+                        🚨 Call Liar
+                      </button>
+                      <button
+                        onClick={() => socket?.emit('rtt_challenge', { type: 'spot_on' })}
+                        className="px-5 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold text-sm transition-all"
+                      >
+                        🎯 Spot On
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {!isMyTurn && activeRtt.phase === 'bidding' && (
+                <div className="text-zinc-500 text-sm italic">Waiting for {currentTurnName}…</div>
+              )}
+            </>
+          )}
+
+          {activeRtt.phase === 'done' && (
+            <div className="text-center py-6">
+              <div className="text-3xl mb-2">🏆</div>
+              <div className="text-xl font-bold text-yellow-300">
+                {displayPlayers.find((p: any) => (activeRtt.winnerIds ?? []).includes(p.id))?.name ?? 'Winner'} wins Liar's Dice!
+              </div>
+            </div>
+          )}
+
+          {rttShowBidModal && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setRttShowBidModal(false)}>
+              <div className="bg-zinc-900 border border-orange-500/40 rounded-2xl p-6 space-y-4 w-80" onClick={e => e.stopPropagation()}>
+                <h3 className="text-orange-300 font-bold text-lg text-center">Raise Bid</h3>
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-400 uppercase tracking-widest">Quantity</label>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setRttBidQty(q => Math.max(1, q - 1))} className="w-8 h-8 rounded bg-zinc-800 text-white font-bold hover:bg-zinc-700">−</button>
+                    <span className="text-xl font-mono font-bold text-white w-8 text-center">{rttBidQty}</span>
+                    <button onClick={() => setRttBidQty(q => q + 1)} className="w-8 h-8 rounded bg-zinc-800 text-white font-bold hover:bg-zinc-700">+</button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-400 uppercase tracking-widest">Face Value</label>
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    {[1,2,3,4,5,6].map(f => (
+                      <button key={f} onClick={() => setRttBidFace(f)}
+                        className={cn("w-10 h-10 rounded-lg text-xl border transition-all", rttBidFace === f ? "border-orange-400 bg-orange-900/50" : "border-zinc-700 bg-zinc-800 hover:border-orange-500/50")}>
+                        {['','⚀','⚁','⚂','⚃','⚄','⚅'][f]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="text-xs text-zinc-500 text-center">
+                  Current: {activeRtt?.currentBid ? `${activeRtt.currentBid.qty}× face ${activeRtt.currentBid.face}` : 'None (first bid)'}
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => {
+                    if (isMultiplayer) { socket?.emit('rtt_bid', { qty: rttBidQty, face: rttBidFace }); setRttShowBidModal(false); }
+                    else rttSPSubmitBid(rttBidQty, rttBidFace);
+                  }}
+                    className="flex-1 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm"
+                  >
+                    Submit Bid
+                  </button>
+                  <button onClick={() => setRttShowBidModal(false)} className="px-4 py-2.5 rounded-lg bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     // Handle OVERCLOCK phase (both singleplayer and multiplayer)
     if (renderPhase === 'overclock') {

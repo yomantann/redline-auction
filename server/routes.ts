@@ -22,6 +22,8 @@ import {
   broadcastGameState,
   activateRelicMP,
   castVoteRelic,
+  rttSubmitBid,
+  rttChallenge,
   type GameDuration
 } from "./gameEngine";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
@@ -794,6 +796,20 @@ export async function registerRoutes(
       playerOverclockClick(lobbyCode, socket.id);
       
       if (callback) callback({ success: true });
+    });
+
+    socket.on("rtt_bid", (data: { qty: number; face: number }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in a lobby" }); return; }
+      const result = rttSubmitBid(lobbyCode, socket.id, data.qty, data.face);
+      if (callback) callback(result);
+    });
+
+    socket.on("rtt_challenge", (data: { type: 'liar' | 'spot_on' }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in a lobby" }); return; }
+      const result = rttChallenge(lobbyCode, socket.id, data.type);
+      if (callback) callback(result);
     });
 
     // Handle disconnection

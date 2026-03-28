@@ -239,13 +239,39 @@ export interface PendingRelicVote {
   resolved?: boolean;
 }
 
+export interface LiarsDiceChallengeResult {
+  type: 'liar' | 'spot_on';
+  challengerId: string;
+  challengerName: string;
+  bidderId: string;
+  bidderName: string;
+  bid: { qty: number; face: number };
+  actualCount: number;
+  loserIds: string[];
+  loserNames: string[];
+  revealedDice: Record<string, number[]>;
+}
+
+export interface LiarsDiceState {
+  dice: Record<string, number[]>;
+  currentBid: { qty: number; face: number } | null;
+  turnOrder: string[];
+  turnIdx: number;
+  phase: 'rolling' | 'bidding' | 'challenge_result' | 'done';
+  lastChallengeResult?: LiarsDiceChallengeResult;
+  winnerIds: string[];
+  penaltiesPerDieLost: number;
+  subRoundNum: number;
+  turnDeadline?: number;
+}
+
 export interface GameState {
   gameId: string; // Unique identifier for database snapshots
   lobbyCode: string;
   players: GamePlayer[];
   round: number;
   totalRounds: number;
-  phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
+  phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'round_end' | 'game_over';
   roundStartTime: number | null;
   countdownRemaining: number;
   gameDuration: GameDuration;
@@ -276,6 +302,9 @@ export interface GameState {
   wagerPhaseDeadline?: number;     // WAGER: unix timestamp when wager phase ends
   previousRoundWinnerId?: string;  // WAGER: winner of the previous round (for double-or-nothing)
   roundStartTimeBanks?: Record<string, number>; // WAGER: time banks at start of round (for underdog bonus)
+  coinFlipResults?: Record<string, 'heads' | 'tails'>;
+  coinFlipWinnerIds?: string[];
+  liarsDiceState?: LiarsDiceState;
 }
 
 // Active games storage
@@ -723,6 +752,10 @@ function startCountdown(lobbyCode: string) {
       clearInterval(interval);
       if (g.activeProtocol === 'OVERCLOCK') {
         startOverclock(lobbyCode);
+      } else if (g.activeProtocol === 'PROTOCOL_COIN_FLIP') {
+        startCoinFlipRound(lobbyCode);
+      } else if (g.activeProtocol === 'READ_THE_TABLE') {
+        startReadTheTable(lobbyCode);
       } else {
         startBidding(lobbyCode);
       }
@@ -946,6 +979,296 @@ export function playerOverclockClick(lobbyCode: string, socketId: string) {
 
   game.overclockClickCounts[player.id] = (game.overclockClickCounts[player.id] || 0) + 1;
   // No individual broadcast - state is synced every 500ms in the overclock interval
+}
+
+// ─── COIN FLIP PROTOCOL ───────────────────────────────────────────────────────
+
+function startCoinFlipRound(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
+
+  game.phase = 'coin_flip_round';
+  game.roundWinner = null;
+  game.eliminatedThisRound = [];
+
+  const activePlayers = game.players.filter(p => !p.isEliminated);
+
+  let participants = [...activePlayers];
+  const allRounds: Record<string, 'heads' | 'tails'>[] = [];
+  let safety = 0;
+  while (participants.length > 1 && safety < 20) {
+    safety++;
+    const roundResult: Record<string, 'heads' | 'tails'> = {};
+    participants.forEach(p => { roundResult[p.id] = Math.random() < 0.5 ? 'heads' : 'tails'; });
+    allRounds.push(roundResult);
+    const headPlayers = participants.filter(p => roundResult[p.id] === 'heads');
+    if (headPlayers.length === 1) { participants = headPlayers; break; }
+    else if (headPlayers.length === 0) { continue; }
+    else { participants = headPlayers; }
+  }
+
+  const finalRound = allRounds[allRounds.length - 1] || {};
+  game.coinFlipResults = {};
+  activePlayers.forEach(p => {
+    game.coinFlipResults![p.id] = finalRound[p.id] ?? (p.id === participants[0]?.id ? 'heads' : 'tails');
+  });
+  game.coinFlipWinnerIds = participants.length > 0 ? [participants[0].id] : [];
+
+  broadcastGameState(lobbyCode);
+  log(`COIN FLIP started for round ${game.round} in lobby ${lobbyCode}`, "game");
+
+  const t = setTimeout(() => endRound(lobbyCode), 4000);
+  gameIntervals.set(`${lobbyCode}_coin_flip`, t as unknown as NodeJS.Timeout);
+}
+
+// ─── READ THE TABLE (Liar's Dice) ────────────────────────────────────────────
+
+function rollDiceSet(count: number): number[] {
+  return Array.from({ length: count }, () => Math.floor(Math.random() * 6) + 1);
+}
+
+function countFaceWithWilds(allDice: number[], face: number): number {
+  if (face === 1) return allDice.filter(d => d === 1).length;
+  return allDice.filter(d => d === face || d === 1).length;
+}
+
+function startReadTheTable(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
+
+  game.phase = 'read_the_table';
+  game.roundWinner = null;
+  game.eliminatedThisRound = [];
+
+  const activePlayers = game.players.filter(p => !p.isEliminated);
+  const dice: Record<string, number[]> = {};
+  activePlayers.forEach(p => { dice[p.id] = rollDiceSet(5); });
+
+  game.liarsDiceState = {
+    dice,
+    currentBid: null,
+    turnOrder: activePlayers.map(p => p.id),
+    turnIdx: 0,
+    phase: 'rolling',
+    winnerIds: [],
+    penaltiesPerDieLost: 10,
+    subRoundNum: 1,
+    turnDeadline: Date.now() + 3000,
+  };
+
+  broadcastGameState(lobbyCode);
+  activePlayers.forEach(p => {
+    if (!p.isBot && p.socketId && emitToPlayer) {
+      emitToPlayer(p.socketId, 'rtt_your_dice', { dice: dice[p.id] });
+    }
+  });
+
+  log(`READ THE TABLE started for round ${game.round} in lobby ${lobbyCode}`, "game");
+
+  const t = setTimeout(() => {
+    const g = activeGames.get(lobbyCode);
+    if (!g || g.phase !== 'read_the_table' || !g.liarsDiceState) return;
+    g.liarsDiceState.phase = 'bidding';
+    g.liarsDiceState.turnDeadline = Date.now() + 30000;
+    broadcastGameState(lobbyCode);
+    scheduleRttBotTurn(lobbyCode);
+  }, 3000);
+  gameIntervals.set(`${lobbyCode}_rtt_rolling`, t as unknown as NodeJS.Timeout);
+}
+
+function advanceRttTurn(game: GameState) {
+  const rtt = game.liarsDiceState;
+  if (!rtt) return;
+  rtt.turnIdx = (rtt.turnIdx + 1) % rtt.turnOrder.length;
+  rtt.turnDeadline = Date.now() + 30000;
+}
+
+function scheduleRttBotTurn(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.liarsDiceState) return;
+  const rtt = game.liarsDiceState;
+  if (rtt.phase !== 'bidding') return;
+
+  const currentPlayerId = rtt.turnOrder[rtt.turnIdx];
+  const currentPlayer = game.players.find(p => p.id === currentPlayerId);
+  if (!currentPlayer?.isBot) return;
+
+  const delay = 1000 + Math.random() * 1000;
+  const t = setTimeout(() => {
+    const g = activeGames.get(lobbyCode);
+    if (!g || !g.liarsDiceState || g.liarsDiceState.phase !== 'bidding') return;
+    executeBotRttAction(lobbyCode, currentPlayerId);
+  }, delay);
+  gameIntervals.set(`${lobbyCode}_rtt_bot`, t as unknown as NodeJS.Timeout);
+}
+
+function executeBotRttAction(lobbyCode: string, botId: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.liarsDiceState) return;
+  const rtt = game.liarsDiceState;
+  if (rtt.phase !== 'bidding') return;
+
+  const botDice = rtt.dice[botId] || [];
+  const currentBid = rtt.currentBid;
+  const totalDice = Object.values(rtt.dice).reduce((s, d) => s + d.length, 0);
+
+  let shouldCallLiar = false;
+  if (currentBid) {
+    const pMatch = currentBid.face === 1 ? 1 / 6 : 2 / 6;
+    const botKnown = currentBid.face === 1
+      ? botDice.filter(d => d === 1).length
+      : botDice.filter(d => d === currentBid.face || d === 1).length;
+    const expected = botKnown + (totalDice - botDice.length) * pMatch;
+    if (currentBid.qty > expected * 1.4) shouldCallLiar = true;
+  }
+
+  if (!currentBid || !shouldCallLiar) {
+    let newQty: number, newFace: number;
+    if (!currentBid) {
+      const faceCounts: Record<number, number> = {};
+      botDice.forEach(d => { faceCounts[d] = (faceCounts[d] || 0) + 1; });
+      const wild1s = faceCounts[1] || 0;
+      let bestFace = 2, bestCount = 0;
+      for (let f = 2; f <= 6; f++) {
+        const cnt = (faceCounts[f] || 0) + wild1s;
+        if (cnt > bestCount) { bestCount = cnt; bestFace = f; }
+      }
+      newFace = bestFace;
+      newQty = Math.max(1, bestCount);
+    } else {
+      newFace = currentBid.face + 1;
+      newQty = currentBid.qty;
+      if (newFace > 6) { newFace = 2; newQty = currentBid.qty + 1; }
+    }
+    rtt.currentBid = { qty: newQty, face: newFace };
+    advanceRttTurn(game);
+    broadcastGameState(lobbyCode);
+    scheduleRttBotTurn(lobbyCode);
+  } else {
+    resolveRttChallenge(lobbyCode, botId, 'liar');
+  }
+}
+
+function resolveRttChallenge(lobbyCode: string, challengerId: string, type: 'liar' | 'spot_on') {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.liarsDiceState) return;
+  const rtt = game.liarsDiceState;
+
+  if (!rtt.currentBid) return;
+  const bid = rtt.currentBid;
+
+  const challengerIdx = rtt.turnOrder.indexOf(challengerId);
+  const bidderIdx = ((challengerIdx - 1) + rtt.turnOrder.length) % rtt.turnOrder.length;
+  const bidderId = rtt.turnOrder[bidderIdx];
+  const bidder = game.players.find(p => p.id === bidderId);
+  const challenger = game.players.find(p => p.id === challengerId);
+  if (!bidder || !challenger) return;
+
+  const allDice = Object.values(rtt.dice).flat();
+  const actualCount = countFaceWithWilds(allDice, bid.face);
+
+  let loserIds: string[] = [];
+  if (type === 'liar') {
+    loserIds = bid.qty > actualCount ? [bidderId] : [challengerId];
+  } else {
+    loserIds = bid.qty === actualCount
+      ? rtt.turnOrder.filter(id => id !== challengerId)
+      : [challengerId];
+  }
+
+  const PENALTY = rtt.penaltiesPerDieLost;
+  loserIds.forEach(loserId => {
+    const dice = rtt.dice[loserId];
+    if (dice && dice.length > 0) rtt.dice[loserId] = dice.slice(1);
+    const p = game.players.find(pl => pl.id === loserId);
+    if (p) {
+      p.remainingTime = Math.max(0, p.remainingTime - PENALTY);
+      if (p.remainingTime === 0 && !p.isEliminated) {
+        p.isEliminated = true;
+        game.eliminatedThisRound.push(p.id);
+      }
+    }
+  });
+
+  rtt.lastChallengeResult = {
+    type, challengerId, challengerName: challenger.name,
+    bidderId, bidderName: bidder.name, bid, actualCount,
+    loserIds, loserNames: loserIds.map(id => game.players.find(p => p.id === id)?.name ?? id),
+    revealedDice: Object.fromEntries(Object.entries(rtt.dice).map(([id, d]) => [id, [...d]])),
+  };
+  rtt.phase = 'challenge_result';
+
+  const activeDicePlayers = rtt.turnOrder.filter(id => (rtt.dice[id]?.length ?? 0) > 0);
+  if (activeDicePlayers.length <= 1) {
+    rtt.winnerIds = activeDicePlayers;
+    rtt.phase = 'done';
+    broadcastGameState(lobbyCode);
+    setTimeout(() => endRound(lobbyCode), 3000);
+    return;
+  }
+
+  broadcastGameState(lobbyCode);
+
+  const t = setTimeout(() => {
+    const g = activeGames.get(lobbyCode);
+    if (!g || !g.liarsDiceState) return;
+    const r = g.liarsDiceState;
+    r.turnOrder = r.turnOrder.filter(id => (r.dice[id]?.length ?? 0) > 0);
+    r.currentBid = null;
+    r.phase = 'bidding';
+    r.subRoundNum += 1;
+    r.turnOrder.forEach(id => {
+      const count = r.dice[id]?.length ?? 0;
+      if (count > 0) r.dice[id] = rollDiceSet(count);
+    });
+    r.turnIdx = 0;
+    r.turnDeadline = Date.now() + 30000;
+    broadcastGameState(g.lobbyCode);
+    g.players.forEach(p => {
+      if (!p.isBot && p.socketId && emitToPlayer && r.dice[p.id]) {
+        emitToPlayer(p.socketId, 'rtt_your_dice', { dice: r.dice[p.id] });
+      }
+    });
+    scheduleRttBotTurn(g.lobbyCode);
+  }, 3000);
+  gameIntervals.set(`${lobbyCode}_rtt_challenge`, t as unknown as NodeJS.Timeout);
+}
+
+export function rttSubmitBid(lobbyCode: string, socketId: string, qty: number, face: number): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game || game.phase !== 'read_the_table') return { success: false, error: 'Not in RTT phase' };
+  const rtt = game.liarsDiceState;
+  if (!rtt || rtt.phase !== 'bidding') return { success: false, error: 'Not bidding' };
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player) return { success: false, error: 'Player not found' };
+  if (rtt.turnOrder[rtt.turnIdx] !== player.id) return { success: false, error: 'Not your turn' };
+
+  const cb = rtt.currentBid;
+  if (cb) {
+    const higher = qty > cb.qty || (qty === cb.qty && face > cb.face);
+    if (!higher) return { success: false, error: 'Bid must be higher' };
+  }
+  if (face < 1 || face > 6 || qty < 1) return { success: false, error: 'Invalid bid values' };
+
+  rtt.currentBid = { qty, face };
+  advanceRttTurn(game);
+  broadcastGameState(lobbyCode);
+  scheduleRttBotTurn(lobbyCode);
+  return { success: true };
+}
+
+export function rttChallenge(lobbyCode: string, socketId: string, type: 'liar' | 'spot_on'): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game || game.phase !== 'read_the_table') return { success: false, error: 'Not in RTT phase' };
+  const rtt = game.liarsDiceState;
+  if (!rtt || rtt.phase !== 'bidding') return { success: false, error: 'Not bidding' };
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player) return { success: false, error: 'Player not found' };
+  if (rtt.turnOrder[rtt.turnIdx] !== player.id) return { success: false, error: 'Not your turn' };
+  if (!rtt.currentBid) return { success: false, error: 'No bid to challenge' };
+
+  resolveRttChallenge(lobbyCode, player.id, type);
+  return { success: true };
 }
 
 function getDriverBidAdjustment(driverId: string | undefined, holdTime: number, game: GameState, player: GamePlayer): { holdTime: number; reason?: string } {
@@ -1558,6 +1881,68 @@ function endRound(lobbyCode: string) {
       },
       isMultiplayer: 1,
     });
+    return;
+  }
+
+  // --- PROTOCOL_COIN_FLIP ---
+  if (game.activeProtocol === 'PROTOCOL_COIN_FLIP') {
+    const flipWinnerId = game.coinFlipWinnerIds?.[0] ?? null;
+    if (flipWinnerId) {
+      const winner = game.players.find(p => p.id === flipWinnerId);
+      if (winner) {
+        winner.tokens += 1;
+        game.roundWinner = { id: winner.id, name: winner.name, bid: 0 };
+        winner.protocolWinsEarned.push('PROTOCOL_COIN_FLIP');
+        addGameLogEntry(game, { type: 'win', playerId: winner.id, playerName: winner.name, message: `COIN FLIP: ${winner.name} wins!`, basic: true });
+      }
+    }
+    const winnerId = game.roundWinner?.id || null;
+    if (emitToLobby) {
+      emitToLobby(lobbyCode, 'protocol_reveal', { protocol: 'PROTOCOL_COIN_FLIP', msg: 'COIN FLIP', sub: game.roundWinner ? `${game.roundWinner.name} flipped heads and wins!` : 'No winner' });
+    }
+    game.players.forEach(p => { if (p.pendingRoundImpacts?.length) { p.roundImpacts.push(...p.pendingRoundImpacts); p.pendingRoundImpacts = []; } });
+    processAbilities(game, winnerId);
+    game.players.forEach(p => { if (p.remainingTime < 0) p.remainingTime = 0; if (p.remainingTime === 0 && !p.isEliminated) { p.isEliminated = true; if (!game.eliminatedThisRound.includes(p.id)) game.eliminatedThisRound.push(p.id); } });
+    broadcastGameState(lobbyCode);
+    processRealityModeAbilities(game, winnerId, 'end');
+    game.players.forEach(p => { (p as any).roundEndAcknowledged = !p.isBot && !p.isEliminated ? false : true; });
+    if (game.eliminatedThisRound.length > 0 && game.firstEliminatedIds.length === 0) game.firstEliminatedIds = [...game.eliminatedThisRound];
+    const ap = game.players.filter(p => !p.isEliminated);
+    const ah = ap.filter(p => !p.isBot);
+    if (ap.length <= 1 || game.round >= game.totalRounds) setTimeout(() => endGame(lobbyCode), 3000);
+    else if (ah.length === 0 && game.isMultiplayer) { game.round = game.totalRounds; setTimeout(() => endGame(lobbyCode), 3000); }
+    recordGameSnapshot({ gameId: game.gameId, snapshotType: game.eliminatedThisRound.length > 0 ? 'elimination' : 'round_end', roundNumber: game.round, winnerPlayerId: game.roundWinner?.id || null, winningHoldTime: null, minBidSeconds: getMinBidPenalty(game.settings.gameDuration), eliminatedPlayerIds: game.eliminatedThisRound, momentFlagsTriggered: [], protocolsTriggered: ['PROTOCOL_COIN_FLIP'], limitBreaksTriggered: [], playerPositions: game.players.map(p => ({ playerId: p.id, tokens: p.tokens, remainingTime: p.remainingTime, isEliminated: p.isEliminated })), lobbyCode: game.lobbyCode, gameSettings: { difficulty: game.settings.difficulty, variant: game.settings.variant, gameDuration: game.settings.gameDuration, protocolsEnabled: game.settings.protocolsEnabled, abilitiesEnabled: game.settings.abilitiesEnabled }, isMultiplayer: 1 });
+    return;
+  }
+
+  // --- READ_THE_TABLE (Liar's Dice) ---
+  if (game.activeProtocol === 'READ_THE_TABLE') {
+    const rttWinnerId = game.liarsDiceState?.winnerIds?.[0] ?? null;
+    if (rttWinnerId) {
+      const winner = game.players.find(p => p.id === rttWinnerId);
+      if (winner) {
+        winner.tokens += 1;
+        game.roundWinner = { id: winner.id, name: winner.name, bid: 0 };
+        winner.protocolWinsEarned.push('READ_THE_TABLE');
+        addGameLogEntry(game, { type: 'win', playerId: winner.id, playerName: winner.name, message: `READ THE TABLE: ${winner.name} wins Liar's Dice!`, basic: true });
+      }
+    }
+    const winnerId = game.roundWinner?.id || null;
+    if (emitToLobby) {
+      emitToLobby(lobbyCode, 'protocol_reveal', { protocol: 'READ_THE_TABLE', msg: 'READ THE TABLE', sub: game.roundWinner ? `${game.roundWinner.name} wins Liar's Dice!` : 'No winner' });
+    }
+    game.players.forEach(p => { if (p.pendingRoundImpacts?.length) { p.roundImpacts.push(...p.pendingRoundImpacts); p.pendingRoundImpacts = []; } });
+    processAbilities(game, winnerId);
+    game.players.forEach(p => { if (p.remainingTime < 0) p.remainingTime = 0; if (p.remainingTime === 0 && !p.isEliminated) { p.isEliminated = true; if (!game.eliminatedThisRound.includes(p.id)) game.eliminatedThisRound.push(p.id); } });
+    broadcastGameState(lobbyCode);
+    processRealityModeAbilities(game, winnerId, 'end');
+    game.players.forEach(p => { (p as any).roundEndAcknowledged = !p.isBot && !p.isEliminated ? false : true; });
+    if (game.eliminatedThisRound.length > 0 && game.firstEliminatedIds.length === 0) game.firstEliminatedIds = [...game.eliminatedThisRound];
+    const ap2 = game.players.filter(p => !p.isEliminated);
+    const ah2 = ap2.filter(p => !p.isBot);
+    if (ap2.length <= 1 || game.round >= game.totalRounds) setTimeout(() => endGame(lobbyCode), 3000);
+    else if (ah2.length === 0 && game.isMultiplayer) { game.round = game.totalRounds; setTimeout(() => endGame(lobbyCode), 3000); }
+    recordGameSnapshot({ gameId: game.gameId, snapshotType: game.eliminatedThisRound.length > 0 ? 'elimination' : 'round_end', roundNumber: game.round, winnerPlayerId: game.roundWinner?.id || null, winningHoldTime: null, minBidSeconds: getMinBidPenalty(game.settings.gameDuration), eliminatedPlayerIds: game.eliminatedThisRound, momentFlagsTriggered: [], protocolsTriggered: ['READ_THE_TABLE'], limitBreaksTriggered: [], playerPositions: game.players.map(p => ({ playerId: p.id, tokens: p.tokens, remainingTime: p.remainingTime, isEliminated: p.isEliminated })), lobbyCode: game.lobbyCode, gameSettings: { difficulty: game.settings.difficulty, variant: game.settings.variant, gameDuration: game.settings.gameDuration, protocolsEnabled: game.settings.protocolsEnabled, abilitiesEnabled: game.settings.abilitiesEnabled }, isMultiplayer: 1 });
     return;
   }
 
@@ -3964,6 +4349,22 @@ export function broadcastGameState(lobbyCode: string) {
     
     overclockClickCounts: game.overclockClickCounts,
     calibrationTargetSeconds: game.calibrationTargetSeconds,
+    coinFlipResults: game.coinFlipResults || null,
+    coinFlipWinnerIds: game.coinFlipWinnerIds || null,
+    liarsDiceState: game.liarsDiceState ? {
+      currentBid: game.liarsDiceState.currentBid,
+      turnOrder: game.liarsDiceState.turnOrder,
+      turnIdx: game.liarsDiceState.turnIdx,
+      phase: game.liarsDiceState.phase,
+      lastChallengeResult: game.liarsDiceState.lastChallengeResult || null,
+      winnerIds: game.liarsDiceState.winnerIds,
+      subRoundNum: game.liarsDiceState.subRoundNum,
+      turnDeadline: game.liarsDiceState.turnDeadline || null,
+      diceCounts: Object.fromEntries(Object.entries(game.liarsDiceState.dice).map(([id, d]) => [id, d.length])),
+      revealedDice: game.liarsDiceState.phase === 'challenge_result' || game.liarsDiceState.phase === 'done'
+        ? game.liarsDiceState.dice
+        : null,
+    } : null,
   };
   
   emitToLobby(lobbyCode, 'game_state', stateForClients);
