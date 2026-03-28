@@ -3067,12 +3067,12 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
     case 'HAUNTED_WAIL':
     case 'HAUNTED_MIRROR':
       break;
-    // ── WAGER protocols (placeholder — full mechanics not yet implemented) ──
+    // ── WAGER protocols ──
     case 'HIGH_CIRCUIT': {
       emitToLobby(game.lobbyCode, 'protocol_detail', {
         protocol: 'HIGH_CIRCUIT',
         msg: 'HIGH CIRCUIT',
-        sub: 'All wager rewards are doubled this round. High risk, high reward! (Coming soon)',
+        sub: 'All wager rewards are doubled this round. High risk, high reward!',
         targetPlayerId: null,
       });
       break;
@@ -3081,7 +3081,7 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       emitToLobby(game.lobbyCode, 'protocol_detail', {
         protocol: 'READ_THE_TABLE',
         msg: 'READ THE TABLE',
-        sub: 'Liar\'s Dice! Each player rolls 5 dice, bids on totals, and challenges bluffs. Lose all dice = eliminated. (Coming soon)',
+        sub: 'Liar\'s Dice! Each player rolls 5 dice, bids on totals, and challenges bluffs. Lose all dice = eliminated.',
         targetPlayerId: null,
       });
       break;
@@ -3099,7 +3099,7 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       emitToLobby(game.lobbyCode, 'protocol_detail', {
         protocol: 'PROTOCOL_COIN_FLIP',
         msg: 'COIN FLIP PROTOCOL',
-        sub: 'Everyone flips a coin. Most heads wins the round. Ties go to a rematch! (Coming soon)',
+        sub: 'Everyone flips a coin. Most heads wins the round. Ties go to a rematch!',
         targetPlayerId: null,
       });
       break;
@@ -3336,6 +3336,7 @@ function startWagerPhase(lobbyCode: string) {
 function resolveWagers(game: GameState, winnerId: string | null, winnerBid: number) {
   if (!winnerId) return;
   const SIDE_POT_THRESHOLD = 20;
+  const isHighCircuit = game.activeProtocol === 'HIGH_CIRCUIT';
   game.players.forEach(p => {
     if (!p.wagerAmount || p.wagerAmount <= 0 || !p.wagerTargetId || p.wagerResolved) return;
     const targetWon = p.wagerTargetId === winnerId;
@@ -3347,7 +3348,8 @@ function resolveWagers(game: GameState, winnerId: string | null, winnerBid: numb
 
     let timeDelta = 0;
     if (targetWon) {
-      const multiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
+      const baseMultiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
+      const multiplier = isHighCircuit ? baseMultiplier * 2 : baseMultiplier;
       timeDelta = Math.round(p.wagerAmount * multiplier * 10) / 10;
     } else {
       timeDelta = -p.wagerAmount;

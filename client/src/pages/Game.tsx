@@ -2372,6 +2372,7 @@ export default function Game() {
 
   // ─── COIN FLIP ROUND (SP) ─────────────────────────────────────────────────
   const [coinFlipTrigger, setCoinFlipTrigger] = useState(false);
+  const [mpCoinFlipRevealed, setMpCoinFlipRevealed] = useState(false);
 
   const endCoinFlipRound = useCallback((winners: Array<{ id: string; name: string }>) => {
     setCoinFlipTrigger(false);
@@ -2409,6 +2410,14 @@ export default function Game() {
     if (phase === 'coin_flip_round' && !isMultiplayer) {
       const t = setTimeout(() => setCoinFlipTrigger(true), 500);
       return () => clearTimeout(t);
+    }
+    if (phase === 'coin_flip_round' && isMultiplayer) {
+      setMpCoinFlipRevealed(false);
+      const t = setTimeout(() => setMpCoinFlipRevealed(true), 1500);
+      return () => clearTimeout(t);
+    }
+    if (phase !== 'coin_flip_round') {
+      setMpCoinFlipRevealed(false);
     }
   }, [phase, isMultiplayer]);
 
@@ -3853,11 +3862,11 @@ export default function Game() {
         case 'HAUNTED_MIRROR':
           showPopup = false;
           break;
-        // WAGER placeholder protocols
-        case 'HIGH_CIRCUIT':     msg = "HIGH CIRCUIT";        sub = "All wager rewards are doubled this round. (Coming soon)"; break;
-        case 'READ_THE_TABLE':   msg = "READ THE TABLE";      sub = "Liar's Dice! Roll 5 dice, bid on totals, challenge bluffs. Lose all dice = out. (Coming soon)"; break;
+        // WAGER protocols
+        case 'HIGH_CIRCUIT':     msg = "HIGH CIRCUIT";        sub = "All wager rewards are doubled this round. High risk, high reward!"; break;
+        case 'READ_THE_TABLE':   msg = "READ THE TABLE";      sub = "Liar's Dice! Roll 5 dice, bid on totals, challenge bluffs. Lose all dice = out."; break;
         case 'PROTOCOL_CARD_FLIP': msg = "CARD FLIP PROTOCOL"; sub = "Draw a card — the result determines this round's modifier. (Coming soon)"; break;
-        case 'PROTOCOL_COIN_FLIP': msg = "COIN FLIP PROTOCOL"; sub = "Everyone flips a coin. Most heads wins the round. Ties go to a rematch! (Coming soon)"; break;
+        case 'PROTOCOL_COIN_FLIP': msg = "COIN FLIP PROTOCOL"; sub = "Everyone flips a coin. Most heads wins the round. Ties go to a rematch!"; break;
       }
       
       // Filter out popups that shouldn't be seen by the player (targeted/secret protocols only)
@@ -4976,7 +4985,8 @@ export default function Game() {
         const targetIsUnderdog = targetWon && targetStartTime <= minStartTime;
 
         if (targetWon) {
-          const multiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
+          const baseMultiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
+          const multiplier = activeProtocol === 'HIGH_CIRCUIT' ? baseMultiplier * 2 : baseMultiplier;
           reward = Math.round(p.wagerAmount * multiplier * 10) / 10;
         } else {
           reward = -p.wagerAmount;
@@ -6999,23 +7009,29 @@ export default function Game() {
             <h2 className="text-2xl font-display text-yellow-400 tracking-widest mb-1">🪙 COIN FLIP</h2>
             <p className="text-zinc-400 text-sm">Flip a coin — most heads wins! Ties lead to rematches.</p>
           </div>
-          {isMultiplayer && mpResults ? (
+          {isMultiplayer ? (
             <div className="flex flex-wrap justify-center gap-4">
               {cfActivePlayers.map(p => {
-                const face: 'heads' | 'tails' = mpResults[p.id] ?? 'tails';
-                const isWinner = mpWinnerIds.includes(p.id);
+                const face: 'heads' | 'tails' = mpResults?.[p.id] ?? 'tails';
+                const isWinner = mpCoinFlipRevealed && mpWinnerIds.includes(p.id);
                 return (
                   <div key={p.id} className="flex flex-col items-center gap-2">
                     <div className={cn(
-                      "w-16 h-16 rounded-full border-2 flex items-center justify-center text-2xl",
-                      isWinner ? "border-yellow-400 bg-yellow-900/50 shadow-[0_0_16px_rgba(250,204,21,0.5)]" : "border-zinc-600 bg-zinc-800"
+                      "w-16 h-16 rounded-full border-2 flex items-center justify-center text-2xl transition-all duration-500",
+                      !mpCoinFlipRevealed
+                        ? "border-zinc-500 bg-zinc-800 animate-spin"
+                        : isWinner
+                          ? "border-yellow-400 bg-yellow-900/50 shadow-[0_0_16px_rgba(250,204,21,0.5)]"
+                          : "border-zinc-600 bg-zinc-800"
                     )}>
-                      {face === 'heads' ? '👑' : '🌀'}
+                      {!mpCoinFlipRevealed ? '🪙' : face === 'heads' ? '👑' : '🌀'}
                     </div>
                     <div className="text-xs font-bold text-zinc-300">{p.name}</div>
-                    <div className={cn("text-[10px] uppercase font-bold", face === 'heads' ? "text-yellow-400" : "text-zinc-500")}>
-                      {face}{isWinner ? ' ✓' : ''}
-                    </div>
+                    {mpCoinFlipRevealed && (
+                      <div className={cn("text-[10px] uppercase font-bold", face === 'heads' ? "text-yellow-400" : "text-zinc-500")}>
+                        {face}{isWinner ? ' ✓' : ''}
+                      </div>
+                    )}
                   </div>
                 );
               })}
