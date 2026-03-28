@@ -17,6 +17,7 @@ export type OverlayType =
   | "zero_bid" //aka AFK
   | "protocol_alert"
   | "ability_trigger"
+  | "haunted_relic"
   | "precision_strike"
   | "overkill"
   | "clutch_play"
@@ -66,6 +67,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "zero_bid": return <Ghost size={48} className="text-amber-600" />;
       case "protocol_alert": return <AlertTriangle size={48} className="text-red-400" />;
       case "ability_trigger": return <Zap size={48} className="text-blue-400" />;
+      case "haunted_relic": return null;
       
       case "precision_strike": return <Crosshair size={48} className="text-blue-600" />;
       case "overkill": return <Flame size={48} className="text-red-500" />;
@@ -105,6 +107,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "protocol_alert":
         return "text-red-400 border-red-500/20 bg-black/80";
       case "ability_trigger": return "text-blue-400 border-blue-500/20 bg-black/80";
+      case "haunted_relic": return "text-teal-300 border-teal-500/30 bg-black/85 shadow-[0_0_20px_rgba(45,212,191,0.15)]";
       case "comeback_hope": return "text-teal-600 border-teal-600/20 bg-black/80";
       case "smug_confidence": return "text-purple-400 border-purple-500/20 bg-black/80";
       case "zero_bid": return "text-amber-600 border-amber-600/20 bg-black/80";
