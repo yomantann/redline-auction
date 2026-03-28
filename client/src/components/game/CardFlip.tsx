@@ -62,13 +62,16 @@ export function CardFlip({
   const [rotateY, setRotateY] = useState(0);
   const hasCalledResult = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Ref mirrors isFlipping so the trigger effect doesn't need it as a dep. */
+  const isFlippingRef = useRef(false);
 
   const clearTimers = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
   }, []);
 
   const startFlip = useCallback(() => {
-    if (isFlipping) return;
+    if (isFlippingRef.current) return;
+    isFlippingRef.current = true;
 
     const target =
       forceCardId !== undefined
@@ -92,18 +95,19 @@ export function CardFlip({
       // Phase 3: landing — animation finishes
       timeoutRef.current = setTimeout(() => {
         setIsFlipping(false);
+        isFlippingRef.current = false;
         if (!hasCalledResult.current) {
           hasCalledResult.current = true;
           onResult(target);
         }
       }, half);
     }, half);
-  }, [isFlipping, cards, forceCardId, durationMs, onResult]);
+  }, [cards, forceCardId, durationMs, onResult]);
 
-  // External trigger support
+  // External trigger support — uses ref to avoid re-firing when isFlipping state changes
   useEffect(() => {
-    if (trigger && !isFlipping) startFlip();
-  }, [trigger, startFlip]); // startFlip is useCallback'd — stable unless its own deps change
+    if (trigger && !isFlippingRef.current) startFlip();
+  }, [trigger, startFlip]);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
 

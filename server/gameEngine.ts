@@ -81,7 +81,7 @@ export type ProtocolType =
   // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
   | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
   // WAGER mode protocols (placeholder — mechanics not yet implemented)
-  | 'WAGER_JACKPOT' | 'WAGER_FORCED_BET' | 'WAGER_BLIND' | 'WAGER_ALL_IN'
+  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'PROTOCOL_CARD_FLIP' | 'PROTOCOL_COIN_FLIP'
   | null;
 
 // Protocol pools by variant
@@ -108,7 +108,7 @@ const HAUNTED_PROTOCOLS: ProtocolType[] = [
 
 // WAGER mode protocol pool (placeholder — effects coming in future release)
 const WAGER_PROTOCOLS: ProtocolType[] = [
-  'WAGER_JACKPOT', 'WAGER_FORCED_BET', 'WAGER_BLIND', 'WAGER_ALL_IN'
+  'HIGH_CIRCUIT', 'READ_THE_TABLE', 'PROTOCOL_CARD_FLIP', 'PROTOCOL_COIN_FLIP'
 ];
 
 // Driver/Character ability definitions (minimal for server-side processing)
@@ -2676,76 +2676,45 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       });
       break;
     }
-    // ── HAUNTED protocols (placeholder — full mechanics not yet implemented) ──
-    case 'HAUNTED_SEANCE': {
-      emitToLobby(game.lobbyCode, 'protocol_detail', {
-        protocol: 'HAUNTED_SEANCE',
-        msg: 'SÉANCE ROUND',
-        sub: 'The spirits speak… one player must close their eyes while bidding. (Coming soon)',
-        targetPlayerId: null,
-      });
+    // ── HAUNTED protocols (placeholder — shell only, mechanics coming in future release) ──
+    case 'HAUNTED_SEANCE':
+    case 'HAUNTED_CURSE_ECHO':
+    case 'HAUNTED_WAIL':
+    case 'HAUNTED_MIRROR':
       break;
-    }
-    case 'HAUNTED_CURSE_ECHO': {
-      emitToLobby(game.lobbyCode, 'protocol_detail', {
-        protocol: 'HAUNTED_CURSE_ECHO',
-        msg: 'CURSE ECHO',
-        sub: 'The echo of last round\'s winning bid haunts this one. (Coming soon)',
-        targetPlayerId: null,
-      });
-      break;
-    }
-    case 'HAUNTED_WAIL': {
-      emitToLobby(game.lobbyCode, 'protocol_detail', {
-        protocol: 'HAUNTED_WAIL',
-        msg: 'SPIRIT WAIL',
-        sub: 'A spectral wail rattles the auction floor. Bid above 20s or pay a time penalty. (Coming soon)',
-        targetPlayerId: null,
-      });
-      break;
-    }
-    case 'HAUNTED_MIRROR': {
-      emitToLobby(game.lobbyCode, 'protocol_detail', {
-        protocol: 'HAUNTED_MIRROR',
-        msg: 'DARK MIRROR',
-        sub: 'The mirror reverses fate — lowest valid bid wins this round\'s trophy. (Coming soon)',
-        targetPlayerId: null,
-      });
-      break;
-    }
     // ── WAGER protocols (placeholder — full mechanics not yet implemented) ──
-    case 'WAGER_JACKPOT': {
+    case 'HIGH_CIRCUIT': {
       emitToLobby(game.lobbyCode, 'protocol_detail', {
-        protocol: 'WAGER_JACKPOT',
-        msg: 'WAGER JACKPOT',
+        protocol: 'HIGH_CIRCUIT',
+        msg: 'HIGH CIRCUIT',
         sub: 'All wager rewards are doubled this round. High risk, high reward! (Coming soon)',
         targetPlayerId: null,
       });
       break;
     }
-    case 'WAGER_FORCED_BET': {
+    case 'READ_THE_TABLE': {
       emitToLobby(game.lobbyCode, 'protocol_detail', {
-        protocol: 'WAGER_FORCED_BET',
-        msg: 'FORCED BET',
-        sub: 'Skipping the wager is not allowed this round — everyone must place a bet. (Coming soon)',
+        protocol: 'READ_THE_TABLE',
+        msg: 'READ THE TABLE',
+        sub: 'Liar\'s Dice! Each player rolls 5 dice, bids on totals, and challenges bluffs. Lose all dice = eliminated. (Coming soon)',
         targetPlayerId: null,
       });
       break;
     }
-    case 'WAGER_BLIND': {
+    case 'PROTOCOL_CARD_FLIP': {
       emitToLobby(game.lobbyCode, 'protocol_detail', {
-        protocol: 'WAGER_BLIND',
-        msg: 'BLIND WAGER',
-        sub: 'Wager targets are kept secret from everyone until the round ends. (Coming soon)',
+        protocol: 'PROTOCOL_CARD_FLIP',
+        msg: 'CARD FLIP PROTOCOL',
+        sub: 'Draw a card — the result determines this round\'s modifier. (Coming soon)',
         targetPlayerId: null,
       });
       break;
     }
-    case 'WAGER_ALL_IN': {
+    case 'PROTOCOL_COIN_FLIP': {
       emitToLobby(game.lobbyCode, 'protocol_detail', {
-        protocol: 'WAGER_ALL_IN',
-        msg: 'ALL IN',
-        sub: 'Minimum wager this round is 50% of your time bank. Fortune favours the bold! (Coming soon)',
+        protocol: 'PROTOCOL_COIN_FLIP',
+        msg: 'COIN FLIP PROTOCOL',
+        sub: 'Everyone flips a coin. Most heads wins the round. Ties go to a rematch! (Coming soon)',
         targetPlayerId: null,
       });
       break;

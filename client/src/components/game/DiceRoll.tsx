@@ -46,6 +46,8 @@ export function DiceRoll({
   const [finalFace, setFinalFace] = useState<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Ref mirrors isRolling so the trigger effect doesn't need it as a dep. */
+  const isRollingRef = useRef(false);
 
   const stopRolling = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -53,7 +55,8 @@ export function DiceRoll({
   }, []);
 
   const startRoll = useCallback(() => {
-    if (isRolling) return;
+    if (isRollingRef.current) return;
+    isRollingRef.current = true;
 
     const result = Math.floor(Math.random() * sides) + 1;
     setFinalFace(null);
@@ -75,6 +78,7 @@ export function DiceRoll({
         setDisplayFace(result);
         setFinalFace(result);
         setIsRolling(false);
+        isRollingRef.current = false;
         onResult(result);
         return;
       }
@@ -82,12 +86,12 @@ export function DiceRoll({
     };
 
     timeoutRef.current = setTimeout(tick, speed);
-  }, [isRolling, sides, durationMs, onResult, stopRolling]);
+  }, [sides, durationMs, onResult, stopRolling]);
 
-  // External trigger support
+  // External trigger support — uses ref to avoid re-firing when isRolling state changes
   useEffect(() => {
-    if (trigger && !isRolling) startRoll();
-  }, [trigger, startRoll]); // startRoll is useCallback'd — stable unless its own deps change
+    if (trigger && !isRollingRef.current) startRoll();
+  }, [trigger, startRoll]);
 
   // Cleanup on unmount
   useEffect(() => () => stopRolling(), [stopRolling]);

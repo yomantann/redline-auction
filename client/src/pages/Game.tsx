@@ -272,7 +272,7 @@ type ProtocolType =
   // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
   | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
   // WAGER mode protocols (placeholder — mechanics not yet implemented)
-  | 'WAGER_JACKPOT' | 'WAGER_FORCED_BET' | 'WAGER_BLIND' | 'WAGER_ALL_IN'
+  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'PROTOCOL_CARD_FLIP' | 'PROTOCOL_COIN_FLIP'
   | null;
 
 // ... (Existing Characters)
@@ -1064,7 +1064,7 @@ export default function Game() {
         'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL',
         'OVERCLOCK', 'CALIBRATION',
         'HAUNTED_SEANCE', 'HAUNTED_CURSE_ECHO', 'HAUNTED_WAIL', 'HAUNTED_MIRROR',
-        'WAGER_JACKPOT', 'WAGER_FORCED_BET', 'WAGER_BLIND', 'WAGER_ALL_IN',
+        'HIGH_CIRCUIT', 'READ_THE_TABLE', 'PROTOCOL_CARD_FLIP', 'PROTOCOL_COIN_FLIP',
   ]);
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
@@ -3437,7 +3437,7 @@ export default function Game() {
       const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
       const HAUNTED_SET = ['HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR'];
-      const WAGER_SET = ['WAGER_JACKPOT','WAGER_FORCED_BET','WAGER_BLIND','WAGER_ALL_IN'];
+      const WAGER_SET = ['HIGH_CIRCUIT','READ_THE_TABLE','PROTOCOL_CARD_FLIP','PROTOCOL_COIN_FLIP'];
 
       const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
 
@@ -3551,16 +3551,18 @@ export default function Game() {
         case 'CALIBRATION': {
           msg = "CALIBRATION"; sub = `Hold as close to ${newCalibrationTarget}s as possible! Closest bid wins.`; break;
         }
-        // HAUNTED placeholder protocols
-        case 'HAUNTED_SEANCE':     msg = "SÉANCE ROUND";  sub = "One player must close their eyes while bidding. (Coming soon)"; break;
-        case 'HAUNTED_CURSE_ECHO': msg = "CURSE ECHO";    sub = "The echo of last round's winning bid haunts this one. (Coming soon)"; break;
-        case 'HAUNTED_WAIL':       msg = "SPIRIT WAIL";   sub = "Bid above 20s or pay a time penalty. (Coming soon)"; break;
-        case 'HAUNTED_MIRROR':     msg = "DARK MIRROR";   sub = "Lowest valid bid wins this round's trophy. (Coming soon)"; break;
+        // HAUNTED placeholder protocols — shells only, no overlay
+        case 'HAUNTED_SEANCE':
+        case 'HAUNTED_CURSE_ECHO':
+        case 'HAUNTED_WAIL':
+        case 'HAUNTED_MIRROR':
+          showPopup = false;
+          break;
         // WAGER placeholder protocols
-        case 'WAGER_JACKPOT':    msg = "WAGER JACKPOT"; sub = "All wager rewards are doubled this round. (Coming soon)"; break;
-        case 'WAGER_FORCED_BET': msg = "FORCED BET";    sub = "Skipping the wager phase is not allowed this round. (Coming soon)"; break;
-        case 'WAGER_BLIND':      msg = "BLIND WAGER";   sub = "Wager targets are hidden until the round ends. (Coming soon)"; break;
-        case 'WAGER_ALL_IN':     msg = "ALL IN";         sub = "Minimum wager is 50% of your time bank. (Coming soon)"; break;
+        case 'HIGH_CIRCUIT':     msg = "HIGH CIRCUIT";        sub = "All wager rewards are doubled this round. (Coming soon)"; break;
+        case 'READ_THE_TABLE':   msg = "READ THE TABLE";      sub = "Liar's Dice! Roll 5 dice, bid on totals, challenge bluffs. Lose all dice = out. (Coming soon)"; break;
+        case 'PROTOCOL_CARD_FLIP': msg = "CARD FLIP PROTOCOL"; sub = "Draw a card — the result determines this round's modifier. (Coming soon)"; break;
+        case 'PROTOCOL_COIN_FLIP': msg = "COIN FLIP PROTOCOL"; sub = "Everyone flips a coin. Most heads wins the round. Ties go to a rematch! (Coming soon)"; break;
       }
       
       // Filter out popups that shouldn't be seen by the player (targeted/secret protocols only)
@@ -6763,7 +6765,7 @@ export default function Game() {
                               <AlertTriangle size={14} className="text-red-400" />
                               <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND','HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR','WAGER_JACKPOT','WAGER_FORCED_BET','WAGER_BLIND','WAGER_ALL_IN'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND','HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR','HIGH_CIRCUIT','READ_THE_TABLE','PROTOCOL_CARD_FLIP','PROTOCOL_COIN_FLIP'].includes(p as any)).length} selected</div>
                           </summary>
 
                           <div className="px-4 pb-4 space-y-3">
@@ -6956,14 +6958,14 @@ export default function Game() {
                               <div className="text-sm font-bold text-yellow-200 tracking-widest">WAGER</div>
                               <span className="text-[10px] text-yellow-500/70 italic ml-1">coming soon</span>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-yellow-400/70">{allowedProtocols.filter(p => ['WAGER_JACKPOT','WAGER_FORCED_BET','WAGER_BLIND','WAGER_ALL_IN'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-yellow-400/70">{allowedProtocols.filter(p => ['HIGH_CIRCUIT','READ_THE_TABLE','PROTOCOL_CARD_FLIP','PROTOCOL_COIN_FLIP'].includes(p as any)).length} selected</div>
                           </summary>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
                             {[
-                              { id: 'WAGER_JACKPOT',    label: 'WAGER JACKPOT', desc: 'All wager rewards are doubled this round.' },
-                              { id: 'WAGER_FORCED_BET', label: 'FORCED BET',    desc: 'Skipping the wager phase is not allowed.' },
-                              { id: 'WAGER_BLIND',      label: 'BLIND WAGER',   desc: 'Wager targets are hidden until round ends.' },
-                              { id: 'WAGER_ALL_IN',     label: 'ALL IN',        desc: 'Minimum wager is 50% of your time bank.' },
+                              { id: 'HIGH_CIRCUIT',        label: 'HIGH CIRCUIT',        desc: 'All wager rewards are doubled this round.' },
+                              { id: 'READ_THE_TABLE',      label: 'READ THE TABLE',      desc: 'Liar\'s Dice — roll 5 hidden dice, bid totals, call bluffs. Lose all dice = eliminated.' },
+                              { id: 'PROTOCOL_CARD_FLIP',  label: 'CARD FLIP PROTOCOL',  desc: 'Draw a card — the result determines this round\'s modifier.' },
+                              { id: 'PROTOCOL_COIN_FLIP',  label: 'COIN FLIP PROTOCOL',  desc: 'Everyone flips a coin. Most heads wins. Ties rematch until one player wins.' },
                             ].map((p) => (
                               <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-yellow-950/20 border border-yellow-600/10" data-testid={`row-protocol-config-${p.id}`}>
                                 <Switch
@@ -8163,7 +8165,6 @@ export default function Game() {
                       )}
                     >
                       <div className="font-bold text-sm">{opp.name}</div>
-                      <div className="text-xs text-zinc-500 mt-0.5">{opp.remainingTime.toFixed(1)}s</div>
                     </button>
                   ))}
                 </div>
@@ -9223,7 +9224,7 @@ export default function Game() {
                 <h4 className="text-xs uppercase tracking-wider text-yellow-500/70 mb-2">Wager Results</h4>
                 {wagerRoundResults.map(r => (
                   <div key={r.playerId} className="flex justify-between items-center text-sm">
-                    <span className="text-zinc-300">{r.playerName} → <span className="text-zinc-400">{r.targetName ?? '—'}</span></span>
+                    <span className="text-zinc-300">{r.playerName} → <span className="text-zinc-500 italic">hidden</span></span>
                     <span className={cn("font-mono font-bold", r.won ? "text-green-400" : "text-red-400")}>
                       {r.won ? `+${r.reward.toFixed(1)}s` : `${r.reward.toFixed(1)}s`}
                       {r.sidePotWon !== null && (
