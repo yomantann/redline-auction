@@ -37,7 +37,7 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle, ChevronDown
+  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle, ChevronDown, Ghost
 } from "lucide-react";
 
 import { 
@@ -135,6 +135,25 @@ import hntPanic from '../assets/generated_images/Haunted/hnt_panic_3.png';
 import hntPrimate from '../assets/generated_images/Haunted/hnt_primate_1.png';
 import hntPain from '../assets/generated_images/Haunted/hnt_pain_1.png';
 
+// Wager Mode: per-driver images
+import wgrGuardian from '../assets/generated_images/Wager/wgr_guardian_1.png';
+import wgrClick from '../assets/generated_images/Wager/wgr_click_1.png';
+import wgrFrost from '../assets/generated_images/Wager/wgr_frost_1.png';
+import wgrSadman from '../assets/generated_images/Wager/wgr_sad_1.png';
+import wgrDash from '../assets/generated_images/Wager/wgr_dash_1.png';
+import wgrAccuser from '../assets/generated_images/Wager/wgr_accuser_1.png';
+import wgrLowflame from '../assets/generated_images/Wager/wgr_lowflame_1.png';
+import wgrWander from '../assets/generated_images/Wager/wgr_wander_1.png';
+import wgrRind from '../assets/generated_images/Wager/wgr_rind_1.png';
+import wgrAnnointed from '../assets/generated_images/Wager/wgr_annointed_1.png';
+import wgrExec from '../assets/generated_images/Wager/wgr_exec_1.png';
+import wgrAlpha from '../assets/generated_images/Wager/wgr_alpha_1.png';
+import wgrRoll from '../assets/generated_images/Wager/wgr_roll_1.png';
+import wgrHotwired from '../assets/generated_images/Wager/wgr_hot_1.png';
+import wgrPanic from '../assets/generated_images/Wager/wgr_panic_1.png';
+import wgrPrimate from '../assets/generated_images/Wager/wgr_primate_1.png';
+import wgrPain from '../assets/generated_images/Wager/wgr_pain_1.png';
+
 // Haunted Mode: ghost images (used when player becomes a ghost)
 import hntGhost1 from '../assets/generated_images/Haunted/hnt_ghost_reaper.png';
 import hntGhost2 from '../assets/generated_images/Haunted/hnt_ghost_curse.png';
@@ -197,6 +216,27 @@ const HAUNTED_DRIVER_IMAGES: Record<string, string> = {
   pain_hider: hntPain,
 };
 
+// Map driver ID -> wager image
+const WAGER_DRIVER_IMAGES: Record<string, string> = {
+  guardian_h: wgrGuardian,
+  click_click: wgrClick,
+  frostbyte: wgrFrost,
+  sadman: wgrSadman,
+  rainbow_dash: wgrDash,
+  accuser: wgrAccuser,
+  low_flame: wgrLowflame,
+  wandering_eye: wgrWander,
+  the_rind: wgrRind,
+  anointed: wgrAnnointed,
+  executive_p: wgrExec,
+  alpha_prime: wgrAlpha,
+  roll_safe: wgrRoll,
+  hotwired: wgrHotwired,
+  panic_bot: wgrPanic,
+  primate: wgrPrimate,
+  pain_hider: wgrPain,
+};
+
 
 import { AbilityAnimation, AnimationType } from "@/components/game/AbilityAnimation";
 import logoFuturistic from '@assets/generated_images/redline_auction_futuristic_logo_red_neon.png';
@@ -212,7 +252,7 @@ const SHORT_INITIAL_TIME = 150.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'wager_phase' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -229,6 +269,10 @@ type ProtocolType =
   | 'OVERCLOCK' | 'CALIBRATION'
   | SocialProtocol
   | BioProtocol
+  // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
+  | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
+  // WAGER mode protocols (placeholder — mechanics not yet implemented)
+  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'PROTOCOL_CARD_FLIP' | 'PROTOCOL_COIN_FLIP'
   | null;
 
 // ... (Existing Characters)
@@ -322,6 +366,19 @@ interface Player {
   finalWritActive?: boolean;             // Final Writ: this player auto-wins the final round
   tribunalTimePenalty?: number;          // Tribunal A: lose Ns at start of next round
   tribunalMinBid?: number;               // Tribunal B: must bid at least Ns next round
+  // Wager mode fields
+  wagerTargetId?: string;          // WAGER: which player this player wagered on
+  wagerPercent?: number;           // WAGER: percentage of time bank wagered (0-75)
+  wagerAmount?: number;            // WAGER: calculated wager amount in seconds
+  isDoubleDown?: boolean;          // WAGER: double-or-nothing toggle
+  wagerResolved?: boolean;         // WAGER: has this round's wager been resolved?
+  wagerWon?: boolean;              // WAGER: outcome of last wager (true=won, false=lost)
+  wagerReward?: number;            // WAGER: actual time delta from wager (positive=gain, negative=loss)
+  wagerReviving?: boolean;         // WAGER: ghost player wagering trophies for revival
+  ghostTrophies?: number;          // WAGER: trophies available for ghost wagers
+  sidePotWagerHigh?: boolean;      // WAGER: side pot - predict winning bid exceeds threshold
+  sidePotResolved?: boolean;       // WAGER: side pot resolved this round
+  sidePotWon?: boolean;            // WAGER: side pot outcome
 }
 
 interface Character {
@@ -332,6 +389,7 @@ interface Character {
   imageSocial?: string; // New: Social Mode Image
   imageBio?: string;    // New: Bio-Fuel Mode Image
   imageHaunted?: string; // New: Haunted Mode Image
+  imageWager?: string;  // New: Wager Mode Image
   description: string;
   color: string;
   ability?: {
@@ -351,110 +409,110 @@ interface Character {
 
 const CHARACTERS: Character[] = [
   { 
-    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charGuardian, imageSocial: socialGuardian, imageBio: bioGuardian, imageHaunted: hntGuardian, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
+    id: 'guardian_h', name: 'Guardian H', title: 'The Eternal Watcher', image: charGuardian, imageSocial: socialGuardian, imageBio: bioGuardian, imageHaunted: hntGuardian, imageWager: wgrGuardian, description: 'Stoic protection against bad bids.', color: 'text-zinc-400',
     ability: { name: 'SPIRIT SHIELD', description: '+11s if you win Round 1.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'VIBE GUARD', description: 'Designate a player immune to social dares each round.' },
     bioAbility: { name: 'LIQUID AUTHORIZATION', description: 'At round end: Others cannot release button until you finish a sip.' }
   },
   { 
-    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charClick, imageSocial: socialClick, imageBio: bioClick, imageHaunted: hntClick, description: 'Hyperactive timing precision.', color: 'text-pink-400',
+    id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charClick, imageSocial: socialClick, imageBio: bioClick, imageHaunted: hntClick, imageWager: wgrClick, description: 'Hyperactive timing precision.', color: 'text-pink-400',
     ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'MISCLICK', description: 'Chance 1 player must hold bid without using hands.' },
     bioAbility: { name: 'MOUTH POP', description: '1 round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
   { 
-    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charFrost, imageSocial: socialFrost, imageBio: bioFrost, imageHaunted: hntFrost, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
+    id: 'frostbyte', name: 'Frostbyte', title: 'The Disciplined', image: charFrost, imageSocial: socialFrost, imageBio: bioFrost, imageHaunted: hntFrost, imageWager: wgrFrost, description: 'Cold, calculated efficiency.', color: 'text-cyan-400',
     ability: { name: 'CYRO FREEZE', description: 'Refund 1.0s regardless of outcome.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COLD SHOULDER', description: 'Chance you may ignore all social interactions.' },
     bioAbility: { name: 'BRAIN FREEZE', description: '1 round: 1 opponent forced to win or drink.' }
   },
   { 
-    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charSadman, imageSocial: socialSadman, imageBio: bioSadman, imageHaunted: hntSadman, description: 'Feels bad, plays smart.', color: 'text-green-500',
+    id: 'sadman', name: 'Sadman Logic', title: 'The Analyst', image: charSadman, imageSocial: socialSadman, imageBio: bioSadman, imageHaunted: hntSadman, imageWager: wgrSadman, description: 'Feels bad, plays smart.', color: 'text-green-500',
     ability: { name: 'SAD REVEAL', description: 'See 1 opponent holding per round. Your time bank is permanently scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'SAD STORY', description: 'Chance 1 random player shares a sad story.' },
     bioAbility: { name: 'DRINKING PARTNER', description: 'Every round you can change your drinking buddy.' }
   },
   { 
-    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charDash, imageSocial: socialDash, imageBio: bioDash, imageHaunted: hntDash, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
+    id: 'rainbow_dash', name: 'Rainbow Dash', title: 'The Speeder', image: charDash, imageSocial: socialDash, imageBio: bioDash, imageHaunted: hntDash, imageWager: wgrDash, description: 'Neon trails and fast reactions.', color: 'text-purple-400',
     ability: { name: 'RAINBOW RUN', description: 'Get 3.5s refund if you bid > 40s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SUGAR RUSH', description: 'Chance 1 random opponent must speak 2x speed.' },
     bioAbility: { name: 'RAINBOW SHOT', description: 'Chance 1 random player mixes two drinks.' }
   },
   { 
     id: 'accuser', name: 'The Accuser', title: 'The Aggressor', image: charAccuser, imageSocial: socialAccuser,
-    imageBio: bioAccuser, imageHaunted: hntAccuser,
+    imageBio: bioAccuser, imageHaunted: hntAccuser, imageWager: wgrAccuser,
     description: 'Loud and disruptive tactics.', color: 'text-red-400',
     ability: { name: 'MANAGER CALL', description: 'Remove 2s from random opponent every round.', effect: 'DISRUPT' },
     socialAbility: { name: 'COMPLAINT', description: 'Chance everyone votes on winner\'s punishment.' },
     bioAbility: { name: 'SPILL HAZARD', description: 'Chance to accuse someone of spilling; they drink.' }
   },
   { 
-    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charLowflame, imageSocial: socialLowflame, imageBio: bioLowflame, imageHaunted: hntLowflame, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
+    id: 'low_flame', name: 'Low Flame', title: 'The Survivor', image: charLowflame, imageSocial: socialLowflame, imageBio: bioLowflame, imageHaunted: hntLowflame, imageWager: wgrLowflame, description: 'Perfectly chill in chaos.', color: 'text-orange-500',
     ability: { name: 'FIRE WALL', description: 'Immune to ALL protocols.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'HOT SEAT', description: 'Chance to choose a player to answer a truth.' },
     bioAbility: { name: 'ON FIRE', description: 'When you win, everyone else drinks.' }
   },
   { 
-    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charWandering, imageSocial: socialWandering, imageBio: bioWandering, imageHaunted: hntWander, description: 'Always looking for a better deal.', color: 'text-blue-400',
+    id: 'wandering_eye', name: 'Wandering Eye', title: 'The Opportunist', image: charWandering, imageSocial: socialWandering, imageBio: bioWandering, imageHaunted: hntWander, imageWager: wgrWander, description: 'Always looking for a better deal.', color: 'text-blue-400',
     ability: { name: 'SNEAK PEEK', description: 'See 1 random player holding. All other banks scrambled.', effect: 'PEEK' },
     socialAbility: { name: 'DISTRACTION', description: 'Chance to point at something; anyone who looks must drop buzzer.' },
     bioAbility: { name: 'THE EX', description: 'Chance 1 random player toasts to an ex.' }
   },
   { 
-    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRind, imageSocial: socialRind, imageBio: bioRind, imageHaunted: hntRind, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
+    id: 'the_rind', name: 'The Rind', title: 'The Time Thief', image: charRind, imageSocial: socialRind, imageBio: bioRind, imageHaunted: hntRind, imageWager: wgrRind, description: 'Sneaky tactics and stolen seconds.', color: 'text-gray-500',
     ability: { name: 'CHEESE TAX', description: 'Steal 2s from winner if you lose.', effect: 'DISRUPT' },
     socialAbility: { name: 'SNITCH', description: 'Chance 1 random player must reveal someone\'s tell.' },
     bioAbility: { name: 'SCAVENGE', description: 'Chance 1 random player finishes someone else\'s drink.' }
   },
   { 
     id: 'anointed', name: 'The Anointed', title: 'The Royal', image: charAnointed, imageSocial: socialAnointed,
-    imageBio: bioAnointed, imageHaunted: hntAnnointed,
+    imageBio: bioAnointed, imageHaunted: hntAnnointed, imageWager: wgrAnnointed,
     description: 'Silent authority and iron will.', color: 'text-blue-500',
     ability: { name: 'ROYAL DECREE', description: 'Get 20s refund if you bid within 0.4s of 20s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'COMMAND SILENCE', description: 'Chance everyone is commanded silent' },
     bioAbility: { name: 'ROYAL CUP', description: '1 random round: Make a rule for remainder of game.' }
   },
   { 
-    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charExecutive, imageSocial: socialExecutive, imageBio: bioExecutive, imageHaunted: hntExec, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
+    id: 'executive_p', name: 'Executive P', title: 'The Psycho', image: charExecutive, imageSocial: socialExecutive, imageBio: bioExecutive, imageHaunted: hntExec, imageWager: wgrExec, description: 'Impeccable taste, dangerous mind.', color: 'text-red-500',
     ability: { name: 'AXE SWING', description: 'Remove 2s from non-eliminated opponent with most time.', effect: 'DISRUPT' },
     socialAbility: { name: 'CC\'D', description: 'Chance 1 random player must copy your actions next round.' },
     bioAbility: { name: 'REASSIGNED', description: 'Chance to choose 1 player to take a drink.' }
   },
   { 
-    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charAlpha, imageSocial: socialAlpha, imageBio: bioAlpha, imageHaunted: hntAlpha, description: 'Peak performance in every bid.', color: 'text-zinc-300',
+    id: 'alpha_prime', name: 'Alpha Prime', title: 'The Perfect', image: charAlpha, imageSocial: socialAlpha, imageBio: bioAlpha, imageHaunted: hntAlpha, imageWager: wgrAlpha, description: 'Peak performance in every bid.', color: 'text-zinc-300',
     ability: { name: 'JAWLINE', description: 'Can drop during countdown without penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'MOG', description: 'Chance 1 random player must do 10 pushups or ff next round.' },
     bioAbility: { name: 'PACE SETTER', description: 'Every 3 rounds, start a game of waterfall.' }
   },
   { 
-    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charRoll, imageSocial: socialRoll, imageBio: bioRoll, imageHaunted: hntRoll, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
+    id: 'roll_safe', name: 'Roll Safe', title: 'The Consultant', image: charRoll, imageSocial: socialRoll, imageBio: bioRoll, imageHaunted: hntRoll, imageWager: wgrRoll, description: 'Modern solutions for modern bids.', color: 'text-indigo-400',
     ability: { name: 'CALCULATED', description: 'Cannot be impacted by Limit Break abilities.', effect: 'PEEK' },
     socialAbility: { name: 'TECHNICALLY', description: 'You are the decision maker for disputes and unclear rules.' },
     bioAbility: { name: 'BIG BRAIN', description: 'Chance option to have everyone pass drink to the left.' }
   },
   { 
-    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charHotwired, imageSocial: socialHotwired, imageBio: bioHotwired, imageHaunted: hntHotwired, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
+    id: 'hotwired', name: 'Hotwired', title: 'The Anarchist', image: charHotwired, imageSocial: socialHotwired, imageBio: bioHotwired, imageHaunted: hntHotwired, imageWager: wgrHotwired, description: 'Watches the market burn with a smile.', color: 'text-orange-600',
     ability: { name: 'BURN IT', description: 'Remove 1s from everyone else.', effect: 'DISRUPT' },
     socialAbility: { name: 'VIRAL MOMENT', description: '1 random round target must re-enact a meme.' },
     bioAbility: { name: 'SPICY', description: 'Chance everyone drinks.' }
   },
   { 
     id: 'panic_bot', name: 'Panic Bot', title: 'The Indecisive', image: charPanic, imageSocial: socialPanic,
-    imageBio: bioPanic,  imageHaunted: hntPanic,
+    imageBio: bioPanic,  imageHaunted: hntPanic, imageWager: wgrPanic,
     description: 'Always sweating the big decisions.', color: 'text-red-400',
     ability: { name: 'PANIC MASH', description: '50% chance +3s refund, 50% -3s penalty.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'SWEATING', description: 'Wipe brow. If anyone mimics, they drop button.' },
     bioAbility: { name: 'EMERGENCY MEETING', description: 'Chance everyone must point at another to gang up on next round.' }
   },
   { 
-    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charPrimate, imageSocial: socialPrimate, imageBio: bioPrimate, imageHaunted: hntPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
+    id: 'primate', name: 'Primate Prime', title: 'The Chef', image: charPrimate, imageSocial: socialPrimate, imageBio: bioPrimate, imageHaunted: hntPrimate, imageWager: wgrPrimate, description: 'Trust the process, he\'s cooking.', color: 'text-amber-600',
     ability: { name: 'CHEF\'S SPECIAL', description: 'Get 4s refund on wins > 10s over second place.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'FRESH CUT', description: 'Chance 1 random player must compliment everyone.' },
     bioAbility: { name: 'GREEDY GRAB', description: 'Chance previous winner must burn 40s next round or finish drink.' }
   },
   { 
     id: 'pain_hider', name: 'Pain Hider', title: 'The Stoic', image: charPain, imageSocial: socialPain,
-    imageBio: bioPain, imageHaunted: hntPain,
+    imageBio: bioPain, imageHaunted: hntPain, imageWager: wgrPain,
     description: 'Smiling through the bear market.', color: 'text-slate-400',
     ability: { name: 'HIDE PAIN', description: 'Get 3s refund if you lose by > 15s.', effect: 'TIME_REFUND' },
     socialAbility: { name: 'BOOMER', description: 'You forgot what your power was.' },
@@ -464,7 +522,7 @@ const CHARACTERS: Character[] = [
 
 // New Types for Refactored Game Modes
 type GameDifficulty = 'COMPETITIVE' | 'CASUAL';
-type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
+type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED' | 'WAGER';
 
 // Haunted Mode: 16 placeholder items
 interface HauntedItem {
@@ -963,6 +1021,32 @@ export default function Game() {
   const [showProtocolGuide, setShowProtocolGuide] = useState(false);
   const [showProtocolSelect, setShowProtocolSelect] = useState(false);
 
+  // WAGER mode state
+  const [wagerPhaseTimeLeft, setWagerPhaseTimeLeft] = useState(10);
+  const wagerPhaseTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [playerWager, setPlayerWager] = useState<{
+    targetId: string | null;
+    percent: number;
+    amount: number;
+    isDoubleDown: boolean;
+    sidePotHigh: boolean;
+  }>({ targetId: null, percent: 25, amount: 0, isDoubleDown: false, sidePotHigh: false });
+  const [prevRoundWinnerId, setPrevRoundWinnerId] = useState<string | null>(null);
+  // Snapshot of time banks at the start of each wager phase (for underdog bonus)
+  const roundStartTimeBanksRef = useRef<Record<string, number>>({});
+  const [wagerRoundResults, setWagerRoundResults] = useState<Array<{
+    playerId: string;
+    playerName: string;
+    targetId: string | null;
+    targetName: string | null;
+    wagerAmount: number;
+    isDoubleDown: boolean;
+    sidePotHigh: boolean;
+    won: boolean | null;
+    reward: number;
+    sidePotWon: boolean | null;
+  }>>([]);
+
   // OVERCLOCK protocol state (singleplayer)
   const [overclockActive, setOverclockActive] = useState(false);
   const [overclockTimeLeft, setOverclockTimeLeft] = useState(10);
@@ -978,7 +1062,9 @@ export default function Game() {
         'NO_LOOK', 
         'THE_MOLE', 'PANIC_ROOM',
         'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL',
-        'OVERCLOCK', 'CALIBRATION'
+        'OVERCLOCK', 'CALIBRATION',
+        'HAUNTED_SEANCE', 'HAUNTED_CURSE_ECHO', 'HAUNTED_WAIL', 'HAUNTED_MIRROR',
+        'HIGH_CIRCUIT', 'READ_THE_TABLE', 'PROTOCOL_CARD_FLIP', 'PROTOCOL_COIN_FLIP',
   ]);
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
@@ -1213,6 +1299,7 @@ export default function Game() {
       if (prev === 'STANDARD') return 'SOCIAL_OVERDRIVE';
       if (prev === 'SOCIAL_OVERDRIVE') return 'BIO_FUEL';
       if (prev === 'BIO_FUEL') return 'HAUNTED';
+      if (prev === 'HAUNTED') return 'WAGER';
       return 'STANDARD';
     });
   };
@@ -1223,6 +1310,7 @@ export default function Game() {
       case 'SOCIAL_OVERDRIVE': return <PartyPopper size={12} />;
       case 'BIO_FUEL': return <Martini size={12} />;
       case 'HAUNTED': return <Skull size={12} />;
+      case 'WAGER': return <Trophy size={12} />;
     }
   };
 
@@ -1232,6 +1320,7 @@ export default function Game() {
       case 'SOCIAL_OVERDRIVE': return "text-purple-400";
       case 'BIO_FUEL': return "text-orange-400";
       case 'HAUNTED': return "text-teal-400";
+      case 'WAGER': return "text-yellow-400";
     }
   };
   
@@ -1326,7 +1415,7 @@ export default function Game() {
       protocolsEnabled: boolean;
       bonusTrophiesEnabled: boolean;
       abilitiesEnabled: boolean;
-      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED' | 'WAGER';
       gameDuration: 'sprint' | 'standard' | 'long' | 'short';
     };
     maxPlayers: number;
@@ -1338,7 +1427,7 @@ export default function Game() {
   const [multiplayerGameState, setMultiplayerGameState] = useState<{
     round: number;
     totalRounds: number;
-    phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
+    phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
     countdownRemaining: number;
     elapsedTime: number;
     players: Array<{
@@ -1381,7 +1470,7 @@ export default function Game() {
       protocolsEnabled: boolean;
       bonusTrophiesEnabled: boolean;
       abilitiesEnabled: boolean;
-      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED' | 'WAGER';
       gameDuration?: 'sprint' | 'standard' | 'long' | 'short';
     };
     activeProtocol: string | null;
@@ -1598,6 +1687,15 @@ export default function Game() {
         
         if (state.phase === 'driver_selection') {
           setPhase('mp_driver_select');
+        } else if (state.phase === 'wager_phase') {
+          // Server-driven wager phase for MP - show wager UI, with deadline countdown
+          const deadline = (state as any).wagerPhaseDeadline;
+          const msLeft = deadline ? Math.max(0, deadline - Date.now()) : 10000;
+          setWagerPhaseTimeLeft(Math.ceil(msLeft / 1000));
+          setPlayerWager({ targetId: null, percent: 25, amount: 0, isDoubleDown: false, sidePotHigh: false });
+          // Sync previous round winner for double-or-nothing feature
+          setPrevRoundWinnerId((state as any).previousRoundWinnerId ?? null);
+          setPhase('wager_phase');
         } else if (state.phase === 'waiting_for_ready') {
           // In Haunted mode, check if player's item was already selected; if not, go to item select
           const myMpPlayer = socket ? state.players.find((p: any) => p.socketId === socket.id) : null;
@@ -1622,6 +1720,27 @@ export default function Game() {
           setPhase('round_end');
           if (state.roundWinner) {
             setRoundWinner({ name: state.roundWinner.name, time: state.roundWinner.bid });
+          }
+          // Populate wager results for WAGER mode from server player states
+          if (state.settings?.variant === 'WAGER') {
+            const results = state.players
+              .filter((p: any) => p.wagerResolved && p.wagerAmount > 0 && p.wagerTargetId)
+              .map((p: any) => {
+                const targetPlayer = state.players.find((op: any) => op.id === p.wagerTargetId);
+                return {
+                  playerId: p.id,
+                  playerName: p.name,
+                  targetId: p.wagerTargetId,
+                  targetName: targetPlayer?.name ?? null,
+                  wagerAmount: p.wagerAmount,
+                  isDoubleDown: p.isDoubleDown ?? false,
+                  sidePotHigh: p.sidePotWagerHigh ?? false,
+                  won: p.wagerWon ?? false,
+                  reward: p.wagerReward ?? (p.wagerWon ? p.wagerAmount * 1.5 : -p.wagerAmount),
+                  sidePotWon: p.sidePotWon ?? null,
+                };
+              });
+            setWagerRoundResults(results);
           }
         } else if (state.phase === 'game_over') {
           setPhase('game_end');
@@ -2419,6 +2538,7 @@ export default function Game() {
 
       const pickIcon = (c: Character) => {
         if (variant === 'HAUNTED' && c.imageHaunted) return c.imageHaunted;
+        if (variant === 'WAGER' && c.imageWager) return c.imageWager;
         if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
         if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
         return c.image;
@@ -3402,6 +3522,8 @@ export default function Game() {
       const STANDARD_SET = ['DATA_BLACKOUT','DOUBLE_STAKES','SYSTEM_FAILURE','OPEN_HAND','MUTE_PROTOCOL','NO_LOOK','THE_MOLE','PANIC_ROOM','UNDERDOG_VICTORY','TIME_TAX','PRIVATE_CHANNEL','OVERCLOCK','CALIBRATION'];
       const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
+      const HAUNTED_SET = ['HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR'];
+      const WAGER_SET = ['HIGH_CIRCUIT','READ_THE_TABLE','PROTOCOL_CARD_FLIP','PROTOCOL_COIN_FLIP'];
 
       const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
 
@@ -3410,7 +3532,11 @@ export default function Game() {
         ? (allowedProtocols || []).filter(p => SOCIAL_SET.includes(p as any))
         : (variant === 'BIO_FUEL')
           ? (allowedProtocols || []).filter(p => BIO_SET.includes(p as any))
-          : [];
+          : (variant === 'HAUNTED')
+            ? (allowedProtocols || []).filter(p => HAUNTED_SET.includes(p as any))
+            : (variant === 'WAGER')
+              ? (allowedProtocols || []).filter(p => WAGER_SET.includes(p as any))
+              : [];
 
       const combinedPool: ProtocolType[] = [...standardPool, ...modePool];
       if (combinedPool.length === 0 && !forcedProtocolValue) return;
@@ -3511,6 +3637,18 @@ export default function Game() {
         case 'CALIBRATION': {
           msg = "CALIBRATION"; sub = `Hold as close to ${newCalibrationTarget}s as possible! Closest bid wins.`; break;
         }
+        // HAUNTED placeholder protocols — shells only, no overlay
+        case 'HAUNTED_SEANCE':
+        case 'HAUNTED_CURSE_ECHO':
+        case 'HAUNTED_WAIL':
+        case 'HAUNTED_MIRROR':
+          showPopup = false;
+          break;
+        // WAGER placeholder protocols
+        case 'HIGH_CIRCUIT':     msg = "HIGH CIRCUIT";        sub = "All wager rewards are doubled this round. (Coming soon)"; break;
+        case 'READ_THE_TABLE':   msg = "READ THE TABLE";      sub = "Liar's Dice! Roll 5 dice, bid on totals, challenge bluffs. Lose all dice = out. (Coming soon)"; break;
+        case 'PROTOCOL_CARD_FLIP': msg = "CARD FLIP PROTOCOL"; sub = "Draw a card — the result determines this round's modifier. (Coming soon)"; break;
+        case 'PROTOCOL_COIN_FLIP': msg = "COIN FLIP PROTOCOL"; sub = "Everyone flips a coin. Most heads wins the round. Ties go to a rematch! (Coming soon)"; break;
       }
       
       // Filter out popups that shouldn't be seen by the player (targeted/secret protocols only)
@@ -4645,7 +4783,82 @@ export default function Game() {
     setPlayers(finalPlayers);
     const updatedPlayers = finalPlayers;
     setRoundWinner(winnerId ? { name: winnerName!, time: winnerTime } : null);
-    
+
+    // WAGER MODE: resolve wagers
+    if (variant === 'WAGER' && winnerId) {
+      const SIDE_POT_THRESHOLD = 20; // seconds - "winning bid exceeds X seconds?"
+      const newWagerResults: typeof wagerRoundResults = [];
+      const wagerAdjustments: { id: string; delta: number }[] = [];
+
+      finalPlayers.forEach(p => {
+        if (!p.wagerAmount || p.wagerAmount <= 0 || !p.wagerTargetId || p.wagerResolved) return;
+        const targetWon = p.wagerTargetId === winnerId;
+        let reward = 0;
+
+        // Check underdog bonus: did target have lowest time bank at START of round?
+        // Use roundStartTimeBanks snapshot (captured at wager phase start), matching server behavior.
+        const startBanks = roundStartTimeBanksRef.current;
+        const startBankValues = Object.values(startBanks).filter((t): t is number => typeof t === 'number');
+        const minStartTime = startBankValues.length > 0 ? Math.min(...startBankValues) : 0;
+        const targetStartTime = startBanks[p.wagerTargetId] ?? 999;
+        const targetIsUnderdog = targetWon && targetStartTime <= minStartTime;
+
+        if (targetWon) {
+          const multiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
+          reward = Math.round(p.wagerAmount * multiplier * 10) / 10;
+        } else {
+          reward = -p.wagerAmount;
+        }
+
+        // Side pot: did the winning bid exceed SIDE_POT_THRESHOLD?
+        const sidePotWon = (winnerTime >= SIDE_POT_THRESHOLD) === (p.sidePotWagerHigh === true);
+        const sidePotDelta = sidePotWon ? 3 : -1;
+
+        wagerAdjustments.push({ id: p.id, delta: reward + (p.sidePotWagerHigh !== undefined ? sidePotDelta : 0) });
+
+        // Ghost revival: if ghost wagered and won, revive with winning bid amount
+        if (p.isGhost && (p.ghostTrophies ?? 0) > 0 && targetWon) {
+          wagerAdjustments.push({ id: p.id, delta: winnerTime });
+        }
+
+        newWagerResults.push({
+          playerId: p.id,
+          playerName: p.name,
+          targetId: p.wagerTargetId,
+          targetName: finalPlayers.find(fp => fp.id === p.wagerTargetId)?.name ?? null,
+          wagerAmount: p.wagerAmount,
+          isDoubleDown: p.isDoubleDown ?? false,
+          sidePotHigh: p.sidePotWagerHigh ?? false,
+          won: targetWon,
+          reward,
+          sidePotWon: p.sidePotWagerHigh !== undefined ? sidePotWon : null,
+        });
+      });
+
+      // Apply wager adjustments
+      if (wagerAdjustments.length > 0) {
+        setPlayers(prev => prev.map(p => {
+          const adj = wagerAdjustments.filter(a => a.id === p.id);
+          if (adj.length === 0) return p;
+          const totalDelta = adj.reduce((sum, a) => sum + a.delta, 0);
+          const newTime = Math.max(0, p.remainingTime + totalDelta);
+          const wasGhost = p.isGhost;
+          const revived = wasGhost && totalDelta > 0;
+          return {
+            ...p,
+            remainingTime: newTime,
+            isGhost: revived ? false : p.isGhost,
+            wagerResolved: true,
+            wagerWon: newWagerResults.find(r => r.playerId === p.id)?.won ?? undefined,
+            wagerReward: newWagerResults.find(r => r.playerId === p.id)?.reward ?? undefined,
+          };
+        }));
+      }
+
+      setWagerRoundResults(newWagerResults);
+      setPrevRoundWinnerId(winnerId);
+    }
+
     // Haunted mode: notify p1 they became a ghost this round
     const p1WasAlreadyGhost = players.find(p => p.id === 'p1')?.isGhost;
     const p1IsGhostNow = finalPlayers.find(p => p.id === 'p1')?.isGhost;
@@ -6021,13 +6234,33 @@ export default function Game() {
       setAnimations([]);
       
       setRound(prev => prev + 1);
-      setPhase('ready');
+      if (variant === 'WAGER') {
+        // In wager mode, show wager phase before ready
+        setPlayerWager({ targetId: null, percent: 25, amount: 0, isDoubleDown: false, sidePotHigh: false });
+        setWagerPhaseTimeLeft(10);
+        setWagerRoundResults([]); // Clear previous round's wager results
+        setPhase('wager_phase');
+      } else {
+        setPhase('ready');
+      }
       setPlayers(prev => prev.map(p => ({ 
           ...p, 
           isHolding: false, 
           currentBid: null, 
           roundImpact: undefined,
-          impactLogs: undefined // Clear logs for next round
+          impactLogs: undefined, // Clear logs for next round
+          // Reset wager fields so stale data doesn't linger between rounds
+          ...(variant === 'WAGER' ? {
+            wagerTargetId: undefined,
+            wagerPercent: undefined,
+            wagerAmount: undefined,
+            isDoubleDown: undefined,
+            wagerResolved: false,
+            wagerWon: undefined,
+            wagerReward: undefined,
+            sidePotWagerHigh: undefined,
+            sidePotWon: undefined,
+          } : {}),
       }))); 
       setReadyHoldTime(0);
       setPlayerAbilityUsed(false); // Reset ability usage
@@ -6047,6 +6280,77 @@ export default function Game() {
       }
     }
   };
+
+  // Wager phase: countdown timer
+  useEffect(() => {
+    if (phase !== 'wager_phase') {
+      if (wagerPhaseTimerRef.current) {
+        clearInterval(wagerPhaseTimerRef.current);
+        wagerPhaseTimerRef.current = null;
+      }
+      return;
+    }
+    // In multiplayer, time is set from server state; just run local countdown display
+    if (!isMultiplayer) {
+      setWagerPhaseTimeLeft(10);
+      // Snapshot time banks at round start for underdog bonus calculation (mirrors server roundStartTimeBanks)
+      // Auto-assign bot wagers
+      setPlayers(prev => {
+        const allActive = prev.filter(p => !p.isEliminated && !p.isGhost);
+        // Capture time banks before bids for underdog detection
+        const snapshot: Record<string, number> = {};
+        allActive.forEach(p => { snapshot[p.id] = p.remainingTime; });
+        roundStartTimeBanksRef.current = snapshot;
+        return prev.map(p => {
+          if (!p.isBot) return p;
+          if (p.isEliminated || p.isGhost) return p;
+          // Bot picks a random opponent
+          const opponents = allActive.filter(op => op.id !== p.id);
+          if (opponents.length === 0) return p;
+          const target = opponents[Math.floor(Math.random() * opponents.length)];
+          // Wager percent based on personality
+          let percent = 25;
+          switch (p.personality) {
+            case 'aggressive': percent = 50 + Math.floor(Math.random() * 25); break;
+            case 'conservative': percent = 10 + Math.floor(Math.random() * 15); break;
+            case 'balanced': percent = 20 + Math.floor(Math.random() * 20); break;
+            case 'random': percent = 10 + Math.floor(Math.random() * 65); break;
+            case 'adaptive': percent = 25 + Math.floor(Math.random() * 25); break;
+            case 'psychological': percent = 30 + Math.floor(Math.random() * 30); break;
+            default: percent = 25;
+          }
+          percent = Math.min(75, percent);
+          const amount = Math.round((p.remainingTime * percent) / 100 * 10) / 10;
+          const isDoubleDown = prevRoundWinnerId !== null && Math.random() < 0.2; // 20% chance bots go double-or-nothing
+          const finalTarget = (isDoubleDown && prevRoundWinnerId) ? prevRoundWinnerId : target.id;
+          return {
+            ...p,
+            wagerTargetId: finalTarget ?? undefined,
+            wagerPercent: percent,
+            wagerAmount: amount,
+            isDoubleDown,
+            wagerResolved: false,
+            wagerWon: undefined,
+            sidePotWagerHigh: Math.random() < 0.5,
+          };
+        });
+      });
+    }
+    wagerPhaseTimerRef.current = setInterval(() => {
+      setWagerPhaseTimeLeft(prev => {
+        if (prev <= 1) {
+          if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
+          // In singleplayer, auto-transition to ready phase
+          if (!isMultiplayer) setPhase('ready');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
+    };
+  }, [phase]);
 
   // Auto-advance round_end when only bots remain active (ghost spectator mode in haunted)
   useEffect(() => {
@@ -6072,6 +6376,7 @@ export default function Game() {
 
     const pickIcon = (c: Character) => {
       if (variant === 'HAUNTED' && c.imageHaunted) return c.imageHaunted;
+      if (variant === 'WAGER' && c.imageWager) return c.imageWager;
       if (variant === 'SOCIAL_OVERDRIVE' && c.imageSocial) return c.imageSocial;
       if (variant === 'BIO_FUEL' && c.imageBio) return c.imageBio;
       return c.image;
@@ -6094,6 +6399,9 @@ export default function Game() {
     // In Haunted mode, go to item selection screen instead of ready
     if (variant === 'HAUNTED') {
       setPhase('haunted_item_select');
+    } else if (variant === 'WAGER') {
+      // In Wager mode, go to wager phase before the first round
+      setPhase('wager_phase');
     } else {
       setPhase('ready');
     }
@@ -6631,7 +6939,7 @@ export default function Game() {
                               <AlertTriangle size={14} className="text-red-400" />
                               <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND','HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR','HIGH_CIRCUIT','READ_THE_TABLE','PROTOCOL_CARD_FLIP','PROTOCOL_COIN_FLIP'].includes(p as any)).length} selected</div>
                           </summary>
 
                           <div className="px-4 pb-4 space-y-3">
@@ -6774,6 +7082,78 @@ export default function Game() {
                                 <div className="space-y-1">
                                   <h4 className="text-sm font-bold text-orange-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
                                   <p className="text-xs text-orange-400" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+
+                        {/* HAUNTED */}
+                        <details className="rounded-lg border border-teal-500/20 bg-teal-950/15 overflow-hidden" data-testid="section-protocol-config-haunted">
+                          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Ghost size={14} className="text-teal-400" />
+                              <div className="text-sm font-bold text-teal-200 tracking-widest">HAUNTED</div>
+                              <span className="text-[10px] text-teal-500/70 italic ml-1">coming soon</span>
+                            </div>
+                            <div className="text-[10px] uppercase tracking-widest text-teal-400/70">{allowedProtocols.filter(p => ['HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR'].includes(p as any)).length} selected</div>
+                          </summary>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
+                            {[
+                              { id: 'HAUNTED_SEANCE',     label: 'SÉANCE ROUND',  desc: 'One player must close their eyes while bidding.' },
+                              { id: 'HAUNTED_CURSE_ECHO', label: 'CURSE ECHO',    desc: 'Last round\'s winning bid echoes as the minimum.' },
+                              { id: 'HAUNTED_WAIL',       label: 'SPIRIT WAIL',   desc: 'Bid above 20s or pay a time penalty.' },
+                              { id: 'HAUNTED_MIRROR',     label: 'DARK MIRROR',   desc: 'Lowest valid bid wins this round\'s trophy.' },
+                            ].map((p) => (
+                              <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-teal-950/20 border border-teal-500/10" data-testid={`row-protocol-config-${p.id}`}>
+                                <Switch
+                                  checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                  disabled={variant !== 'HAUNTED'}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                    else setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                  }}
+                                  data-testid={`switch-protocol-${p.id}`}
+                                />
+                                <div className="space-y-1">
+                                  <h4 className="text-sm font-bold text-teal-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
+                                  <p className="text-xs text-teal-400/80" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+
+                        {/* WAGER */}
+                        <details className="rounded-lg border border-yellow-600/20 bg-yellow-950/15 overflow-hidden" data-testid="section-protocol-config-wager">
+                          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Trophy size={14} className="text-yellow-400" />
+                              <div className="text-sm font-bold text-yellow-200 tracking-widest">WAGER</div>
+                              <span className="text-[10px] text-yellow-500/70 italic ml-1">coming soon</span>
+                            </div>
+                            <div className="text-[10px] uppercase tracking-widest text-yellow-400/70">{allowedProtocols.filter(p => ['HIGH_CIRCUIT','READ_THE_TABLE','PROTOCOL_CARD_FLIP','PROTOCOL_COIN_FLIP'].includes(p as any)).length} selected</div>
+                          </summary>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
+                            {[
+                              { id: 'HIGH_CIRCUIT',        label: 'HIGH CIRCUIT',        desc: 'All wager rewards are doubled this round.' },
+                              { id: 'READ_THE_TABLE',      label: 'READ THE TABLE',      desc: 'Liar\'s Dice — roll 5 hidden dice, bid totals, call bluffs. Lose all dice = eliminated.' },
+                              { id: 'PROTOCOL_CARD_FLIP',  label: 'CARD FLIP PROTOCOL',  desc: 'Draw a card — the result determines this round\'s modifier.' },
+                              { id: 'PROTOCOL_COIN_FLIP',  label: 'COIN FLIP PROTOCOL',  desc: 'Everyone flips a coin. Most heads wins. Ties rematch until one player wins.' },
+                            ].map((p) => (
+                              <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-yellow-950/20 border border-yellow-600/10" data-testid={`row-protocol-config-${p.id}`}>
+                                <Switch
+                                  checked={allowedProtocols.includes(p.id as ProtocolType)}
+                                  disabled={variant !== 'WAGER'}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setAllowedProtocols(prev => [...prev, p.id as ProtocolType]);
+                                    else setAllowedProtocols(prev => prev.filter(id => id !== p.id));
+                                  }}
+                                  data-testid={`switch-protocol-${p.id}`}
+                                />
+                                <div className="space-y-1">
+                                  <h4 className="text-sm font-bold text-yellow-200" data-testid={`text-protocol-name-${p.id}`}>{p.label}</h4>
+                                  <p className="text-xs text-yellow-400/80" data-testid={`text-protocol-desc-${p.id}`}>{p.desc}</p>
                                 </div>
                               </div>
                             ))}
@@ -6988,6 +7368,21 @@ export default function Game() {
                       data-testid="button-intro-variant-haunted"
                     >
                       HAUNTED
+                    </button>
+                    <button
+                      onClick={() => setVariant('WAGER')}
+                      disabled={!!currentLobby}
+                      className={cn(
+                        'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
+                        variant === 'WAGER'
+                          ? 'bg-yellow-500/20 border-yellow-500 text-yellow-300'
+                          : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300',
+                        currentLobby && 'cursor-not-allowed'
+                      )}
+                      title={currentLobby ? 'Settings locked - set by lobby host' : "WAGER: Bet your time on players before each round. Risk it all or play it safe."}
+                      data-testid="button-intro-variant-wager"
+                    >
+                      WAGER
                     </button>
                  </div>
               </div>
@@ -7839,6 +8234,190 @@ export default function Game() {
         );
       }
 
+      case 'wager_phase': {
+        const activePlayers = players.filter(p => !p.isEliminated && !p.isGhost);
+        const opponents = activePlayers.filter(p => p.id !== 'p1');
+        const p1 = players.find(p => p.id === 'p1');
+        const maxWager = p1 ? Math.floor(p1.remainingTime * 0.75 * 10) / 10 : 0;
+        const prevWinner = prevRoundWinnerId ? players.find(p => p.id === prevRoundWinnerId) : null;
+        const currentWagerAmount = Math.round((p1?.remainingTime ?? 0) * playerWager.percent / 100 * 10) / 10;
+
+        const handleWagerConfirm = () => {
+          const target = playerWager.isDoubleDown && prevRoundWinnerId
+            ? prevRoundWinnerId
+            : playerWager.targetId;
+          const amount = Math.min(maxWager, playerWager.amount || currentWagerAmount);
+          
+          if (isMultiplayer && socket) {
+            socket.emit('submit_wager', {
+              targetId: target,
+              percent: playerWager.percent,
+              amount,
+              isDoubleDown: playerWager.isDoubleDown,
+              sidePotHigh: playerWager.sidePotHigh,
+            });
+          } else {
+            setPlayers(prev => prev.map(p => {
+              if (p.id !== 'p1') return p;
+              return {
+                ...p,
+                wagerTargetId: target ?? undefined,
+                wagerPercent: playerWager.percent,
+                wagerAmount: amount,
+                isDoubleDown: playerWager.isDoubleDown,
+                wagerResolved: false,
+                wagerWon: undefined,
+                sidePotWagerHigh: playerWager.sidePotHigh,
+              };
+            }));
+          }
+          if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
+          setPhase('ready');
+        };
+
+        const handleSkipWager = () => {
+          if (isMultiplayer && socket) {
+            // Submit empty wager to server
+            socket.emit('submit_wager', { targetId: null, percent: 0, amount: 0, isDoubleDown: false, sidePotHigh: null });
+          }
+          if (wagerPhaseTimerRef.current) clearInterval(wagerPhaseTimerRef.current);
+          setPhase('ready');
+        };
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-2xl mx-auto space-y-6"
+            data-testid="screen-wager-phase"
+          >
+            {/* Header */}
+            <div className="text-center">
+              <h2 className="text-4xl font-display font-bold text-yellow-300 mb-1 flex items-center justify-center gap-3">
+                <Trophy size={32} className="text-yellow-400" /> WAGER PHASE
+              </h2>
+              <p className="text-zinc-400 text-sm">Pick a player and wager your time. Win if they win.</p>
+              <div className="mt-2 text-2xl font-mono font-bold text-yellow-400">
+                {wagerPhaseTimeLeft}s
+              </div>
+            </div>
+
+            {/* Target Selection */}
+            <div className="space-y-3">
+              <div className="text-xs uppercase tracking-widest text-zinc-500 font-bold">Pick Your Target</div>
+
+              {/* Double or Nothing toggle */}
+              {prevWinner && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-yellow-950/30 border border-yellow-500/30">
+                  <button
+                    onClick={() => setPlayerWager(prev => ({ ...prev, isDoubleDown: !prev.isDoubleDown, targetId: !prev.isDoubleDown ? prevRoundWinnerId : prev.targetId }))}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition-all",
+                      playerWager.isDoubleDown
+                        ? "bg-yellow-500 text-black"
+                        : "bg-zinc-800 text-zinc-400 hover:bg-yellow-900/50 hover:text-yellow-300"
+                    )}
+                  >
+                    🎲 DOUBLE OR NOTHING
+                  </button>
+                  <span className="text-xs text-zinc-500">
+                    Auto-targets: <span className="text-yellow-400">{prevWinner.name}</span> (last winner) · 2.5x reward
+                  </span>
+                </div>
+              )}
+
+              {!playerWager.isDoubleDown && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {opponents.map(opp => (
+                    <button
+                      key={opp.id}
+                      onClick={() => setPlayerWager(prev => ({ ...prev, targetId: opp.id }))}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all",
+                        playerWager.targetId === opp.id
+                          ? "border-yellow-400 bg-yellow-950/40 text-yellow-200"
+                          : "border-zinc-700 bg-zinc-900/50 text-zinc-400 hover:border-yellow-500/50"
+                      )}
+                    >
+                      <div className="font-bold text-sm">{opp.name}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Wager Amount */}
+            <div className="space-y-3">
+              <div className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                Wager Amount (max 75% of your bank)
+              </div>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min={5}
+                  max={75}
+                  step={5}
+                  value={playerWager.percent}
+                  onChange={e => {
+                    const pct = parseInt(e.target.value);
+                    const amt = Math.round((p1?.remainingTime ?? 0) * pct / 100 * 10) / 10;
+                    setPlayerWager(prev => ({ ...prev, percent: pct, amount: amt }));
+                  }}
+                  className="flex-1 accent-yellow-400"
+                />
+                <div className="text-xl font-mono font-bold text-yellow-400 w-24 text-right">
+                  {playerWager.percent}% <span className="text-sm text-zinc-500">({currentWagerAmount}s)</span>
+                </div>
+              </div>
+              <div className="text-xs text-zinc-600">
+                Reward: {playerWager.isDoubleDown ? '2.5x' : '1.5x'} wager · Base reward on win
+              </div>
+            </div>
+
+            {/* Side Pot */}
+            <div className="space-y-2">
+              <div className="text-xs uppercase tracking-widest text-zinc-500 font-bold">Side Pot (Optional)</div>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-700">
+                <span className="text-xs text-zinc-400">Will the winning bid exceed 20s?</span>
+                <div className="flex gap-2 ml-auto">
+                  <button
+                    onClick={() => setPlayerWager(prev => ({ ...prev, sidePotHigh: true }))}
+                    className={cn(
+                      "px-3 py-1 rounded text-xs font-bold transition-all",
+                      playerWager.sidePotHigh === true ? "bg-green-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                    )}
+                  >YES</button>
+                  <button
+                    onClick={() => setPlayerWager(prev => ({ ...prev, sidePotHigh: false }))}
+                    className={cn(
+                      "px-3 py-1 rounded text-xs font-bold transition-all",
+                      playerWager.sidePotHigh === false ? "bg-red-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                    )}
+                  >NO</button>
+                </div>
+              </div>
+              <div className="text-xs text-zinc-600">Correct: +3s bonus · Wrong: -1s penalty</div>
+            </div>
+
+            {/* Confirm Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleWagerConfirm}
+                disabled={!playerWager.isDoubleDown && !playerWager.targetId}
+                className="flex-1 py-3 rounded-lg bg-yellow-600 text-black font-bold hover:bg-yellow-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ✓ Place Wager
+              </button>
+              <button
+                onClick={handleSkipWager}
+                className="px-4 py-3 rounded-lg bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-all"
+              >
+                Skip
+              </button>
+            </div>
+          </motion.div>
+        );
+      }
+
       case 'haunted_item_select': {
         const CATEGORY_COLORS: Record<string, string> = {
           Cursed: 'bg-red-900/40 text-red-300 border-red-500/30',
@@ -8013,6 +8592,7 @@ export default function Game() {
         // Get variant-specific image for a character
         const getDriverImage = (char: typeof CHARACTERS[0]) => {
           if (variant === 'HAUNTED' && char.imageHaunted) return char.imageHaunted;
+          if (variant === 'WAGER' && char.imageWager) return char.imageWager;
           if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) return char.imageSocial;
           if (variant === 'BIO_FUEL' && char.imageBio) return char.imageBio;
           return char.image;
@@ -8813,6 +9393,26 @@ export default function Game() {
               )}
             </div>
 
+            {/* WAGER MODE: Wager Results */}
+            {variant === 'WAGER' && wagerRoundResults.length > 0 && (
+              <div className="w-full bg-yellow-950/20 p-4 rounded border border-yellow-500/20 space-y-2">
+                <h4 className="text-xs uppercase tracking-wider text-yellow-500/70 mb-2">Wager Results</h4>
+                {wagerRoundResults.map(r => (
+                  <div key={r.playerId} className="flex justify-between items-center text-sm">
+                    <span className="text-zinc-300">{r.playerName} → <span className="text-zinc-500 italic">hidden</span></span>
+                    <span className={cn("font-mono font-bold", r.won ? "text-green-400" : "text-red-400")}>
+                      {r.won ? `+${r.reward.toFixed(1)}s` : `${r.reward.toFixed(1)}s`}
+                      {r.sidePotWon !== null && (
+                        <span className={cn("ml-2 text-xs", r.sidePotWon ? "text-green-300" : "text-red-300")}>
+                          side {r.sidePotWon ? '+3s' : '-1s'}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="w-full bg-card/50 p-4 rounded border border-white/5 space-y-2">
               <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Bid History</h4>
               {displayPlayers
@@ -9488,7 +10088,9 @@ export default function Game() {
                             ? 'SOCIAL OVERDRIVE: Adds social dares and group prompts.'
                             : variant === 'BIO_FUEL'
                               ? 'BIO-FUEL: Adds drinking prompts and 21+ content.'
-                              : 'HAUNTED: Ghost mechanics and spectral bidding.'
+                              : variant === 'HAUNTED'
+                                ? 'HAUNTED: Ghost mechanics and spectral bidding.'
+                                : 'WAGER: Bet your time on other players before each round.'
                       }
                       data-testid="button-toggle-variant"
                     >

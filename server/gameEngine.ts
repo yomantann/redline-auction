@@ -39,6 +39,7 @@ const SOCIAL_DRIVER_IDS = [
 const BIO_DRIVER_IDS = [
   'tank', 'danger_zone'
 ];
+// Wager mode uses same drivers as standard (no separate ID list needed)
 
 // Driver ID to display name mapping (matches client-side character names)
 const DRIVER_NAMES: Record<string, string> = {
@@ -67,7 +68,7 @@ const DRIVER_NAMES: Record<string, string> = {
 
 export type BotPersonality = typeof BOT_PERSONALITIES[number];
 export type GameDuration = 'standard' | 'long' | 'short';
-export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
+export type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED' | 'WAGER';
 export type ProtocolType = 
   | 'DATA_BLACKOUT' | 'DOUBLE_STAKES' | 'SYSTEM_FAILURE' 
   | 'OPEN_HAND' | 'MUTE_PROTOCOL' 
@@ -77,6 +78,10 @@ export type ProtocolType =
   | 'TRUTH_DARE' | 'SWITCH_SEATS' | 'HUM_TUNE' | 'NOISE_CANCEL'
   | 'HYDRATE' | 'BOTTOMS_UP' | 'PARTNER_DRINK' | 'WATER_ROUND'
   | 'OVERCLOCK' | 'CALIBRATION'
+  // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
+  | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
+  // WAGER mode protocols (placeholder — mechanics not yet implemented)
+  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'PROTOCOL_CARD_FLIP' | 'PROTOCOL_COIN_FLIP'
   | null;
 
 // Protocol pools by variant
@@ -94,6 +99,16 @@ const SOCIAL_PROTOCOLS: ProtocolType[] = [
 
 const BIO_PROTOCOLS: ProtocolType[] = [
   'HYDRATE', 'BOTTOMS_UP', 'PARTNER_DRINK', 'WATER_ROUND'
+];
+
+// HAUNTED mode protocol pool (placeholder — effects coming in future release)
+const HAUNTED_PROTOCOLS: ProtocolType[] = [
+  'HAUNTED_SEANCE', 'HAUNTED_CURSE_ECHO', 'HAUNTED_WAIL', 'HAUNTED_MIRROR'
+];
+
+// WAGER mode protocol pool (placeholder — effects coming in future release)
+const WAGER_PROTOCOLS: ProtocolType[] = [
+  'HIGH_CIRCUIT', 'READ_THE_TABLE', 'PROTOCOL_CARD_FLIP', 'PROTOCOL_COIN_FLIP'
 ];
 
 // Driver/Character ability definitions (minimal for server-side processing)
@@ -163,6 +178,19 @@ export interface GamePlayer {
   finalWritActive?: boolean;      // Final Writ relic: this player auto-wins the final round
   tribunalTimePenalty?: number;   // Tribunal option A: lose Ns at start of next round
   tribunalMinBid?: number;        // Tribunal option B: must bid at least Ns next round
+  // Wager mode fields
+  wagerTargetId?: string;          // WAGER: which player this player wagered on
+  wagerPercent?: number;           // WAGER: percentage of time bank wagered (0-75)
+  wagerAmount?: number;            // WAGER: calculated wager amount in seconds
+  isDoubleDown?: boolean;          // WAGER: double-or-nothing toggle
+  wagerResolved?: boolean;         // WAGER: has this round's wager been resolved?
+  wagerWon?: boolean;              // WAGER: outcome of last wager (true=won, false=lost)
+  wagerReward?: number;            // WAGER: actual time delta from wager (positive=gain, negative=loss)
+  wagerReviving?: boolean;         // WAGER: ghost player wagering trophies for revival
+  ghostTrophies?: number;          // WAGER: trophies available for ghost wagers
+  sidePotWagerHigh?: boolean;      // WAGER: side pot - predict winning bid exceeds threshold
+  sidePotResolved?: boolean;       // WAGER: side pot outcome resolved
+  sidePotWon?: boolean;            // WAGER: side pot outcome (true=won)
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -217,7 +245,7 @@ export interface GameState {
   players: GamePlayer[];
   round: number;
   totalRounds: number;
-  phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
+  phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
   roundStartTime: number | null;
   countdownRemaining: number;
   gameDuration: GameDuration;
@@ -244,6 +272,10 @@ export interface GameState {
   skipNextRound?: boolean;                        // Conclave B: skip next round as tie
   overclockClickCounts: Record<string, number>; // Click counts per player during OVERCLOCK protocol
   calibrationTargetSeconds: number | null; // Target hold time for CALIBRATION protocol (11-40s)
+  wagerPhaseActive?: boolean;      // WAGER: true when wager_phase is running
+  wagerPhaseDeadline?: number;     // WAGER: unix timestamp when wager phase ends
+  previousRoundWinnerId?: string;  // WAGER: winner of the previous round (for double-or-nothing)
+  roundStartTimeBanks?: Record<string, number>; // WAGER: time banks at start of round (for underdog bonus)
 }
 
 // Active games storage
@@ -2388,6 +2420,12 @@ function endRound(lobbyCode: string) {
     }
   }
   
+  // --- WAGER MODE: Resolve wagers after winner determination ---
+  if (game.settings.variant === 'WAGER' && winnerId) {
+    resolveWagers(game, winnerId, game.roundWinner?.bid ?? 0);
+    game.previousRoundWinnerId = winnerId;
+  }
+
   broadcastGameState(lobbyCode);
   
   // Process reality mode abilities (social/bio) at end of round
@@ -2638,6 +2676,49 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       });
       break;
     }
+    // ── HAUNTED protocols (placeholder — shell only, mechanics coming in future release) ──
+    case 'HAUNTED_SEANCE':
+    case 'HAUNTED_CURSE_ECHO':
+    case 'HAUNTED_WAIL':
+    case 'HAUNTED_MIRROR':
+      break;
+    // ── WAGER protocols (placeholder — full mechanics not yet implemented) ──
+    case 'HIGH_CIRCUIT': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'HIGH_CIRCUIT',
+        msg: 'HIGH CIRCUIT',
+        sub: 'All wager rewards are doubled this round. High risk, high reward! (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'READ_THE_TABLE': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'READ_THE_TABLE',
+        msg: 'READ THE TABLE',
+        sub: 'Liar\'s Dice! Each player rolls 5 dice, bids on totals, and challenges bluffs. Lose all dice = eliminated. (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'PROTOCOL_CARD_FLIP': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'PROTOCOL_CARD_FLIP',
+        msg: 'CARD FLIP PROTOCOL',
+        sub: 'Draw a card — the result determines this round\'s modifier. (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'PROTOCOL_COIN_FLIP': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'PROTOCOL_COIN_FLIP',
+        msg: 'COIN FLIP PROTOCOL',
+        sub: 'Everyone flips a coin. Most heads wins the round. Ties go to a rematch! (Coming soon)',
+        targetPlayerId: null,
+      });
+      break;
+    }
   }
 }
 
@@ -2763,6 +2844,12 @@ function selectProtocolForRound(game: GameState): ProtocolType {
     case 'BIO_FUEL':
       protocolPool = [...protocolPool, ...BIO_PROTOCOLS];
       break;
+    case 'HAUNTED':
+      protocolPool = [...protocolPool, ...HAUNTED_PROTOCOLS];
+      break;
+    case 'WAGER':
+      protocolPool = [...protocolPool, ...WAGER_PROTOCOLS];
+      break;
   }
   
   // Filter by allowedProtocols if configured (per-protocol toggle buttons)
@@ -2789,6 +2876,127 @@ function addGameLogEntry(game: GameState, entry: Omit<GameLogEntry, 'round' | 't
     ...entry,
     round: game.round,
     timestamp: Date.now(),
+  });
+}
+
+// Start the wager phase (WAGER variant only) then transition to waiting_for_ready
+function startWagerPhase(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
+
+  // Snapshot time banks at round start for underdog bonus calculation
+  game.roundStartTimeBanks = {};
+  game.players.forEach(p => {
+    game.roundStartTimeBanks![p.id] = p.remainingTime;
+  });
+
+  // Assign bot wagers (reset all player wager fields first)
+  const activePlayers = game.players.filter(p => !p.isEliminated && !p.isGhost);
+  // Clear previous-round wager state from all players
+  game.players.forEach(p => {
+    p.wagerTargetId = undefined;
+    p.wagerPercent = undefined;
+    p.wagerAmount = undefined;
+    p.isDoubleDown = undefined;
+    p.wagerResolved = false;
+    p.wagerWon = undefined;
+    p.wagerReward = undefined;
+    p.sidePotWagerHigh = undefined;
+    p.sidePotWon = undefined;
+  });
+  activePlayers.forEach(bot => {
+    if (!bot.isBot) return;
+    const opponents = activePlayers.filter(op => op.id !== bot.id);
+    if (opponents.length === 0) return;
+    const target = opponents[Math.floor(Math.random() * opponents.length)];
+    let percent = 25;
+    switch (bot.personality) {
+      case 'aggressive': percent = 50 + Math.floor(Math.random() * 25); break;
+      case 'conservative': percent = 10 + Math.floor(Math.random() * 15); break;
+      case 'balanced': percent = 20 + Math.floor(Math.random() * 20); break;
+      case 'random': percent = 10 + Math.floor(Math.random() * 65); break;
+      case 'adaptive': percent = 25 + Math.floor(Math.random() * 25); break;
+      case 'psychological': percent = 30 + Math.floor(Math.random() * 30); break;
+      default: percent = 25;
+    }
+    percent = Math.min(75, percent);
+    const amount = Math.round(bot.remainingTime * percent / 100 * 10) / 10;
+    const isDoubleDown = game.previousRoundWinnerId !== undefined && Math.random() < 0.2;
+    const wagerTarget = isDoubleDown && game.previousRoundWinnerId ? game.previousRoundWinnerId : target.id;
+    bot.wagerTargetId = wagerTarget;
+    bot.wagerPercent = percent;
+    bot.wagerAmount = amount;
+    bot.isDoubleDown = isDoubleDown;
+    bot.wagerResolved = false;
+    bot.wagerWon = undefined;
+    bot.sidePotWagerHigh = Math.random() < 0.5;
+  });
+
+  game.phase = 'wager_phase';
+  game.wagerPhaseActive = true;
+  game.wagerPhaseDeadline = Date.now() + 10000; // 10 seconds
+  broadcastGameState(lobbyCode);
+  log(`Wager phase started for lobby ${lobbyCode} (round ${game.round})`, "game");
+
+  // Auto-advance after 10 seconds
+  setTimeout(() => {
+    const g = activeGames.get(lobbyCode);
+    if (!g || g.phase !== 'wager_phase') return;
+    g.wagerPhaseActive = false;
+    startWaitingForReady(lobbyCode);
+  }, 10000);
+}
+
+// Resolve wagers at round end (WAGER variant)
+function resolveWagers(game: GameState, winnerId: string | null, winnerBid: number) {
+  if (!winnerId) return;
+  const SIDE_POT_THRESHOLD = 20;
+  game.players.forEach(p => {
+    if (!p.wagerAmount || p.wagerAmount <= 0 || !p.wagerTargetId || p.wagerResolved) return;
+    const targetWon = p.wagerTargetId === winnerId;
+    const startBanks = game.roundStartTimeBanks || {};
+    const targetStartTime = startBanks[p.wagerTargetId] ?? 9999;
+    const startBankValues = Object.values(startBanks).filter((t): t is number => typeof t === 'number');
+    const minStartTime = startBankValues.length > 0 ? Math.min(...startBankValues) : 0;
+    const targetIsUnderdog = targetWon && targetStartTime <= minStartTime;
+
+    let timeDelta = 0;
+    if (targetWon) {
+      const multiplier = p.isDoubleDown ? 2.5 : (targetIsUnderdog ? 2.0 : 1.5);
+      timeDelta = Math.round(p.wagerAmount * multiplier * 10) / 10;
+    } else {
+      timeDelta = -p.wagerAmount;
+    }
+
+    // Side pot: did the winning bid exceed the threshold?
+    const sidePotWon = (winnerBid >= SIDE_POT_THRESHOLD) === (p.sidePotWagerHigh === true);
+    const sidePotDelta = p.sidePotWagerHigh !== undefined ? (sidePotWon ? 3 : -1) : 0;
+    const totalDelta = timeDelta + sidePotDelta;
+
+    // Ghost revival via wager
+    if (p.isGhost && targetWon && (p.ghostTrophies ?? 0) > 0) {
+      const reviveTime = winnerBid;
+      p.isGhost = false;
+      p.remainingTime = Math.max(10, reviveTime + totalDelta);
+      p.ghostTrophies = (p.ghostTrophies ?? 1) - 1;
+      addGameLogEntry(game, {
+        type: 'ability', playerId: p.id, playerName: p.name,
+        message: `${p.name} WAGER REVIVAL: wager won, revived with ${p.remainingTime.toFixed(1)}s!`, basic: true
+      });
+    } else {
+      p.remainingTime = Math.max(0, p.remainingTime + totalDelta);
+    }
+
+    p.wagerResolved = true;
+    p.wagerWon = targetWon;
+    p.wagerReward = timeDelta;
+    p.sidePotWon = sidePotDelta > 0 ? true : (sidePotDelta < 0 ? false : undefined);
+
+    addGameLogEntry(game, {
+      type: 'ability', playerId: p.id, playerName: p.name,
+      message: `${p.name} WAGER: targeted ${game.players.find(op => op.id === p.wagerTargetId)?.name ?? p.wagerTargetId} — ${targetWon ? `WON +${timeDelta.toFixed(1)}s` : `LOST -${p.wagerAmount.toFixed(1)}s`}`,
+      value: timeDelta, basic: true,
+    });
   });
 }
 
@@ -2819,6 +3027,12 @@ function startWaitingForReady(lobbyCode: string) {
       setTimeout(() => endGame(lobbyCode), 3000);
       return;
     }
+  }
+
+  // --- WAGER MODE: Start wager phase before waiting_for_ready ---
+  if (game.settings.variant === 'WAGER') {
+    startWagerPhase(lobbyCode);
+    return;
   }
 
   game.phase = 'waiting_for_ready';
