@@ -318,7 +318,7 @@ interface Player {
   patternLockMinBid?: number;            // Pattern Lock: forced minimum bid next round
   deathWishActive?: boolean;             // Death Wish: active this round (win=+2 trophies, lose=-15s extra)
   bloodPactActive?: boolean;             // Blood Pact: active player (all losers also pay winner's bid)
-  cursedDiceActive?: boolean;            // Cursed Dice: active (±20s after round end)
+  cursedDiceActive?: boolean;            // Cursed Dice: active (±30s after round end)
   finalWritActive?: boolean;             // Final Writ: this player auto-wins the final round
   tribunalTimePenalty?: number;          // Tribunal A: lose Ns at start of next round
   tribunalMinBid?: number;               // Tribunal B: must bid at least Ns next round
@@ -541,7 +541,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🎲',
     category: 'Cursed',
     target: 'Self',
-    description: 'After next round ends randomly gain +20s or lose −20s. 50/50. No way to influence the outcome.',
+    description: 'After next round ends randomly gain +30s or lose −30s. 50/50.',
     flavour: 'The curse decides. Not you.',
   },
   {
@@ -2959,7 +2959,7 @@ export default function Game() {
         }
         case 'cursed_dice': {
           activator.cursedDiceActive = true;
-          setTimeout(() => addOverlay('haunted_relic', '🎲 CURSED DICE ARMED', 'After this round: 50/50 chance of +20s or −20s. No influence.', 3000), 200);
+          setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE ARMED', 'After this round: 50/50 chance of +30s or −30s.', 3000), 200);
           break;
         }
         case 'seance': {
@@ -3753,7 +3753,7 @@ export default function Game() {
             }
             case 'cursed_dice': {
               bot.cursedDiceActive = true;
-              setTimeout(() => addOverlay('haunted_relic', '🎲 CURSED DICE', `${bot.name} armed Cursed Dice — 50/50 chance of ±20s after this round!`, 0), 200);
+              setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE', `${bot.name} armed Cursed Dice — 50/50 chance of ±30s after this round!`, 0), 200);
               break;
             }
             case 'seance': {
@@ -4911,11 +4911,12 @@ export default function Game() {
         if (p.cursedDiceActive) {
           const gain = Math.random() > 0.5;
           if (gain) {
-            p.remainingTime += 20;
-            if (p.id === 'p1') setTimeout(() => addOverlay('haunted_relic', '🎲 CURSED DICE: LUCKY!', '+20s added to your bank!', 3000), 800);
+
+            p.remainingTime += 30;
+            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: LUCKY!', '+30s added to your bank!', 3000), 800);
           } else {
-            p.remainingTime = Math.max(0, p.remainingTime - 20);
-            if (p.id === 'p1') setTimeout(() => addOverlay('haunted_relic', '🎲 CURSED DICE: CURSED!', '-20s removed from your bank!', 3000), 800);
+            p.remainingTime = Math.max(0, p.remainingTime - 30);
+            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: CURSED!', '-30s removed from your bank!', 3000), 800);
           }
           p.cursedDiceActive = false;
         }
@@ -7858,7 +7859,7 @@ export default function Game() {
         };
         const TARGET_GROUP_LABELS: Record<string, string> = {
           Everyone: '🌐 Affects Everyone',
-          Self: '🎯 Affects Self',
+          Self: '🧠 Affects Self',
           Opponent: '⚔️ Affects Opponent',
         };
         const handleRelicSelect = (item: HauntedItem) => {

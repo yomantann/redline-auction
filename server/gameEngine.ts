@@ -2307,15 +2307,15 @@ function endRound(lobbyCode: string) {
         p.bloodPactActive = false;
       }
 
-      // Cursed Dice: ±20s random
+      // Cursed Dice: ±30s random
       if (p.cursedDiceActive) {
         const gain = Math.random() > 0.5;
         if (gain) {
-          p.remainingTime += 20;
-          addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: +20s`, value: 20, basic: true });
+          p.remainingTime += 30;
+          addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: +30s`, value: 30, basic: true });
         } else {
-          p.remainingTime = Math.max(0, p.remainingTime - 20);
-          addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: -20s`, value: -20, basic: true });
+          p.remainingTime = Math.max(0, p.remainingTime - 30);
+          addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: -30s`, value: -30, basic: true });
         }
         p.cursedDiceActive = false;
       }
@@ -2955,7 +2955,7 @@ function startWaitingForReady(lobbyCode: string) {
         }
         case 'cursed_dice': {
           bot.cursedDiceActive = true;
-          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CURSED DICE (bot): ±20s after round end`, basic: true });
+          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CURSED DICE (bot): ±30s after round end`, basic: true });
           break;
         }
         case 'seance': {
@@ -3934,8 +3934,8 @@ export function activateRelicMP(
     }
     case 'cursed_dice': {
       activator.cursedDiceActive = true;
-      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CURSED DICE: ±20s after round end (50/50)`, basic: true });
-      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎲 CURSED DICE', message: `${activator.name} armed Cursed Dice — 50/50 chance of ±20s after this round!` });
+      addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CURSED DICE: ±30s after round end (50/50)`, basic: true });
+      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎲 CURSED DICE', message: `${activator.name} armed Cursed Dice — 50/50 chance of ±30s after this round!` });
       break;
     }
     case 'final_writ': {
