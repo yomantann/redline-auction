@@ -3161,8 +3161,8 @@ function startWaitingForReady(lobbyCode: string) {
       return;
     }
     
-    // Check if all non-eliminated human players are holding
-    const humanPlayers = g.players.filter(p => !p.isBot && !p.isEliminated);
+    // Check if all non-eliminated, non-ghost human players are holding
+    const humanPlayers = g.players.filter(p => !p.isBot && !p.isEliminated && !p.isGhost);
     const allHumansHolding = humanPlayers.every(p => p.isHolding);
     
     if (allHumansHolding && humanPlayers.length > 0) {

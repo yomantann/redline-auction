@@ -2824,13 +2824,13 @@ export default function Game() {
           const roll = Math.random();
           if (roll < 0.25) {
             activator.remainingTime = Math.min(activator.remainingTime + 40, 9999);
-            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 🎯 LUCKY!', '+40s added to your time bank!', 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 🎯 LUCKY!', '+40s added to your time bank!', 3000), 200);
           } else if (roll < 0.5) {
             activator.tokens += 2;
-            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 🏆 JACKPOT!', '+2 trophies awarded!', 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 🏆 JACKPOT!', '+2 trophies awarded!', 3000), 200);
           } else if (roll < 0.75) {
             activator.remainingTime = Math.max(0, activator.remainingTime - 30);
-            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 💀 CURSED!', '-30s removed from your time bank!', 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 💀 CURSED!', '-30s removed from your time bank!', 3000), 200);
           } else {
             const ghostData = assignGhostImage();
             const savedTime = activator.remainingTime;
@@ -2842,7 +2842,7 @@ export default function Game() {
             activator.ghostImage = ghostData.ghostImage;
             activator.remainingTime = 0;
             const jackpotGhostMsg = buildGhostAbilityMsg('The wheel chose the worst outcome. You are now a ghost.', ghostData.ghostAbility);
-            setTimeout(() => addOverlay('ability_trigger', '🎰 JACKPOT: 👻 GHOSTED!', jackpotGhostMsg, 0), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 👻 GHOSTED!', jackpotGhostMsg, 0), 200);
           }
           break;
         }
@@ -2859,9 +2859,9 @@ export default function Game() {
               target.characterIcon = ghostData.characterIcon;
               target.ghostImage = ghostData.ghostImage;
               target.remainingTime = 0;
-              setTimeout(() => addOverlay('ability_trigger', '👻 GHOST TOUCH FIRED', `${target.name} was consumed by the curse!`, 3000), 200);
+              setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH FIRED', `${target.name} was consumed by the curse!`, 3000), 200);
             } else {
-              setTimeout(() => addOverlay('ability_trigger', '👻 GHOST TOUCH: MISSED', `The curse didn't take. ${target.name} survives — this time.`, 3000), 200);
+              setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH: MISSED', `The curse didn't take. ${target.name} survives — this time.`, 3000), 200);
             }
           }
           break;
@@ -2872,9 +2872,9 @@ export default function Game() {
             const victim = victims[Math.floor(Math.random() * victims.length)];
             victim.tokens = Math.max(0, victim.tokens - 1);
             if (victim.id === 'p1') {
-              setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `You are the chosen lamb — you lose 1 trophy!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '🐑 SACRIFICIAL LAMB', `You are the chosen lamb — you lose 1 trophy!`, 0), 200);
             } else {
-              setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `${victim.name} loses 1 trophy. The lamb is chosen. Not by you.`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '🐑 SACRIFICIAL LAMB', `${victim.name} loses 1 trophy. The lamb is chosen. Not by you.`, 0), 200);
             }
           }
           break;
@@ -2893,7 +2893,7 @@ export default function Game() {
               attempts++;
             } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
             alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
-            setTimeout(() => addOverlay('ability_trigger', '🌀 WILD CARD', "All time banks redistributed! Nobody gets their own.", 0), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🌀 WILD CARD', "All time banks redistributed! Nobody gets their own.", 0), 200);
           }
           break;
         }
@@ -2903,9 +2903,9 @@ export default function Game() {
             const lastBid = target.bidHistory?.length ? target.bidHistory[target.bidHistory.length - 1] : null;
             if (lastBid != null) {
               target.echoForcedBid = lastBid;
-              setTimeout(() => addOverlay('ability_trigger', '🔁 ECHO', `${target.name}'s last bid (${lastBid.toFixed(1)}s) is locked as their forced bid next round.`, 3000), 200);
+              setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${target.name}'s last bid (${lastBid.toFixed(1)}s) is locked as their forced bid next round.`, 3000), 200);
             } else {
-              setTimeout(() => addOverlay('ability_trigger', '🔁 ECHO: NO HISTORY', `${target.name} has no bid history yet. Echo had no effect.`, 3000), 200);
+              setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO: NO HISTORY', `${target.name} has no bid history yet. Echo had no effect.`, 3000), 200);
             }
           }
           break;
@@ -2914,7 +2914,7 @@ export default function Game() {
           const target = next.find(p => p.id === targetId);
           if (target) {
             target.markedBy = activatorId;
-            setTimeout(() => addOverlay('ability_trigger', '👁️ MARKED', `${target.name} is marked. The next time they win a round, they will be ghosted.`, 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '👁️ MARKED', `${target.name} is marked. The next time they win a round, they will be ghosted.`, 3000), 200);
           }
           break;
         }
@@ -2923,7 +2923,7 @@ export default function Game() {
           if (target) {
             target.corruptRoundsLeft = 3;
             target.personality = 'aggressive';
-            setTimeout(() => addOverlay('ability_trigger', '🦠 CORRUPT', `${target.name}'s personality is now AGGRESSIVE for 3 rounds!`, 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🦠 CORRUPT', `${target.name}'s personality is now AGGRESSIVE for 3 rounds!`, 3000), 200);
           }
           break;
         }
@@ -2932,9 +2932,9 @@ export default function Game() {
           if (target && target.bidHistory && target.bidHistory.length > 0) {
             const maxBid = Math.max(...target.bidHistory);
             target.patternLockMinBid = maxBid;
-            setTimeout(() => addOverlay('ability_trigger', '🔒 PATTERN LOCK', `${target.name}'s highest bid (${maxBid.toFixed(1)}s) is now their forced minimum next round.`, 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🔒 PATTERN LOCK', `${target.name}'s highest bid (${maxBid.toFixed(1)}s) is now their forced minimum next round.`, 3000), 200);
           } else {
-            setTimeout(() => addOverlay('ability_trigger', '🔒 PATTERN LOCK: NO DATA', `${target?.name ?? 'Target'} has no bid history. Pattern Lock had no effect.`, 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🔒 PATTERN LOCK: NO DATA', `${target?.name ?? 'Target'} has no bid history. Pattern Lock had no effect.`, 3000), 200);
           }
           break;
         }
@@ -2943,23 +2943,23 @@ export default function Game() {
             activator.pendingLastWill = { targetId, curseType };
             const curseName = curseType === 'time' ? 'loses 20s' : 'loses 1 trophy';
             const tName = next.find(p => p.id === targetId)?.name ?? 'target';
-            setTimeout(() => addOverlay('ability_trigger', '⚰️ LAST WILL SET', `If you are ghosted this round, ${tName} ${curseName}. Survive to prevent it.`, 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', `If you are ghosted this round, ${tName} ${curseName}. Survive to prevent it.`, 3000), 200);
           }
           break;
         }
         case 'death_wish': {
           activator.deathWishActive = true;
-          setTimeout(() => addOverlay('ability_trigger', '💀 DEATH WISH', 'Win this round for +2 trophies instead of 1. Lose and forfeit an extra 15s.', 3000), 200);
+          setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH', 'Win this round for +2 trophies instead of 1. Lose and forfeit an extra 15s.', 3000), 200);
           break;
         }
         case 'blood_pact': {
           activator.bloodPactActive = true;
-          setTimeout(() => addOverlay('ability_trigger', '🩸 BLOOD PACT', "If anyone wins this round, all non-winners also lose the winner's bid time.", 0), 200);
+          setTimeout(() => addOverlay('haunted_relic', '🩸 BLOOD PACT', "If anyone wins this round, all non-winners also lose the winner's bid time.", 0), 200);
           break;
         }
         case 'cursed_dice': {
           activator.cursedDiceActive = true;
-          setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE ARMED', 'After this round: 50/50 chance of +20s or −20s. No influence.', 3000), 200);
+          setTimeout(() => addOverlay('haunted_relic', '🎲 CURSED DICE ARMED', 'After this round: 50/50 chance of +20s or −20s. No influence.', 3000), 200);
           break;
         }
         case 'seance': {
@@ -2967,7 +2967,7 @@ export default function Game() {
           if (ghosts.length < 2) {
             // Not enough ghosts — do not consume
             activator.relicConsumed = false;
-            setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE: FAILED', 'Requires at least 2 active ghosts!', 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🕯️ SÉANCE: FAILED', 'Requires at least 2 active ghosts!', 3000), 200);
             return prev; // no change
           }
           ghosts.forEach(ghost => {
@@ -2980,12 +2980,12 @@ export default function Game() {
             ghost.possessionRoundsLeft = undefined;
           });
           activator.tokens += 1;
-          setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE', `${ghosts.length} ghost(s) revived! You gain +1 trophy.`, 0), 200);
+          setTimeout(() => addOverlay('haunted_relic', '🕯️ SÉANCE', `${ghosts.length} ghost(s) revived! You gain +1 trophy.`, 0), 200);
           break;
         }
         case 'final_writ': {
           activator.finalWritActive = true;
-          setTimeout(() => addOverlay('ability_trigger', '✒️ FINAL WRIT', 'You will automatically win the final round\'s trophy. The last page is written.', 4000), 200);
+          setTimeout(() => addOverlay('haunted_relic', '✒️ FINAL WRIT', 'You will automatically win the final round\'s trophy. The last page is written.', 4000), 200);
           break;
         }
         case 'protocol_forcer': {
@@ -2994,7 +2994,7 @@ export default function Game() {
           const darkPool = ['DATA_BLACKOUT', 'SYSTEM_FAILURE', 'PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
           const picked = darkPool[Math.floor(Math.random() * darkPool.length)] as any;
           (activator as any).forcedProtocolValue = picked;
-          setTimeout(() => addOverlay('ability_trigger', '⛓️ PROTOCOL FORCER', `Next round will be forced to run protocol: ${picked}`, 4000), 200);
+          setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `Next round will be forced to run protocol: ${picked}`, 4000), 200);
           break;
         }
         // tribunal and conclave are handled below (outside setPlayers) for SP
@@ -3084,18 +3084,18 @@ export default function Game() {
         if (winner.id === 'B') return { ...p, tribunalMinBid: 30 };
         return p;
       }));
-      setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -15s next round.` : `${vs.targetName} must bid ≥30s next round.`, 0), 200);
+      setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -15s next round.` : `${vs.targetName} must bid ≥30s next round.`, 0), 200);
     } else if (vs.relicId === 'conclave') {
       if (winner.id === 'A') {
         setPlayers(prev => prev.map(p => (!p.isEliminated && !p.isGhost) ? { ...p, remainingTime: Math.floor(p.remainingTime / 2 * 10) / 10 } : p));
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE A', 'All time banks halved!', 0), 200);
+        setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE A', 'All time banks halved!', 0), 200);
       } else if (winner.id === 'B') {
         // Mark skip-next-round on local state; handled in startCountdown
         (window as any).__conclaveSkipNextRound = true;
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE B', 'Next round will be skipped as a tie!', 0), 200);
+        setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE B', 'Next round will be skipped as a tie!', 0), 200);
       } else if (winner.id === 'C') {
         (window as any).__conclaveProtocolsAlwaysOn = true;
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE C', '100% protocols for the rest of the game!', 0), 200);
+        setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE C', '100% protocols for the rest of the game!', 0), 200);
       } else if (winner.id === 'D') {
         setPlayers(prev => {
           const alive = prev.filter(p => !p.isEliminated && !p.isGhost);
@@ -3106,7 +3106,7 @@ export default function Game() {
           if (bottom2Ids.size < 2) bottom2Ids.add(sorted2[1].id);
           return prev.map(p => bottom2Ids.has(p.id) ? { ...p, tokens: p.tokens - 1 } : p);
         });
-        setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', 'Bottom 2 players each lose 1 trophy!', 0), 200);
+        setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE D', 'Bottom 2 players each lose 1 trophy!', 0), 200);
       }
     }
 
@@ -3363,7 +3363,7 @@ export default function Game() {
         setPlayers(prev => prev.map(p =>
           p.id === finalWritHolder.id ? { ...p, tokens: p.tokens + 1, finalWritActive: false, relicConsumed: true } : p
         ));
-        setTimeout(() => addOverlay('ability_trigger', '✒️ FINAL WRIT ACTIVATED', `${finalWritHolder.name} skips the final round and claims the trophy!`, 5000), 200);
+        setTimeout(() => addOverlay('haunted_relic', '✒️ FINAL WRIT ACTIVATED', `${finalWritHolder.name} skips the final round and claims the trophy!`, 5000), 200);
         // Go straight to round_end via endRound with no bids
         setPhase('round_end');
         return;
@@ -3719,7 +3719,7 @@ export default function Game() {
               if (victim) {
                 victim.tokens = Math.max(0, victim.tokens - 1);
                 if (victim.id === 'p1') {
-                  setTimeout(() => addOverlay('ability_trigger', '🐑 SACRIFICIAL LAMB', `You are the chosen lamb — you lose 1 trophy!`, 0), 200);
+                  setTimeout(() => addOverlay('haunted_relic', '🐑 SACRIFICIAL LAMB', `You are the chosen lamb — you lose 1 trophy!`, 0), 200);
                 }
               }
               break;
@@ -3737,23 +3737,23 @@ export default function Game() {
                   attempts++;
                 } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
                 alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
-                setTimeout(() => addOverlay('ability_trigger', '🌀 WILD CARD', `${bot.name} used Wild Card — all time banks redistributed!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '🌀 WILD CARD', `${bot.name} used Wild Card — all time banks redistributed!`, 0), 200);
               }
               break;
             }
             case 'death_wish': {
               bot.deathWishActive = true;
-              setTimeout(() => addOverlay('ability_trigger', '💀 DEATH WISH', `${bot.name} activated Death Wish — win for +2 trophies, lose and forfeit extra 15s!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH', `${bot.name} activated Death Wish — win for +2 trophies, lose and forfeit extra 15s!`, 0), 200);
               break;
             }
             case 'blood_pact': {
               bot.bloodPactActive = true;
-              setTimeout(() => addOverlay('ability_trigger', '🩸 BLOOD PACT', `${bot.name} activated Blood Pact — all non-winners pay the winner's bid time this round!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '🩸 BLOOD PACT', `${bot.name} activated Blood Pact — all non-winners pay the winner's bid time this round!`, 0), 200);
               break;
             }
             case 'cursed_dice': {
               bot.cursedDiceActive = true;
-              setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE', `${bot.name} armed Cursed Dice — 50/50 chance of ±20s after this round!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '🎲 CURSED DICE', `${bot.name} armed Cursed Dice — 50/50 chance of ±20s after this round!`, 0), 200);
               break;
             }
             case 'seance': {
@@ -3774,9 +3774,9 @@ export default function Game() {
                 });
                 bot.tokens += 1;
                 if (p1WasGhost) {
-                  setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE REVIVAL', `A bot used Séance — you've been revived with ${p1ReviveTime.toFixed(1)}s!`, 0), 400);
+                  setTimeout(() => addOverlay('haunted_relic', '🕯️ SÉANCE REVIVAL', `A bot used Séance — you've been revived with ${p1ReviveTime.toFixed(1)}s!`, 0), 400);
                 } else {
-                  setTimeout(() => addOverlay('ability_trigger', '🕯️ SÉANCE', `${bot.name} performed a Séance — ${ghosts.length} ghost(s) revived!`, 0), 400);
+                  setTimeout(() => addOverlay('haunted_relic', '🕯️ SÉANCE', `${bot.name} performed a Séance — ${ghosts.length} ghost(s) revived!`, 0), 400);
                 }
               } else {
                 // Not enough ghosts — return relic
@@ -3790,7 +3790,7 @@ export default function Game() {
               const picked = DARK_POOL[Math.floor(Math.random() * DARK_POOL.length)];
               (bot as any).forcedProtocolNextRound = true;
               (bot as any).forcedProtocolValue = picked;
-              setTimeout(() => addOverlay('ability_trigger', '⛓️ PROTOCOL FORCER', `${bot.name} used Protocol Forcer — next round will run: ${picked}!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `${bot.name} used Protocol Forcer — next round will run: ${picked}!`, 0), 200);
               break;
             }
             case 'last_will': {
@@ -3799,7 +3799,7 @@ export default function Game() {
                 const curseType = Math.random() < 0.5 ? 'time' : 'trophy';
                 bot.pendingLastWill = { targetId: target.id, curseType };
                 const curseName = curseType === 'time' ? 'loses 20s' : 'loses 1 trophy';
-                setTimeout(() => addOverlay('ability_trigger', '⚰️ LAST WILL SET', `${bot.name} set Last Will — if ghosted, ${target.name} ${curseName}!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', `${bot.name} set Last Will — if ghosted, ${target.name} ${curseName}!`, 0), 200);
               }
               break;
             }
@@ -3808,7 +3808,7 @@ export default function Game() {
               if (target && (target.bidHistory?.length ?? 0) > 0) {
                 const lastBid = target.bidHistory![target.bidHistory!.length - 1];
                 target.echoForcedBid = lastBid;
-                setTimeout(() => addOverlay('ability_trigger', '🔁 ECHO', `${bot.name} used Echo — ${target.name} must replay their last bid (${lastBid.toFixed(1)}s) next round!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${bot.name} used Echo — ${target.name} must replay their last bid (${lastBid.toFixed(1)}s) next round!`, 0), 200);
               }
               break;
             }
@@ -3816,7 +3816,7 @@ export default function Game() {
               const target = pickRandom(opponents);
               if (target) {
                 target.markedBy = bot.id;
-                setTimeout(() => addOverlay('ability_trigger', '👁️ MARKED', `${bot.name} marked ${target.name} — they will be ghosted on their next win!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '👁️ MARKED', `${bot.name} marked ${target.name} — they will be ghosted on their next win!`, 0), 200);
               }
               break;
             }
@@ -3825,7 +3825,7 @@ export default function Game() {
               if (botTarget) {
                 botTarget.corruptRoundsLeft = 3;
                 botTarget.personality = 'aggressive';
-                setTimeout(() => addOverlay('ability_trigger', '🦠 CORRUPT', `${bot.name} corrupted ${botTarget.name} — they go AGGRESSIVE for 3 rounds!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '🦠 CORRUPT', `${bot.name} corrupted ${botTarget.name} — they go AGGRESSIVE for 3 rounds!`, 0), 200);
               } else {
                 bot.relicConsumed = false; // no valid bot target
               }
@@ -3836,7 +3836,7 @@ export default function Game() {
               if (target && (target.bidHistory?.length ?? 0) > 0) {
                 const maxBid = Math.max(...target.bidHistory!);
                 target.patternLockMinBid = maxBid;
-                setTimeout(() => addOverlay('ability_trigger', '🔒 PATTERN LOCK', `${bot.name} used Pattern Lock — ${target.name} must bid ≥${maxBid.toFixed(1)}s next round!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '🔒 PATTERN LOCK', `${bot.name} used Pattern Lock — ${target.name} must bid ≥${maxBid.toFixed(1)}s next round!`, 0), 200);
               } else {
                 bot.relicConsumed = false; // no history to lock
               }
@@ -3844,7 +3844,7 @@ export default function Game() {
             }
             case 'final_writ': {
               bot.finalWritActive = true;
-              setTimeout(() => addOverlay('ability_trigger', '✒️ FINAL WRIT', `${bot.name} activated Final Writ — they will auto-win the final round!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '✒️ FINAL WRIT', `${bot.name} activated Final Writ — they will auto-win the final round!`, 0), 200);
               break;
             }
             case 'tribunal': {
@@ -3854,10 +3854,10 @@ export default function Game() {
                 const winnerOption = Math.random() < 0.5 ? 'A' : 'B';
                 if (winnerOption === 'A') {
                   target.tribunalTimePenalty = (target.tribunalTimePenalty ?? 0) + 15;
-                  setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', `${bot.name} called a Tribunal — ${target.name} loses 15s next round!`, 0), 200);
+                  setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', `${bot.name} called a Tribunal — ${target.name} loses 15s next round!`, 0), 200);
                 } else {
                   target.tribunalMinBid = 30;
-                  setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL', `${bot.name} called a Tribunal — ${target.name} must bid ≥30s next round!`, 0), 200);
+                  setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', `${bot.name} called a Tribunal — ${target.name} must bid ≥30s next round!`, 0), 200);
                 }
               }
               break;
@@ -3868,20 +3868,20 @@ export default function Game() {
               const pick2 = outcomes[Math.floor(Math.random() * outcomes.length)];
               if (pick2 === 'A') {
                 alive.forEach(p => { p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10; });
-                setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE A', `${bot.name} called Conclave A — all time banks halved!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE A', `${bot.name} called Conclave A — all time banks halved!`, 0), 200);
               } else if (pick2 === 'B') {
                 (window as any).__conclaveSkipNextRound = true;
-                setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE B', `${bot.name} called Conclave B — next round will be skipped!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE B', `${bot.name} called Conclave B — next round will be skipped!`, 0), 200);
               } else if (pick2 === 'C') {
                 (window as any).__conclaveProtocolsAlwaysOn = true;
-                setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE C', `${bot.name} called Conclave C — protocols every round for the rest of the game!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE C', `${bot.name} called Conclave C — protocols every round for the rest of the game!`, 0), 200);
               } else {
                 const sorted = [...alive].sort((a, b) => a.tokens - b.tokens);
                 const minTok = sorted[0]?.tokens;
                 const bottom2 = sorted.filter(p => p.tokens === minTok).slice(0, 2);
                 if (bottom2.length < 2 && sorted[1]) bottom2.push(sorted[1]);
                 bottom2.slice(0, 2).forEach(p => { p.tokens = Math.max(0, p.tokens - 1); });
-                setTimeout(() => addOverlay('ability_trigger', '🗳️ CONCLAVE D', `${bot.name} called Conclave D — bottom 2 players each lose 1 trophy!`, 0), 200);
+                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE D', `${bot.name} called Conclave D — bottom 2 players each lose 1 trophy!`, 0), 200);
               }
               break;
             }
@@ -4874,10 +4874,10 @@ export default function Game() {
             if (willTarget) {
               if (p.pendingLastWill.curseType === 'time') {
                 willTarget.remainingTime = Math.max(0, willTarget.remainingTime - 20);
-                setTimeout(() => addOverlay('protocol_alert', '⚰️ LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 20s.`, 3500), 1000);
+                setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 20s.`, 0), 1000);
               } else {
                 willTarget.tokens = Math.max(0, willTarget.tokens - 1);
-                setTimeout(() => addOverlay('protocol_alert', '⚰️ LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 1 trophy.`, 3500), 1000);
+                setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 1 trophy.`, 0), 1000);
               }
             }
           }
@@ -4888,10 +4888,10 @@ export default function Game() {
         if (p.deathWishActive) {
           if (p.id === winnerId) {
             p.tokens += 1; // +2 total (normal +1 already applied), so add 1 more
-            setTimeout(() => addOverlay('ability_trigger', '💀 DEATH WISH: WIN!', '+1 bonus trophy (total +2 this round)!', 3000), 800);
+            setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH: WIN!', '+1 bonus trophy (total +2 this round)!', 3000), 800);
           } else if (!p.isGhost && !p.isEliminated) {
             p.remainingTime = Math.max(0, p.remainingTime - 15);
-            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '💀 DEATH WISH: CURSED', '-15s extra penalty for not winning.', 3000), 800);
+            if (p.id === 'p1') setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH: CURSED', '-15s extra penalty for not winning.', 3000), 800);
           }
           p.deathWishActive = false;
         }
@@ -4903,7 +4903,7 @@ export default function Game() {
               fp.remainingTime = Math.max(0, fp.remainingTime - winnerTime);
             }
           });
-          setTimeout(() => addOverlay('protocol_alert', '🩸 BLOOD PACT TRIGGERED', `Everyone who didn't win loses an extra ${winnerTime.toFixed(1)}s!`, 3500), 800);
+          setTimeout(() => addOverlay('haunted_relic', '🩸 BLOOD PACT TRIGGERED', `Everyone who didn't win loses an extra ${winnerTime.toFixed(1)}s!`, 0), 800);
           p.bloodPactActive = false;
         }
 
@@ -4912,10 +4912,10 @@ export default function Game() {
           const gain = Math.random() > 0.5;
           if (gain) {
             p.remainingTime += 20;
-            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: LUCKY!', '+20s added to your bank!', 3000), 800);
+            if (p.id === 'p1') setTimeout(() => addOverlay('haunted_relic', '🎲 CURSED DICE: LUCKY!', '+20s added to your bank!', 3000), 800);
           } else {
             p.remainingTime = Math.max(0, p.remainingTime - 20);
-            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: CURSED!', '-20s removed from your bank!', 3000), 800);
+            if (p.id === 'p1') setTimeout(() => addOverlay('haunted_relic', '🎲 CURSED DICE: CURSED!', '-20s removed from your bank!', 3000), 800);
           }
           p.cursedDiceActive = false;
         }
@@ -6039,7 +6039,7 @@ export default function Game() {
         setPlayers(prev => prev.map(p => {
           if (p.tribunalTimePenalty && p.tribunalTimePenalty > 0 && !p.isEliminated && !p.isGhost) {
             const penalty = p.tribunalTimePenalty;
-            setTimeout(() => addOverlay('ability_trigger', '⚖️ TRIBUNAL PENALTY', `${p.name} loses ${penalty}s from last round's tribunal vote.`, 3000), 300);
+            setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL PENALTY', `${p.name} loses ${penalty}s from last round's tribunal vote.`, 3000), 300);
             return { ...p, remainingTime: Math.max(0, p.remainingTime - penalty), tribunalTimePenalty: undefined };
           }
           return p;
@@ -7522,7 +7522,7 @@ export default function Game() {
                   className="flex flex-col items-center p-3 sm:p-4 rounded-xl border border-white/10 bg-black/40 hover:border-primary/50 transition-colors group text-center overflow-hidden min-w-0"
                 >
                   <div className={cn("w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full mb-2 sm:mb-3 group-hover:scale-110 transition-transform overflow-hidden border-2 border-white/10 flex-shrink-0", char.color)}>
-                     <img src={getCharImage(char)} alt={char.name} className={cn("w-full h-full object-cover", variant === 'HAUNTED' && char.imageHaunted && "object-top")} />
+                     <img src={getCharImage(char)} alt={char.name} className={cn("w-full h-full object-cover", variant === 'HAUNTED' && char.imageHaunted && "[object-position:50%_20%]")} />
                   </div>
                   <h3 className="font-bold text-sm sm:text-lg md:text-xl text-white mb-0.5 sm:mb-1 w-full leading-tight" data-testid={`text-driver-name-${char.id}`}>{char.name}</h3>
                   <p className="text-[10px] sm:text-sm text-primary/80 uppercase tracking-wider mb-1 sm:mb-2 font-display w-full leading-tight" data-testid={`text-driver-title-${char.id}`}>{char.title}</p>
