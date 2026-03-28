@@ -24,6 +24,8 @@ import {
   castVoteRelic,
   rttSubmitBid,
   rttChallenge,
+  marginSubmitGuess,
+  marginForfeit,
   type GameDuration
 } from "./gameEngine";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
@@ -809,6 +811,20 @@ export async function registerRoutes(
       const lobbyCode = playerToLobby.get(socket.id);
       if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in a lobby" }); return; }
       const result = rttChallenge(lobbyCode, socket.id, data.type);
+      if (callback) callback(result);
+    });
+
+    socket.on("margin_guess", (data: { guess: string }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in a lobby" }); return; }
+      const result = marginSubmitGuess(lobbyCode, socket.id, data.guess);
+      if (callback) callback(result);
+    });
+
+    socket.on("margin_forfeit", (_data: Record<string, never>, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in a lobby" }); return; }
+      const result = marginForfeit(lobbyCode, socket.id);
       if (callback) callback(result);
     });
 

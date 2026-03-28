@@ -8,6 +8,7 @@ import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { CoinFlip } from "@/components/game/CoinFlip";
+import { CardFlip, type CardDef } from "@/components/game/CardFlip";
 import { Mail, Heart } from 'lucide-react';
 
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
@@ -253,7 +254,7 @@ const SHORT_INITIAL_TIME = 150.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'wager_phase' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'wager_phase' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'margin_run' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -272,8 +273,8 @@ type ProtocolType =
   | BioProtocol
   // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
   | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
-  // WAGER mode protocols (placeholder — mechanics not yet implemented)
-  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'PROTOCOL_CARD_FLIP' | 'PROTOCOL_COIN_FLIP'
+  // WAGER mode protocols
+  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'MARGIN' | 'PROTOCOL_COIN_FLIP'
   | null;
 
 // ... (Existing Characters)
@@ -1065,7 +1066,7 @@ export default function Game() {
         'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL',
         'OVERCLOCK', 'CALIBRATION',
         'HAUNTED_SEANCE', 'HAUNTED_CURSE_ECHO', 'HAUNTED_WAIL', 'HAUNTED_MIRROR',
-        'HIGH_CIRCUIT', 'READ_THE_TABLE', 'PROTOCOL_CARD_FLIP', 'PROTOCOL_COIN_FLIP',
+        'HIGH_CIRCUIT', 'READ_THE_TABLE', 'MARGIN', 'PROTOCOL_COIN_FLIP',
   ]);
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
@@ -1414,7 +1415,7 @@ export default function Game() {
   const [multiplayerGameState, setMultiplayerGameState] = useState<{
     round: number;
     totalRounds: number;
-    phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'round_end' | 'game_over';
+    phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'margin_run' | 'round_end' | 'game_over';
     countdownRemaining: number;
     elapsedTime: number;
     players: Array<{
@@ -1692,6 +1693,8 @@ export default function Game() {
           setPhase('coin_flip_round');
         } else if (state.phase === 'read_the_table') {
           setPhase('read_the_table');
+        } else if (state.phase === 'margin_run') {
+          setPhase('margin_run');
         } else if (state.phase === 'round_end') {
           setPhase('round_end');
           if (state.roundWinner) {
@@ -2322,6 +2325,8 @@ export default function Game() {
               setPhase('coin_flip_round');
             } else if (activeProtocol === 'READ_THE_TABLE') {
               setPhase('read_the_table');
+            } else if (activeProtocol === 'MARGIN') {
+              setPhase('margin_run');
             } else {
               setPhase('bidding');
             }
@@ -2660,6 +2665,225 @@ export default function Game() {
     if (phase !== 'read_the_table') {
       setRttSPState(null);
       setRttShowBidModal(false);
+    }
+  }, [phase, isMultiplayer]);
+
+  // ─── MARGIN RUN SP STATE ──────────────────────────────────────────────────
+  interface MarginCard { value: number; suit: 'hearts' | 'diamonds' | 'clubs' | 'spades'; color: 'red' | 'black'; }
+  interface MarginPlayerSP { wave: number; status: 'active' | 'forfeited' | 'busted'; guess: string | null; costPaid: number; }
+  interface MarginSPState {
+    cards: MarginCard[];
+    currentWave: number;
+    phase: 'guessing' | 'revealing' | 'done';
+    playerStates: Record<string, MarginPlayerSP>;
+    waveDeadlineTs: number;
+    winners: string[];
+  }
+
+  const [marginSPState, setMarginSPState] = useState<MarginSPState | null>(null);
+  const [marginCardFlipTrigger, setMarginCardFlipTrigger] = useState(false);
+  const marginBotTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const drawMarginDeckSP = useCallback((): MarginCard[] => {
+    const suits: MarginCard['suit'][] = ['hearts', 'diamonds', 'clubs', 'spades'];
+    const deck: MarginCard[] = [];
+    for (const suit of suits) {
+      const color: MarginCard['color'] = (suit === 'hearts' || suit === 'diamonds') ? 'red' : 'black';
+      for (let v = 1; v <= 13; v++) deck.push({ value: v, suit, color });
+    }
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck.slice(0, 4);
+  }, []);
+
+  const getMarginChoicesSP = useCallback((wave: number): string[] => {
+    switch (wave) {
+      case 1: return ['red', 'black'];
+      case 2: return ['higher', 'lower'];
+      case 3: return ['inside', 'outside'];
+      case 4: return ['hearts', 'diamonds', 'clubs', 'spades'];
+      default: return [];
+    }
+  }, []);
+
+  const getCorrectMarginGuessSP = useCallback((wave: number, cards: MarginCard[]): string => {
+    switch (wave) {
+      case 1: return cards[0].color;
+      case 2: return cards[1].value >= cards[0].value ? 'higher' : 'lower';
+      case 3: {
+        const lo = Math.min(cards[0].value, cards[1].value);
+        const hi = Math.max(cards[0].value, cards[1].value);
+        return (cards[2].value > lo && cards[2].value < hi) ? 'inside' : 'outside';
+      }
+      case 4: return cards[3].suit;
+      default: return '';
+    }
+  }, []);
+
+  const initMarginSP = useCallback(() => {
+    const activePlayers = players.filter(p => !p.isEliminated);
+    const playerStates: Record<string, MarginPlayerSP> = {};
+    activePlayers.forEach(p => { playerStates[p.id] = { wave: 0, status: 'active', guess: null, costPaid: 0 }; });
+    setMarginSPState({
+      cards: drawMarginDeckSP(),
+      currentWave: 1,
+      phase: 'guessing',
+      playerStates,
+      waveDeadlineTs: Date.now() + 20000,
+      winners: [],
+    });
+    setMarginCardFlipTrigger(false);
+  }, [players, drawMarginDeckSP]);
+
+  const endMarginSPRound = useCallback((winnerIds: string[]) => {
+    const w = players.find(p => p.id === winnerIds[0]);
+    if (w) {
+      setRoundWinner({ name: w.name, time: 0 });
+      setPlayers(prev => prev.map(p => winnerIds.includes(p.id)
+        ? { ...p, tokens: p.tokens + 1, protocolWins: [...((p as any).protocolWins || []), 'MARGIN'] }
+        : p
+      ));
+    }
+    addOverlay('protocol_alert', '🃏 MARGIN RESULTS',
+      winnerIds.length > 0
+        ? `${winnerIds.map(id => players.find(p => p.id === id)?.name ?? id).join(' & ')} wins the card run!`
+        : 'No winner — all busted or forfeited at Wave 0.'
+    );
+    setPhase('round_end');
+  }, [players, addOverlay]);
+
+  const resolveMarginSPWave = useCallback((state: MarginSPState): MarginSPState => {
+    const COST = 10;
+    const wave = state.currentWave;
+    const newStates = { ...state.playerStates };
+    const timeAdjustments: { id: string; delta: number }[] = [];
+
+    Object.entries(newStates).forEach(([pid, ps]) => {
+      if (ps.status !== 'active') return;
+      if (ps.guess !== null) {
+        const correct = ps.guess === getCorrectMarginGuessSP(wave, state.cards);
+        timeAdjustments.push({ id: pid, delta: -COST });
+        newStates[pid] = {
+          ...ps,
+          wave: correct ? wave : ps.wave,
+          status: correct ? 'active' : 'busted',
+          costPaid: ps.costPaid + COST,
+          guess: null,
+        };
+      } else {
+        newStates[pid] = { ...ps, status: 'forfeited' };
+      }
+    });
+
+    // Apply time deductions
+    if (timeAdjustments.length > 0) {
+      setPlayers(prev => prev.map(p => {
+        const adj = timeAdjustments.find(a => a.id === p.id);
+        if (!adj) return p;
+        const newTime = Math.max(0, p.remainingTime + adj.delta);
+        return { ...p, remainingTime: newTime, isEliminated: newTime <= 0 ? true : p.isEliminated };
+      }));
+    }
+
+    return { ...state, playerStates: newStates, phase: 'revealing' };
+  }, [getCorrectMarginGuessSP]);
+
+  const submitMarginSPGuess = useCallback((guess: string) => {
+    setMarginSPState(prev => {
+      if (!prev || prev.phase !== 'guessing') return prev;
+      const ps = prev.playerStates['p1'];
+      if (!ps || ps.status !== 'active' || ps.guess !== null) return prev;
+      const newStates = { ...prev.playerStates, p1: { ...ps, guess } };
+      return { ...prev, playerStates: newStates };
+    });
+  }, []);
+
+  const forfeitMarginSP = useCallback(() => {
+    setMarginSPState(prev => {
+      if (!prev || prev.phase !== 'guessing') return prev;
+      const ps = prev.playerStates['p1'];
+      if (!ps || ps.status !== 'active') return prev;
+      const newStates = { ...prev.playerStates, p1: { ...ps, status: 'forfeited' as const } };
+      return { ...prev, playerStates: newStates };
+    });
+  }, []);
+
+  // SP bot guesses
+  useEffect(() => {
+    if (!marginSPState || isMultiplayer || marginSPState.phase !== 'guessing') return;
+    marginBotTimersRef.current.forEach(clearTimeout);
+    marginBotTimersRef.current = [];
+    const bots = players.filter(p => p.isBot && marginSPState.playerStates[p.id]?.status === 'active' && marginSPState.playerStates[p.id]?.guess === null);
+    bots.forEach(bot => {
+      const t = setTimeout(() => {
+        setMarginSPState(prev => {
+          if (!prev || prev.phase !== 'guessing') return prev;
+          const ps = prev.playerStates[bot.id];
+          if (!ps || ps.status !== 'active' || ps.guess !== null) return prev;
+          const wave = prev.currentWave;
+          const correctGuess = getCorrectMarginGuessSP(wave, prev.cards);
+          const choices = getMarginChoicesSP(wave);
+          const botGuess = Math.random() < 0.70 ? correctGuess
+            : choices.filter(c => c !== correctGuess)[Math.floor(Math.random() * (choices.length - 1))];
+          return { ...prev, playerStates: { ...prev.playerStates, [bot.id]: { ...ps, guess: botGuess } } };
+        });
+      }, 800 + Math.random() * 1200);
+      marginBotTimersRef.current.push(t);
+    });
+    return () => { marginBotTimersRef.current.forEach(clearTimeout); };
+  }, [marginSPState?.phase, marginSPState?.currentWave, isMultiplayer, players, getCorrectMarginGuessSP, getMarginChoicesSP]);
+
+  // SP: advance wave when all active players have decided
+  useEffect(() => {
+    if (!marginSPState || isMultiplayer || marginSPState.phase !== 'guessing') return;
+    const allDecided = Object.values(marginSPState.playerStates).every(
+      s => s.status !== 'active' || s.guess !== null
+    );
+    if (!allDecided) return;
+    const resolved = resolveMarginSPWave(marginSPState);
+    setMarginSPState(resolved);
+    setMarginCardFlipTrigger(true);
+  }, [marginSPState, isMultiplayer, resolveMarginSPWave]);
+
+  // SP: after reveal phase, trigger next wave or end
+  useEffect(() => {
+    if (!marginSPState || isMultiplayer || marginSPState.phase !== 'revealing') return;
+    const t = setTimeout(() => {
+      setMarginCardFlipTrigger(false);
+      setMarginSPState(prev => {
+        if (!prev) return prev;
+        const stillActive = Object.values(prev.playerStates).filter(s => s.status === 'active').length;
+        if (prev.currentWave >= 4 || stillActive === 0) {
+          let maxWave = 0;
+          Object.values(prev.playerStates).forEach(ps => { if (ps.wave > maxWave) maxWave = ps.wave; });
+          const winners = maxWave > 0
+            ? Object.entries(prev.playerStates).filter(([, ps]) => ps.wave === maxWave).map(([pid]) => pid)
+            : [];
+          return { ...prev, phase: 'done', winners };
+        }
+        return { ...prev, currentWave: prev.currentWave + 1, phase: 'guessing', waveDeadlineTs: Date.now() + 20000 };
+      });
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [marginSPState?.phase, marginSPState?.currentWave, isMultiplayer]);
+
+  // SP: on 'done', end the round
+  useEffect(() => {
+    if (!marginSPState || isMultiplayer || marginSPState.phase !== 'done') return;
+    const t = setTimeout(() => endMarginSPRound(marginSPState.winners), 2000);
+    return () => clearTimeout(t);
+  }, [marginSPState?.phase, isMultiplayer, endMarginSPRound]);
+
+  // Initialize/cleanup margin state
+  useEffect(() => {
+    if (phase === 'margin_run' && !isMultiplayer && !marginSPState) {
+      initMarginSP();
+    }
+    if (phase !== 'margin_run') {
+      setMarginSPState(null);
+      setMarginCardFlipTrigger(false);
     }
   }, [phase, isMultiplayer]);
 
@@ -3741,7 +3965,7 @@ export default function Game() {
       const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
       const HAUNTED_SET = ['HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR'];
-      const WAGER_SET = ['HIGH_CIRCUIT','READ_THE_TABLE','PROTOCOL_CARD_FLIP','PROTOCOL_COIN_FLIP'];
+      const WAGER_SET = ['HIGH_CIRCUIT','READ_THE_TABLE','MARGIN','PROTOCOL_COIN_FLIP'];
 
       const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
 
@@ -3865,7 +4089,7 @@ export default function Game() {
         // WAGER protocols
         case 'HIGH_CIRCUIT':     msg = "HIGH CIRCUIT";        sub = "All wager rewards are doubled this round. High risk, high reward!"; break;
         case 'READ_THE_TABLE':   msg = "READ THE TABLE";      sub = "Liar's Dice! Roll 5 dice, bid on totals, challenge bluffs. Lose all dice = out."; break;
-        case 'PROTOCOL_CARD_FLIP': msg = "CARD FLIP PROTOCOL"; sub = "Draw a card — the result determines this round's modifier. (Coming soon)"; break;
+        case 'MARGIN':           msg = "MARGIN";            sub = "A 4-wave card challenge! Guess color → higher/lower → inside/outside → suit. Each guess costs 10s. Forfeit to protect your progress."; break;
         case 'PROTOCOL_COIN_FLIP': msg = "COIN FLIP PROTOCOL"; sub = "Everyone flips a coin. Most heads wins the round. Ties go to a rematch!"; break;
       }
       
@@ -7264,6 +7488,238 @@ export default function Game() {
       );
     }
 
+    // ─── Handle MARGIN RUN phase ──────────────────────────────────────────────
+    if (renderPhase === 'margin_run') {
+      const mpMrs = isMultiplayer ? ((multiplayerGameState as any)?.marginRunState ?? null) : null;
+      const activeMrs: any = isMultiplayer ? mpMrs : marginSPState;
+      const myId = isMultiplayer ? myMultiplayerPlayer?.id : 'p1';
+      const myPs = activeMrs?.playerStates?.[myId ?? ''];
+
+      const WAVE_LABELS = ['', 'Red or Black?', 'Higher or Lower?', 'Inside or Outside?', 'Which Suit?'];
+      const WAVE_ICONS = ['', '🟥🖤', '⬆️⬇️', '↔️', '♠️♥️♦️♣️'];
+      const SUIT_SYMBOLS: Record<string, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+      const VALUE_NAMES = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+      const marginCardToCardDef = (card: any): CardDef => {
+        const valueName = VALUE_NAMES[card.value] ?? card.value;
+        const suitSym = SUIT_SYMBOLS[card.suit] ?? card.suit;
+        const isRed = card.color === 'red';
+        return {
+          id: `${card.value}-${card.suit}`,
+          label: `${valueName}${suitSym}`,
+          sublabel: `${card.suit.charAt(0).toUpperCase() + card.suit.slice(1)}`,
+          textColor: isRed ? 'text-red-400' : 'text-white',
+          faceClass: isRed ? 'bg-red-950/30' : 'bg-zinc-900',
+        };
+      };
+
+      const revealedCards: any[] = activeMrs?.revealedCards ?? [];
+      const currentWave: number = activeMrs?.currentWave ?? 1;
+      const mrsPhase: string = activeMrs?.phase ?? 'guessing';
+
+      // Build the CardFlip card for the current wave reveal
+      const currentRevealCard: CardDef | null = (mrsPhase === 'revealing' || mrsPhase === 'done') && revealedCards.length > 0
+        ? marginCardToCardDef(revealedCards[revealedCards.length - 1])
+        : null;
+
+      const isMyTurnToGuess = mrsPhase === 'guessing' && myPs?.status === 'active' && myPs?.guess === null;
+
+      // Wave 1 choices
+      const WAVE_CHOICES: Record<number, { value: string; label: string; icon: string; colorClass: string }[]> = {
+        1: [
+          { value: 'red', label: 'Red', icon: '🔴', colorClass: 'border-red-500 bg-red-950/30 text-red-300 hover:bg-red-900/40' },
+          { value: 'black', label: 'Black', icon: '⚫', colorClass: 'border-zinc-500 bg-zinc-800 text-zinc-200 hover:bg-zinc-700' },
+        ],
+        2: [
+          { value: 'higher', label: 'Higher', icon: '⬆️', colorClass: 'border-green-500 bg-green-950/30 text-green-300 hover:bg-green-900/40' },
+          { value: 'lower', label: 'Lower', icon: '⬇️', colorClass: 'border-blue-500 bg-blue-950/30 text-blue-300 hover:bg-blue-900/40' },
+        ],
+        3: [
+          { value: 'inside', label: 'Inside', icon: '↔️', colorClass: 'border-purple-500 bg-purple-950/30 text-purple-300 hover:bg-purple-900/40' },
+          { value: 'outside', label: 'Outside', icon: '↗️', colorClass: 'border-orange-500 bg-orange-950/30 text-orange-300 hover:bg-orange-900/40' },
+        ],
+        4: [
+          { value: 'hearts', label: 'Hearts', icon: '♥', colorClass: 'border-red-500 bg-red-950/30 text-red-400 hover:bg-red-900/40' },
+          { value: 'diamonds', label: 'Diamonds', icon: '♦', colorClass: 'border-orange-400 bg-orange-950/30 text-orange-300 hover:bg-orange-900/40' },
+          { value: 'clubs', label: 'Clubs', icon: '♣', colorClass: 'border-emerald-600 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40' },
+          { value: 'spades', label: 'Spades', icon: '♠', colorClass: 'border-zinc-400 bg-zinc-800 text-zinc-200 hover:bg-zinc-700' },
+        ],
+      };
+
+      if (!activeMrs) {
+        return (
+          <div className="flex flex-col items-center justify-center h-[450px]">
+            <div className="text-zinc-400">Setting up Margin Run…</div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="w-full max-w-xl mx-auto space-y-4 text-center" data-testid="screen-margin-run">
+          {/* Header */}
+          <div>
+            <h2 className="text-2xl font-display text-yellow-400 tracking-widest">🃏 MARGIN</h2>
+            <p className="text-zinc-400 text-xs mt-1">4-Wave Card Challenge — Wave {currentWave} of 4</p>
+          </div>
+
+          {/* Previously drawn cards */}
+          {revealedCards.length > 0 && (
+            <div className="flex justify-center gap-3 flex-wrap">
+              {revealedCards.map((card: any, idx: number) => {
+                const cd = marginCardToCardDef(card);
+                const isCurrentReveal = mrsPhase === 'revealing' && idx === revealedCards.length - 1;
+                return (
+                  <div key={idx} className="flex flex-col items-center gap-1">
+                    {isCurrentReveal ? (
+                      <CardFlip
+                        cards={[cd]}
+                        forceCardId={cd.id}
+                        trigger={marginCardFlipTrigger}
+                        onResult={() => {}}
+                        durationMs={700}
+                      />
+                    ) : (
+                      <div className={cn(
+                        "w-14 h-20 rounded-lg border-2 flex flex-col items-center justify-center gap-0.5",
+                        cd.faceClass ?? 'bg-zinc-900',
+                        "border-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.25)]"
+                      )}>
+                        <span className={cn("font-display font-black text-xl leading-none", cd.textColor ?? 'text-white')}>{cd.label}</span>
+                        <span className="text-[9px] text-zinc-400">{card.suit}</span>
+                      </div>
+                    )}
+                    <span className="text-[10px] text-zinc-500">Wave {idx + 1}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Current wave prompt */}
+          {mrsPhase === 'guessing' && (
+            <div className="bg-zinc-900/70 border border-yellow-500/20 rounded-xl p-4">
+              <div className="text-xs uppercase tracking-widest text-yellow-400/70 mb-1">{WAVE_ICONS[currentWave]} Wave {currentWave}</div>
+              <div className="text-base font-bold text-white">{WAVE_LABELS[currentWave]}</div>
+              {currentWave === 2 && revealedCards[0] && (
+                <div className="text-xs text-zinc-400 mt-1">Previous card: <span className={cn("font-bold", revealedCards[0].color === 'red' ? 'text-red-400' : 'text-white')}>{VALUE_NAMES[revealedCards[0].value]}{SUIT_SYMBOLS[revealedCards[0].suit]}</span></div>
+              )}
+              {currentWave === 3 && revealedCards[0] && revealedCards[1] && (
+                <div className="text-xs text-zinc-400 mt-1">
+                  Range: <span className={cn("font-bold", revealedCards[0].color === 'red' ? 'text-red-400' : 'text-white')}>{VALUE_NAMES[revealedCards[0].value]}{SUIT_SYMBOLS[revealedCards[0].suit]}</span>
+                  {' '}–{' '}
+                  <span className={cn("font-bold", revealedCards[1].color === 'red' ? 'text-red-400' : 'text-white')}>{VALUE_NAMES[revealedCards[1].value]}{SUIT_SYMBOLS[revealedCards[1].suit]}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Player status grid */}
+          <div className="flex flex-wrap justify-center gap-2">
+            {displayPlayers.filter((p: any) => !p.isEliminated).map((p: any) => {
+              const ps = activeMrs?.playerStates?.[p.id];
+              const status: string = ps?.status ?? 'active';
+              const wave: number = ps?.wave ?? 0;
+              const hasGuessed = ps?.guess !== null;
+              return (
+                <div key={p.id} className={cn(
+                  "flex flex-col items-center px-3 py-1.5 rounded-lg border text-xs min-w-[64px]",
+                  status === 'active' ? "border-yellow-500/40 bg-yellow-950/20 text-yellow-200"
+                    : status === 'forfeited' ? "border-zinc-600 bg-zinc-900/50 text-zinc-400"
+                    : "border-red-700/40 bg-red-950/20 text-red-400 opacity-60"
+                )}>
+                  <span className="font-bold truncate max-w-[72px]">{p.name}</span>
+                  <span className="text-[10px]">
+                    {status === 'busted' ? '💥 Busted' : status === 'forfeited' ? `🔒 W${wave}` : hasGuessed ? '✓' : `W${wave}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Action buttons — SP player input */}
+          {isMyTurnToGuess && !isMultiplayer && (
+            <div className="space-y-3">
+              <div className={cn("flex gap-2 justify-center flex-wrap", currentWave === 4 ? "grid grid-cols-2 max-w-xs mx-auto" : "")}>
+                {(WAVE_CHOICES[currentWave] ?? []).map(choice => (
+                  <button
+                    key={choice.value}
+                    onClick={() => submitMarginSPGuess(choice.value)}
+                    className={cn(
+                      "px-5 py-3 rounded-xl border-2 font-bold text-sm transition-all flex flex-col items-center gap-0.5 min-w-[80px]",
+                      choice.colorClass
+                    )}
+                  >
+                    <span className="text-lg">{choice.icon}</span>
+                    <span>{choice.label}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => forfeitMarginSP()}
+                className="px-4 py-2 rounded-lg border border-zinc-600 bg-zinc-900 text-zinc-400 text-xs hover:bg-zinc-800 transition-all"
+              >
+                🔒 Forfeit — Lock in Wave {(myPs?.wave ?? 0)} progress
+              </button>
+            </div>
+          )}
+
+          {/* Action buttons — MP player input */}
+          {isMyTurnToGuess && isMultiplayer && (
+            <div className="space-y-3">
+              <div className={cn("flex gap-2 justify-center flex-wrap", currentWave === 4 ? "grid grid-cols-2 max-w-xs mx-auto" : "")}>
+                {(WAVE_CHOICES[currentWave] ?? []).map(choice => (
+                  <button
+                    key={choice.value}
+                    onClick={() => socket?.emit('margin_guess', { guess: choice.value })}
+                    className={cn(
+                      "px-5 py-3 rounded-xl border-2 font-bold text-sm transition-all flex flex-col items-center gap-0.5 min-w-[80px]",
+                      choice.colorClass
+                    )}
+                  >
+                    <span className="text-lg">{choice.icon}</span>
+                    <span>{choice.label}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => socket?.emit('margin_forfeit', {})}
+                className="px-4 py-2 rounded-lg border border-zinc-600 bg-zinc-900 text-zinc-400 text-xs hover:bg-zinc-800 transition-all"
+              >
+                🔒 Forfeit — Lock in Wave {(myPs?.wave ?? 0)} progress
+              </button>
+            </div>
+          )}
+
+          {/* Waiting message */}
+          {!isMyTurnToGuess && mrsPhase === 'guessing' && (
+            <div className="text-zinc-500 text-sm italic">
+              {myPs?.status === 'forfeited' ? '🔒 You forfeited — watching…'
+                : myPs?.status === 'busted' ? '💥 Busted — watching…'
+                : myPs?.guess !== null ? '✓ Waiting for others…'
+                : 'Waiting…'}
+            </div>
+          )}
+
+          {/* Reveal phase message */}
+          {mrsPhase === 'revealing' && (
+            <div className="text-yellow-300 font-bold text-sm animate-pulse">Revealing card…</div>
+          )}
+
+          {/* Done */}
+          {mrsPhase === 'done' && (
+            <div className="text-center py-4 space-y-2">
+              <div className="text-3xl">🏆</div>
+              <div className="text-xl font-bold text-yellow-300">
+                {(activeMrs?.winners ?? []).length > 0
+                  ? `${(activeMrs.winners as string[]).map((id: string) => displayPlayers.find((p: any) => p.id === id)?.name ?? id).join(' & ')} wins!`
+                  : 'No winner this run.'}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // Handle OVERCLOCK phase (both singleplayer and multiplayer)
     if (renderPhase === 'overclock') {
       const mpClickCounts = isMultiplayer ? (multiplayerGameState?.overclockClickCounts || {}) : overclockClickCounts;
@@ -7337,7 +7793,7 @@ export default function Game() {
                               <AlertTriangle size={14} className="text-red-400" />
                               <div className="text-sm font-bold text-red-200 tracking-widest">STANDARD PROTOCOLS</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND','HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR','HIGH_CIRCUIT','READ_THE_TABLE','PROTOCOL_CARD_FLIP','PROTOCOL_COIN_FLIP'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-red-300/70">{allowedProtocols.filter(p => !['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL','HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND','HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR','HIGH_CIRCUIT','READ_THE_TABLE','MARGIN','PROTOCOL_COIN_FLIP'].includes(p as any)).length} selected</div>
                           </summary>
 
                           <div className="px-4 pb-4 space-y-3">
@@ -7528,15 +7984,14 @@ export default function Game() {
                             <div className="flex items-center gap-2">
                               <Trophy size={14} className="text-yellow-400" />
                               <div className="text-sm font-bold text-yellow-200 tracking-widest">WAGER</div>
-                              <span className="text-[10px] text-yellow-500/70 italic ml-1">coming soon</span>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-yellow-400/70">{allowedProtocols.filter(p => ['HIGH_CIRCUIT','READ_THE_TABLE','PROTOCOL_CARD_FLIP','PROTOCOL_COIN_FLIP'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-yellow-400/70">{allowedProtocols.filter(p => ['HIGH_CIRCUIT','READ_THE_TABLE','MARGIN','PROTOCOL_COIN_FLIP'].includes(p as any)).length} selected</div>
                           </summary>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
                             {[
                               { id: 'HIGH_CIRCUIT',        label: 'HIGH CIRCUIT',        desc: 'All wager rewards are doubled this round.' },
                               { id: 'READ_THE_TABLE',      label: 'READ THE TABLE',      desc: 'Liar\'s Dice — roll 5 hidden dice, bid totals, call bluffs. Lose all dice = eliminated.' },
-                              { id: 'PROTOCOL_CARD_FLIP',  label: 'CARD FLIP PROTOCOL',  desc: 'Draw a card — the result determines this round\'s modifier.' },
+                              { id: 'MARGIN',  label: 'MARGIN',  desc: '4-wave card challenge: guess color → higher/lower → inside/outside → suit. Each guess costs 10s.' },
                               { id: 'PROTOCOL_COIN_FLIP',  label: 'COIN FLIP PROTOCOL',  desc: 'Everyone flips a coin. Most heads wins. Ties rematch until one player wins.' },
                             ].map((p) => (
                               <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-yellow-950/20 border border-yellow-600/10" data-testid={`row-protocol-config-${p.id}`}>

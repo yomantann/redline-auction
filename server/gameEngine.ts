@@ -80,8 +80,8 @@ export type ProtocolType =
   | 'OVERCLOCK' | 'CALIBRATION'
   // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
   | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
-  // WAGER mode protocols (placeholder — mechanics not yet implemented)
-  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'PROTOCOL_CARD_FLIP' | 'PROTOCOL_COIN_FLIP'
+  // WAGER mode protocols
+  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'MARGIN' | 'PROTOCOL_COIN_FLIP'
   | null;
 
 // Protocol pools by variant
@@ -106,9 +106,9 @@ const HAUNTED_PROTOCOLS: ProtocolType[] = [
   'HAUNTED_SEANCE', 'HAUNTED_CURSE_ECHO', 'HAUNTED_WAIL', 'HAUNTED_MIRROR'
 ];
 
-// WAGER mode protocol pool (placeholder — effects coming in future release)
+// WAGER mode protocol pool
 const WAGER_PROTOCOLS: ProtocolType[] = [
-  'HIGH_CIRCUIT', 'READ_THE_TABLE', 'PROTOCOL_CARD_FLIP', 'PROTOCOL_COIN_FLIP'
+  'HIGH_CIRCUIT', 'READ_THE_TABLE', 'MARGIN', 'PROTOCOL_COIN_FLIP'
 ];
 
 // Driver/Character ability definitions (minimal for server-side processing)
@@ -265,13 +265,36 @@ export interface LiarsDiceState {
   turnDeadline?: number;
 }
 
+// ─── MARGIN RUN types ─────────────────────────────────────────────────────────
+export interface MarginCard {
+  value: number;  // 1 (Ace) – 13 (King)
+  suit: 'hearts' | 'diamonds' | 'clubs' | 'spades';
+  color: 'red' | 'black';
+}
+
+export interface MarginPlayerState {
+  wave: number;                              // highest wave correctly completed (0 = none)
+  status: 'active' | 'forfeited' | 'busted';
+  guess: string | null;                      // pending guess for current wave
+  costPaid: number;                          // total seconds deducted so far
+}
+
+export interface MarginRunState {
+  cards: MarginCard[];                       // all 4 pre-drawn cards (server-only full list)
+  currentWave: number;                       // 1–4
+  phase: 'guessing' | 'revealing' | 'done';
+  playerStates: Record<string, MarginPlayerState>;
+  waveDeadline: number;                      // unix ms deadline for current wave
+  winners: string[];                         // player IDs who earn a trophy
+}
+
 export interface GameState {
   gameId: string; // Unique identifier for database snapshots
   lobbyCode: string;
   players: GamePlayer[];
   round: number;
   totalRounds: number;
-  phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'round_end' | 'game_over';
+  phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'margin_run' | 'round_end' | 'game_over';
   roundStartTime: number | null;
   countdownRemaining: number;
   gameDuration: GameDuration;
@@ -305,6 +328,7 @@ export interface GameState {
   coinFlipResults?: Record<string, 'heads' | 'tails'>;
   coinFlipWinnerIds?: string[];
   liarsDiceState?: LiarsDiceState;
+  marginRunState?: MarginRunState;
 }
 
 // Active games storage
@@ -756,6 +780,8 @@ function startCountdown(lobbyCode: string) {
         startCoinFlipRound(lobbyCode);
       } else if (g.activeProtocol === 'READ_THE_TABLE') {
         startReadTheTable(lobbyCode);
+      } else if (g.activeProtocol === 'MARGIN') {
+        startMarginRun(lobbyCode);
       } else {
         startBidding(lobbyCode);
       }
@@ -1268,6 +1294,247 @@ export function rttChallenge(lobbyCode: string, socketId: string, type: 'liar' |
   if (!rtt.currentBid) return { success: false, error: 'No bid to challenge' };
 
   resolveRttChallenge(lobbyCode, player.id, type);
+  return { success: true };
+}
+
+// ─── MARGIN RUN (4-Wave Card Challenge) ─────────────────────────────────────
+
+function drawMarginDeck(): MarginCard[] {
+  const suits: MarginCard['suit'][] = ['hearts', 'diamonds', 'clubs', 'spades'];
+  const deck: MarginCard[] = [];
+  for (const suit of suits) {
+    const color: MarginCard['color'] = (suit === 'hearts' || suit === 'diamonds') ? 'red' : 'black';
+    for (let v = 1; v <= 13; v++) deck.push({ value: v, suit, color });
+  }
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck.slice(0, 4);
+}
+
+function getMarginChoicesForWave(wave: number): string[] {
+  switch (wave) {
+    case 1: return ['red', 'black'];
+    case 2: return ['higher', 'lower'];
+    case 3: return ['inside', 'outside'];
+    case 4: return ['hearts', 'diamonds', 'clubs', 'spades'];
+    default: return [];
+  }
+}
+
+function getCorrectMarginGuess(wave: number, cards: MarginCard[]): string {
+  switch (wave) {
+    case 1: return cards[0].color;
+    case 2: return cards[1].value >= cards[0].value ? 'higher' : 'lower';
+    case 3: {
+      const lo = Math.min(cards[0].value, cards[1].value);
+      const hi = Math.max(cards[0].value, cards[1].value);
+      return (cards[2].value > lo && cards[2].value < hi) ? 'inside' : 'outside';
+    }
+    case 4: return cards[3].suit;
+    default: return '';
+  }
+}
+
+function isMarginGuessCorrect(wave: number, cards: MarginCard[], guess: string): boolean {
+  return guess === getCorrectMarginGuess(wave, cards);
+}
+
+function startMarginRun(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
+
+  game.phase = 'margin_run';
+  game.roundWinner = null;
+  game.eliminatedThisRound = [];
+
+  const activePlayers = game.players.filter(p => !p.isEliminated);
+  const playerStates: Record<string, MarginPlayerState> = {};
+  activePlayers.forEach(p => {
+    playerStates[p.id] = { wave: 0, status: 'active', guess: null, costPaid: 0 };
+  });
+
+  game.marginRunState = {
+    cards: drawMarginDeck(),
+    currentWave: 1,
+    phase: 'guessing',
+    playerStates,
+    waveDeadline: Date.now() + 20000,
+    winners: [],
+  };
+
+  broadcastGameState(lobbyCode);
+  log(`MARGIN RUN started for round ${game.round} in lobby ${lobbyCode}`, "game");
+  scheduleMarginBotActions(lobbyCode);
+  scheduleMarginWaveTimeout(lobbyCode);
+}
+
+function scheduleMarginWaveTimeout(lobbyCode: string) {
+  const t = setTimeout(() => {
+    const game = activeGames.get(lobbyCode);
+    if (!game || !game.marginRunState || game.marginRunState.phase !== 'guessing') return;
+    resolveMarginWave(lobbyCode);
+  }, 20000);
+  gameIntervals.set(`${lobbyCode}_margin_wave_timeout`, t as unknown as NodeJS.Timeout);
+}
+
+function scheduleMarginBotActions(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.marginRunState) return;
+  const mrs = game.marginRunState;
+  if (mrs.phase !== 'guessing') return;
+
+  game.players
+    .filter(p => p.isBot && mrs.playerStates[p.id]?.status === 'active' && mrs.playerStates[p.id]?.guess === null)
+    .forEach(bot => {
+      const delay = 1000 + Math.random() * 1500;
+      const t = setTimeout(() => {
+        const g = activeGames.get(lobbyCode);
+        if (!g || !g.marginRunState || g.marginRunState.phase !== 'guessing') return;
+        const ps = g.marginRunState.playerStates[bot.id];
+        if (!ps || ps.status !== 'active' || ps.guess !== null) return;
+        const wave = g.marginRunState.currentWave;
+        const correctGuess = getCorrectMarginGuess(wave, g.marginRunState.cards);
+        const choices = getMarginChoicesForWave(wave);
+        const botGuess = Math.random() < 0.70
+          ? correctGuess
+          : choices.filter(c => c !== correctGuess)[Math.floor(Math.random() * (choices.length - 1))];
+        executeMarginGuess(lobbyCode, bot.id, botGuess);
+      }, delay);
+      gameIntervals.set(`${lobbyCode}_margin_bot_${bot.id}`, t as unknown as NodeJS.Timeout);
+    });
+}
+
+function executeMarginGuess(lobbyCode: string, playerId: string, guess: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.marginRunState || game.marginRunState.phase !== 'guessing') return;
+  const ps = game.marginRunState.playerStates[playerId];
+  if (!ps || ps.status !== 'active' || ps.guess !== null) return;
+  ps.guess = guess;
+  broadcastGameState(lobbyCode);
+  checkAllMarginDecided(lobbyCode);
+}
+
+function executeMarginForfeit(lobbyCode: string, playerId: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.marginRunState || game.marginRunState.phase !== 'guessing') return;
+  const ps = game.marginRunState.playerStates[playerId];
+  if (!ps || ps.status !== 'active') return;
+  ps.status = 'forfeited';
+  broadcastGameState(lobbyCode);
+  checkAllMarginDecided(lobbyCode);
+}
+
+function checkAllMarginDecided(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.marginRunState) return;
+  const allDecided = Object.values(game.marginRunState.playerStates)
+    .every(s => s.status !== 'active' || s.guess !== null);
+  if (allDecided) {
+    const t = gameIntervals.get(`${lobbyCode}_margin_wave_timeout`);
+    if (t) clearTimeout(t);
+    resolveMarginWave(lobbyCode);
+  }
+}
+
+function resolveMarginWave(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.marginRunState) return;
+  const mrs = game.marginRunState;
+  if (mrs.phase !== 'guessing') return;
+  mrs.phase = 'revealing';
+
+  const COST = 10;
+  const wave = mrs.currentWave;
+
+  Object.entries(mrs.playerStates).forEach(([pid, ps]) => {
+    if (ps.status !== 'active') return;
+    if (ps.guess !== null) {
+      const correct = isMarginGuessCorrect(wave, mrs.cards, ps.guess);
+      ps.costPaid += COST;
+      const player = game.players.find(p => p.id === pid);
+      if (player) {
+        player.remainingTime = Math.max(0, player.remainingTime - COST);
+        if (player.remainingTime === 0 && !player.isEliminated) {
+          player.isEliminated = true;
+          if (!game.eliminatedThisRound.includes(pid)) game.eliminatedThisRound.push(pid);
+        }
+      }
+      if (correct) {
+        ps.wave = wave;
+      } else {
+        ps.status = 'busted';
+      }
+      ps.guess = null;
+    } else {
+      // Timeout — treat as forfeit
+      ps.status = 'forfeited';
+    }
+  });
+
+  broadcastGameState(lobbyCode);
+
+  const stillActive = Object.values(mrs.playerStates).filter(s => s.status === 'active').length;
+  const t = setTimeout(() => {
+    if (wave >= 4 || stillActive === 0) {
+      endMarginRun(lobbyCode);
+    } else {
+      const g = activeGames.get(lobbyCode);
+      if (!g || !g.marginRunState) return;
+      g.marginRunState.currentWave = wave + 1;
+      g.marginRunState.phase = 'guessing';
+      g.marginRunState.waveDeadline = Date.now() + 20000;
+      broadcastGameState(lobbyCode);
+      scheduleMarginBotActions(lobbyCode);
+      scheduleMarginWaveTimeout(lobbyCode);
+    }
+  }, 2500);
+  gameIntervals.set(`${lobbyCode}_margin_reveal`, t as unknown as NodeJS.Timeout);
+}
+
+function endMarginRun(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.marginRunState) return;
+  const mrs = game.marginRunState;
+  mrs.phase = 'done';
+
+  let maxWave = 0;
+  Object.values(mrs.playerStates).forEach(ps => { if (ps.wave > maxWave) maxWave = ps.wave; });
+  mrs.winners = maxWave > 0
+    ? Object.entries(mrs.playerStates).filter(([, ps]) => ps.wave === maxWave).map(([pid]) => pid)
+    : [];
+
+  broadcastGameState(lobbyCode);
+  const t = setTimeout(() => endRound(lobbyCode), 3000);
+  gameIntervals.set(`${lobbyCode}_margin_end`, t as unknown as NodeJS.Timeout);
+}
+
+export function marginSubmitGuess(lobbyCode: string, socketId: string, guess: string): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game || game.phase !== 'margin_run') return { success: false, error: 'Not in Margin Run phase' };
+  const mrs = game.marginRunState;
+  if (!mrs || mrs.phase !== 'guessing') return { success: false, error: 'Not in guessing phase' };
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player) return { success: false, error: 'Player not found' };
+  const ps = mrs.playerStates[player.id];
+  if (!ps || ps.status !== 'active') return { success: false, error: 'Not active in run' };
+  if (ps.guess !== null) return { success: false, error: 'Already guessed this wave' };
+  if (!getMarginChoicesForWave(mrs.currentWave).includes(guess)) return { success: false, error: 'Invalid guess' };
+  executeMarginGuess(lobbyCode, player.id, guess);
+  return { success: true };
+}
+
+export function marginForfeit(lobbyCode: string, socketId: string): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game || game.phase !== 'margin_run') return { success: false, error: 'Not in Margin Run phase' };
+  const mrs = game.marginRunState;
+  if (!mrs || mrs.phase !== 'guessing') return { success: false, error: 'Not in guessing phase' };
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player) return { success: false, error: 'Player not found' };
+  const ps = mrs.playerStates[player.id];
+  if (!ps || ps.status !== 'active') return { success: false, error: 'Not active in run' };
+  executeMarginForfeit(lobbyCode, player.id);
   return { success: true };
 }
 
@@ -1946,7 +2213,41 @@ function endRound(lobbyCode: string) {
     return;
   }
 
-  // Deduct bid time first so overbidding eliminations are reflected in winner determination
+  // --- MARGIN ---
+  if (game.activeProtocol === 'MARGIN') {
+    const winnerIds = game.marginRunState?.winners ?? [];
+    winnerIds.forEach(wid => {
+      const winner = game.players.find(p => p.id === wid);
+      if (winner) {
+        winner.tokens += 1;
+        winner.protocolWinsEarned.push('MARGIN');
+        if (!game.roundWinner) game.roundWinner = { id: winner.id, name: winner.name, bid: 0 };
+        addGameLogEntry(game, { type: 'win', playerId: winner.id, playerName: winner.name, message: `MARGIN: ${winner.name} wins the card run!`, basic: true });
+      }
+    });
+    const winnerId = game.roundWinner?.id || null;
+    if (emitToLobby) {
+      const winMsg = winnerIds.length > 0
+        ? `${winnerIds.map(id => game.players.find(p => p.id === id)?.name ?? id).join(' & ')} wins the card run!`
+        : 'No winner — all players busted or forfeited at Wave 0.';
+      emitToLobby(lobbyCode, 'protocol_reveal', { protocol: 'MARGIN', msg: 'MARGIN RUN COMPLETE', sub: winMsg });
+    }
+    game.players.forEach(p => { if (p.pendingRoundImpacts?.length) { p.roundImpacts.push(...p.pendingRoundImpacts); p.pendingRoundImpacts = []; } });
+    processAbilities(game, winnerId);
+    game.players.forEach(p => { if (p.remainingTime < 0) p.remainingTime = 0; if (p.remainingTime === 0 && !p.isEliminated) { p.isEliminated = true; if (!game.eliminatedThisRound.includes(p.id)) game.eliminatedThisRound.push(p.id); } });
+    broadcastGameState(lobbyCode);
+    processRealityModeAbilities(game, winnerId, 'end');
+    game.players.forEach(p => { (p as any).roundEndAcknowledged = !p.isBot && !p.isEliminated ? false : true; });
+    if (game.eliminatedThisRound.length > 0 && game.firstEliminatedIds.length === 0) game.firstEliminatedIds = [...game.eliminatedThisRound];
+    const apMg = game.players.filter(p => !p.isEliminated);
+    const ahMg = apMg.filter(p => !p.isBot);
+    if (apMg.length <= 1 || game.round >= game.totalRounds) setTimeout(() => endGame(lobbyCode), 3000);
+    else if (ahMg.length === 0 && game.isMultiplayer) { game.round = game.totalRounds; setTimeout(() => endGame(lobbyCode), 3000); }
+    recordGameSnapshot({ gameId: game.gameId, snapshotType: game.eliminatedThisRound.length > 0 ? 'elimination' : 'round_end', roundNumber: game.round, winnerPlayerId: game.roundWinner?.id || null, winningHoldTime: null, minBidSeconds: getMinBidPenalty(game.settings.gameDuration), eliminatedPlayerIds: game.eliminatedThisRound, momentFlagsTriggered: [], protocolsTriggered: ['MARGIN'], limitBreaksTriggered: [], playerPositions: game.players.map(p => ({ playerId: p.id, tokens: p.tokens, remainingTime: p.remainingTime, isEliminated: p.isEliminated })), lobbyCode: game.lobbyCode, gameSettings: { difficulty: game.settings.difficulty, variant: game.settings.variant, gameDuration: game.settings.gameDuration, protocolsEnabled: game.settings.protocolsEnabled, abilitiesEnabled: game.settings.abilitiesEnabled }, isMultiplayer: 1 });
+    return;
+  }
+
+  // Deduct bid time so overbidding eliminations are reflected in winner determination
   game.players.forEach(p => {
     if (p.currentBid && p.currentBid > 0) {
       p.totalTimeBid += p.currentBid;
@@ -3086,11 +3387,11 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
       });
       break;
     }
-    case 'PROTOCOL_CARD_FLIP': {
+    case 'MARGIN': {
       emitToLobby(game.lobbyCode, 'protocol_detail', {
-        protocol: 'PROTOCOL_CARD_FLIP',
-        msg: 'CARD FLIP PROTOCOL',
-        sub: 'Draw a card — the result determines this round\'s modifier. (Coming soon)',
+        protocol: 'MARGIN',
+        msg: 'MARGIN',
+        sub: 'A 4-wave card challenge! Guess color → higher/lower → inside/outside → suit. Each guess costs 10s. Forfeit anytime to protect your progress.',
         targetPlayerId: null,
       });
       break;
@@ -4367,6 +4668,20 @@ export function broadcastGameState(lobbyCode: string) {
         ? game.liarsDiceState.dice
         : null,
     } : null,
+    marginRunState: game.marginRunState ? (() => {
+      const mrs = game.marginRunState!;
+      const revealCount = mrs.phase === 'done' ? 4
+        : mrs.phase === 'revealing' ? mrs.currentWave
+        : mrs.currentWave - 1;
+      return {
+        currentWave: mrs.currentWave,
+        phase: mrs.phase,
+        revealedCards: mrs.cards.slice(0, revealCount),
+        playerStates: mrs.playerStates,
+        waveDeadline: mrs.waveDeadline,
+        winners: mrs.winners,
+      };
+    })() : null,
   };
   
   emitToLobby(lobbyCode, 'game_state', stateForClients);
