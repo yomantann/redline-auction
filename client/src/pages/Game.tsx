@@ -7079,6 +7079,18 @@ export default function Game() {
               </Button>
             </div>
 
+            {/* Profile / Wallet shortcut */}
+            <Link href="/profile">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-zinc-500 hover:text-primary flex items-center gap-2"
+                data-testid="button-open-profile"
+              >
+                <User size={14} /> PROFILE &amp; SHOP
+              </Button>
+            </Link>
+
           </motion.div>
         );
 
@@ -9273,6 +9285,7 @@ export default function Game() {
                 </div>
 
                 {/* Play Again Button */}
+                <div className="flex flex-col sm:flex-row gap-3 mt-4 items-center">
                 <Button 
                   onClick={() => {
                     if (isMultiplayer && socket) {
@@ -9299,10 +9312,15 @@ export default function Game() {
                   }} 
                   variant="outline" 
                   size="lg" 
-                  className="mt-4"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" /> Play Again
                 </Button>
+                <Link href="/profile">
+                  <Button variant="ghost" size="lg" className="text-primary hover:bg-primary/10">
+                    <User className="mr-2 h-4 w-4" /> Profile &amp; Shop
+                  </Button>
+                </Link>
+                </div>
                   </div>
 
               {/* SCROLLABLE RESULTS SECTION */}

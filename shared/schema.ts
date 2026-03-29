@@ -105,6 +105,89 @@ export const insertGameSummarySchema = createInsertSchema(gameSummaries).omit({
 export type InsertGameSummary = z.infer<typeof insertGameSummarySchema>;
 export type GameSummary = typeof gameSummaries.$inferSelect;
 
+// ─── Player Profile & Cosmetics System ───────────────────────────────────────
+
+export type CosmeticType = 'logo' | 'border' | 'background' | 'driverSkin';
+export type CosmeticRarity = 'common' | 'rare' | 'legendary';
+
+export interface CosmeticItem {
+  id: string;
+  name: string;
+  type: CosmeticType;
+  cost: number;
+  rarity: CosmeticRarity;
+  asset: string; // image path or CSS class
+  earnableOnly?: boolean; // cannot be purchased, only earned
+}
+
+export interface EquippedCosmetics {
+  logo?: string;       // cosmetic id
+  border?: string;
+  background?: string;
+  driverSkin?: string;
+}
+
+export interface PlayerProfile {
+  id: string;           // keyed by userId (Replit Auth later)
+  username: string;
+  currencyBalance: number;
+  lifetimeEarned: number;
+  lifetimeSpent: number;
+  ownedCosmetics: string[];        // cosmetic ids
+  equippedCosmetics: EquippedCosmetics;
+  // Conversion tracking – prevents double-converting the same achievements
+  convertedTrophies: number;       // how many trophies have been converted so far
+  convertedMomentFlags: number;    // how many moment flags have been converted
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Zod schemas for API validation
+
+export const playerProfileSchema = z.object({
+  id: z.string(),
+  username: z.string().min(1).max(32),
+  currencyBalance: z.number().int().min(0),
+  lifetimeEarned: z.number().int().min(0),
+  lifetimeSpent: z.number().int().min(0),
+  ownedCosmetics: z.array(z.string()),
+  equippedCosmetics: z.object({
+    logo: z.string().optional(),
+    border: z.string().optional(),
+    background: z.string().optional(),
+    driverSkin: z.string().optional(),
+  }),
+  convertedTrophies: z.number().int().min(0),
+  convertedMomentFlags: z.number().int().min(0),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const createProfileSchema = z.object({
+  id: z.string().min(1),
+  username: z.string().min(1).max(32),
+});
+
+export const convertAchievementsSchema = z.object({
+  trophies: z.number().int().min(0),
+  momentFlags: z.number().int().min(0),
+});
+
+export const purchaseCosmeticSchema = z.object({
+  cosmeticId: z.string().min(1),
+});
+
+export const equipCosmeticSchema = z.object({
+  cosmeticId: z.string().min(1),
+});
+
+export const purchaseCurrencySchema = z.object({
+  amount: z.number().int().positive(),
+  // stripePaymentIntentId will be added when Stripe is integrated
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const contactMessages = pgTable("contact_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),

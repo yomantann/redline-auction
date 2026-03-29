@@ -7,6 +7,7 @@ import { SocketProvider } from "@/lib/socket";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import Game from "@/pages/Game";
+import Profile from "@/pages/Profile";
 
 import Stats from "@/pages/Stats";
 
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/game" component={Game} />
       <Route path="/stats" component={Stats} />
+      <Route path="/profile" component={Profile} />
       <Route component={NotFound} />
     </Switch>
   );

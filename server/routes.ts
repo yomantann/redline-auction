@@ -25,7 +25,23 @@ import {
   type GameDuration
 } from "./gameEngine";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
-import { insertGameSnapshotSchema, insertGameSummarySchema } from "@shared/schema";
+import {
+  insertGameSnapshotSchema,
+  insertGameSummarySchema,
+  createProfileSchema,
+  convertAchievementsSchema,
+  purchaseCosmeticSchema,
+  equipCosmeticSchema,
+  purchaseCurrencySchema,
+} from "@shared/schema";
+import {
+  COSMETICS_CATALOG,
+  convertAchievementsToCurrency,
+  purchaseCosmetic,
+  equipCosmetic,
+  unequipCosmetic,
+  purchaseCurrency,
+} from "./currencyEngine";
 
 // Socket.IO instance - exported for later expansion
 export let io: SocketIOServer;
@@ -872,6 +888,180 @@ export async function registerRoutes(
     } catch (error) {
       console.error('[Contact] Full error:', error);
       log(`Contact form failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
+  // ── Player Profile & Wallet API ──────────────────────────────────────────────
+
+  // GET /api/player/:id – fetch player profile (creates a default one if missing)
+  app.get("/api/player/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      let profile = await storage.getPlayerProfile(id);
+      if (!profile) {
+        const now = new Date().toISOString();
+        profile = {
+          id,
+          username: `Driver_${id.slice(0, 6)}`,
+          currencyBalance: 0,
+          lifetimeEarned: 0,
+          lifetimeSpent: 0,
+          ownedCosmetics: ['logo_default', 'border_default', 'bg_default', 'skin_default'],
+          equippedCosmetics: {},
+          convertedTrophies: 0,
+          convertedMomentFlags: 0,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await storage.upsertPlayerProfile(profile);
+      }
+      res.json({ success: true, profile });
+    } catch (error) {
+      log(`Get player profile failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // POST /api/player – create or update a player profile
+  app.post("/api/player", async (req, res) => {
+    try {
+      const { id, username } = createProfileSchema.parse(req.body);
+      let profile = await storage.getPlayerProfile(id);
+      if (profile) {
+        // Update username only
+        profile = { ...profile, username, updatedAt: new Date().toISOString() };
+      } else {
+        const now = new Date().toISOString();
+        profile = {
+          id,
+          username,
+          currencyBalance: 0,
+          lifetimeEarned: 0,
+          lifetimeSpent: 0,
+          ownedCosmetics: ['logo_default', 'border_default', 'bg_default', 'skin_default'],
+          equippedCosmetics: {},
+          convertedTrophies: 0,
+          convertedMomentFlags: 0,
+          createdAt: now,
+          updatedAt: now,
+        };
+      }
+      const saved = await storage.upsertPlayerProfile(profile);
+      res.json({ success: true, profile: saved });
+    } catch (error) {
+      log(`Create/update player profile failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
+  // POST /api/player/:id/convert – convert achievements to credits
+  app.post("/api/player/:id/convert", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { trophies, momentFlags } = convertAchievementsSchema.parse(req.body);
+
+      let profile = await storage.getPlayerProfile(id);
+      if (!profile) {
+        return res.status(404).json({ success: false, error: "Player profile not found." });
+      }
+
+      const { creditsEarned, updatedProfile } = convertAchievementsToCurrency(
+        profile,
+        trophies,
+        momentFlags,
+      );
+
+      await storage.upsertPlayerProfile(updatedProfile);
+      res.json({ success: true, creditsEarned, profile: updatedProfile });
+    } catch (error) {
+      log(`Convert achievements failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
+  // GET /api/cosmetics – return full cosmetics catalog
+  app.get("/api/cosmetics", (_req, res) => {
+    res.json({ success: true, cosmetics: COSMETICS_CATALOG });
+  });
+
+  // POST /api/player/:id/purchase – purchase a cosmetic
+  app.post("/api/player/:id/purchase", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { cosmeticId } = purchaseCosmeticSchema.parse(req.body);
+
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) {
+        return res.status(404).json({ success: false, error: "Player profile not found." });
+      }
+
+      const updatedProfile = purchaseCosmetic(profile, cosmeticId);
+      await storage.upsertPlayerProfile(updatedProfile);
+      res.json({ success: true, profile: updatedProfile });
+    } catch (error) {
+      log(`Purchase cosmetic failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
+  // POST /api/player/:id/equip – equip a cosmetic
+  app.post("/api/player/:id/equip", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { cosmeticId } = equipCosmeticSchema.parse(req.body);
+
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) {
+        return res.status(404).json({ success: false, error: "Player profile not found." });
+      }
+
+      const updatedProfile = equipCosmetic(profile, cosmeticId);
+      await storage.upsertPlayerProfile(updatedProfile);
+      res.json({ success: true, profile: updatedProfile });
+    } catch (error) {
+      log(`Equip cosmetic failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
+  // POST /api/player/:id/unequip – unequip a cosmetic
+  app.post("/api/player/:id/unequip", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { cosmeticId } = equipCosmeticSchema.parse(req.body);
+
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) {
+        return res.status(404).json({ success: false, error: "Player profile not found." });
+      }
+
+      const updatedProfile = unequipCosmetic(profile, cosmeticId);
+      await storage.upsertPlayerProfile(updatedProfile);
+      res.json({ success: true, profile: updatedProfile });
+    } catch (error) {
+      log(`Unequip cosmetic failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
+  // POST /api/player/:id/purchase-currency – Stripe placeholder
+  app.post("/api/player/:id/purchase-currency", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { amount } = purchaseCurrencySchema.parse(req.body);
+
+      // Verify player exists
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) {
+        return res.status(404).json({ success: false, error: "Player profile not found." });
+      }
+
+      const result = await purchaseCurrency(id, amount);
+      // Stripe not yet integrated – return placeholder response
+      res.json({ success: true, ...result });
+    } catch (error) {
+      log(`Purchase currency failed: ${error}`, "api");
       res.status(400).json({ success: false, error: String(error) });
     }
   });
