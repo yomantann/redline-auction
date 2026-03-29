@@ -490,7 +490,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '👻',
     category: 'Cursed',
     target: 'Opponent',
-    description: 'Target one opponent. 10% chance they are immediately ghosted — removed from play and spectating. Ghost comeback criteria assigned at ghost time.',
+    description: 'Target one opponent. 20% chance they are immediately ghosted — removed from play and spectating. Ghost comeback criteria assigned at ghost time.',
     flavour: 'You pull the trigger. The curse decides if it fires.',
     ghostNote: 'Target spectates until comeback condition met. Not a permanent elimination.',
   },
@@ -501,7 +501,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🐑',
     category: 'Spooky',
     target: 'Everyone',
-    description: 'Randomly removes one trophy from one player. Could be anyone including you.',
+    description: 'Randomly removes one trophy from one player. Could be anyone including you. Only available in the second half of the game.',
     flavour: 'The lamb is chosen. Not by you.',
   },
   {
@@ -594,7 +594,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '⚰️',
     category: 'Cursed',
     target: 'Opponent',
-    description: 'Activate before a round. If you are eliminated this round, choose now: one opponent loses 20s OR loses 1 trophy when you go out. If you survive the round, nothing happens — relic still consumed.',
+    description: 'Activate before a round. If you are ghosted this round, a random opponent loses 1 trophy. If you survive the round, nothing happens — relic still consumed. Cannot be activated on the final round.',
     flavour: 'You will not go quietly.',
   },
   {
@@ -614,7 +614,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '👁️',
     category: 'Cursed',
     target: 'Opponent',
-    description: "Choose one opponent. The next time they win a round, they are immediately ghosted after receiving their trophy. The mark persists until it fires. You also have a 50% chance of being ghosted when it triggers.",
+    description: "Choose one opponent. The next time they win a round, they are immediately ghosted after receiving their trophy. The mark persists until it fires. You also have a 50% chance of being ghosted when it triggers. Only available in the second half of the game.",
     flavour: 'Victory is their curse.',
   },
   {
@@ -627,16 +627,6 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     botOnly: true,
     description: "Choose one bot player. Their personality is overridden to 'aggressive' for the next 3 rounds — they will overbid recklessly and drain their bank faster.",
     flavour: 'Pull the strings. Watch them burn.',
-  },
-  {
-    id: 'pattern_lock',
-    number: '16',
-    name: 'Pattern Lock',
-    icon: '🔒',
-    category: 'Mystical',
-    target: 'Opponent',
-    description: "Look at one player's bid history. Their highest bid ever made becomes their forced minimum next round — they cannot release before reaching that value. If they can't afford it, they're eliminated trying.",
-    flavour: 'Your own history becomes your prison.',
   },
   {
     id: 'final_writ',
@@ -1032,6 +1022,8 @@ export default function Game() {
     votes: Record<string, string>;
     timeLeft: number;
   }>>([]);
+  // Ref to track when a bot in SP activates a vote relic (tribunal/conclave)
+  const pendingBotVoteRef = useRef<{ relicId: string; botId: string; botName: string; targetId?: string } | null>(null);
 
   // MP ghost ability panel state
   const [mpBargainOffer, setMpBargainOffer] = useState(1);
@@ -2824,13 +2816,13 @@ export default function Game() {
           const roll = Math.random();
           if (roll < 0.25) {
             activator.remainingTime = Math.min(activator.remainingTime + 40, 9999);
-            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 🎯 LUCKY!', '+40s added to your time bank!', 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 🎯 LUCKY!', '+40s added to your time bank!', 0), 200);
           } else if (roll < 0.5) {
             activator.tokens += 2;
-            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 🏆 JACKPOT!', '+2 trophies awarded!', 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 🏆 JACKPOT!', '+2 trophies awarded!', 0), 200);
           } else if (roll < 0.75) {
             activator.remainingTime = Math.max(0, activator.remainingTime - 30);
-            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 💀 CURSED!', '-30s removed from your time bank!', 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 💀 CURSED!', '-30s removed from your time bank!', 0), 200);
           } else {
             const ghostData = assignGhostImage();
             const savedTime = activator.remainingTime;
@@ -2849,7 +2841,7 @@ export default function Game() {
         case 'ghost_touch': {
           const target = next.find(p => p.id === targetId);
           if (target && !target.isGhost && !target.isEliminated) {
-            if (Math.random() < 0.10) {
+            if (Math.random() < 0.20) {
               const ghostData = assignGhostImage();
               const savedTime = target.remainingTime;
               target.isGhost = true;
@@ -2859,14 +2851,22 @@ export default function Game() {
               target.characterIcon = ghostData.characterIcon;
               target.ghostImage = ghostData.ghostImage;
               target.remainingTime = 0;
-              setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH FIRED', `${target.name} was consumed by the curse!`, 3000), 200);
+              // Activator overlay
+              setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH FIRED', `${target.name} was consumed by the curse!`, 0), 200);
             } else {
+              // Only activator sees the miss
               setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH: MISSED', `The curse didn't take. ${target.name} survives — this time.`, 3000), 200);
             }
           }
           break;
         }
         case 'sacrificial_lamb': {
+          // Only available in second half of game
+          if (round <= Math.floor(totalRounds / 2)) {
+            activator.relicConsumed = false;
+            setTimeout(() => addOverlay('haunted_relic', '❌ RELIC BLOCKED', 'Sacrificial Lamb can only be used in the second half of the game.', 3000), 200);
+            return prev;
+          }
           const victims = next.filter(p => !p.isGhost && !p.isEliminated && p.tokens > 0);
           if (victims.length > 0) {
             const victim = victims[Math.floor(Math.random() * victims.length)];
@@ -2911,6 +2911,12 @@ export default function Game() {
           break;
         }
         case 'marked': {
+          // Only available in second half of game
+          if (round <= Math.floor(totalRounds / 2)) {
+            activator.relicConsumed = false;
+            setTimeout(() => addOverlay('haunted_relic', '❌ RELIC BLOCKED', 'Marked can only be used in the second half of the game.', 3000), 200);
+            return prev;
+          }
           const target = next.find(p => p.id === targetId);
           if (target) {
             target.markedBy = activatorId;
@@ -2927,24 +2933,16 @@ export default function Game() {
           }
           break;
         }
-        case 'pattern_lock': {
-          const target = next.find(p => p.id === targetId);
-          if (target && target.bidHistory && target.bidHistory.length > 0) {
-            const maxBid = Math.max(...target.bidHistory);
-            target.patternLockMinBid = maxBid;
-            setTimeout(() => addOverlay('haunted_relic', '🔒 PATTERN LOCK', `${target.name}'s highest bid (${maxBid.toFixed(1)}s) is now their forced minimum next round.`, 3000), 200);
-          } else {
-            setTimeout(() => addOverlay('haunted_relic', '🔒 PATTERN LOCK: NO DATA', `${target?.name ?? 'Target'} has no bid history. Pattern Lock had no effect.`, 3000), 200);
-          }
-          break;
-        }
         case 'last_will': {
-          if (targetId && curseType) {
-            activator.pendingLastWill = { targetId, curseType };
-            const curseName = curseType === 'time' ? 'loses 20s' : 'loses 1 trophy';
-            const tName = next.find(p => p.id === targetId)?.name ?? 'target';
-            setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', `If you are ghosted this round, ${tName} ${curseName}. Survive to prevent it.`, 3000), 200);
+          // Cannot be activated on the final round
+          if (round >= totalRounds) {
+            activator.relicConsumed = false;
+            setTimeout(() => addOverlay('haunted_relic', '❌ RELIC BLOCKED', 'Last Will cannot be activated on the final round.', 3000), 200);
+            return prev;
           }
+          // Set a deferred flag — at end of round, if ghosted, a random opponent loses 1 trophy
+          activator.pendingLastWill = { targetId: '', curseType: 'trophy' };
+          setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', 'If you are ghosted this round, a random opponent loses 1 trophy. Survive to prevent it.', 0), 200);
           break;
         }
         case 'death_wish': {
@@ -2959,7 +2957,7 @@ export default function Game() {
         }
         case 'cursed_dice': {
           activator.cursedDiceActive = true;
-          setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE ARMED', 'After this round: 50/50 chance of +30s or −30s.', 3000), 200);
+          setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE ARMED', 'After this round: 50/50 chance of +30s or −30s.', 0), 200);
           break;
         }
         case 'seance': {
@@ -2985,7 +2983,7 @@ export default function Game() {
         }
         case 'final_writ': {
           activator.finalWritActive = true;
-          setTimeout(() => addOverlay('haunted_relic', '✒️ FINAL WRIT', 'You will automatically win the final round\'s trophy. The last page is written.', 4000), 200);
+          setTimeout(() => addOverlay('haunted_relic', '✒️ FINAL WRIT', 'You will automatically win the final round\'s trophy. The last page is written.', 0), 200);
           break;
         }
         case 'protocol_forcer': {
@@ -2994,7 +2992,7 @@ export default function Game() {
           const darkPool = ['DATA_BLACKOUT', 'SYSTEM_FAILURE', 'PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
           const picked = darkPool[Math.floor(Math.random() * darkPool.length)] as any;
           (activator as any).forcedProtocolValue = picked;
-          setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `Next round will be forced to run protocol: ${picked}`, 4000), 200);
+          setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `Next round will be forced to run protocol: ${picked}`, 0), 200);
           break;
         }
         // tribunal and conclave are handled below (outside setPlayers) for SP
@@ -3696,7 +3694,7 @@ export default function Game() {
             }
             case 'ghost_touch': {
               const target = pickRandom(opponents);
-              if (target && Math.random() < 0.10) {
+              if (target && Math.random() < 0.20) {
                 const ghostData = assignGhostImage();
                 const saved = target.remainingTime;
                 target.isGhost = true;
@@ -3710,10 +3708,18 @@ export default function Game() {
                   const ghostMsg = buildGhostAbilityMsg(`${bot.name}'s Ghost Touch claimed you — you are now a ghost.`, ghostData.ghostAbility);
                   setTimeout(() => addOverlay('time_out', '👻 GHOST TOUCH', ghostMsg, 0), 400);
                 }
+              } else if (target && target.id === 'p1') {
+                // p1 was the target but the curse missed — inform only p1
+                setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH: MISSED', `${bot.name} used Ghost Touch on you — the curse didn't take.`, 3000), 400);
               }
               break;
             }
             case 'sacrificial_lamb': {
+              // Only available in second half of game
+              if (round <= Math.floor(totalRounds / 2)) {
+                bot.relicConsumed = false;
+                break;
+              }
               const victims = alive.filter(p => p.tokens > 0);
               const victim = pickRandom(victims);
               if (victim) {
@@ -3794,13 +3800,13 @@ export default function Game() {
               break;
             }
             case 'last_will': {
-              const target = pickRandom(opponents);
-              if (target) {
-                const curseType = Math.random() < 0.5 ? 'time' : 'trophy';
-                bot.pendingLastWill = { targetId: target.id, curseType };
-                const curseName = curseType === 'time' ? 'loses 20s' : 'loses 1 trophy';
-                setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', `${bot.name} set Last Will — if ghosted, ${target.name} ${curseName}!`, 0), 200);
+              // Bot: set pending last will (random opponent, trophy only) — not on final round
+              if (round >= totalRounds) {
+                bot.relicConsumed = false;
+                break;
               }
+              bot.pendingLastWill = { targetId: '', curseType: 'trophy' };
+              setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', `${bot.name} set Last Will — if ghosted, a random opponent loses 1 trophy!`, 0), 200);
               break;
             }
             case 'echo': {
@@ -3813,6 +3819,11 @@ export default function Game() {
               break;
             }
             case 'marked': {
+              // Only available in second half of game
+              if (round <= Math.floor(totalRounds / 2)) {
+                bot.relicConsumed = false;
+                break;
+              }
               const target = pickRandom(opponents);
               if (target) {
                 target.markedBy = bot.id;
@@ -3831,58 +3842,28 @@ export default function Game() {
               }
               break;
             }
-            case 'pattern_lock': {
-              const target = pickRandom(opponents.filter(p => (p.bidHistory?.length ?? 0) > 0));
-              if (target && (target.bidHistory?.length ?? 0) > 0) {
-                const maxBid = Math.max(...target.bidHistory!);
-                target.patternLockMinBid = maxBid;
-                setTimeout(() => addOverlay('haunted_relic', '🔒 PATTERN LOCK', `${bot.name} used Pattern Lock — ${target.name} must bid ≥${maxBid.toFixed(1)}s next round!`, 0), 200);
-              } else {
-                bot.relicConsumed = false; // no history to lock
-              }
+            case 'pattern_lock':
+              // Removed relic — should not be in game anymore
+              bot.relicConsumed = false;
               break;
-            }
             case 'final_writ': {
               bot.finalWritActive = true;
               setTimeout(() => addOverlay('haunted_relic', '✒️ FINAL WRIT', `${bot.name} activated Final Writ — they will auto-win the final round!`, 0), 200);
               break;
             }
             case 'tribunal': {
-              // Bots don't trigger interactive vote UI — resolve effect directly (simulated vote)
+              // Store in ref so vote UI is shown after setPlayers resolves
               const target = pickRandom(opponents);
               if (target) {
-                const winnerOption = Math.random() < 0.5 ? 'A' : 'B';
-                if (winnerOption === 'A') {
-                  target.tribunalTimePenalty = (target.tribunalTimePenalty ?? 0) + 15;
-                  setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', `${bot.name} called a Tribunal — ${target.name} loses 15s next round!`, 0), 200);
-                } else {
-                  target.tribunalMinBid = 30;
-                  setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', `${bot.name} called a Tribunal — ${target.name} must bid ≥30s next round!`, 0), 200);
-                }
+                pendingBotVoteRef.current = { relicId: 'tribunal', botId: bot.id, botName: bot.name, targetId: target.id };
+              } else {
+                bot.relicConsumed = false;
               }
               break;
             }
             case 'conclave': {
-              // Bots resolve conclave via simulated majority vote
-              const outcomes = ['A', 'B', 'C', 'D'];
-              const pick2 = outcomes[Math.floor(Math.random() * outcomes.length)];
-              if (pick2 === 'A') {
-                alive.forEach(p => { p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10; });
-                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE A', `${bot.name} called Conclave A — all time banks halved!`, 0), 200);
-              } else if (pick2 === 'B') {
-                (window as any).__conclaveSkipNextRound = true;
-                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE B', `${bot.name} called Conclave B — next round will be skipped!`, 0), 200);
-              } else if (pick2 === 'C') {
-                (window as any).__conclaveProtocolsAlwaysOn = true;
-                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE C', `${bot.name} called Conclave C — protocols every round for the rest of the game!`, 0), 200);
-              } else {
-                const sorted = [...alive].sort((a, b) => a.tokens - b.tokens);
-                const minTok = sorted[0]?.tokens;
-                const bottom2 = sorted.filter(p => p.tokens === minTok).slice(0, 2);
-                if (bottom2.length < 2 && sorted[1]) bottom2.push(sorted[1]);
-                bottom2.slice(0, 2).forEach(p => { p.tokens = Math.max(0, p.tokens - 1); });
-                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE D', `${bot.name} called Conclave D — bottom 2 players each lose 1 trophy!`, 0), 200);
-              }
+              // Store in ref so vote UI is shown after setPlayers resolves
+              pendingBotVoteRef.current = { relicId: 'conclave', botId: bot.id, botName: bot.name };
               break;
             }
             default:
@@ -3892,6 +3873,15 @@ export default function Game() {
 
         return next;
       });
+
+      // After bot setPlayers: if a bot queued a vote relic, show the vote UI
+      if (pendingBotVoteRef.current) {
+        const voteData = pendingBotVoteRef.current;
+        pendingBotVoteRef.current = null;
+        setTimeout(() => {
+          fireRelicEffect(voteData.relicId, voteData.botId, voteData.targetId);
+        }, 100);
+      }
     }
 
     // Start timer at minimum bid time (penalty value)
@@ -4376,7 +4366,9 @@ export default function Game() {
             isGhost: isNewlyGhosted ? true : p.isGhost,
             ghostReason: isNewlyGhosted ? 'natural' : p.ghostReason,
             ghostAbility: isNewlyGhosted ? (ghostData?.ghostAbility ?? null) : p.ghostAbility,
+            ghostImage: isNewlyGhosted ? (ghostData?.ghostImage ?? p.ghostImage) : p.ghostImage,
             characterIcon: ghostData?.characterIcon ?? p.characterIcon,
+            ghostRoundsAlive: isNewlyGhosted ? 0 : p.ghostRoundsAlive,
             roundImpact: roundImpact,
             impactLogs: impactLogs,
             selfGain: selfGain,
@@ -4870,15 +4862,12 @@ export default function Game() {
           const wasGhostBefore = !!players.find(op => op.id === p.id)?.isGhost;
           const isGhostNow = !!p.isGhost;
           if (!wasGhostBefore && isGhostNow) {
-            const willTarget = finalPlayers.find(fp => fp.id === p.pendingLastWill!.targetId);
+            // Pick a random alive opponent (not the ghost themselves)
+            const eligible = finalPlayers.filter(fp => fp.id !== p.id && !fp.isGhost && !fp.isEliminated && fp.tokens > 0);
+            const willTarget = eligible.length > 0 ? eligible[Math.floor(Math.random() * eligible.length)] : null;
             if (willTarget) {
-              if (p.pendingLastWill.curseType === 'time') {
-                willTarget.remainingTime = Math.max(0, willTarget.remainingTime - 20);
-                setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 20s.`, 0), 1000);
-              } else {
-                willTarget.tokens = Math.max(0, willTarget.tokens - 1);
-                setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 1 trophy.`, 0), 1000);
-              }
+              willTarget.tokens = Math.max(0, willTarget.tokens - 1);
+              setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL TRIGGERED', `${p.name} left a curse — ${willTarget.name} loses 1 trophy.`, 0), 1000);
             }
           }
           p.pendingLastWill = undefined;
@@ -4913,10 +4902,10 @@ export default function Game() {
           if (gain) {
 
             p.remainingTime += 30;
-            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: LUCKY!', '+30s added to your bank!', 3000), 800);
+            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: LUCKY!', '+30s added to your bank!', 0), 800);
           } else {
             p.remainingTime = Math.max(0, p.remainingTime - 30);
-            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: CURSED!', '-30s removed from your bank!', 3000), 800);
+            if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: CURSED!', '-30s removed from your bank!', 0), 800);
           }
           p.cursedDiceActive = false;
         }
@@ -4976,6 +4965,28 @@ export default function Game() {
         p.tribunalMinBid = undefined;
         // Note: tribunalTimePenalty is applied at round start (next round's startCountdown)
       });
+
+      // Ghost safety counter: increment ghostRoundsAlive for all still-stuck ghosts.
+      // After 4 rounds as a ghost with no revival, force-revive them.
+      const isFinalRoundForRevive = round >= totalRounds;
+      if (!isFinalRoundForRevive) {
+        finalPlayers.forEach(ghost => {
+          if (!ghost.isGhost) return;
+          ghost.ghostRoundsAlive = (ghost.ghostRoundsAlive ?? 0) + 1;
+          if (ghost.ghostRoundsAlive >= 4) {
+            const reviveTime = Math.max(30, ghost.ghostTimeAtDeath ?? 0);
+            ghost.isGhost = false;
+            ghost.remainingTime = reviveTime;
+            ghost.ghostRoundsAlive = 0;
+            ghost.ghostAbility = null;
+            ghost.ghostAbilityUsed = true;
+            ghost.possessionRoundsLeft = undefined;
+            if (ghost.id === 'p1') {
+              setTimeout(() => addOverlay('ability_trigger', '🔄 REVIVED', `You have been revived after 4 rounds as a ghost with ${reviveTime.toFixed(1)}s!`, 0), 600);
+            }
+          }
+        });
+      }
     }
 
     // Trigger Animations
@@ -8333,15 +8344,22 @@ export default function Game() {
               // Séance: check if 2+ ghosts are present
               const activeGhosts = displayPlayers.filter(p => p.isGhost && !p.isEliminated);
               const seanceBlocked = relicDef.requiresGhosts !== undefined && activeGhosts.length < relicDef.requiresGhosts;
+              // Sacrificial Lamb / Marked: only available in second half
+              const currentRound = isMultiplayer ? (multiplayerGameState?.round ?? round) : round;
+              const currentTotalRounds = isMultiplayer ? (multiplayerGameState?.totalRounds ?? totalRounds) : totalRounds;
+              const secondHalfBlocked = (relicDef.id === 'sacrificial_lamb' || relicDef.id === 'marked') && currentRound <= Math.floor(currentTotalRounds / 2);
+              // Last Will: blocked on final round
+              const lastWillBlocked = relicDef.id === 'last_will' && currentRound >= currentTotalRounds;
+              const isBlocked = seanceBlocked || secondHalfBlocked || lastWillBlocked;
 
               return (
                 <div className="mt-3 flex flex-col items-center">
                   <button
-                    onClick={() => !seanceBlocked && setRelicModalOpen(true)}
-                    disabled={seanceBlocked}
+                    onClick={() => !isBlocked && setRelicModalOpen(true)}
+                    disabled={isBlocked}
                     className={cn(
                       "px-5 py-2 rounded-lg border text-sm font-bold transition-all active:scale-95",
-                      seanceBlocked
+                      isBlocked
                         ? "border-zinc-700/40 bg-zinc-900/30 text-zinc-600 cursor-not-allowed"
                         : "border-teal-500/40 bg-teal-950/30 text-teal-300 hover:bg-teal-900/50 hover:border-teal-400/60"
                     )}
@@ -8351,7 +8369,13 @@ export default function Game() {
                   {seanceBlocked && (
                     <p className="text-zinc-600 text-[10px] mt-1">Requires {relicDef.requiresGhosts}+ active ghosts ({activeGhosts.length} present)</p>
                   )}
-                  {!seanceBlocked && <p className="text-zinc-600 text-[10px] mt-1">{relicDef.category} · → {relicDef.target}</p>}
+                  {secondHalfBlocked && (
+                    <p className="text-zinc-600 text-[10px] mt-1">Only available in the second half (after round {Math.floor(currentTotalRounds / 2)})</p>
+                  )}
+                  {lastWillBlocked && (
+                    <p className="text-zinc-600 text-[10px] mt-1">Cannot be used on the final round</p>
+                  )}
+                  {!isBlocked && <p className="text-zinc-600 text-[10px] mt-1">{relicDef.category} · → {relicDef.target}</p>}
                 </div>
               );
             })()}
@@ -8434,7 +8458,7 @@ export default function Game() {
               }
 
               const isLastWill = relicDef.id === 'last_will';
-              const needsOpponentTarget = relicDef.target === 'Opponent';
+              const needsOpponentTarget = relicDef.target === 'Opponent' && !isLastWill;
               const targetList = relicDef.botOnly ? botOpponents : opponents;
 
               return (
@@ -8444,8 +8468,8 @@ export default function Game() {
                     <p className="text-zinc-400 text-sm text-center leading-snug">{relicDef.description}</p>
                     <p className="text-zinc-600 text-xs text-center italic">{relicDef.flavour}</p>
 
-                    {/* Self or Everyone relics — activate immediately */}
-                    {(relicDef.target === 'Self' || relicDef.target === 'Everyone') && !isLastWill && (
+                    {/* Self, Everyone, or Last Will relics — activate immediately */}
+                    {(relicDef.target === 'Self' || relicDef.target === 'Everyone' || isLastWill) && (
                       <div className="flex gap-2 pt-2">
                         <button
                           onClick={() => fireRelic()}
@@ -8457,8 +8481,8 @@ export default function Game() {
                       </div>
                     )}
 
-                    {/* Opponent-targeted relics (not Last Will) */}
-                    {needsOpponentTarget && !isLastWill && (
+                    {/* Opponent-targeted relics */}
+                    {needsOpponentTarget && (
                       <>
                         <p className="text-zinc-500 text-xs text-center">Choose target:</p>
                         <div className="space-y-1.5 max-h-48 overflow-y-auto">
@@ -8478,15 +8502,6 @@ export default function Game() {
                         </div>
                         <button onClick={() => setRelicModalOpen(false)} className="w-full py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
                       </>
-                    )}
-
-                    {/* Last Will: pick target + curse type via inline form */}
-                    {isLastWill && (
-                      <LastWillPickerInline
-                        opponents={opponents as any[]}
-                        onConfirm={(tid, ct) => fireRelic(tid, ct)}
-                        onCancel={() => setRelicModalOpen(false)}
-                      />
                     )}
                   </div>
                 </div>
