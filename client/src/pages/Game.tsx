@@ -308,6 +308,7 @@ interface Player {
   ghostReason?: 'natural' | 'forced';   // 'natural' = ran out of time; 'forced' = externally ghosted with time remaining
   ghostTimeAtDeath?: number;             // Time bank frozen at moment of forced ghosting
   ghostImage?: string;                   // ghost image key e.g. 'hnt_ghost_3'
+  ghostRoundsAlive?: number;             // Fallback revival: rounds spent as a ghost (auto-revive after 4)
   // Relic state
   relicConsumed?: boolean;               // Whether this player's relic has been used/consumed
   bidHistory?: number[];                 // All historical bids (for Echo + Pattern Lock relics)
