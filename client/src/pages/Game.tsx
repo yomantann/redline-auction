@@ -1573,17 +1573,17 @@ export default function Game() {
           const pv = (state as any).pendingVote;
           const activatorPlayer = state.players.find((p: any) => p.id === pv.activatorId);
           const targetPlayer = pv.targetId ? state.players.find((p: any) => p.id === pv.targetId) : undefined;
-          const freshTimeLeft = Math.max(0, Math.floor((pv.deadline - Date.now()) / 1000));
+          const currentTimeLeft = Math.max(0, Math.floor((pv.deadline - Date.now()) / 1000));
           setVoteRelicState(prev => {
             // Update votes and timeLeft; preserve myVote if already cast for this same vote
-            if (prev && !prev.resolved && prev.relicId === pv.relicId) return { ...prev, votes: pv.votes, timeLeft: freshTimeLeft };
+            if (prev && !prev.resolved && prev.relicId === pv.relicId) return { ...prev, votes: pv.votes, timeLeft: currentTimeLeft };
             return {
               relicId: pv.relicId,
               activatorName: activatorPlayer?.name ?? 'Player',
               targetName: targetPlayer?.name,
               options: pv.options,
               votes: pv.votes,
-              timeLeft: freshTimeLeft,
+              timeLeft: currentTimeLeft,
             };
           });
         } else if ((state as any).pendingVote?.resolved) {
@@ -3229,9 +3229,10 @@ export default function Game() {
       // PATTERN LOCK / ECHO: block SP release if below forced minimum
       const effectiveMinBid = Math.max(p1?.patternLockMinBid ?? 0, p1?.echoForcedBid ?? 0);
       if ((p1?.patternLockMinBid !== undefined || p1?.echoForcedBid !== undefined) && bidTime < effectiveMinBid) {
+        const isEchoLockOnly = p1?.echoForcedBid !== undefined && p1?.patternLockMinBid === undefined;
         toast({
-          title: p1?.echoForcedBid !== undefined && p1?.patternLockMinBid === undefined ? '🔁 ECHO LOCK' : '🔒 PATTERN LOCK',
-          description: `You cannot release before ${effectiveMinBid.toFixed(1)}s (${p1?.echoForcedBid !== undefined && p1?.patternLockMinBid === undefined ? 'Echo lock' : 'Pattern Lock'} active)!`,
+          title: isEchoLockOnly ? '🔁 ECHO LOCK' : '🔒 PATTERN LOCK',
+          description: `You cannot release before ${effectiveMinBid.toFixed(1)}s (${isEchoLockOnly ? 'Echo lock' : 'Pattern Lock'} active)!`,
           variant: 'destructive',
           duration: 3000,
         });
