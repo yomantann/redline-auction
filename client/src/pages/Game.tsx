@@ -308,6 +308,7 @@ interface Player {
   ghostReason?: 'natural' | 'forced';   // 'natural' = ran out of time; 'forced' = externally ghosted with time remaining
   ghostTimeAtDeath?: number;             // Time bank frozen at moment of forced ghosting
   ghostImage?: string;                   // ghost image key e.g. 'hnt_ghost_3'
+  ghostRoundsAlive?: number;             // Fallback revival: rounds spent as a ghost (auto-revive after 4)
   // Relic state
   relicConsumed?: boolean;               // Whether this player's relic has been used/consumed
   bidHistory?: number[];                 // All historical bids (for Echo + Pattern Lock relics)
@@ -1572,16 +1573,17 @@ export default function Game() {
           const pv = (state as any).pendingVote;
           const activatorPlayer = state.players.find((p: any) => p.id === pv.activatorId);
           const targetPlayer = pv.targetId ? state.players.find((p: any) => p.id === pv.targetId) : undefined;
+          const currentTimeLeft = Math.max(0, Math.floor((pv.deadline - Date.now()) / 1000));
           setVoteRelicState(prev => {
-            // Don't overwrite if already voted
-            if (prev && !prev.resolved && prev.relicId === pv.relicId) return { ...prev, votes: pv.votes };
+            // Update votes and timeLeft; preserve myVote if already cast for this same vote
+            if (prev && !prev.resolved && prev.relicId === pv.relicId) return { ...prev, votes: pv.votes, timeLeft: currentTimeLeft };
             return {
               relicId: pv.relicId,
               activatorName: activatorPlayer?.name ?? 'Player',
               targetName: targetPlayer?.name,
               options: pv.options,
               votes: pv.votes,
-              timeLeft: Math.max(0, Math.floor((pv.deadline - Date.now()) / 1000)),
+              timeLeft: currentTimeLeft,
             };
           });
         } else if ((state as any).pendingVote?.resolved) {
@@ -1713,6 +1715,13 @@ export default function Game() {
       addOverlay('ability_trigger', data.title, data.message, 0);
     };
 
+    const handleRelicPrivate = (data: { socketId: string; title: string; message: string }) => {
+      // Show a private overlay only to the intended recipient (matched by socket ID)
+      if (data.socketId === socket.id) {
+        addOverlay('haunted_relic', data.title, data.message, 0);
+      }
+    };
+
     socket.on('lobby_update', handleLobbyUpdate);
     socket.on('game_started', handleGameStarted);
     socket.on('game_state', handleGameState);
@@ -1722,6 +1731,7 @@ export default function Game() {
     socket.on('bonus_trophy_award', handleBonusTrophyAward);
     socket.on('vote_relic_resolved', handleVoteRelicResolved);
     socket.on('relic_broadcast', handleRelicBroadcast);
+    socket.on('relic_private', handleRelicPrivate);
 
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
@@ -1733,6 +1743,7 @@ export default function Game() {
       socket.off('bonus_trophy_award', handleBonusTrophyAward);
       socket.off('vote_relic_resolved', handleVoteRelicResolved);
       socket.off('relic_broadcast', handleRelicBroadcast);
+      socket.off('relic_private', handleRelicPrivate);
     };
   }, [socket]);
 
@@ -2855,7 +2866,7 @@ export default function Game() {
               setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH FIRED', `${target.name} was consumed by the curse!`, 0), 200);
             } else {
               // Only activator sees the miss
-              setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH: MISSED', `The curse didn't take. ${target.name} survives — this time.`, 3000), 200);
+              setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH: MISSED', `The curse didn't take. ${target.name} survives — this time.`, 0), 200);
             }
           }
           break;
@@ -2903,9 +2914,9 @@ export default function Game() {
             const lastBid = target.bidHistory?.length ? target.bidHistory[target.bidHistory.length - 1] : null;
             if (lastBid != null) {
               target.echoForcedBid = lastBid;
-              setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${target.name}'s last bid (${lastBid.toFixed(1)}s) is locked as their forced bid next round.`, 3000), 200);
+              setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${target.name}'s last bid (${lastBid.toFixed(1)}s) is locked as their forced bid next round.`, 0), 200);
             } else {
-              setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO: NO HISTORY', `${target.name} has no bid history yet. Echo had no effect.`, 3000), 200);
+              setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO: NO HISTORY', `${target.name} has no bid history yet. Echo had no effect.`, 0), 200);
             }
           }
           break;
@@ -2920,7 +2931,7 @@ export default function Game() {
           const target = next.find(p => p.id === targetId);
           if (target) {
             target.markedBy = activatorId;
-            setTimeout(() => addOverlay('haunted_relic', '👁️ MARKED', `${target.name} is marked. The next time they win a round, they will be ghosted.`, 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '👁️ MARKED', `${target.name} is marked. The next time they win a round, they will be ghosted.`, 0), 200);
           }
           break;
         }
@@ -2929,7 +2940,11 @@ export default function Game() {
           if (target) {
             target.corruptRoundsLeft = 3;
             target.personality = 'aggressive';
-            setTimeout(() => addOverlay('haunted_relic', '🦠 CORRUPT', `${target.name}'s personality is now AGGRESSIVE for 3 rounds!`, 3000), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🦠 CORRUPT', `${target.name}'s personality is now AGGRESSIVE for 3 rounds!`, 0), 200);
+          } else {
+            // No valid bot targets — refund and notify
+            activator.relicConsumed = false;
+            setTimeout(() => addOverlay('haunted_relic', '🦠 CORRUPT: NO TARGETS', 'No eligible bot targets available to corrupt.', 0), 200);
           }
           break;
         }
@@ -2947,7 +2962,7 @@ export default function Game() {
         }
         case 'death_wish': {
           activator.deathWishActive = true;
-          setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH', 'Win this round for +2 trophies instead of 1. Lose and forfeit an extra 15s.', 3000), 200);
+          setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH', 'Win this round for +2 trophies instead of 1. Lose and forfeit an extra 15s.', 0), 200);
           break;
         }
         case 'blood_pact': {
@@ -2972,6 +2987,8 @@ export default function Game() {
             const reviveTime = Math.max(45, ghost.ghostTimeAtDeath ?? 0);
             ghost.isGhost = false;
             ghost.remainingTime = reviveTime;
+            ghost.ghostImage = undefined;
+            ghost.characterIcon = undefined;
             ghost.ghostAbility = null;
             ghost.ghostAbilityUsed = false;
             ghost.possessionTargetId = undefined;
@@ -3209,12 +3226,13 @@ export default function Game() {
       const bidTime = parseFloat(currentTime.toFixed(1));
       const p1 = players.find(p => p.id === 'p1');
 
-      // PATTERN LOCK: block SP release if below forced minimum (also accounts for echoForcedBid)
+      // PATTERN LOCK / ECHO: block SP release if below forced minimum
       const effectiveMinBid = Math.max(p1?.patternLockMinBid ?? 0, p1?.echoForcedBid ?? 0);
-      if (p1?.patternLockMinBid !== undefined && bidTime < effectiveMinBid) {
+      if ((p1?.patternLockMinBid !== undefined || p1?.echoForcedBid !== undefined) && bidTime < effectiveMinBid) {
+        const isEchoLockOnly = p1?.echoForcedBid !== undefined && p1?.patternLockMinBid === undefined;
         toast({
-          title: '🔒 PATTERN LOCK',
-          description: `You cannot release before ${effectiveMinBid.toFixed(1)}s (Pattern Lock active)!`,
+          title: isEchoLockOnly ? '🔁 ECHO LOCK' : '🔒 PATTERN LOCK',
+          description: `You cannot release before ${effectiveMinBid.toFixed(1)}s (${isEchoLockOnly ? 'Echo lock' : 'Pattern Lock'} active)!`,
           variant: 'destructive',
           duration: 3000,
         });
@@ -3710,7 +3728,7 @@ export default function Game() {
                 }
               } else if (target && target.id === 'p1') {
                 // p1 was the target but the curse missed — inform only p1
-                setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH: MISSED', `${bot.name} used Ghost Touch on you — the curse didn't take.`, 3000), 400);
+                setTimeout(() => addOverlay('haunted_relic', '👻 GHOST TOUCH: MISSED', `${bot.name} used Ghost Touch on you — the curse didn't take.`, 0), 400);
               }
               break;
             }
@@ -3772,6 +3790,7 @@ export default function Game() {
                   ghost.isGhost = false;
                   ghost.remainingTime = reviveTime;
                   ghost.ghostImage = undefined;
+                  ghost.characterIcon = undefined;
                   ghost.ghostAbility = null;
                   ghost.ghostAbilityUsed = false;
                   ghost.possessionTargetId = undefined;
@@ -3815,6 +3834,10 @@ export default function Game() {
                 const lastBid = target.bidHistory![target.bidHistory!.length - 1];
                 target.echoForcedBid = lastBid;
                 setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${bot.name} used Echo — ${target.name} must replay their last bid (${lastBid.toFixed(1)}s) next round!`, 0), 200);
+                // Give p1 a personal notification if they are the target
+                if (target.id === 'p1') {
+                  setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO: BID LOCKED', `${bot.name} locked your bid — you MUST bid ${lastBid.toFixed(1)}s next round!`, 0), 400);
+                }
               }
               break;
             }
@@ -3874,14 +3897,17 @@ export default function Game() {
         return next;
       });
 
-      // After bot setPlayers: if a bot queued a vote relic, show the vote UI
-      if (pendingBotVoteRef.current) {
-        const voteData = pendingBotVoteRef.current;
-        pendingBotVoteRef.current = null;
-        setTimeout(() => {
-          fireRelicEffect(voteData.relicId, voteData.botId, voteData.targetId);
-        }, 100);
-      }
+      // After bot setPlayers: if a bot queued a vote relic, show the vote UI.
+      // Use a brief delay to allow React to flush the setPlayers updater before reading the ref.
+      setTimeout(() => {
+        if (pendingBotVoteRef.current) {
+          const voteData = pendingBotVoteRef.current;
+          pendingBotVoteRef.current = null;
+          setTimeout(() => {
+            fireRelicEffect(voteData.relicId, voteData.botId, voteData.targetId);
+          }, 100);
+        }
+      }, 50);
     }
 
     // Start timer at minimum bid time (penalty value)
@@ -4652,10 +4678,9 @@ export default function Game() {
 
     // --- GHOST ABILITY PROCESSING (Haunted mode, SP) ---
     if (variant === 'HAUNTED') {
-      // Find ghosts that have an unused ability assigned this round (newly ghosted this round)
+      // Find ghosts that have an unused ability assigned this round (newly ghosted or jackpot-ghosted in ready phase)
       const newlyGhosted = finalPlayers.filter(p =>
-        p.isGhost && !p.ghostAbilityUsed && p.ghostAbility &&
-        !players.find(op => op.id === p.id)?.isGhost // was not already a ghost before this round
+        p.isGhost && !p.ghostAbilityUsed && p.ghostAbility
       );
 
       for (const ghost of newlyGhosted) {
@@ -4808,6 +4833,8 @@ export default function Game() {
             } else {
               ghost.isGhost = false;
               ghost.remainingTime = 45;
+              ghost.ghostImage = undefined;
+              ghost.characterIcon = undefined;
               ghost.possessionTargetId = undefined;
               ghost.possessionRoundsLeft = undefined;
               if (ghost.id === 'p1') {
@@ -4838,6 +4865,8 @@ export default function Game() {
               }
               ghost.isGhost = false;
               ghost.remainingTime = Math.max(10, reviveTime);
+              ghost.ghostImage = undefined;
+              ghost.characterIcon = undefined;
               ghost.possessionRoundsLeft = undefined;
               if (ghost.id === 'p1') {
                 const abilityLabel = ghost.ghostAbility === 'purgatory' ? '🌑 PURGATORY RETURN' : '🔄 FALLBACK REVIVAL';
@@ -4877,10 +4906,10 @@ export default function Game() {
         if (p.deathWishActive) {
           if (p.id === winnerId) {
             p.tokens += 1; // +2 total (normal +1 already applied), so add 1 more
-            setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH: WIN!', '+1 bonus trophy (total +2 this round)!', 3000), 800);
+            setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH: WIN!', '+1 bonus trophy (total +2 this round)!', 0), 800);
           } else if (!p.isGhost && !p.isEliminated) {
             p.remainingTime = Math.max(0, p.remainingTime - 15);
-            if (p.id === 'p1') setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH: CURSED', '-15s extra penalty for not winning.', 3000), 800);
+            if (p.id === 'p1') setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH: CURSED', '-15s extra penalty for not winning.', 0), 800);
           }
           p.deathWishActive = false;
         }
@@ -4977,6 +5006,8 @@ export default function Game() {
             const reviveTime = Math.max(30, ghost.ghostTimeAtDeath ?? 0);
             ghost.isGhost = false;
             ghost.remainingTime = reviveTime;
+            ghost.ghostImage = undefined;
+            ghost.characterIcon = undefined;
             ghost.ghostRoundsAlive = 0;
             ghost.ghostAbility = null;
             ghost.ghostAbilityUsed = true;
@@ -6027,9 +6058,10 @@ export default function Game() {
     }
     
     if (round < totalRounds) {
-      // STRICT LIFECYCLE: Clear ALL overlays, protocol state, and animations from previous round
+      // STRICT LIFECYCLE: Clear only timed overlays; preserve manual-dismiss (duration=0) ones
+      // so important notifications (death wish result, ghost touch miss, etc.) can be read.
       setActiveProtocol(null); // Reset protocol so ready phase isn't affected by last round's protocol
-      setOverlay(null);
+      setOverlays(prev => prev.filter(o => (o.duration ?? 0) === 0));
       setAnimations([]);
       
       setRound(prev => prev + 1);
@@ -6531,6 +6563,12 @@ export default function Game() {
           <div className="h-[280px] flex items-center justify-center">
             {currentPlayerEliminated ? (
               <div className="text-zinc-600 text-lg uppercase tracking-widest">ELIMINATED</div>
+            ) : currentPlayerIsGhost && variant === 'HAUNTED' ? (
+              <div className="text-center space-y-2">
+                <div className="text-3xl">👻</div>
+                <p className="text-teal-300 text-sm font-bold">YOU ARE A GHOST</p>
+                <p className="text-zinc-500 text-xs">Waiting for the round to begin…</p>
+              </div>
             ) : (
               <AuctionButton 
                 onPress={handlePress} 
@@ -7839,9 +7877,14 @@ export default function Game() {
                   <button onClick={() => handleBargainSubmit(false)} className="px-6 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white">Reject</button>
                 </div>
               ) : bargGhost?.id === 'p1' ? (
-                <div className="flex gap-3 justify-center mt-2">
-                  <button onClick={() => handleBargainSubmit(true)} disabled={maxOffer === 0} className="px-6 py-2 rounded-lg bg-teal-700 hover:bg-teal-600 text-white font-bold disabled:opacity-40">Send Offer</button>
-                  <button onClick={() => { setBargainGhostId(null); setBargainTargetId(null); setPhase('round_end'); }} className="px-6 py-2 rounded-lg bg-zinc-700 text-white">Cancel</button>
+                <div className="space-y-2">
+                  {maxOffer === 0 ? (
+                    <p className="text-zinc-400 text-sm">You have no trophies to offer. Cancel to skip.</p>
+                  ) : null}
+                  <div className="flex gap-3 justify-center mt-2">
+                    <button onClick={() => handleBargainSubmit(true)} disabled={maxOffer === 0} className="px-6 py-2 rounded-lg bg-teal-700 hover:bg-teal-600 text-white font-bold disabled:opacity-40">Send Offer</button>
+                    <button onClick={() => { setBargainGhostId(null); setBargainTargetId(null); setPhase('round_end'); }} className="px-6 py-2 rounded-lg bg-zinc-700 text-white">Cancel</button>
+                  </div>
                 </div>
               ) : (
                 <p className="text-zinc-500 text-sm">Resolving automatically…</p>

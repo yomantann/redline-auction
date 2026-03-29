@@ -1877,6 +1877,7 @@ function endRound(lobbyCode: string) {
           if (!isFinalRound) {
             ghost.isGhost = false;
             ghost.remainingTime = 45;
+            ghost.ghostImage = undefined;
             addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} POSSESSION: revived with 45s!`, basic: true });
           }
           ghost.possessionTargetId = undefined;
@@ -1897,6 +1898,7 @@ function endRound(lobbyCode: string) {
             }
             ghost.isGhost = false;
             ghost.remainingTime = Math.max(10, reviveTime);
+            ghost.ghostImage = undefined;
             addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} PURGATORY: revived with ${ghost.remainingTime.toFixed(1)}s!`, basic: true });
           }
           ghost.possessionRoundsLeft = undefined;
@@ -1919,6 +1921,7 @@ function endRound(lobbyCode: string) {
           const reviveTime = Math.max(30, ghost.ghostTimeAtDeath ?? 0);
           ghost.isGhost = false;
           ghost.remainingTime = reviveTime;
+          ghost.ghostImage = undefined;
           ghost.ghostRoundsAlive = 0;
           // Clear stale ghost state
           ghost.ghostAbility = null;
@@ -3831,7 +3834,12 @@ export function activateRelicMP(
         activator.ghostImage = `hnt_ghost_${idx}`;
         activator.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: GHOSTED`, basic: true });
-        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 👻 GHOSTED!', message: `${activator.name} hit Jackpot — they've been ghosted!` });
+        if (emitToLobby) {
+          emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 👻 GHOSTED!', message: `${activator.name} hit Jackpot — they've been ghosted!` });
+          // Private notification to the activator with their ghost ability
+          const abilityName = activator.ghostAbility ? activator.ghostAbility.toUpperCase() : 'UNKNOWN';
+          emitToLobby(lobbyCode, 'relic_private', { socketId: activator.socketId, title: '🎰 JACKPOT: YOU ARE A GHOST', message: `The wheel turned against you. You've been ghosted! Your ghost ability: ${abilityName}` });
+        }
       }
       break;
     }
@@ -3932,7 +3940,16 @@ export function activateRelicMP(
         target.corruptRoundsLeft = 3;
         target.personality = 'aggressive';
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CORRUPT: ${target.name} is now AGGRESSIVE for 3 rounds!`, basic: true });
-        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🦠 CORRUPT', message: `${activator.name} corrupted ${target.name} — they go AGGRESSIVE for 3 rounds!`, victimId: target.id });
+        if (emitToLobby) {
+          emitToLobby(lobbyCode, 'relic_broadcast', { title: '🦠 CORRUPT', message: `${activator.name} corrupted ${target.name} — they go AGGRESSIVE for 3 rounds!`, victimId: target.id });
+          // Private confirmation to the activator
+          emitToLobby(lobbyCode, 'relic_private', { socketId: activator.socketId, title: '🦠 CORRUPT APPLIED', message: `${target.name} is now AGGRESSIVE for 3 rounds!` });
+        }
+      } else {
+        // No valid bot targets — refund and notify activator privately
+        activator.relicConsumed = false;
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_private', { socketId: activator.socketId, title: '🦠 CORRUPT: NO TARGETS', message: 'No eligible bot targets available to corrupt. Relic refunded.' });
+        return { success: false, error: 'No valid bot targets' };
       }
       break;
     }
