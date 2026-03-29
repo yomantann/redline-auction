@@ -166,6 +166,16 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Maps a CosmeticType to the corresponding slot key in EquippedCosmetics. */
+function getSlotFromType(type: CosmeticType): keyof EquippedCosmetics {
+  switch (type) {
+    case 'logo':       return 'logo';
+    case 'border':     return 'border';
+    case 'background': return 'background';
+    case 'driverSkin': return 'driverSkin';
+  }
+}
+
 /**
  * Returns new credit balance after converting achievements.
  * Only converts achievements beyond what has already been converted.
@@ -236,15 +246,10 @@ export function equipCosmetic(
   if (!profile.ownedCosmetics.includes(cosmeticId))
     throw new Error(`Cosmetic '${cosmeticId}' not owned.`);
 
+  const slot = getSlotFromType(item.type);
   const newEquipped: EquippedCosmetics = {
     ...profile.equippedCosmetics,
-    [item.type === 'logo'
-      ? 'logo'
-      : item.type === 'border'
-        ? 'border'
-        : item.type === 'background'
-          ? 'background'
-          : 'driverSkin']: cosmeticId,
+    [slot]: cosmeticId,
   };
 
   return {
@@ -264,17 +269,9 @@ export function unequipCosmetic(
   const item = COSMETICS_CATALOG.find((c) => c.id === cosmeticId);
   if (!item) throw new Error(`Cosmetic '${cosmeticId}' not found.`);
 
-  const slot =
-    item.type === 'logo'
-      ? 'logo'
-      : item.type === 'border'
-        ? 'border'
-        : item.type === 'background'
-          ? 'background'
-          : 'driverSkin';
-
+  const slot = getSlotFromType(item.type);
   const newEquipped: EquippedCosmetics = { ...profile.equippedCosmetics };
-  delete newEquipped[slot as keyof EquippedCosmetics];
+  delete newEquipped[slot];
 
   return {
     ...profile,
