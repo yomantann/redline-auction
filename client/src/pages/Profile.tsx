@@ -422,6 +422,18 @@ export default function Profile() {
                 Lifetime earned: {profile.lifetimeEarned.toLocaleString()} &nbsp;·&nbsp;
                 Spent: {profile.lifetimeSpent.toLocaleString()}
               </div>
+              {/* Wins per mode summary */}
+              {profile.winsPerMode && Object.keys(profile.winsPerMode).length > 0 && (
+                <div className="text-xs text-zinc-500 mt-1 flex flex-wrap gap-2">
+                  {Object.entries(profile.winsPerMode).map(([k, v]) => (
+                    v > 0 ? (
+                      <span key={k} className="bg-zinc-800 border border-zinc-700 rounded px-2 py-0.5 text-zinc-300 capitalize">
+                        {k.replace('_', ' ').replace('sp', 'SP').replace('mp', 'MP')}: {v}W
+                      </span>
+                    ) : null
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Conversion info */}

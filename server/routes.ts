@@ -24,23 +24,28 @@ import {
   castVoteRelic,
   type GameDuration
 } from "./gameEngine";
-import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
+import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage, recordStripeTransaction } from "./snapshotDb";
 import {
   insertGameSnapshotSchema,
   insertGameSummarySchema,
   createProfileSchema,
   convertAchievementsSchema,
+  convertGameSchema,
   purchaseCosmeticSchema,
   equipCosmeticSchema,
   purchaseCurrencySchema,
 } from "@shared/schema";
 import {
   COSMETICS_CATALOG,
+  COSMETIC_CATEGORY_CONFIG,
+  createDefaultProfile,
   convertAchievementsToCurrency,
+  convertGameToCurrency,
   purchaseCosmetic,
   equipCosmetic,
   unequipCosmetic,
   purchaseCurrency,
+  addCurrencyFromStripe,
 } from "./currencyEngine";
 
 // Socket.IO instance - exported for later expansion
@@ -900,20 +905,7 @@ export async function registerRoutes(
       const { id } = req.params;
       let profile = await storage.getPlayerProfile(id);
       if (!profile) {
-        const now = new Date().toISOString();
-        profile = {
-          id,
-          username: `Driver_${id.slice(0, 6)}`,
-          currencyBalance: 0,
-          lifetimeEarned: 0,
-          lifetimeSpent: 0,
-          ownedCosmetics: ['logo_default', 'border_default', 'bg_default', 'skin_default'],
-          equippedCosmetics: {},
-          convertedTrophies: 0,
-          convertedMomentFlags: 0,
-          createdAt: now,
-          updatedAt: now,
-        };
+        profile = createDefaultProfile(id, `Driver_${id.slice(0, 6)}`);
         await storage.upsertPlayerProfile(profile);
       }
       res.json({ success: true, profile });
@@ -932,20 +924,7 @@ export async function registerRoutes(
         // Update username only
         profile = { ...profile, username, updatedAt: new Date().toISOString() };
       } else {
-        const now = new Date().toISOString();
-        profile = {
-          id,
-          username,
-          currencyBalance: 0,
-          lifetimeEarned: 0,
-          lifetimeSpent: 0,
-          ownedCosmetics: ['logo_default', 'border_default', 'bg_default', 'skin_default'],
-          equippedCosmetics: {},
-          convertedTrophies: 0,
-          convertedMomentFlags: 0,
-          createdAt: now,
-          updatedAt: now,
-        };
+        profile = createDefaultProfile(id, username);
       }
       const saved = await storage.upsertPlayerProfile(profile);
       res.json({ success: true, profile: saved });
@@ -955,7 +934,7 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/player/:id/convert – convert achievements to credits
+  // POST /api/player/:id/convert – legacy general-purpose conversion (no gameId lock)
   app.post("/api/player/:id/convert", async (req, res) => {
     try {
       const { id } = req.params;
@@ -980,9 +959,52 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/cosmetics – return full cosmetics catalog
+  /**
+   * POST /api/player/:id/convert-game
+   *
+   * End-game credit conversion. Called once per completed game (SP or MP) at
+   * game_end phase.  Idempotent: repeated calls with the same gameId are
+   * silently ignored so the client can retry without doubling credits.
+   *
+   * ANTI-CHEAT:
+   *  - Each gameId can only be converted ONCE per player profile.
+   *  - Trophy / momentFlag counts are capped by the Zod schema (max 200 / 500).
+   *  - Balance is written server-side only; the updated profile is returned.
+   *  - Win tracking & milestone checks happen atomically inside the engine.
+   */
+  app.post("/api/player/:id/convert-game", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const parsed = convertGameSchema.parse(req.body);
+
+      let profile = await storage.getPlayerProfile(id);
+      if (!profile) {
+        // Auto-create profile if not found (handles first-time players)
+        profile = createDefaultProfile(id, `Driver_${id.slice(0, 6)}`);
+      }
+
+      const alreadyConverted = profile.convertedGameIds.includes(parsed.gameId);
+      const { creditsEarned, milestoneUnlocked, updatedProfile } = convertGameToCurrency(
+        profile,
+        parsed.gameId,
+        parsed.trophies,
+        parsed.momentFlags,
+        parsed.isWinner,
+        parsed.variant,
+        parsed.isMultiplayer,
+      );
+
+      await storage.upsertPlayerProfile(updatedProfile);
+      res.json({ success: true, creditsEarned, milestoneUnlocked, alreadyConverted, profile: updatedProfile });
+    } catch (error) {
+      log(`Convert-game failed: ${error}`, "api");
+      res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
+  // GET /api/cosmetics – return full cosmetics catalog with category config
   app.get("/api/cosmetics", (_req, res) => {
-    res.json({ success: true, cosmetics: COSMETICS_CATALOG });
+    res.json({ success: true, cosmetics: COSMETICS_CATALOG, categoryConfig: COSMETIC_CATEGORY_CONFIG });
   });
 
   // POST /api/player/:id/purchase – purchase a cosmetic
@@ -1046,19 +1068,27 @@ export async function registerRoutes(
   });
 
   // POST /api/player/:id/purchase-currency – Stripe placeholder
+  // When Stripe is integrated: validate webhook, call addCurrencyFromStripe(),
+  // then record the transaction via recordStripeTransaction().
   app.post("/api/player/:id/purchase-currency", async (req, res) => {
     try {
       const { id } = req.params;
       const { amount } = purchaseCurrencySchema.parse(req.body);
 
-      // Verify player exists
       const profile = await storage.getPlayerProfile(id);
       if (!profile) {
         return res.status(404).json({ success: false, error: "Player profile not found." });
       }
 
+      // Record the pending transaction in the DB (Stripe not wired yet)
+      await recordStripeTransaction({
+        userId: id,
+        stripePaymentIntentId: 'NOT_YET_INTEGRATED',
+        creditsAmount: amount,
+        status: 'pending',
+      });
+
       const result = await purchaseCurrency(id, amount);
-      // Stripe not yet integrated – return placeholder response
       res.json({ success: true, ...result });
     } catch (error) {
       log(`Purchase currency failed: ${error}`, "api");

@@ -127,6 +127,18 @@ export interface EquippedCosmetics {
   driverSkin?: string;
 }
 
+/** Win counts keyed by game mode + multiplayer flag, e.g. "sp_standard", "mp_haunted" */
+export interface WinsPerMode {
+  sp_standard?: number;
+  sp_social?: number;
+  sp_bio?: number;
+  sp_haunted?: number;
+  mp_standard?: number;
+  mp_social?: number;
+  mp_bio?: number;
+  mp_haunted?: number;
+}
+
 export interface PlayerProfile {
   id: string;           // keyed by userId (Replit Auth later)
   username: string;
@@ -138,6 +150,12 @@ export interface PlayerProfile {
   // Conversion tracking – prevents double-converting the same achievements
   convertedTrophies: number;       // how many trophies have been converted so far
   convertedMomentFlags: number;    // how many moment flags have been converted
+  // Per-game conversion lock – set of gameIds already converted (anti-cheat)
+  convertedGameIds: string[];
+  // Win tracking for milestone unlocks (Replit Auth milestone system)
+  winsPerMode: WinsPerMode;
+  // Cosmetics unlocked by milestones (not purchased, not earnable-only shop items)
+  milestoneUnlocks: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -159,6 +177,9 @@ export const playerProfileSchema = z.object({
   }),
   convertedTrophies: z.number().int().min(0),
   convertedMomentFlags: z.number().int().min(0),
+  convertedGameIds: z.array(z.string()),
+  winsPerMode: z.record(z.number().int().min(0)),
+  milestoneUnlocks: z.array(z.string()),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -173,6 +194,16 @@ export const convertAchievementsSchema = z.object({
   momentFlags: z.number().int().min(0),
 });
 
+/** Used by the end-game conversion endpoint – idempotent per gameId */
+export const convertGameSchema = z.object({
+  gameId: z.string().min(1),
+  trophies: z.number().int().min(0).max(200),   // sanity cap
+  momentFlags: z.number().int().min(0).max(500), // sanity cap
+  isMultiplayer: z.boolean(),
+  variant: z.enum(['STANDARD', 'SOCIAL_OVERDRIVE', 'BIO_FUEL', 'HAUNTED']),
+  isWinner: z.boolean(),
+});
+
 export const purchaseCosmeticSchema = z.object({
   cosmeticId: z.string().min(1),
 });
@@ -185,6 +216,27 @@ export const purchaseCurrencySchema = z.object({
   amount: z.number().int().positive(),
   // stripePaymentIntentId will be added when Stripe is integrated
 });
+
+// ─── Stripe Transaction Ledger ──────────────────────────────────────────────
+// Records every Stripe currency purchase for audit/accounting.
+
+export const stripeTransactions = pgTable("stripe_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"), // null = placeholder / test
+  creditsAmount: integer("credits_amount").notNull(),
+  // Status: 'pending' | 'completed' | 'failed' | 'refunded'
+  status: varchar("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertStripeTransactionSchema = createInsertSchema(stripeTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertStripeTransaction = z.infer<typeof insertStripeTransactionSchema>;
+export type StripeTransaction = typeof stripeTransactions.$inferSelect;
 
 // ─────────────────────────────────────────────────────────────────────────────
 

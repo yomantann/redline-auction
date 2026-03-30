@@ -1,6 +1,8 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { User, Cpu, Trophy, Clock, Zap, Ghost } from "lucide-react";
+import { getBorderStyle, getBackgroundStyle, getDriverSkinUrl } from "@/lib/cosmeticsStyles";
+import type { EquippedCosmetics } from "@shared/schema";
 
 interface Player {
   id: string;
@@ -35,9 +37,11 @@ interface PlayerStatsProps {
   children?: React.ReactNode; // Slot for animations
   onClick?: () => void;
   hideDetails?: boolean; // New prop to hide extra details
+  /** Equipped cosmetics for this player – applies border, background, and driver skin overlay */
+  equippedCosmetics?: EquippedCosmetics;
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, isScrambled, isHyperClickActive, children, onClick, hideDetails }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, isScrambled, isHyperClickActive, children, onClick, hideDetails, equippedCosmetics }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -56,6 +60,12 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       return showTime && remainingTime !== undefined ? format(remainingTime) : "??:??.?";
   };
 
+  // Cosmetic styles (only applied when not eliminated/ghost to preserve game feedback colours)
+  const applyCosmetics = !!equippedCosmetics && !player.isEliminated && !player.isGhost;
+  const borderStyle = applyCosmetics ? (getBorderStyle(equippedCosmetics) ?? undefined) : undefined;
+  const backgroundStyle = applyCosmetics ? (getBackgroundStyle(equippedCosmetics) ?? undefined) : undefined;
+  const skinUrl = applyCosmetics ? getDriverSkinUrl(equippedCosmetics) : null;
+
   return (
     <div 
       onClick={onClick}
@@ -68,6 +78,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       !player.isGhost && player.isEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
+    style={{ ...backgroundStyle, ...borderStyle }}
     data-testid={`player-card-${player.id}`}
     >
       {/* Animation Container */}
@@ -97,7 +108,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border border-white/10 bg-black/40",
+            "w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border border-white/10 bg-black/40 relative",
             isCurrentPlayer ? "border-primary/50" : "",
             player.isGhost && "border-teal-500/40 opacity-60"
           )}>
@@ -123,6 +134,16 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
              ) : (
                player.characterIcon || (player.isBot ? <Cpu size={16} className="text-zinc-500"/> : <User size={16} className="text-zinc-500"/>)
              )}
+            {/* Driver skin overlay */}
+            {skinUrl && (
+              <img
+                src={skinUrl}
+                alt="skin"
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none rounded-full"
+                loading="lazy"
+                decoding="async"
+              />
+            )}
           </div>
           <div className="flex flex-col">
             <span className={cn("font-display font-bold tracking-wide leading-tight", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isGhost && "text-teal-400", !player.isGhost && player.isEliminated && "text-red-500")}>
