@@ -27,6 +27,17 @@ import type {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
+/**
+ * REPLIT_AUTH_HOOK: Replace DEMO_USER_ID with the authenticated Replit user ID.
+ *
+ * When Replit Auth is integrated, use the Replit Auth hook:
+ *   import { useAuth } from "@replit/auth-react";    // or equivalent SDK
+ *   const { user } = useAuth();
+ *   const userId = user?.id ?? DEMO_USER_ID;
+ *
+ * All API calls below already use this constant so swapping it out is a
+ * single-line change per component that uses it.
+ */
 const DEMO_USER_ID = "local_player";
 
 const RARITY_COLORS: Record<CosmeticRarity, string> = {
@@ -54,6 +65,18 @@ const TYPE_ICONS: Record<CosmeticType, React.ReactNode> = {
   background: <span className="text-sm">🌌</span>,
   driverSkin: <span className="text-sm">🏎️</span>,
 };
+
+/**
+ * Credit pack offerings.
+ * STRIPE_HOOK: Map each pack to a Stripe Price ID (e.g. price_xxx) and pass it
+ * to the PaymentIntent metadata when the Stripe integration is live.
+ */
+const CREDIT_PACKS: { amount: number; label: string; price: string }[] = [
+  { amount: 500,  label: "500 Credits",  price: "$0.99" },
+  { amount: 1200, label: "1,200 Credits", price: "$1.99" },
+  { amount: 3000, label: "3,000 Credits", price: "$3.99" },
+  { amount: 7500, label: "7,500 Credits", price: "$8.99" },
+];
 
 // ─── API helpers ───────────────────────────────────────────────────────────────
 
@@ -102,6 +125,31 @@ async function apiUnequip(userId: string, cosmeticId: string): Promise<PlayerPro
   const data = await res.json();
   if (!data.success) throw new Error(data.error ?? "Unequip failed");
   return data.profile as PlayerProfile;
+}
+
+/**
+ * STRIPE_HOOK: When Stripe is integrated, call this with a confirmed Stripe
+ * PaymentIntent.  The server will validate the payment before crediting.
+ *
+ * Currently returns a placeholder response.
+ */
+async function apiPurchaseCurrency(
+  userId: string,
+  amount: number,
+  label: string,
+): Promise<{ clientSecret: string | null; message: string }> {
+  const res = await fetch(`/api/player/${userId}/purchase-currency`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount,
+      purchasedItemType: 'credits_pack',
+      purchasedItemLabel: label,
+    }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error ?? "Purchase currency failed");
+  return { clientSecret: data.clientSecret, message: data.message };
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────────────────
@@ -334,6 +382,24 @@ export default function Profile() {
     }
   };
 
+  /**
+   * STRIPE_HOOK: When Stripe is integrated, this handler will receive the
+   * clientSecret from the server and open the Stripe payment sheet.
+   * For now it just shows the "coming soon" message from the server.
+   */
+  const handleBuyCredits = async (amount: number, label: string) => {
+    try {
+      const result = await apiPurchaseCurrency(userId, amount, label);
+      toast({
+        title: result.clientSecret ? "Payment initiated" : "Coming Soon",
+        description: result.message,
+        // STRIPE_HOOK: when clientSecret is non-null, open Stripe.js payment sheet here
+      });
+    } catch (err) {
+      toast({ title: "Purchase failed", description: String(err), variant: "destructive" });
+    }
+  };
+
   const filteredCosmetics = cosmetics.filter(
     (c) => filterType === "all" || c.type === filterType,
   );
@@ -549,16 +615,33 @@ export default function Profile() {
           </TabsContent>
         </Tabs>
 
-        {/* ── Stripe Coming Soon ── */}
+        {/* ── Buy Credits (Stripe placeholder) ── */}
         <Card className="bg-zinc-900/30 border-dashed border-white/10">
-          <CardContent className="pt-6 flex items-center justify-between">
-            <div>
-              <div className="text-sm font-bold text-zinc-300">Buy Credits</div>
-              <div className="text-xs text-zinc-500">Stripe integration coming soon</div>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-sm font-bold text-zinc-300">Buy Credits</div>
+                {/* STRIPE_HOOK: Remove "coming soon" label and replace button with Stripe Elements */}
+                <div className="text-xs text-zinc-500">Stripe integration coming soon</div>
+              </div>
             </div>
-            <Button variant="outline" disabled className="opacity-40 cursor-not-allowed">
-              <Star size={14} className="mr-2" /> Coming Soon
-            </Button>
+            {/* Credit packs – STRIPE_HOOK: map each pack to a Stripe Price ID */}
+            <div className="flex flex-wrap gap-2">
+              {CREDIT_PACKS.map((pack) => (
+                <Button
+                  key={pack.amount}
+                  variant="outline"
+                  size="sm"
+                  className="opacity-50 cursor-not-allowed text-xs"
+                  disabled
+                  onClick={() => handleBuyCredits(pack.amount, pack.label)}
+                  title="Stripe integration coming soon"
+                >
+                  <Coins size={12} className="mr-1" />
+                  {pack.label} — {pack.price}
+                </Button>
+              ))}
+            </div>
           </CardContent>
         </Card>
 

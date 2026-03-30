@@ -898,13 +898,26 @@ export async function registerRoutes(
   });
 
   // ── Player Profile & Wallet API ──────────────────────────────────────────────
+  //
+  // REPLIT_AUTH_HOOK: All routes below use req.params.id as the userId.
+  // When Replit Auth is live, replace every usage of req.params.id with
+  // req.user.id (from the Replit Auth middleware) so the profile is keyed
+  // to the authenticated Replit account, not a client-supplied value.
+  //
+  // Pattern to apply on each route:
+  //   const id = req.user?.id ?? req.params.id;   // prefer auth, fall back to param
+  // or enforce auth-only:
+  //   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  //   const id = req.user.id;
 
   // GET /api/player/:id – fetch player profile (creates a default one if missing)
   app.get("/api/player/:id", async (req, res) => {
     try {
+      // REPLIT_AUTH_HOOK: const id = req.user?.id ?? req.params.id;
       const { id } = req.params;
       let profile = await storage.getPlayerProfile(id);
       if (!profile) {
+        // REPLIT_AUTH_HOOK: pass req.user.name as username when auth is live
         profile = createDefaultProfile(id, `Driver_${id.slice(0, 6)}`);
         await storage.upsertPlayerProfile(profile);
       }
@@ -918,6 +931,7 @@ export async function registerRoutes(
   // POST /api/player – create or update a player profile
   app.post("/api/player", async (req, res) => {
     try {
+      // REPLIT_AUTH_HOOK: use req.user.id and req.user.name instead of body id/username
       const { id, username } = createProfileSchema.parse(req.body);
       let profile = await storage.getPlayerProfile(id);
       if (profile) {
@@ -937,7 +951,7 @@ export async function registerRoutes(
   // POST /api/player/:id/convert – legacy general-purpose conversion (no gameId lock)
   app.post("/api/player/:id/convert", async (req, res) => {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
       const { trophies, momentFlags } = convertAchievementsSchema.parse(req.body);
 
       let profile = await storage.getPlayerProfile(id);
@@ -971,10 +985,12 @@ export async function registerRoutes(
    *  - Trophy / momentFlag counts are capped by the Zod schema (max 200 / 500).
    *  - Balance is written server-side only; the updated profile is returned.
    *  - Win tracking & milestone checks happen atomically inside the engine.
+   *
+   * REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id when auth is live.
    */
   app.post("/api/player/:id/convert-game", async (req, res) => {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
       const parsed = convertGameSchema.parse(req.body);
 
       let profile = await storage.getPlayerProfile(id);
@@ -1007,10 +1023,12 @@ export async function registerRoutes(
     res.json({ success: true, cosmetics: COSMETICS_CATALOG, categoryConfig: COSMETIC_CATEGORY_CONFIG });
   });
 
-  // POST /api/player/:id/purchase – purchase a cosmetic
+  // POST /api/player/:id/purchase – purchase a cosmetic with in-game credits
+  // (not Stripe – this deducts currencyBalance).
+  // REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id.
   app.post("/api/player/:id/purchase", async (req, res) => {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
       const { cosmeticId } = purchaseCosmeticSchema.parse(req.body);
 
       const profile = await storage.getPlayerProfile(id);
@@ -1027,10 +1045,11 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/player/:id/equip – equip a cosmetic
+  // POST /api/player/:id/equip – equip an owned cosmetic
+  // REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id.
   app.post("/api/player/:id/equip", async (req, res) => {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
       const { cosmeticId } = equipCosmeticSchema.parse(req.body);
 
       const profile = await storage.getPlayerProfile(id);
@@ -1048,9 +1067,10 @@ export async function registerRoutes(
   });
 
   // POST /api/player/:id/unequip – unequip a cosmetic
+  // REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id.
   app.post("/api/player/:id/unequip", async (req, res) => {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
       const { cosmeticId } = equipCosmeticSchema.parse(req.body);
 
       const profile = await storage.getPlayerProfile(id);
@@ -1067,34 +1087,88 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/player/:id/purchase-currency – Stripe placeholder
-  // When Stripe is integrated: validate webhook, call addCurrencyFromStripe(),
-  // then record the transaction via recordStripeTransaction().
+  /**
+   * POST /api/player/:id/purchase-currency
+   *
+   * Initiates a Stripe currency purchase (currently a placeholder).
+   * Every request records a stripe_transactions row including what was purchased.
+   *
+   * STRIPE_HOOK – To go live:
+   *   1. Validate payment via Stripe PaymentIntent / webhook before crediting.
+   *   2. Return clientSecret from purchaseCurrency() to the front-end.
+   *   3. The front-end completes the payment via Stripe.js (stripe.confirmPayment).
+   *   4. On webhook `payment_intent.succeeded`, mark the DB row 'completed'
+   *      and call addCurrencyFromStripe() to credit the player.
+   *
+   * REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id.
+   */
   app.post("/api/player/:id/purchase-currency", async (req, res) => {
     try {
-      const { id } = req.params;
-      const { amount } = purchaseCurrencySchema.parse(req.body);
+      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
+      const { amount, purchasedItemType, purchasedItemId, purchasedItemLabel } =
+        purchaseCurrencySchema.parse(req.body);
 
       const profile = await storage.getPlayerProfile(id);
       if (!profile) {
         return res.status(404).json({ success: false, error: "Player profile not found." });
       }
 
-      // Record the pending transaction in the DB (Stripe not wired yet)
+      // Record the pending transaction in the DB with full item metadata.
+      // stripePaymentIntentId is null until Stripe creates a real PaymentIntent.
+      // STRIPE_HOOK: Set stripePaymentIntentId = intent.id from Stripe API call.
       await recordStripeTransaction({
-        userId: id,
-        stripePaymentIntentId: 'NOT_YET_INTEGRATED',
+        userId: id, // REPLIT_AUTH_HOOK: use req.user.id
+        stripePaymentIntentId: null,
         creditsAmount: amount,
+        purchasedItemType,
+        purchasedItemId: purchasedItemId ?? null,
+        purchasedItemLabel: purchasedItemLabel ?? null,
         status: 'pending',
       });
 
-      const result = await purchaseCurrency(id, amount);
+      const result = await purchaseCurrency(id, amount, purchasedItemType, purchasedItemId, purchasedItemLabel);
       res.json({ success: true, ...result });
     } catch (error) {
       log(`Purchase currency failed: ${error}`, "api");
       res.status(400).json({ success: false, error: String(error) });
     }
   });
+
+  // ── Stripe Webhook Endpoint ───────────────────────────────────────────────
+  //
+  // STRIPE_HOOK: Uncomment and implement this when Stripe is integrated.
+  // This endpoint must be registered BEFORE express.json() middleware so
+  // Stripe's webhook signature verification can access the raw request body.
+  //
+  // app.post("/api/stripe/webhook",
+  //   express.raw({ type: 'application/json' }),
+  //   async (req, res) => {
+  //     const sig = req.headers['stripe-signature'];
+  //     let event;
+  //     try {
+  //       event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  //     } catch (err) {
+  //       log(`Stripe webhook signature verification failed: ${err}`, "stripe");
+  //       return res.status(400).send(`Webhook Error: ${err}`);
+  //     }
+  //
+  //     if (event.type === 'payment_intent.succeeded') {
+  //       const intent = event.data.object;
+  //       const { userId, itemType, itemId, itemLabel } = intent.metadata;
+  //       // 1. Find pending stripe_transactions row by stripePaymentIntentId
+  //       // 2. Mark it 'completed'
+  //       // 3. Load player profile
+  //       // 4. Call addCurrencyFromStripe(profile, intent.amount / CENTS_PER_CREDIT)
+  //       // 5. Save updated profile
+  //     }
+  //
+  //     if (event.type === 'payment_intent.payment_failed') {
+  //       // Mark DB row 'failed'
+  //     }
+  //
+  //     res.json({ received: true });
+  //   }
+  // );
 
   return httpServer;
 }

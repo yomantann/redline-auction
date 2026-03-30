@@ -264,6 +264,11 @@ function getSlotFromType(type: import("@shared/schema").CosmeticType): keyof Equ
 /**
  * Creates a fresh default player profile for a new user.
  * Always includes the four default "no cosmetic" items in ownedCosmetics.
+ *
+ * REPLIT_AUTH_HOOK: When Replit Auth is live, call this with:
+ *   id        = req.user.id          (Replit Auth userId)
+ *   username  = req.user.name || req.user.username
+ * and store replitUserId = req.user.id on the profile.
  */
 export function createDefaultProfile(id: string, username: string): PlayerProfile {
   const now = new Date().toISOString();
@@ -474,20 +479,47 @@ export function unequipCosmetic(
 }
 
 // ─── Stripe Placeholder ──────────────────────────────────────────────────────
-// This stub is intentionally minimal.  Wire in Stripe webhook validation and
-// call addCurrencyFromStripe() once the payment is confirmed server-side.
-// All Stripe transactions must be recorded in the stripe_transactions DB table.
+//
+// STRIPE_HOOK: Steps to wire Stripe:
+//   1. npm install stripe
+//   2. Set STRIPE_SECRET_KEY in environment variables
+//   3. In purchaseCurrency(), call:
+//        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+//        const intent = await stripe.paymentIntents.create({
+//          amount: amountInCents,  // e.g. amount * 0.01 USD per credit
+//          currency: 'usd',
+//          metadata: { userId, itemType, itemId, itemLabel },
+//        });
+//        return { clientSecret: intent.client_secret };
+//   4. Add a POST /api/stripe/webhook route (see routes.ts STRIPE_WEBHOOK_ENDPOINT).
+//   5. In the webhook, call addCurrencyFromStripe() and mark the DB row 'completed'.
+//
+// REPLIT_AUTH_HOOK: Replace userId with the Replit Auth userId from req.user.id.
+//   All currency functions already accept userId as a plain string, so no
+//   internal changes are needed – just pass the Replit Auth ID instead of
+//   "local_player".
 
 /**
  * Placeholder: initiate a currency purchase via Stripe.
- * Returns a client-side payment intent (not yet implemented).
+ *
+ * Returns a placeholder response until Stripe is integrated.
+ * When live, returns { clientSecret } from Stripe PaymentIntent.
+ *
+ * @param _userId        Player's userId (= Replit Auth userId when live)
+ * @param _amount        Credits to purchase
+ * @param _itemType      What is being purchased ('credits_pack' | 'cosmetic')
+ * @param _itemId        Cosmetic id (when itemType = 'cosmetic'), or pack SKU
+ * @param _itemLabel     Human-readable label for the transaction record
  */
 export async function purchaseCurrency(
   _userId: string,
   _amount: number,
+  _itemType: 'credits_pack' | 'cosmetic' = 'credits_pack',
+  _itemId?: string,
+  _itemLabel?: string,
 ): Promise<{ clientSecret: string | null; message: string }> {
-  // TODO: Create Stripe PaymentIntent, return clientSecret to front-end.
-  // On webhook confirmation call addCurrencyFromStripe(userId, amount, paymentIntentId).
+  // STRIPE_HOOK: Create Stripe PaymentIntent here.
+  // On webhook confirmation call addCurrencyFromStripe(userId, amount).
   return {
     clientSecret: null,
     message: 'Stripe integration coming soon.',
@@ -496,7 +528,13 @@ export async function purchaseCurrency(
 
 /**
  * Add credits from a confirmed Stripe payment.
- * Should only be called from the Stripe webhook handler after validation.
+ *
+ * STRIPE_HOOK: Call this from the Stripe webhook handler AFTER:
+ *   1. Verifying the webhook signature with stripe.webhooks.constructEvent()
+ *   2. Confirming event.type === 'payment_intent.succeeded'
+ *   3. Looking up the pending stripe_transactions row by stripePaymentIntentId
+ *
+ * Should ONLY be called from server-side webhook processing – never from client.
  */
 export function addCurrencyFromStripe(
   profile: PlayerProfile,

@@ -140,7 +140,19 @@ export interface WinsPerMode {
 }
 
 export interface PlayerProfile {
-  id: string;           // keyed by userId (Replit Auth later)
+  /**
+   * Internal profile key.
+   *
+   * REPLIT_AUTH_HOOK: Currently set to "local_player" on the client for the demo.
+   * When Replit Auth is wired in, replace every occurrence of "local_player" /
+   * DEMO_USER_ID with the authenticated user's Replit `userId` (available via
+   * `req.user.id` in the Replit Auth middleware).
+   *
+   * The optional `replitUserId` field below is where the Replit Auth ID will be
+   * stored once the auth layer is live.  Until then it stays undefined.
+   */
+  id: string;           // internal profile key (= replitUserId once auth is live)
+  replitUserId?: string; // REPLIT_AUTH_HOOK: set to Replit Auth userId on first login
   username: string;
   currencyBalance: number;
   lifetimeEarned: number;
@@ -164,6 +176,7 @@ export interface PlayerProfile {
 
 export const playerProfileSchema = z.object({
   id: z.string(),
+  replitUserId: z.string().optional(), // REPLIT_AUTH_HOOK: populated on Replit Auth login
   username: z.string().min(1).max(32),
   currencyBalance: z.number().int().min(0),
   lifetimeEarned: z.number().int().min(0),
@@ -214,17 +227,45 @@ export const equipCosmeticSchema = z.object({
 
 export const purchaseCurrencySchema = z.object({
   amount: z.number().int().positive(),
-  // stripePaymentIntentId will be added when Stripe is integrated
+  /**
+   * STRIPE_HOOK: When Stripe is integrated, add stripePaymentMethodId or
+   * paymentIntentId here so the server can validate the payment before crediting.
+   * The fields below are already wired through to the stripe_transactions table
+   * so every purchase is fully auditable.
+   */
+  // What the player is actually buying with this credit purchase.
+  // 'credits_pack' = buying a bundle of credits; 'cosmetic' = buying one specific item.
+  purchasedItemType: z.enum(['credits_pack', 'cosmetic']).optional().default('credits_pack'),
+  purchasedItemId: z.string().optional(),    // cosmetic id (when type = 'cosmetic')
+  purchasedItemLabel: z.string().optional(), // human-readable e.g. "1,000 Credits Pack"
 });
 
 // ─── Stripe Transaction Ledger ──────────────────────────────────────────────
 // Records every Stripe currency purchase for audit/accounting.
+//
+// STRIPE_HOOK: When Stripe is wired in:
+//   1. Create a PaymentIntent in POST /api/player/:id/purchase-currency and
+//      return the clientSecret to the front-end.
+//   2. On Stripe webhook `payment_intent.succeeded`, look up the pending row
+//      by stripePaymentIntentId, mark it 'completed', and call
+//      addCurrencyFromStripe() to credit the player.
+//   3. On `payment_intent.payment_failed`, mark the row 'failed'.
+//   4. On `charge.refunded`, mark the row 'refunded' and deduct the credits.
+//
+// REPLIT_AUTH_HOOK: Replace userId with the Replit Auth userId. The column
+//   is already named user_id so no migration rename is needed.
 
 export const stripeTransactions = pgTable("stripe_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // REPLIT_AUTH_HOOK: userId = Replit Auth userId once auth is live
   userId: varchar("user_id").notNull(),
-  stripePaymentIntentId: varchar("stripe_payment_intent_id"), // null = placeholder / test
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
   creditsAmount: integer("credits_amount").notNull(),
+  // What the player purchased with this transaction
+  purchasedItemType: varchar("purchased_item_type").notNull().default("credits_pack"),
+  // 'credits_pack' | 'cosmetic'
+  purchasedItemId: varchar("purchased_item_id"),    // cosmetic id when type = 'cosmetic'
+  purchasedItemLabel: varchar("purchased_item_label"), // human-readable e.g. "1,000 Credits"
   // Status: 'pending' | 'completed' | 'failed' | 'refunded'
   status: varchar("status").notNull().default("pending"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

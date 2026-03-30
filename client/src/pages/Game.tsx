@@ -908,6 +908,8 @@ export default function Game() {
   const { toast } = useToast();
   
   // ── Player Profile / Cosmetics ──
+  // REPLIT_AUTH_HOOK: Replace DEMO_USER_ID with the Replit Auth userId.
+  // Example: const { user } = useAuth(); const userId = user?.id ?? DEMO_USER_ID;
   const DEMO_USER_ID = "local_player";
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
 
