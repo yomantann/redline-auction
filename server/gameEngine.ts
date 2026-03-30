@@ -2944,6 +2944,7 @@ function startWaitingForReady(lobbyCode: string) {
               target.remainingTime = 0;
               target.ghostImage = `hnt_ghost_${idx}`;
               target.ghostAbility = GMAP_BOT[idx] ?? null;
+              target.ghostAbilityUsed = false;
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} GHOST TOUCH (bot): ${target.name} ghosted!`, basic: true });
             } else {
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} GHOST TOUCH (bot): missed`, basic: true });
