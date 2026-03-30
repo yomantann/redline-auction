@@ -321,8 +321,8 @@ interface Player {
   bloodPactActive?: boolean;             // Blood Pact: active player (all losers also pay winner's bid)
   cursedDiceActive?: boolean;            // Cursed Dice: active (±30s after round end)
   finalWritActive?: boolean;             // Final Writ: this player auto-wins the final round
-  tribunalTimePenalty?: number;          // Tribunal A: lose Ns at start of next round
-  tribunalMinBid?: number;               // Tribunal B: must bid at least Ns next round
+  tribunalTimePenalty?: number;          // Tribunal A: lose 30s at start of next round
+  tribunalForfeit?: boolean;             // Tribunal B: forced to forfeit (skip) next round's bidding
 }
 
 interface Character {
@@ -3028,8 +3028,8 @@ export default function Game() {
       let opts: { id: string; label: string }[] = [];
       if (relicId === 'tribunal' && targetPlayer) {
         opts = [
-          { id: 'A', label: `${targetPlayer.name} loses 15s next round` },
-          { id: 'B', label: `${targetPlayer.name} must bid ≥30s next round` },
+          { id: 'A', label: `${targetPlayer.name} loses 30s next round` },
+          { id: 'B', label: `${targetPlayer.name} is forced to forfeit bidding next round` },
         ];
       } else if (relicId === 'conclave') {
         opts = [
@@ -3095,11 +3095,11 @@ export default function Game() {
     if (vs.relicId === 'tribunal') {
       setPlayers(prev => prev.map(p => {
         if (p.id !== vs.targetId) return p;
-        if (winner.id === 'A') return { ...p, tribunalTimePenalty: (p.tribunalTimePenalty ?? 0) + 15 };
-        if (winner.id === 'B') return { ...p, tribunalMinBid: 30 };
+        if (winner.id === 'A') return { ...p, tribunalTimePenalty: (p.tribunalTimePenalty ?? 0) + 30 };
+        if (winner.id === 'B') return { ...p, tribunalForfeit: true };
         return p;
       }));
-      setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -15s next round.` : `${vs.targetName} must bid ≥30s next round.`, 0), 200);
+      setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -30s next round.` : `${vs.targetName} is forced to forfeit bidding next round.`, 0), 200);
     } else if (vs.relicId === 'conclave') {
       if (winner.id === 'A') {
         setPlayers(prev => prev.map(p => (!p.isEliminated && !p.isGhost) ? { ...p, remainingTime: Math.floor(p.remainingTime / 2 * 10) / 10 } : p));
@@ -4988,11 +4988,10 @@ export default function Game() {
           }
         }
 
-        // Echo / Pattern Lock / Tribunal min bid: clear flags after round end
+        // Echo / Pattern Lock: clear flags after round end
         p.echoForcedBid = undefined;
         p.patternLockMinBid = undefined;
-        p.tribunalMinBid = undefined;
-        // Note: tribunalTimePenalty is applied at round start (next round's startCountdown)
+        // Note: tribunalTimePenalty and tribunalForfeit are applied at round start
       });
 
       // Ghost safety counter: increment ghostRoundsAlive for all still-stuck ghosts.
@@ -6048,7 +6047,10 @@ export default function Game() {
 
   const nextRound = () => {
     // Check if all players are eliminated
-    const activePlayers = players.filter(p => !p.isEliminated && p.remainingTime > 0);
+    // In Haunted mode: ghosts are still in-game (can revive), so count them as active
+    const activePlayers = variant === 'HAUNTED'
+      ? players.filter(p => !p.isEliminated)          // alive + ghosts (ghosts may revive)
+      : players.filter(p => !p.isEliminated && p.remainingTime > 0);
     
     if (activePlayers.length <= 1 || round >= totalRounds) {
       // End game immediately if only 1 or 0 players remain
@@ -6078,13 +6080,17 @@ export default function Game() {
       setPeekTargetId(null); // Clear PEEK target
       setScrambledPlayers([]); // Clear Scrambled players
 
-      // SP HAUNTED: Apply Tribunal time penalty at start of new round
+      // SP HAUNTED: Apply Tribunal effects at start of new round
       if (variant === 'HAUNTED') {
         setPlayers(prev => prev.map(p => {
           if (p.tribunalTimePenalty && p.tribunalTimePenalty > 0 && !p.isEliminated && !p.isGhost) {
             const penalty = p.tribunalTimePenalty;
-            setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL PENALTY', `${p.name} loses ${penalty}s from last round's tribunal vote.`, 3000), 300);
+            setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL A PENALTY', `${p.name} loses ${penalty}s from last round's tribunal vote.`, 3000), 300);
             return { ...p, remainingTime: Math.max(0, p.remainingTime - penalty), tribunalTimePenalty: undefined };
+          }
+          if (p.tribunalForfeit && !p.isEliminated && !p.isGhost) {
+            if (p.id === 'p1') setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL B: FORFEIT', 'You are forced to forfeit bidding this round — auto-releasing at round start.', 0), 300);
+            return { ...p, tribunalForfeit: undefined };
           }
           return p;
         }));
