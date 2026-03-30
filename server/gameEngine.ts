@@ -2303,9 +2303,11 @@ function endRound(lobbyCode: string) {
         if (p.id === winnerId) {
           p.tokens += 1;
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} DEATH WISH WIN: +1 bonus trophy`, value: 1, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 DEATH WISH: WIN!', message: `${p.name} activated Death Wish and WON — +1 bonus trophy (total +2 this round)!` });
         } else if (!p.isGhost && !p.isEliminated) {
           p.remainingTime = Math.max(0, p.remainingTime - 15);
           addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} DEATH WISH LOSS: -15s extra penalty`, value: -15, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 DEATH WISH: CURSED', message: `${p.name} activated Death Wish and LOST — -15s extra penalty this round!` });
         }
         p.deathWishActive = false;
       }
@@ -2925,6 +2927,7 @@ function startWaitingForReady(lobbyCode: string) {
             bot.remainingTime = 0;
             bot.ghostImage = `hnt_ghost_${idx}`;
             bot.ghostAbility = GMAP_BOT[idx] ?? null;
+            bot.ghostAbilityUsed = false;
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): ghosted`, basic: true });
           }
           break;
