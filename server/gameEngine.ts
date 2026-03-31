@@ -161,8 +161,8 @@ export interface GamePlayer {
   bloodPactActive?: boolean;
   cursedDiceActive?: boolean;
   finalWritActive?: boolean;      // Final Writ relic: this player auto-wins the final round
-  tribunalTimePenalty?: number;   // Tribunal option A: lose Ns at start of next round
-  tribunalMinBid?: number;        // Tribunal option B: must bid at least Ns next round
+  tribunalTimePenalty?: number;   // Tribunal option A: lose 30s at start of next round
+  tribunalForfeit?: boolean;      // Tribunal option B: forced to forfeit (skip) next round's bidding
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -749,7 +749,20 @@ function startBidding(lobbyCode: string) {
       p.isHolding = false;
     }
   });
-  
+
+  // --- TRIBUNAL B: FORFEIT — forced players release immediately at round start ---
+  if (game.settings.variant === 'HAUNTED') {
+    const minBid = getMinBidPenalty(game.gameDuration);
+    game.players.forEach(p => {
+      if (p.tribunalForfeit && !p.isEliminated && !p.isGhost) {
+        p.tribunalForfeit = false;
+        p.isHolding = false;
+        p.currentBid = minBid;
+        addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} TRIBUNAL B: forfeited bidding (auto-released)`, basic: true });
+      }
+    });
+  }
+
   game.botTargetBids = calculateBotTargetBids(game);
 
   // --- ECHO / PATTERN LOCK: override bot target bids ---
@@ -1853,10 +1866,13 @@ function endRound(lobbyCode: string) {
         ghost.ghostAbilityUsed = true;
 
       } else if (ghost.ghostAbility === 'purgatory') {
-        // PURGATORY: init at 3 to account for same-round decrement → 2 full rounds as ghost
-        ghost.possessionRoundsLeft = 3;
+        // PURGATORY: init at 2 to account for same-round decrement → 1 full round wait → revive on round 2 (2 rounds including ghost round)
+        ghost.possessionRoundsLeft = 2;
         ghost.ghostAbilityUsed = true;
         addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} PURGATORY: counting down 2 rounds...`, basic: true });
+      } else {
+        // No alive targets for target-based abilities, or unknown ability — mark as used so fallback revive can take over
+        ghost.ghostAbilityUsed = true;
       }
     });
 
@@ -2274,7 +2290,7 @@ function endRound(lobbyCode: string) {
           const eligible = game.players.filter(tp => tp.id !== p.id && !tp.isGhost && !tp.isEliminated && tp.tokens > 0);
           const willTarget = eligible.length > 0 ? eligible[Math.floor(Math.random() * eligible.length)] : null;
           if (willTarget) {
-            willTarget.tokens = Math.max(0, willTarget.tokens - 1);
+            willTarget.tokens = willTarget.tokens - 1;
             addGameLogEntry(game, { type: 'impact', playerId: willTarget.id, playerName: willTarget.name, message: `${p.name} LAST WILL: ${willTarget.name} loses 1 trophy`, value: -1, basic: true });
             if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚰️ LAST WILL TRIGGERED', message: `${p.name} left a curse — ${willTarget.name} loses 1 trophy!`, victimId: willTarget.id });
           }
@@ -2287,9 +2303,11 @@ function endRound(lobbyCode: string) {
         if (p.id === winnerId) {
           p.tokens += 1;
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} DEATH WISH WIN: +1 bonus trophy`, value: 1, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 DEATH WISH: WIN!', message: `${p.name} activated Death Wish and WON — +1 bonus trophy (total +2 this round)!` });
         } else if (!p.isGhost && !p.isEliminated) {
           p.remainingTime = Math.max(0, p.remainingTime - 15);
           addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} DEATH WISH LOSS: -15s extra penalty`, value: -15, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 DEATH WISH: CURSED', message: `${p.name} activated Death Wish and LOST — -15s extra penalty this round!` });
         }
         p.deathWishActive = false;
       }
@@ -2371,8 +2389,7 @@ function endRound(lobbyCode: string) {
     game.players.forEach(p => {
       p.echoForcedBid = undefined;
       p.patternLockMinBid = undefined;
-      // tribunalMinBid is cleared after use in playerReleaseBid / here
-      p.tribunalMinBid = undefined;
+      // Note: tribunalTimePenalty and tribunalForfeit are applied at next round start, cleared there
     });
     // Clear resolved vote state; dequeue next if any
     if (game.pendingVote?.resolved) {
@@ -2442,9 +2459,19 @@ function endRound(lobbyCode: string) {
     }
     game.round = game.totalRounds;
     setTimeout(() => endGame(lobbyCode), 3000);
-  } else if (activePlayers.length === 0 || activePlayers.length <= 1 || game.round >= game.totalRounds) {
-    // Haunted: all players are ghosts, or rounds done → game over
+  } else if (game.round >= game.totalRounds) {
+    // Round limit reached — game over
     setTimeout(() => endGame(lobbyCode), 3000);
+  } else if (!isHauntedMode && (activePlayers.length === 0 || activePlayers.length <= 1)) {
+    // Non-Haunted mode: not enough active players → game over
+    setTimeout(() => endGame(lobbyCode), 3000);
+  } else if (isHauntedMode) {
+    // Haunted mode: end only when all players are truly eliminated (no ghosts can revive)
+    const anyoneCanPlay = game.players.some(p => !p.isEliminated);
+    if (!anyoneCanPlay) {
+      setTimeout(() => endGame(lobbyCode), 3000);
+    }
+    // If all alive players are ghosts but some can revive → let rounds continue
   }
   // Otherwise, wait for players to acknowledge round end (via player_ready_next event)
   
@@ -2837,10 +2864,16 @@ function startWaitingForReady(lobbyCode: string) {
           type: 'impact',
           playerId: p.id,
           playerName: p.name,
-          message: `${p.name} TRIBUNAL: -${penalty}s time penalty from last round's vote`,
+          message: `${p.name} TRIBUNAL A: -${penalty}s time penalty from last round's vote`,
           value: -penalty,
           basic: true,
         });
+      }
+      // Tribunal B: forced forfeit — auto-submit zero bid this round
+      if (p.tribunalForfeit && !p.isEliminated && !p.isGhost) {
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL: FORFEIT', message: `${p.name} is forced to forfeit bidding this round!`, victimId: p.id });
+        addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} TRIBUNAL B: forced forfeit this round`, basic: true });
+        p.tribunalForfeit = false;
       }
     });
   }
@@ -2894,6 +2927,7 @@ function startWaitingForReady(lobbyCode: string) {
             bot.remainingTime = 0;
             bot.ghostImage = `hnt_ghost_${idx}`;
             bot.ghostAbility = GMAP_BOT[idx] ?? null;
+            bot.ghostAbilityUsed = false;
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): ghosted`, basic: true });
           }
           break;
@@ -2910,6 +2944,7 @@ function startWaitingForReady(lobbyCode: string) {
               target.remainingTime = 0;
               target.ghostImage = `hnt_ghost_${idx}`;
               target.ghostAbility = GMAP_BOT[idx] ?? null;
+              target.ghostAbilityUsed = false;
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} GHOST TOUCH (bot): ${target.name} ghosted!`, basic: true });
             } else {
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} GHOST TOUCH (bot): missed`, basic: true });
@@ -3059,8 +3094,8 @@ function startWaitingForReady(lobbyCode: string) {
               activatorId: bot.id,
               targetId: target.id,
               options: [
-                { id: 'A', label: `${target.name} loses 15s next round` },
-                { id: 'B', label: `${target.name} must bid ≥30s next round (or forfeit)` },
+                { id: 'A', label: `${target.name} loses 30s next round` },
+                { id: 'B', label: `${target.name} is forced to forfeit bidding next round` },
               ],
               votes: botVotes,
               deadline: Date.now() + 30000,
@@ -3193,6 +3228,22 @@ function startWaitingForReady(lobbyCode: string) {
     const humanPlayers = g.players.filter(p => !p.isBot && !p.isEliminated && !p.isGhost);
     const allHumansHolding = humanPlayers.every(p => p.isHolding);
     
+    // In Haunted mode: if all humans are ghosts, auto-advance after a short delay
+    if (g.settings.variant === 'HAUNTED' && humanPlayers.length === 0) {
+      if (g.allHumansHoldingStartTime === null) {
+        g.allHumansHoldingStartTime = Date.now();
+        broadcastGameState(lobbyCode);
+      }
+      const holdDuration = (Date.now() - g.allHumansHoldingStartTime) / 1000;
+      if (holdDuration >= 1) {
+        clearInterval(readyCheckInterval);
+        g.allHumansHoldingStartTime = null;
+        log(`All human players are ghosts, auto-advancing round ${g.round} in lobby ${lobbyCode}`, "game");
+        startCountdown(lobbyCode);
+      }
+      return;
+    }
+
     if (allHumansHolding && humanPlayers.length > 0) {
       // Track when all humans started holding
       if (g.allHumansHoldingStartTime === null) {
@@ -3759,7 +3810,7 @@ export function broadcastGameState(lobbyCode: string) {
       pendingLastWill: p.pendingLastWill || null,
       finalWritActive: p.finalWritActive || false,
       tribunalTimePenalty: p.tribunalTimePenalty ?? null,
-      tribunalMinBid: p.tribunalMinBid ?? null,
+      tribunalForfeit: p.tribunalForfeit ?? false,
     })),
     roundWinner: game.roundWinner,
     eliminatedThisRound: game.eliminatedThisRound,
@@ -4036,8 +4087,8 @@ export function activateRelicMP(
         activatorId: activator.id,
         targetId: target.id,
         options: [
-          { id: 'A', label: `${target.name} loses 15s next round` },
-          { id: 'B', label: `${target.name} must bid ≥30s next round (or forfeit)` },
+          { id: 'A', label: `${target.name} loses 30s next round` },
+          { id: 'B', label: `${target.name} is forced to forfeit bidding next round` },
         ],
         votes,
         deadline: Date.now() + 30000,
@@ -4153,11 +4204,11 @@ function resolveVoteRelic(lobbyCode: string) {
     const target = game.players.find(p => p.id === vote.targetId);
     if (target) {
       if (winner.id === 'A') {
-        target.tribunalTimePenalty = (target.tribunalTimePenalty ?? 0) + 15;
-        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL A: -15s at start of next round`, value: -15, basic: true });
+        target.tribunalTimePenalty = (target.tribunalTimePenalty ?? 0) + 30;
+        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL A: -30s at start of next round`, value: -30, basic: true });
       } else {
-        target.tribunalMinBid = 30;
-        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL B: must bid ≥30s next round`, basic: true });
+        target.tribunalForfeit = true;
+        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL B: forced to forfeit next round's bid`, basic: true });
       }
     }
   } else if (vote.relicId === 'conclave') {

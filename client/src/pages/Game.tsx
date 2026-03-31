@@ -321,8 +321,8 @@ interface Player {
   bloodPactActive?: boolean;             // Blood Pact: active player (all losers also pay winner's bid)
   cursedDiceActive?: boolean;            // Cursed Dice: active (±30s after round end)
   finalWritActive?: boolean;             // Final Writ: this player auto-wins the final round
-  tribunalTimePenalty?: number;          // Tribunal A: lose Ns at start of next round
-  tribunalMinBid?: number;               // Tribunal B: must bid at least Ns next round
+  tribunalTimePenalty?: number;          // Tribunal A: lose 30s at start of next round
+  tribunalForfeit?: boolean;             // Tribunal B: forced to forfeit (skip) next round's bidding
 }
 
 interface Character {
@@ -2814,6 +2814,23 @@ export default function Game() {
     return abilityName ? `${prefix} Your ghost ability: ${abilityName} — ${abilityDesc}` : prefix;
   };
 
+  // Helper: restore a player's driver characterIcon after ghost revival
+  const getDriverCharIcon = (p: { selectedDriver?: string; name: string; isBot?: boolean }): string | undefined => {
+    const allChars: any[] = [
+      ...CHARACTERS,
+      ...(typeof SOCIAL_CHARACTERS !== 'undefined' ? SOCIAL_CHARACTERS as any[] : []),
+      ...(typeof BIO_CHARACTERS !== 'undefined' ? BIO_CHARACTERS as any[] : []),
+    ];
+    const char = p.isBot
+      ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
+      : selectedCharacter as any;
+    if (!char) return undefined;
+    if (variant === 'HAUNTED' && char.imageHaunted) return char.imageHaunted;
+    if (variant === 'SOCIAL_OVERDRIVE' && char.imageSocial) return char.imageSocial;
+    if (variant === 'BIO_FUEL' && char.imageBio) return char.imageBio;
+    return char.image;
+  };
+
   // Helper: immediately fire a relic effect for the given player (SP only)
   const fireRelicEffect = (relicId: string, activatorId: string, targetId?: string, curseType?: 'time' | 'trophy') => {
     setPlayers(prev => {
@@ -3028,8 +3045,8 @@ export default function Game() {
       let opts: { id: string; label: string }[] = [];
       if (relicId === 'tribunal' && targetPlayer) {
         opts = [
-          { id: 'A', label: `${targetPlayer.name} loses 15s next round` },
-          { id: 'B', label: `${targetPlayer.name} must bid ≥30s next round` },
+          { id: 'A', label: `${targetPlayer.name} loses 30s next round` },
+          { id: 'B', label: `${targetPlayer.name} is forced to forfeit bidding next round` },
         ];
       } else if (relicId === 'conclave') {
         opts = [
@@ -3095,11 +3112,11 @@ export default function Game() {
     if (vs.relicId === 'tribunal') {
       setPlayers(prev => prev.map(p => {
         if (p.id !== vs.targetId) return p;
-        if (winner.id === 'A') return { ...p, tribunalTimePenalty: (p.tribunalTimePenalty ?? 0) + 15 };
-        if (winner.id === 'B') return { ...p, tribunalMinBid: 30 };
+        if (winner.id === 'A') return { ...p, tribunalTimePenalty: (p.tribunalTimePenalty ?? 0) + 30 };
+        if (winner.id === 'B') return { ...p, tribunalForfeit: true };
         return p;
       }));
-      setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -15s next round.` : `${vs.targetName} must bid ≥30s next round.`, 0), 200);
+      setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -30s next round.` : `${vs.targetName} is forced to forfeit bidding next round.`, 0), 200);
     } else if (vs.relicId === 'conclave') {
       if (winner.id === 'A') {
         setPlayers(prev => prev.map(p => (!p.isEliminated && !p.isGhost) ? { ...p, remainingTime: Math.floor(p.remainingTime / 2 * 10) / 10 } : p));
@@ -3917,6 +3934,16 @@ export default function Game() {
     setCountdown(isBotOnlyRound ? 3 : COUNTDOWN_SECONDS);
     setPhase('countdown');
     overLimitToastShownRef.current = false; // Reset over-limit flag
+
+    // SP HAUNTED: Tribunal B forfeit — auto-release p1 so they forfeit this round's bid
+    if (variant === 'HAUNTED') {
+      const p1WithForfeit = players.find(p => p.id === 'p1' && p.tribunalForfeit);
+      if (p1WithForfeit) {
+        setPlayers(prev => prev.map(p =>
+          p.id === 'p1' ? { ...p, isHolding: false, currentBid: 0, tribunalForfeit: undefined } : p
+        ));
+      }
+    }
   };
 
   // End Overclock Round Logic (singleplayer) - processes click count results
@@ -4693,6 +4720,7 @@ export default function Game() {
             const savedTime = target.remainingTime;
             target.isGhost = true;
             target.ghostAbility = ghostData.ghostAbility;
+            target.ghostAbilityUsed = false;
             target.characterIcon = ghostData.characterIcon;
             target.remainingTime = 0;
             target.ghostReason = 'forced';
@@ -4703,8 +4731,8 @@ export default function Game() {
             setTimeout(() => addOverlay('protocol_alert', '💀 REAPER STRIKES', reaperMsg, 0), 1200);
           }
           ghost.ghostAbilityUsed = true;
-          // 3-round fallback revival for reaper ghosts (init 4 to account for same-round decrement → 3 full rounds)
-          ghost.possessionRoundsLeft = 4;
+          // 3-round fallback revival for reaper ghosts (init 3 → decrement → 2 full rounds)
+          ghost.possessionRoundsLeft = 3;
 
         } else if (ghost.ghostAbility === 'curse') {
           // CURSE: triple all driver ability values for alive players
@@ -4714,25 +4742,29 @@ export default function Game() {
             : `🔮 CURSE: ${ghost.name}'s ghost cursed the arena — all driver abilities are tripled!`;
           setTimeout(() => addOverlay('protocol_alert', '🔮 CURSE ACTIVATED', curseMsg, 0), 1200);
           ghost.ghostAbilityUsed = true;
-          // 3-round fallback revival for curse ghosts (init 4 to account for same-round decrement → 3 full rounds)
-          ghost.possessionRoundsLeft = 4;
+          // 3-round fallback revival for curse ghosts (init 3 → decrement → 2 full rounds)
+          ghost.possessionRoundsLeft = 3;
 
         } else if (ghost.ghostAbility === 'possession') {
           // POSSESSION: for bots, auto-pick a random alive player; for p1, show the pick phase
+          const aliveTargets = finalPlayers.filter(fp => !fp.isGhost && !fp.isEliminated && fp.id !== ghost.id);
           if (ghost.isBot) {
-            const aliveTargets = finalPlayers.filter(fp => !fp.isGhost && !fp.isEliminated && fp.id !== ghost.id);
             if (aliveTargets.length > 0) {
               const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
               ghost.possessionTargetId = target.id;
               ghost.possessionRoundsLeft = 3;
             }
             ghost.ghostAbilityUsed = true;
-          } else {
-            // p1 is a ghost with possession — show the pick phase
+          } else if (aliveTargets.length > 0) {
+            // p1 is a ghost with possession and alive targets — show the pick phase
             setPossessionGhostId(ghost.id);
             setPlayers([...finalPlayers]);
             setPhase('ghost_possession_pick');
             return; // Wait for player to pick
+          } else {
+            // No alive targets — skip possession pick, set fallback revival
+            ghost.ghostAbilityUsed = true;
+            ghost.possessionRoundsLeft = 3;
           }
 
         } else if (ghost.ghostAbility === 'vendetta') {
@@ -4749,15 +4781,15 @@ export default function Game() {
             setVendettaP1Released(false);
             setVendettaHoldStart(null);
             ghost.ghostAbilityUsed = true;
-            // 3-round fallback revival in case vendetta doesn't revive (init 4 → 3 full rounds)
-            ghost.possessionRoundsLeft = 4;
+            // 3-round fallback revival in case vendetta doesn't revive (init 3 → decrement → 2 full rounds)
+            ghost.possessionRoundsLeft = 3;
             setPlayers([...finalPlayers]);
             setPhase('ghost_vendetta');
             return; // Wait for vendetta to resolve
           }
           ghost.ghostAbilityUsed = true;
-          // 3-round fallback revival (no targets available) (init 4 → 3 full rounds)
-          ghost.possessionRoundsLeft = 4;
+          // 3-round fallback revival (no targets available) (init 3 → decrement → 2 full rounds)
+          ghost.possessionRoundsLeft = 3;
 
         } else if (ghost.ghostAbility === 'bargain') {
           // BARGAIN: p1 or bot offers trophies to an alive player
@@ -4775,33 +4807,29 @@ export default function Game() {
               const botOffer = Math.min(ghost.tokens, Math.floor(Math.random() * 3) + 1);
               const targetPlayer = finalPlayers.find(fp => fp.id === target.id);
               if (targetPlayer && botOffer > 0) {
-                // Target accepts if deal is favorable (>20s per trophy)
-                const timeGained = botOffer * 40;
+                // Target accepts if deal is favorable — ghost gets time, target gets trophies
                 const accepts = !targetPlayer.isBot || Math.random() > 0.4;
                 if (accepts) {
                   ghost.tokens -= botOffer;
                   targetPlayer.tokens += botOffer;
-                  ghost.remainingTime += timeGained;
-                  ghost.isGhost = false; // Not revived, just gets time back... no, bargain doesn't revive
-                  // Actually bargain gives the ghost time in exchange for trophies
-                  // Let's keep it simpler: ghost gets time, target player gets trophies
+                  ghost.remainingTime += botOffer * 40;
                 }
               }
             } else {
               // p1 is ghost OR bot ghost targeting p1 — show bargain UI
-              // 3-round fallback revival in case bargain doesn't revive (init 4 → 3 full rounds)
-              ghost.possessionRoundsLeft = 4;
+              // 3-round fallback revival in case bargain doesn't revive (init 3 → decrement → 2 full rounds)
+              ghost.possessionRoundsLeft = 3;
               setPlayers([...finalPlayers]);
               setPhase('ghost_bargain');
               return; // Wait for bargain to resolve
             }
           }
           ghost.ghostAbilityUsed = true;
-          // 3-round fallback revival for bargain ghosts (no targets or bot path) (init 4 → 3 full rounds)
-          ghost.possessionRoundsLeft = 4;
-        } else if (ghost.ghostAbility === 'purgatory') {
-          // PURGATORY: countdown (init 3 to account for same-round decrement → 2 full rounds as ghost)
+          // 3-round fallback revival for bargain ghosts (no targets or bot path) (init 3 → decrement → 2 full rounds)
           ghost.possessionRoundsLeft = 3;
+        } else if (ghost.ghostAbility === 'purgatory') {
+          // PURGATORY: countdown (init 2 to account for same-round decrement → 1 full round as ghost)
+          ghost.possessionRoundsLeft = 2;
           ghost.ghostAbilityUsed = true;
           const purgatoryMsg = ghost.id === 'p1'
             ? '🌑 PURGATORY: You drift into purgatory. You will return in 2 rounds with the lowest alive player\'s time bank.'
@@ -4834,7 +4862,7 @@ export default function Game() {
               ghost.isGhost = false;
               ghost.remainingTime = 45;
               ghost.ghostImage = undefined;
-              ghost.characterIcon = undefined;
+              ghost.characterIcon = getDriverCharIcon(ghost);
               ghost.possessionTargetId = undefined;
               ghost.possessionRoundsLeft = undefined;
               if (ghost.id === 'p1') {
@@ -4866,7 +4894,7 @@ export default function Game() {
               ghost.isGhost = false;
               ghost.remainingTime = Math.max(10, reviveTime);
               ghost.ghostImage = undefined;
-              ghost.characterIcon = undefined;
+              ghost.characterIcon = getDriverCharIcon(ghost);
               ghost.possessionRoundsLeft = undefined;
               if (ghost.id === 'p1') {
                 const abilityLabel = ghost.ghostAbility === 'purgatory' ? '🌑 PURGATORY RETURN' : '🔄 FALLBACK REVIVAL';
@@ -4988,32 +5016,31 @@ export default function Game() {
           }
         }
 
-        // Echo / Pattern Lock / Tribunal min bid: clear flags after round end
+        // Echo / Pattern Lock: clear flags after round end
         p.echoForcedBid = undefined;
         p.patternLockMinBid = undefined;
-        p.tribunalMinBid = undefined;
-        // Note: tribunalTimePenalty is applied at round start (next round's startCountdown)
+        // Note: tribunalTimePenalty and tribunalForfeit are applied at round start
       });
 
       // Ghost safety counter: increment ghostRoundsAlive for all still-stuck ghosts.
-      // After 4 rounds as a ghost with no revival, force-revive them.
+      // After 3 rounds as a ghost with no revival, force-revive them.
       const isFinalRoundForRevive = round >= totalRounds;
       if (!isFinalRoundForRevive) {
         finalPlayers.forEach(ghost => {
           if (!ghost.isGhost) return;
           ghost.ghostRoundsAlive = (ghost.ghostRoundsAlive ?? 0) + 1;
-          if (ghost.ghostRoundsAlive >= 4) {
+          if (ghost.ghostRoundsAlive >= 3) {
             const reviveTime = Math.max(30, ghost.ghostTimeAtDeath ?? 0);
             ghost.isGhost = false;
             ghost.remainingTime = reviveTime;
             ghost.ghostImage = undefined;
-            ghost.characterIcon = undefined;
+            ghost.characterIcon = getDriverCharIcon(ghost);
             ghost.ghostRoundsAlive = 0;
             ghost.ghostAbility = null;
             ghost.ghostAbilityUsed = true;
             ghost.possessionRoundsLeft = undefined;
             if (ghost.id === 'p1') {
-              setTimeout(() => addOverlay('ability_trigger', '🔄 REVIVED', `You have been revived after 4 rounds as a ghost with ${reviveTime.toFixed(1)}s!`, 0), 600);
+              setTimeout(() => addOverlay('ability_trigger', '🔄 REVIVED', `You have been revived after 3 rounds as a ghost with ${reviveTime.toFixed(1)}s!`, 0), 600);
             }
           }
         });
@@ -6048,7 +6075,10 @@ export default function Game() {
 
   const nextRound = () => {
     // Check if all players are eliminated
-    const activePlayers = players.filter(p => !p.isEliminated && p.remainingTime > 0);
+    // In Haunted mode: ghosts are still in-game (can revive), so count them as active
+    const activePlayers = variant === 'HAUNTED'
+      ? players.filter(p => !p.isEliminated)          // alive + ghosts (ghosts may revive)
+      : players.filter(p => !p.isEliminated && p.remainingTime > 0);
     
     if (activePlayers.length <= 1 || round >= totalRounds) {
       // End game immediately if only 1 or 0 players remain
@@ -6078,13 +6108,21 @@ export default function Game() {
       setPeekTargetId(null); // Clear PEEK target
       setScrambledPlayers([]); // Clear Scrambled players
 
-      // SP HAUNTED: Apply Tribunal time penalty at start of new round
+      // SP HAUNTED: Apply Tribunal effects at start of new round
       if (variant === 'HAUNTED') {
         setPlayers(prev => prev.map(p => {
           if (p.tribunalTimePenalty && p.tribunalTimePenalty > 0 && !p.isEliminated && !p.isGhost) {
             const penalty = p.tribunalTimePenalty;
-            setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL PENALTY', `${p.name} loses ${penalty}s from last round's tribunal vote.`, 3000), 300);
+            setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL A PENALTY', `${p.name} loses ${penalty}s from last round's tribunal vote.`, 3000), 300);
             return { ...p, remainingTime: Math.max(0, p.remainingTime - penalty), tribunalTimePenalty: undefined };
+          }
+          if (p.tribunalForfeit && !p.isEliminated && !p.isGhost) {
+            if (p.id === 'p1') {
+              // Keep tribunalForfeit on p1 — startCountdown will auto-release them
+              setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL B: FORFEIT', 'You are forced to forfeit bidding this round — your bid will be auto-released.', 0), 300);
+              return p;
+            }
+            return { ...p, tribunalForfeit: undefined };
           }
           return p;
         }));
