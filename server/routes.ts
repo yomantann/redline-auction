@@ -685,45 +685,23 @@ export async function registerRoutes(
       const player = game.players.find(p => p.socketId === socket.id);
       if (!player || !player.isGhost) { if (callback) callback?.({ success: false, error: "Not a ghost" }); return; }
 
-      if (data.ability === 'possession' && data.targetId) {
-        player.possessionTargetId = data.targetId;
-        player.possessionRoundsLeft = 3;
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'purgatory') {
+      if (data.ability === 'purgatory') {
         player.possessionRoundsLeft = 2;
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'vendetta_win') {
-        player.isGhost = false;
-        player.remainingTime = 30;
-        const target = game.players.find(p => p.id === data.targetId);
-        if (target) target.remainingTime = Math.max(0, target.remainingTime * 0.75);
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'vendetta_lose') {
-        // Ghost stays ghost; alive player already unaffected (they won)
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'bargain' && data.targetId && data.offerAmount && data.accepted) {
-        const target = game.players.find(p => p.id === data.targetId);
-        if (target && player.tokens >= data.offerAmount) {
-          player.tokens -= data.offerAmount;
-          target.tokens += data.offerAmount;
-          player.remainingTime += data.offerAmount * 40;
-          target.remainingTime = Math.max(0, target.remainingTime - data.offerAmount * 40);
-        }
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'curse') {
-        game.ghostCurseActive = true;
         player.ghostAbilityUsed = true;
       } else if (data.ability === 'reaper' && data.targetId) {
         const target = game.players.find(p => p.id === data.targetId);
         if (target && !target.isGhost && !target.isEliminated) {
-          const idx = Math.floor(Math.random() * 8) + 1;
           const savedTime = target.remainingTime;
           target.isGhost = true;
           target.remainingTime = 0;
-          target.ghostImage = `hnt_ghost_${idx}`;
+          target.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
           target.ghostReason = 'forced';
           target.ghostTimeAtDeath = savedTime;
+          target.ghostAbility = Math.random() < 0.25 ? 'reaper' : 'purgatory';
+          target.ghostAbilityUsed = false;
         }
+        // After reaper fires, ghost enters purgatory-style countdown
+        player.possessionRoundsLeft = 2;
         player.ghostAbilityUsed = true;
       }
 

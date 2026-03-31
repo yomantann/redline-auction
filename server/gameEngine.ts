@@ -142,12 +142,10 @@ export interface GamePlayer {
   isGhost?: boolean;              // Haunted mode: true when player runs out of time (can come back to life)
   selectedItem?: string;          // Haunted mode: name of selected haunted relic
   ghostImage?: string;            // Haunted mode: assigned ghost image key (e.g. 'hnt_ghost_3')
-  ghostAbility?: 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null; // Ghost ability type
+  ghostAbility?: 'reaper' | 'purgatory' | null; // Ghost ability type (25% reaper, 75% purgatory)
   ghostAbilityUsed?: boolean;     // Has this ghost's ability already been used?
-  possessionTargetId?: string;    // POSSESSION: which player is being tracked
-  possessionRoundsLeft?: number;  // POSSESSION: rounds remaining before auto-revive
-  ghostRoundsAlive?: number;      // Fallback revive: rounds spent as ghost (all ghosts auto-revive after 3 via fallback)
-  ghostCurseActive?: boolean;     // CURSE: true = tripled driver abilities globally (stored on game state as well)
+  possessionRoundsLeft?: number;  // PURGATORY: rounds remaining before revive
+  ghostRoundsAlive?: number;      // Kept for compatibility (unused after simplification)
   ghostReason?: 'natural' | 'forced';
   ghostTimeAtDeath?: number;
   relicConsumed?: boolean;
@@ -655,6 +653,18 @@ export function confirmDriverInGame(lobbyCode: string, playerId: string): { succ
   return { success: true };
 }
 
+// Helper: assign ghost ability — 25% reaper, 75% purgatory
+function assignGhostAbility(): 'reaper' | 'purgatory' {
+  return Math.random() < 0.25 ? 'reaper' : 'purgatory';
+}
+
+// Helper: calculate revive time as max(45s, lowest alive non-ghost player's time bank)
+function calcReviveTime(game: GameState): number {
+  const alivePlayers = game.players.filter(p => !p.isGhost && !p.isEliminated);
+  const minAliveTime = alivePlayers.length > 0 ? Math.min(...alivePlayers.map(p => p.remainingTime)) : 0;
+  return Math.max(45, minAliveTime);
+}
+
 function startCountdown(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
   if (!game) return;
@@ -705,6 +715,63 @@ function startCountdown(lobbyCode: string) {
 function startBidding(lobbyCode: string) {
   const game = activeGames.get(lobbyCode);
   if (!game) return;
+
+  // --- HAUNTED MODE: All-ghost tie round ---
+  // If all alive (non-eliminated) players are ghosts, skip bidding and treat as tie.
+  // Process ghost revival countdown so ghosts get closer to returning.
+  if (game.settings.variant === 'HAUNTED') {
+    const aliveNonGhosts = game.players.filter(p => !p.isGhost && !p.isEliminated);
+    if (aliveNonGhosts.length === 0) {
+      game.phase = 'round_end';
+      game.roundWinner = null;
+      addGameLogEntry(game, {
+        type: 'win',
+        message: `Round ${game.round} — all players are ghosts, no bids (tie).`,
+        basic: true,
+      });
+      // Decrement purgatory countdown and revive any ghosts whose timer reaches 0
+      const isFinalRound = game.round >= game.totalRounds;
+      const reviveTime = calcReviveTime(game);
+      game.players.forEach(ghost => {
+        if (!ghost.isGhost) return;
+        if (ghost.possessionRoundsLeft === undefined) {
+          ghost.possessionRoundsLeft = 2; // safety: give a countdown if missing
+          return;
+        }
+        const roundsLeft = ghost.possessionRoundsLeft - 1;
+        if (roundsLeft <= 0) {
+          if (!isFinalRound) {
+            ghost.isGhost = false;
+            ghost.remainingTime = reviveTime;
+            ghost.ghostImage = undefined;
+            ghost.ghostAbility = null;
+            ghost.ghostAbilityUsed = true;
+            ghost.possessionRoundsLeft = undefined;
+            addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived with ${reviveTime.toFixed(1)}s!`, basic: true });
+          } else {
+            ghost.possessionRoundsLeft = undefined;
+          }
+        } else {
+          ghost.possessionRoundsLeft = roundsLeft;
+        }
+      });
+      broadcastGameState(lobbyCode);
+      game.players.forEach(p => {
+        (p as any).roundEndAcknowledged = true; // auto-acknowledge for all-ghost rounds
+      });
+      setTimeout(() => {
+        const g = activeGames.get(lobbyCode);
+        if (!g) return;
+        g.round += 1;
+        if (g.round > g.totalRounds) {
+          endGame(lobbyCode);
+        } else {
+          startWaitingForReady(lobbyCode);
+        }
+      }, 3000);
+      return;
+    }
+  }
 
   // --- CONCLAVE B: Skip this round as a tie ---
   if (game.skipNextRound) {
@@ -837,6 +904,8 @@ function startBidding(lobbyCode: string) {
             p.isGhost = true;
             p.ghostReason = 'natural';
             p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+            p.ghostAbility = assignGhostAbility();
+            p.ghostAbilityUsed = false;
             log(`${p.name} became a ghost (ran out of time) in lobby ${lobbyCode}`, "game");
           } else {
             p.isEliminated = true;
@@ -1794,13 +1863,9 @@ function endRound(lobbyCode: string) {
 
   // HAUNTED: Assign ghostAbility to newly ghosted players (if not already set)
   if (game.settings.variant === 'HAUNTED') {
-    const GHOST_ABILITY_SERVER_MAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
-      1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
-    };
     game.players.forEach(p => {
       if (p.isGhost && !p.ghostAbility && !p.ghostAbilityUsed) {
-        const idx = p.ghostImage ? parseInt(p.ghostImage.replace('hnt_ghost_', ''), 10) : Math.floor(Math.random() * 6) + 1;
-        p.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
+        p.ghostAbility = assignGhostAbility();
       }
     });
 
@@ -1812,149 +1877,53 @@ function endRound(lobbyCode: string) {
 
       if (ghost.ghostAbility === 'reaper' && aliveTargets.length > 0) {
         const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-        const idx = Math.floor(Math.random() * 6) + 1;
-        const GMAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
-          1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
-        };
         const savedTime = target.remainingTime;
         target.isGhost = true;
         target.remainingTime = 0;
-        target.ghostImage = `hnt_ghost_${idx}`;
-        target.ghostAbility = GMAP[idx] ?? null;
+        target.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+        target.ghostAbility = assignGhostAbility();
+        target.ghostAbilityUsed = false;
         target.ghostReason = 'forced';
         target.ghostTimeAtDeath = savedTime;
-        ghost.ghostAbilityUsed = true;
         addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} REAPER: ${target.name} becomes a ghost!`, basic: true });
-
-      } else if (ghost.ghostAbility === 'curse') {
-        game.ghostCurseActive = true;
-        ghost.ghostAbilityUsed = true;
-        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} CURSE: All driver abilities tripled!`, basic: true });
-
-      } else if (ghost.ghostAbility === 'possession' && aliveTargets.length > 0) {
-        const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-        ghost.possessionTargetId = target.id;
-        ghost.possessionRoundsLeft = 3;
-        ghost.ghostAbilityUsed = true;
-        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} POSSESSION: latched onto ${target.name}`, basic: true });
-
-      } else if (ghost.ghostAbility === 'vendetta' && aliveTargets.length > 0) {
-        const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-        const ghostHold = 5 + Math.random() * 20;
-        const aliveHold = 5 + Math.random() * 20;
-        if (ghostHold > aliveHold) {
-          ghost.isGhost = false;
-          ghost.remainingTime = 30;
-          ghost.ghostRoundsAlive = 0;
-          addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} VENDETTA: won! Revived with 30s`, basic: true });
-        } else {
-          target.remainingTime = Math.max(0, target.remainingTime * 0.75);
-          addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} VENDETTA: lost. ${target.name} -25% time`, basic: true });
-        }
-        ghost.ghostAbilityUsed = true;
-
-      } else if (ghost.ghostAbility === 'bargain' && aliveTargets.length > 0) {
-        const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-        const offer = Math.min(ghost.tokens, Math.max(1, Math.floor(Math.random() * 3) + 1));
-        if (offer > 0 && Math.random() > 0.4) {
-          const timeAmt = offer * 40;
-          ghost.tokens -= offer;
-          target.tokens += offer;
-          ghost.remainingTime += timeAmt;
-          addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} BARGAIN: traded ${offer} trophies for ${timeAmt}s`, basic: true });
-        }
-        ghost.ghostAbilityUsed = true;
-
-      } else if (ghost.ghostAbility === 'purgatory') {
-        // PURGATORY: init at 2 to account for same-round decrement → 1 full round wait → revive on round 2 (2 rounds including ghost round)
+      }
+      // After reaper fires (or if no targets), ghost enters purgatory-style countdown
+      ghost.ghostAbilityUsed = true;
+      if (ghost.possessionRoundsLeft === undefined) {
         ghost.possessionRoundsLeft = 2;
-        ghost.ghostAbilityUsed = true;
-        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} PURGATORY: counting down 2 rounds...`, basic: true });
-      } else {
-        // No alive targets for target-based abilities, or unknown ability — mark as used so fallback revive can take over
-        ghost.ghostAbilityUsed = true;
+        if (ghost.ghostAbility === 'purgatory') {
+          addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} PURGATORY: counting down 2 rounds...`, basic: true });
+        }
       }
     });
 
-    // Check POSSESSION and PURGATORY revive conditions
+    // Check purgatory countdown revive conditions for all ghosts
     const isFinalRound = game.round >= game.totalRounds;
+    const reviveTime = calcReviveTime(game);
     game.players.forEach(ghost => {
-      if (!ghost.isGhost || ghost.possessionRoundsLeft === undefined) return;
-      const hasPossessionTarget = !!ghost.possessionTargetId;
-      const isPurgatory = ghost.ghostAbility === 'purgatory' && !hasPossessionTarget;
-
-      if (hasPossessionTarget) {
-        // POSSESSION
-        const target = game.players.find(p => p.id === ghost.possessionTargetId);
-        const targetIsGhostNow = target?.isGhost;
-        const targetEliminated = target?.isEliminated;
-        const roundsExpired = ghost.possessionRoundsLeft <= 1;
-        if (targetIsGhostNow || targetEliminated || roundsExpired) {
-          if (!isFinalRound) {
-            ghost.isGhost = false;
-            ghost.remainingTime = 45;
-            ghost.ghostImage = undefined;
-            addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} POSSESSION: revived with 45s!`, basic: true });
-          }
-          ghost.possessionTargetId = undefined;
-          ghost.possessionRoundsLeft = undefined;
-        } else {
-          ghost.possessionRoundsLeft = (ghost.possessionRoundsLeft ?? 3) - 1;
-        }
-      } else if (isPurgatory) {
-        const roundsLeft = ghost.possessionRoundsLeft - 1;
-        if (roundsLeft <= 0) {
-          if (!isFinalRound) {
-            let reviveTime: number;
-            if (ghost.ghostReason === 'forced' && ghost.ghostTimeAtDeath !== undefined && ghost.ghostTimeAtDeath > 0) {
-              reviveTime = ghost.ghostTimeAtDeath;
-            } else {
-              const alivePlayers = game.players.filter(p => !p.isGhost && !p.isEliminated);
-              reviveTime = alivePlayers.length > 0 ? Math.min(...alivePlayers.map(p => p.remainingTime)) : 20;
-            }
-            ghost.isGhost = false;
-            ghost.remainingTime = Math.max(10, reviveTime);
-            ghost.ghostImage = undefined;
-            addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} PURGATORY: revived with ${ghost.remainingTime.toFixed(1)}s!`, basic: true });
-          }
-          ghost.possessionRoundsLeft = undefined;
-        } else {
-          ghost.possessionRoundsLeft = roundsLeft;
-        }
+      if (!ghost.isGhost) return;
+      if (ghost.possessionRoundsLeft === undefined) {
+        // Safety: ensure every ghost has a countdown
+        ghost.possessionRoundsLeft = 2;
+        return;
       }
-    });
-
-    // --- GHOST FALLBACK REVIVE ---
-    // All ghosts that haven't been revived by their own ability after 3 rounds
-    // automatically return with max(ghostTimeAtDeath ?? 0, 30s).
-    // This ensures any ghost whose specific ability never triggered always have a way back.
-    if (!isFinalRound) {
-      game.players.forEach(ghost => {
-        if (!ghost.isGhost) return; // already revived above or was alive
-        // Increment rounds spent as ghost
-        ghost.ghostRoundsAlive = (ghost.ghostRoundsAlive ?? 0) + 1;
-        if (ghost.ghostRoundsAlive >= 3) {
-          const reviveTime = Math.max(30, ghost.ghostTimeAtDeath ?? 0);
+      const roundsLeft = ghost.possessionRoundsLeft - 1;
+      if (roundsLeft <= 0) {
+        if (!isFinalRound) {
           ghost.isGhost = false;
           ghost.remainingTime = reviveTime;
           ghost.ghostImage = undefined;
-          ghost.ghostRoundsAlive = 0;
-          // Clear stale ghost state
           ghost.ghostAbility = null;
           ghost.ghostAbilityUsed = true;
-          ghost.possessionTargetId = undefined;
           ghost.possessionRoundsLeft = undefined;
-          addGameLogEntry(game, {
-            type: 'ability',
-            playerId: ghost.id,
-            playerName: ghost.name,
-            message: `${ghost.name} FALLBACK REVIVE: returned after 3 rounds with ${reviveTime.toFixed(1)}s`,
-            basic: true,
-          });
-          log(`Fallback revive: ${ghost.name} returned after 3 ghost rounds in lobby ${lobbyCode}`, "game");
+          addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived with ${reviveTime.toFixed(1)}s!`, basic: true });
+        } else {
+          ghost.possessionRoundsLeft = undefined;
         }
-      });
-    }
+      } else {
+        ghost.possessionRoundsLeft = roundsLeft;
+      }
+    });
   }
 
   // HIDDEN_NAIL_IN_THE_COFFIN: award to player whose DISRUPT ability caused an opponent's elimination
@@ -2282,11 +2251,10 @@ function endRound(lobbyCode: string) {
     const winnerTimeBid = winnerId ? (game.players.find(p => p.id === winnerId)?.currentBid ?? 0) : 0;
 
     game.players.forEach(p => {
-      // Last Will: if the activator was ghosted THIS round, apply curse to a random alive opponent
+      // Last Will: if the activator is a ghost (ghosted this round cycle, including pre-round ghosting), apply curse to a random alive opponent
       if (p.pendingLastWill) {
-        const wasGhostBefore = wasGhostAtRoundStart.get(p.id) ?? false;
         const isGhostNow = !!p.isGhost;
-        if (!wasGhostBefore && isGhostNow) {
+        if (isGhostNow) {
           const eligible = game.players.filter(tp => tp.id !== p.id && !tp.isGhost && !tp.isEliminated && tp.tokens > 0);
           const willTarget = eligible.length > 0 ? eligible[Math.floor(Math.random() * eligible.length)] : null;
           if (willTarget) {
@@ -2342,28 +2310,25 @@ function endRound(lobbyCode: string) {
       if (p.markedBy && p.id === winnerId) {
         const markerId = p.markedBy;
         const marker = game.players.find(mp => mp.id === markerId);
-        const GMAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
-          1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
-        };
         const savedTime = p.remainingTime;
-        const idx = Math.floor(Math.random() * 6) + 1;
         p.isGhost = true;
         p.ghostReason = 'forced';
         p.ghostTimeAtDeath = savedTime;
         p.remainingTime = 0;
-        p.ghostImage = `hnt_ghost_${idx}`;
-        p.ghostAbility = GMAP[idx] ?? null;
+        p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+        p.ghostAbility = assignGhostAbility();
+        p.ghostAbilityUsed = false;
         addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} MARK TRIGGERED: won and was immediately ghosted!`, basic: true });
         // 50% chance the marker is also ghosted
         if (marker && !marker.isGhost && !marker.isEliminated && Math.random() < 0.5) {
-          const mIdx = Math.floor(Math.random() * 6) + 1;
           const mSaved = marker.remainingTime;
           marker.isGhost = true;
           marker.ghostReason = 'forced';
           marker.ghostTimeAtDeath = mSaved;
           marker.remainingTime = 0;
-          marker.ghostImage = `hnt_ghost_${mIdx}`;
-          marker.ghostAbility = GMAP[mIdx] ?? null;
+          marker.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+          marker.ghostAbility = assignGhostAbility();
+          marker.ghostAbilityUsed = false;
           addGameLogEntry(game, { type: 'ability', playerId: marker.id, playerName: marker.name, message: `${marker.name} MARK BACKLASH: mark claimed the marker too!`, basic: true });
         }
         p.markedBy = undefined;
@@ -2888,9 +2853,6 @@ function startWaitingForReady(lobbyCode: string) {
     const isFinalRounds = game.round >= game.totalRounds - 1;
     const botActivationChance = isFinalRounds ? 0.9 : isLateGame ? 0.6 : 0.3;
 
-    const GMAP_BOT: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
-      1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
-    };
     const DARK_POOL_BOT: ProtocolType[] = ['PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
 
     game.players.forEach(bot => {
@@ -2919,14 +2881,13 @@ function startWaitingForReady(lobbyCode: string) {
             bot.remainingTime = Math.max(0, bot.remainingTime - 30);
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): -30s`, value: -30, basic: true });
           } else {
-            const idx = Math.floor(Math.random() * 6) + 1;
             const saved = bot.remainingTime;
             bot.isGhost = true;
             bot.ghostReason = 'forced';
             bot.ghostTimeAtDeath = saved;
             bot.remainingTime = 0;
-            bot.ghostImage = `hnt_ghost_${idx}`;
-            bot.ghostAbility = GMAP_BOT[idx] ?? null;
+            bot.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+            bot.ghostAbility = assignGhostAbility();
             bot.ghostAbilityUsed = false;
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): ghosted`, basic: true });
           }
@@ -2936,14 +2897,13 @@ function startWaitingForReady(lobbyCode: string) {
           const target = pickRandom(opponents);
           if (target) {
             if (Math.random() < 0.20) {
-              const idx = Math.floor(Math.random() * 6) + 1;
               const saved = target.remainingTime;
               target.isGhost = true;
               target.ghostReason = 'forced';
               target.ghostTimeAtDeath = saved;
               target.remainingTime = 0;
-              target.ghostImage = `hnt_ghost_${idx}`;
-              target.ghostAbility = GMAP_BOT[idx] ?? null;
+              target.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+              target.ghostAbility = assignGhostAbility();
               target.ghostAbilityUsed = false;
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} GHOST TOUCH (bot): ${target.name} ghosted!`, basic: true });
             } else {
@@ -3001,16 +2961,15 @@ function startWaitingForReady(lobbyCode: string) {
         case 'seance': {
           const ghosts = game.players.filter(p => p.isGhost && !p.isEliminated);
           if (ghosts.length >= 2) {
+            const seanceReviveTime = calcReviveTime(game);
             ghosts.forEach(ghost => {
-              const reviveTime = Math.max(45, ghost.ghostTimeAtDeath ?? 0);
               ghost.isGhost = false;
-              ghost.remainingTime = reviveTime;
+              ghost.remainingTime = seanceReviveTime;
               ghost.ghostImage = undefined;
               ghost.ghostAbility = null;
               ghost.ghostAbilityUsed = false;
-              ghost.possessionTargetId = undefined;
               ghost.possessionRoundsLeft = undefined;
-              addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived by bot Séance with ${reviveTime.toFixed(1)}s!`, basic: true });
+              addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived by bot Séance with ${seanceReviveTime.toFixed(1)}s!`, basic: true });
             });
             bot.tokens += 1;
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} SÉANCE (bot): ${ghosts.length} ghost(s) revived, +1 trophy`, value: 1, basic: true });
@@ -3230,6 +3189,13 @@ function startWaitingForReady(lobbyCode: string) {
     
     // In Haunted mode: if all humans are ghosts, auto-advance after a short delay
     if (g.settings.variant === 'HAUNTED' && humanPlayers.length === 0) {
+      // Don't advance while a vote is pending
+      if (g.pendingVote && !g.pendingVote.resolved) {
+        if (g.allHumansHoldingStartTime !== null) {
+          g.allHumansHoldingStartTime = null;
+        }
+        return;
+      }
       if (g.allHumansHoldingStartTime === null) {
         g.allHumansHoldingStartTime = Date.now();
         broadcastGameState(lobbyCode);
@@ -3245,6 +3211,14 @@ function startWaitingForReady(lobbyCode: string) {
     }
 
     if (allHumansHolding && humanPlayers.length > 0) {
+      // Don't advance while a vote (conclave/tribunal) is pending — players must vote first
+      if (g.pendingVote && !g.pendingVote.resolved) {
+        if (g.allHumansHoldingStartTime !== null) {
+          g.allHumansHoldingStartTime = null;
+          broadcastGameState(lobbyCode);
+        }
+        return;
+      }
       // Track when all humans started holding
       if (g.allHumansHoldingStartTime === null) {
         g.allHumansHoldingStartTime = Date.now();
@@ -3662,8 +3636,12 @@ export function playerAcknowledgeRoundEnd(lobbyCode: string, socketId: string) {
   
   if (allAcknowledged && humanPlayers.length > 0) {
     // Check for game over
+    const isHauntedMode = game.settings.variant === 'HAUNTED';
     const activePlayers = game.players.filter(p => !p.isEliminated);
-    if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
+    // In haunted mode: only end the game at the round limit or if truly nobody remains.
+    // Ghost players can revive, so don't end based on player count alone.
+    const allEliminated = activePlayers.length === 0;
+    if (game.round >= game.totalRounds || allEliminated || (!isHauntedMode && activePlayers.length <= 1)) {
       endGame(lobbyCode);
     } else {
       // Advance to next round
@@ -3785,7 +3763,6 @@ export function broadcastGameState(lobbyCode: string) {
       ghostImage: p.ghostImage || null,
       ghostAbility: p.ghostAbility || null,
       ghostAbilityUsed: p.ghostAbilityUsed || false,
-      possessionTargetId: p.possessionTargetId || null,
       possessionRoundsLeft: p.possessionRoundsLeft ?? null,
       selectedItem: p.selectedItem || null,
       relicConsumed: p.relicConsumed || false,
@@ -3856,10 +3833,6 @@ export function activateRelicMP(
 
   activator.relicConsumed = true;
 
-  const GHOST_ABILITY_SERVER_MAP: Record<number, 'reaper' | 'curse' | 'vendetta' | 'bargain' | 'possession' | 'purgatory' | null> = {
-    1: 'reaper', 2: 'curse', 3: 'vendetta', 4: 'bargain', 5: 'possession', 6: 'purgatory',
-  };
-
   switch (relicId) {
     case 'jackpot': {
       const roll = Math.random();
@@ -3876,18 +3849,16 @@ export function activateRelicMP(
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: -30s`, value: -30, basic: true });
         if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 💀 CURSED!', message: `${activator.name} hit Jackpot — −30s removed!` });
       } else {
-        const idx = Math.floor(Math.random() * 6) + 1;
         const savedTime = activator.remainingTime;
         activator.isGhost = true;
         activator.ghostReason = 'forced';
         activator.ghostTimeAtDeath = savedTime;
         activator.remainingTime = 0;
-        activator.ghostImage = `hnt_ghost_${idx}`;
-        activator.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
+        activator.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+        activator.ghostAbility = assignGhostAbility();
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: GHOSTED`, basic: true });
         if (emitToLobby) {
           emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 👻 GHOSTED!', message: `${activator.name} hit Jackpot — they've been ghosted!` });
-          // Private notification to the activator with their ghost ability
           const abilityName = activator.ghostAbility ? activator.ghostAbility.toUpperCase() : 'UNKNOWN';
           emitToLobby(lobbyCode, 'relic_private', { socketId: activator.socketId, title: '🎰 JACKPOT: YOU ARE A GHOST', message: `The wheel turned against you. You've been ghosted! Your ghost ability: ${abilityName}` });
         }
@@ -3898,23 +3869,20 @@ export function activateRelicMP(
       const target = game.players.find(p => p.id === targetId);
       if (target && !target.isGhost && !target.isEliminated) {
         if (Math.random() < 0.20) {
-          const idx = Math.floor(Math.random() * 6) + 1;
           const savedTime = target.remainingTime;
           target.isGhost = true;
           target.ghostReason = 'forced';
           target.ghostTimeAtDeath = savedTime;
           target.remainingTime = 0;
-          target.ghostImage = `hnt_ghost_${idx}`;
-          target.ghostAbility = GHOST_ABILITY_SERVER_MAP[idx] ?? null;
+          target.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+          target.ghostAbility = assignGhostAbility();
           addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} GHOST TOUCH: ${target.name} ghosted!`, basic: true });
           if (emitToLobby) {
             emitToLobby(lobbyCode, 'relic_broadcast', { title: '👻 GHOST TOUCH', message: `${activator.name} used Ghost Touch — ${target.name} has been ghosted!`, victimId: target.id });
-            // Private notification to the activator about the hit
             emitToLobby(lobbyCode, 'relic_private', { socketId: activator.socketId, title: '👻 GHOST TOUCH FIRED', message: `${target.name} was consumed by the curse!` });
           }
         } else {
           addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} GHOST TOUCH: missed (20% chance failed)`, basic: true });
-          // Only the activator sees the miss
           if (emitToLobby) emitToLobby(lobbyCode, 'relic_private', { socketId: activator.socketId, title: '👻 GHOST TOUCH: MISSED', message: `The curse didn't take. ${target.name} survives — this time.` });
         }
       }
@@ -4048,16 +4016,15 @@ export function activateRelicMP(
         activator.relicConsumed = false;
         return { success: false, error: 'Not enough ghosts (need 2+)' };
       }
+      const seanceReviveTime = calcReviveTime(game);
       ghosts.forEach(ghost => {
-        const reviveTime = Math.max(45, ghost.ghostTimeAtDeath ?? 0);
         ghost.isGhost = false;
-        ghost.remainingTime = reviveTime;
+        ghost.remainingTime = seanceReviveTime;
         ghost.ghostImage = undefined;
         ghost.ghostAbility = null;
         ghost.ghostAbilityUsed = false;
-        ghost.possessionTargetId = undefined;
         ghost.possessionRoundsLeft = undefined;
-        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived by Séance with ${reviveTime.toFixed(1)}s!`, basic: true });
+        addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived by Séance with ${seanceReviveTime.toFixed(1)}s!`, basic: true });
       });
       activator.tokens += 1;
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} SÉANCE: ${ghosts.length} ghost(s) revived! +1 trophy`, value: 1, basic: true });
