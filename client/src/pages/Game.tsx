@@ -254,7 +254,7 @@ const SHORT_INITIAL_TIME = 150.0;
 const COUNTDOWN_SECONDS = 3; 
 const READY_HOLD_DURATION = 3.0; 
 
-type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'wager_phase' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'margin_run' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
+type GamePhase = 'intro' | 'multiplayer_lobby' | 'character_select' | 'haunted_item_select' | 'wager_phase' | 'mp_driver_select' | 'ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'margin_run' | 'vault_run' | 'round_end' | 'game_end' | 'ghost_vendetta' | 'ghost_bargain' | 'ghost_possession_pick';
 type BotPersonality = 'balanced' | 'aggressive' | 'conservative' | 'random' | 'adaptive' | 'psychological';
 type GameDuration = 'standard' | 'long' | 'short';
 // NEW PROTOCOL TYPES
@@ -274,7 +274,7 @@ type ProtocolType =
   // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
   | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
   // WAGER mode protocols
-  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'MARGIN' | 'PROTOCOL_COIN_FLIP'
+  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'MARGIN' | 'PROTOCOL_COIN_FLIP' | 'VAULT_RUN'
   | null;
 
 // ... (Existing Characters)
@@ -1066,7 +1066,7 @@ export default function Game() {
         'UNDERDOG_VICTORY', 'TIME_TAX', 'PRIVATE_CHANNEL',
         'OVERCLOCK', 'CALIBRATION',
         'HAUNTED_SEANCE', 'HAUNTED_CURSE_ECHO', 'HAUNTED_WAIL', 'HAUNTED_MIRROR',
-        'HIGH_CIRCUIT', 'READ_THE_TABLE', 'MARGIN', 'PROTOCOL_COIN_FLIP',
+        'HIGH_CIRCUIT', 'READ_THE_TABLE', 'MARGIN', 'PROTOCOL_COIN_FLIP', 'VAULT_RUN',
   ]);
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(false);
@@ -1695,6 +1695,8 @@ export default function Game() {
           setPhase('read_the_table');
         } else if (state.phase === 'margin_run') {
           setPhase('margin_run');
+        } else if (state.phase === 'vault_run') {
+          setPhase('vault_run');
         } else if (state.phase === 'round_end') {
           setPhase('round_end');
           if (state.roundWinner) {
@@ -2327,6 +2329,8 @@ export default function Game() {
               setPhase('read_the_table');
             } else if (activeProtocol === 'MARGIN') {
               setPhase('margin_run');
+            } else if (activeProtocol === 'VAULT_RUN') {
+              setPhase('vault_run');
             } else {
               setPhase('bidding');
             }
@@ -2887,8 +2891,186 @@ export default function Game() {
     }
   }, [phase, isMultiplayer]);
 
-  // Main Bidding Timer (Precision) - Singleplayer only
+  // Initialize/cleanup margin state
   useEffect(() => {
+    if (phase === 'margin_run' && !isMultiplayer && !marginSPState) {
+      initMarginSP();
+    }
+    if (phase !== 'margin_run') {
+      setMarginSPState(null);
+      setMarginCardFlipTrigger(false);
+    }
+  }, [phase, isMultiplayer]);
+
+  // ─── VAULT RUN SP State ───────────────────────────────────────────────────
+  interface VaultRunSPPlayerState {
+    dice: number[];
+    keptDice: number[];
+    bankedScore: number;
+    turnScore: number;
+    status: 'choosing' | 'banked' | 'farkled';
+    rollCount: number;
+    hotDice: boolean;
+    selectedIndices: number[]; // UI: which dice the human has clicked to keep
+  }
+  interface VaultRunSPState {
+    phase: 'rolling' | 'done';
+    playerStates: Record<string, VaultRunSPPlayerState>;
+    winners: string[];
+    losers: string[];
+  }
+
+  const [vaultSPState, setVaultSPState] = useState<VaultRunSPState | null>(null);
+
+  const rollVaultDice = useCallback((count: number): number[] =>
+    Array.from({ length: count }, () => Math.floor(Math.random() * 6) + 1), []);
+
+  const scoreVaultDiceSP = useCallback((dice: number[]): number => {
+    if (dice.length === 0) return 0;
+    const counts: Record<number, number> = {};
+    for (const d of dice) counts[d] = (counts[d] || 0) + 1;
+    if (dice.length >= 5) {
+      const uniq = [...new Set(dice)].sort((a,b)=>a-b);
+      if (uniq.length >= 5 && ([1,2,3,4,5].every(v=>uniq.includes(v)) || [2,3,4,5,6].every(v=>uniq.includes(v)))) return 1500;
+    }
+    let score = 0;
+    for (const [faceStr, cnt] of Object.entries(counts)) {
+      const face = Number(faceStr);
+      const base = face === 1 ? 1000 : face * 100;
+      if (cnt >= 6) score += base * 4;
+      else if (cnt >= 5) score += base * 3;
+      else if (cnt >= 4) score += base * 2;
+      else if (cnt >= 3) score += base;
+      else { if (face === 1) score += cnt * 100; else if (face === 5) score += cnt * 50; }
+    }
+    return score;
+  }, []);
+
+  const hasScoringDiceSP = useCallback((dice: number[]): boolean => {
+    if (!dice.length) return false;
+    const counts: Record<number, number> = {};
+    for (const d of dice) counts[d] = (counts[d] || 0) + 1;
+    for (const cnt of Object.values(counts)) if (cnt >= 3) return true;
+    if (counts[1] || counts[5]) return true;
+    if (dice.length >= 5) {
+      const uniq = [...new Set(dice)].sort((a,b)=>a-b);
+      if (uniq.length >= 5 && ([1,2,3,4,5].every(v=>uniq.includes(v)) || [2,3,4,5,6].every(v=>uniq.includes(v)))) return true;
+    }
+    return false;
+  }, []);
+
+  const initVaultSP = useCallback(() => {
+    const activePlayers = players.filter(p => !p.isEliminated);
+    const playerStates: Record<string, VaultRunSPPlayerState> = {};
+    activePlayers.forEach(p => {
+      const dice = rollVaultDice(6);
+      const scoring = hasScoringDiceSP(dice);
+      playerStates[p.id] = { dice: scoring ? dice : [], keptDice: [], bankedScore: 0, turnScore: 0, status: scoring ? 'choosing' : 'farkled', rollCount: 1, hotDice: false, selectedIndices: [] };
+    });
+    setVaultSPState({ phase: 'rolling', playerStates, winners: [], losers: [] });
+  }, [players, rollVaultDice, hasScoringDiceSP]);
+
+  const endVaultSPRound = useCallback((winners: string[], losers: string[]) => {
+    endWagerProtocolRound(winners);
+  }, [endWagerProtocolRound]);
+
+  // Bot AI for vault SP
+  const vaultBotTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => {
+    if (!vaultSPState || isMultiplayer) return;
+    // Clear old timers
+    vaultBotTimersRef.current.forEach(t => clearTimeout(t));
+    vaultBotTimersRef.current = [];
+    const bots = players.filter(p => p.isBot && vaultSPState.playerStates[p.id]?.status === 'choosing');
+    bots.forEach(bot => {
+      const delay = 1500 + Math.random() * 1500;
+      const t = setTimeout(() => {
+        setVaultSPState(prev => {
+          if (!prev) return prev;
+          const ps = { ...prev.playerStates[bot.id] };
+          if (ps.status !== 'choosing') return prev;
+          // Keep all scorable dice
+          const counts: Record<number, number> = {};
+          for (const d of ps.dice) counts[d] = (counts[d] || 0) + 1;
+          const keepIndices: number[] = [];
+          const used = new Set<number>();
+          // straight
+          if (ps.dice.length >= 5) {
+            const uniq = [...new Set(ps.dice)].sort((a,b)=>a-b);
+            if (uniq.length >= 5 && ([1,2,3,4,5].every(v=>uniq.includes(v)) || [2,3,4,5,6].every(v=>uniq.includes(v)))) {
+              ps.dice.forEach((_,i)=>{ keepIndices.push(i); used.add(i); });
+            }
+          }
+          if (!keepIndices.length) {
+            for (const [faceStr, cnt] of Object.entries(counts)) {
+              if (cnt >= 3) { const face=Number(faceStr); ps.dice.forEach((d,i)=>{ if(d===face&&!used.has(i)){keepIndices.push(i);used.add(i);} }); }
+            }
+            ps.dice.forEach((d,i)=>{ if(!used.has(i)&&(d===1||d===5)){keepIndices.push(i);used.add(i);} });
+          }
+          if (!keepIndices.length) { return { ...prev, playerStates: { ...prev.playerStates, [bot.id]: { ...ps, bankedScore: ps.bankedScore + ps.turnScore, status: 'banked' } } }; }
+          const keptVals = keepIndices.map(i=>ps.dice[i]);
+          ps.keptDice = [...ps.keptDice, ...keptVals];
+          ps.turnScore = scoreVaultDiceSP(ps.keptDice);
+          ps.dice = ps.dice.filter((_,i)=>!keepIndices.includes(i));
+          ps.hotDice = ps.dice.length === 0;
+          // bank or reroll
+          if (ps.turnScore >= 350 || ps.rollCount >= 3) {
+            ps.bankedScore += ps.turnScore; ps.turnScore = 0; ps.keptDice = []; ps.status = 'banked';
+          } else {
+            const rc = ps.hotDice ? 6 : ps.dice.length;
+            if (rc > 0) {
+              const nd = rollVaultDice(rc);
+              ps.dice = nd; ps.rollCount++; ps.hotDice = false;
+              if (!hasScoringDiceSP(nd)) { ps.turnScore = 0; ps.keptDice = []; ps.status = 'farkled'; }
+            } else { ps.bankedScore += ps.turnScore; ps.status = 'banked'; }
+          }
+          return { ...prev, playerStates: { ...prev.playerStates, [bot.id]: ps } };
+        });
+      }, delay);
+      vaultBotTimersRef.current.push(t);
+    });
+  }, [vaultSPState?.phase, isMultiplayer]);
+
+  // Check if vault SP is all done
+  useEffect(() => {
+    if (!vaultSPState || isMultiplayer || vaultSPState.phase === 'done') return;
+    const allDone = Object.values(vaultSPState.playerStates).every(s => s.status === 'banked' || s.status === 'farkled');
+    if (!allDone) return;
+    // Compute winners/losers
+    const scores = Object.entries(vaultSPState.playerStates).map(([pid, ps]) => ({ pid, score: ps.bankedScore }));
+    scores.sort((a,b) => b.score - a.score);
+    const maxScore = scores[0]?.score ?? 0;
+    const winners = scores.filter(s => s.score === maxScore).map(s => s.pid);
+    const ascending = [...scores].reverse();
+    const minScore = ascending[0]?.score ?? 0;
+    const losers = ascending.filter(s => s.score === minScore).map(s => s.pid);
+    if (losers.length < 2 && ascending.length > losers.length) {
+      const secondMin = ascending[losers.length]?.score ?? -1;
+      ascending.filter(s => s.score === secondMin && !losers.includes(s.pid)).forEach(s => losers.push(s.pid));
+    }
+    // Apply 30s penalty
+    losers.forEach(pid => {
+      setPlayers(prev => prev.map(p => p.id === pid ? { ...p, remainingTime: Math.max(0, p.remainingTime - 30) } : p));
+    });
+    setVaultSPState(prev => prev ? { ...prev, phase: 'done', winners, losers } : prev);
+  }, [vaultSPState, isMultiplayer]);
+
+  useEffect(() => {
+    if (!vaultSPState || isMultiplayer || vaultSPState.phase !== 'done') return;
+    const t = setTimeout(() => endVaultSPRound(vaultSPState.winners, vaultSPState.losers), 2500);
+    return () => clearTimeout(t);
+  }, [vaultSPState?.phase, isMultiplayer, endVaultSPRound]);
+
+  // Init/cleanup vault state
+  useEffect(() => {
+    if (phase === 'vault_run' && !isMultiplayer && !vaultSPState) {
+      initVaultSP();
+    }
+    if (phase !== 'vault_run') {
+      setVaultSPState(null);
+      vaultBotTimersRef.current.forEach(t => clearTimeout(t));
+    }
+  }, [phase, isMultiplayer]);
     if (phase === 'bidding' && !isMultiplayer) {
       const animate = (time: number) => {
         if (startTimeRef.current === null) startTimeRef.current = time;
@@ -3965,7 +4147,7 @@ export default function Game() {
       const SOCIAL_SET = ['TRUTH_DARE','SWITCH_SEATS','HUM_TUNE','LOCK_ON','NOISE_CANCEL'];
       const BIO_SET = ['HYDRATE','BOTTOMS_UP','PARTNER_DRINK','WATER_ROUND'];
       const HAUNTED_SET = ['HAUNTED_SEANCE','HAUNTED_CURSE_ECHO','HAUNTED_WAIL','HAUNTED_MIRROR'];
-      const WAGER_SET = ['HIGH_CIRCUIT','READ_THE_TABLE','MARGIN','PROTOCOL_COIN_FLIP'];
+      const WAGER_SET = ['HIGH_CIRCUIT','READ_THE_TABLE','MARGIN','PROTOCOL_COIN_FLIP','VAULT_RUN'];
 
       const pick = (pool: ProtocolType[]) => pool[Math.floor(Math.random() * pool.length)];
 
@@ -4091,6 +4273,7 @@ export default function Game() {
         case 'READ_THE_TABLE':   msg = "READ THE TABLE";      sub = "Liar's Dice! Roll 5 dice, bid on totals, challenge bluffs. Lose all dice = out."; break;
         case 'MARGIN':           msg = "MARGIN";            sub = "A 4-wave card challenge! Guess color → higher/lower → inside/outside → suit. Each guess costs 10s. Forfeit to protect your progress."; break;
         case 'PROTOCOL_COIN_FLIP': msg = "COIN FLIP PROTOCOL"; sub = "Everyone flips a coin. Most heads wins the round. Ties go to a rematch!"; break;
+        case 'VAULT_RUN':         msg = "VAULT RUN";          sub = "Roll 6 dice! Set aside scoring dice and bank or reroll. Farkle = lose your turn score. Highest bank wins; bottom 2 lose 30s!"; break;
       }
       
       // Filter out popups that shouldn't be seen by the player (targeted/secret protocols only)
@@ -7720,8 +7903,211 @@ export default function Game() {
       );
     }
 
+
+    // Handle VAULT RUN phase
+    if (renderPhase === 'vault_run') {
+      const mpVrs = isMultiplayer ? ((multiplayerGameState as any)?.vaultRunState ?? null) : null;
+      const activeVrs: any = isMultiplayer ? mpVrs : vaultSPState;
+      const myVrId = isMultiplayer ? myMultiplayerPlayer?.id : 'p1';
+      const myVrPs: any = activeVrs?.playerStates?.[myVrId ?? ''];
+
+      const DICE_DOTS_VR: Record<number, number[][]> = {
+        1: [[50,50]], 2: [[25,25],[75,75]], 3: [[25,25],[50,50],[75,75]],
+        4: [[25,25],[75,25],[25,75],[75,75]], 5: [[25,25],[75,25],[50,50],[25,75],[75,75]],
+        6: [[25,25],[75,25],[25,50],[75,50],[25,75],[75,75]],
+      };
+
+      const scoreVRUI = (dice: number[]): number => {
+        if (!dice.length) return 0;
+        const counts: Record<number, number> = {};
+        for (const d of dice) counts[d] = (counts[d]||0)+1;
+        if (dice.length >= 5) {
+          const uniq = [...new Set(dice)].sort((a,b)=>a-b);
+          if (uniq.length >= 5 && ([1,2,3,4,5].every(v=>uniq.includes(v)) || [2,3,4,5,6].every(v=>uniq.includes(v)))) return 1500;
+        }
+        let s = 0;
+        for (const [faceStr, cnt] of Object.entries(counts)) {
+          const face = Number(faceStr);
+          const base = face===1 ? 1000 : face*100;
+          if (cnt>=6) s+=base*4; else if (cnt>=5) s+=base*3; else if (cnt>=4) s+=base*2; else if (cnt>=3) s+=base;
+          else { if(face===1) s+=cnt*100; else if(face===5) s+=cnt*50; }
+        }
+        return s;
+      };
+
+      const vrSelIndices: number[] = myVrPs?.selectedIndices || [];
+      const vrCanKeep = myVrPs?.status === 'choosing' && vrSelIndices.length > 0 &&
+        scoreVRUI([...(myVrPs.keptDice||[]), ...vrSelIndices.map((i: number) => (myVrPs.dice||[])[i])]) > 0;
+
+      const handleVRToggle = (idx: number) => {
+        if (!vaultSPState || isMultiplayer || myVrPs?.status !== 'choosing') return;
+        setVaultSPState((prev: any) => {
+          if (!prev || !myVrId) return prev;
+          const ps = { ...prev.playerStates[myVrId] };
+          const sel = new Set(ps.selectedIndices || []);
+          sel.has(idx) ? sel.delete(idx) : sel.add(idx);
+          return { ...prev, playerStates: { ...prev.playerStates, [myVrId]: { ...ps, selectedIndices: [...sel] } } };
+        });
+      };
+
+      const handleVRKeep = () => {
+        if (isMultiplayer) { socket?.emit('vault_keep', { keptIndices: vrSelIndices }); return; }
+        if (!vaultSPState || !myVrId) return;
+        setVaultSPState((prev: any) => {
+          if (!prev) return prev;
+          const ps = { ...prev.playerStates[myVrId] };
+          const sel: number[] = ps.selectedIndices || [];
+          const keptVals = sel.map((i: number) => ps.dice[i]);
+          const newKept = [...ps.keptDice, ...keptVals];
+          const ns = scoreVRUI(newKept);
+          if (ns === 0) return prev;
+          ps.keptDice = newKept; ps.turnScore = ns;
+          ps.dice = ps.dice.filter((_: any, i: number) => !sel.includes(i));
+          ps.hotDice = ps.dice.length === 0; ps.selectedIndices = [];
+          return { ...prev, playerStates: { ...prev.playerStates, [myVrId]: ps } };
+        });
+      };
+
+      const handleVRReroll = () => {
+        if (isMultiplayer) { socket?.emit('vault_reroll', {}); return; }
+        if (!vaultSPState || !myVrId) return;
+        setVaultSPState((prev: any) => {
+          if (!prev) return prev;
+          const ps = { ...prev.playerStates[myVrId] };
+          if (ps.status !== 'choosing' || ps.keptDice.length === 0) return prev;
+          const rc = ps.hotDice ? 6 : ps.dice.length;
+          if (rc === 0) return prev;
+          const nd = rollVaultDice(rc);
+          ps.dice = nd; ps.rollCount++; ps.hotDice = false; ps.selectedIndices = [];
+          if (!hasScoringDiceSP(nd)) { ps.turnScore = 0; ps.keptDice = []; ps.status = 'farkled'; }
+          return { ...prev, playerStates: { ...prev.playerStates, [myVrId]: ps } };
+        });
+      };
+
+      const handleVRBank = () => {
+        if (isMultiplayer) { socket?.emit('vault_bank', {}); return; }
+        if (!vaultSPState || !myVrId) return;
+        setVaultSPState((prev: any) => {
+          if (!prev) return prev;
+          const ps = { ...prev.playerStates[myVrId] };
+          if (ps.status !== 'choosing' || ps.keptDice.length === 0) return prev;
+          ps.bankedScore += ps.turnScore; ps.turnScore = 0; ps.keptDice = []; ps.status = 'banked'; ps.selectedIndices = [];
+          return { ...prev, playerStates: { ...prev.playerStates, [myVrId]: ps } };
+        });
+      };
+
+      if (!activeVrs) {
+        return <div className="flex flex-col items-center justify-center h-[450px]"><div className="text-zinc-400">Setting up Vault Run...</div></div>;
+      }
+
+      const vaultPhase = activeVrs.phase;
+      const vrAllPlayers = displayPlayers.filter((p: any) => !p.isEliminated);
+
+      return (
+        <div className="w-full max-w-2xl mx-auto space-y-4 text-center" data-testid="screen-vault-run">
+          <div>
+            <h2 className="text-2xl font-display text-yellow-400 tracking-widest">&#127922; VAULT RUN</h2>
+            <p className="text-zinc-400 text-xs mt-1">Roll 6 dice. Keep scoring dice and bank or reroll. Farkle = lose your turn score!</p>
+          </div>
+
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(vrAllPlayers.length, 3)}, 1fr)` }}>
+            {vrAllPlayers.map((p: any) => {
+              const ps: any = activeVrs.playerStates?.[p.id];
+              if (!ps) return null;
+              const isW = vaultPhase === 'done' && (activeVrs.winners||[]).includes(p.id);
+              const isL = vaultPhase === 'done' && (activeVrs.losers||[]).includes(p.id);
+              return (
+                <div key={p.id} className={cn("rounded-xl border p-3 text-sm space-y-1",
+                  isW?"border-yellow-400 bg-yellow-950/30":isL?"border-red-500 bg-red-950/20":"border-zinc-700 bg-zinc-900/60")}>
+                  <div className="font-bold text-xs text-zinc-300 truncate">{p.name}{isW?' \u{1F3C6}':''}{isL?' \u{1F4C9}':''}</div>
+                  <div className="text-yellow-300 font-mono font-bold text-lg">{(ps.bankedScore||0)+(ps.status==='choosing'?(ps.turnScore||0):0)}</div>
+                  <div className={cn("text-[10px] uppercase tracking-widest",ps.status==='banked'?'text-green-400':ps.status==='farkled'?'text-red-400':'text-zinc-400')}>
+                    {ps.status==='banked'?'Banked':ps.status==='farkled'?'Farkled':`Roll ${ps.rollCount}`}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {myVrPs && myVrPs.status === 'choosing' && (
+            <div className="bg-zinc-900/70 border border-yellow-500/20 rounded-xl p-4 space-y-4">
+              <div className="text-xs uppercase tracking-widest text-yellow-400/70">Your Dice - Click to select, then Keep</div>
+              <div className="flex justify-center gap-3 flex-wrap">
+                {(myVrPs.dice || []).map((face: number, idx: number) => {
+                  const isSel = vrSelIndices.includes(idx);
+                  return (
+                    <button key={idx} onClick={() => handleVRToggle(idx)}
+                      className={cn("w-14 h-14 rounded-xl border-2 relative transition-all select-none",
+                        isSel?"border-yellow-400 bg-yellow-950/40 scale-110 shadow-[0_0_12px_rgba(250,204,21,0.4)]":"border-zinc-600 bg-zinc-800 hover:border-zinc-400")}>
+                      <div className="absolute inset-1.5">
+                        {(DICE_DOTS_VR[face]||[]).map(([x,y]: number[], i: number) => (
+                          <div key={i} className="absolute w-2.5 h-2.5 rounded-full bg-white -translate-x-1/2 -translate-y-1/2" style={{left:`${x}%`,top:`${y}%`}} />
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {(myVrPs.keptDice||[]).length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Set Aside - {myVrPs.turnScore} pts this turn</div>
+                  <div className="flex justify-center gap-2 flex-wrap">
+                    {(myVrPs.keptDice||[]).map((face: number, idx: number) => (
+                      <div key={idx} className="w-10 h-10 rounded-lg border-2 border-green-500 bg-green-950/30 relative">
+                        <div className="absolute inset-1">
+                          {(DICE_DOTS_VR[face]||[]).map(([x,y]: number[], i: number) => (
+                            <div key={i} className="absolute w-2 h-2 rounded-full bg-green-300 -translate-x-1/2 -translate-y-1/2" style={{left:`${x}%`,top:`${y}%`}} />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {myVrPs.hotDice && <div className="text-orange-400 text-xs font-bold animate-pulse">HOT DICE! All 6 scored - reroll all!</div>}
+              <div className="flex gap-3 justify-center flex-wrap">
+                <button onClick={handleVRKeep} disabled={!vrCanKeep}
+                  className={cn("px-4 py-2 rounded-xl border-2 font-bold text-sm transition-all",
+                    vrCanKeep?"border-yellow-400 bg-yellow-950/40 text-yellow-300 hover:bg-yellow-900/40":"border-zinc-700 text-zinc-600 cursor-not-allowed")}>
+                  Keep Selected
+                </button>
+                <button onClick={handleVRReroll} disabled={(myVrPs.keptDice||[]).length===0}
+                  className={cn("px-4 py-2 rounded-xl border-2 font-bold text-sm transition-all",
+                    (myVrPs.keptDice||[]).length>0?"border-blue-400 bg-blue-950/40 text-blue-300 hover:bg-blue-900/40":"border-zinc-700 text-zinc-600 cursor-not-allowed")}>
+                  Reroll ({myVrPs.hotDice?6:(myVrPs.dice||[]).length})
+                </button>
+                <button onClick={handleVRBank} disabled={(myVrPs.keptDice||[]).length===0}
+                  className={cn("px-4 py-2 rounded-xl border-2 font-bold text-sm transition-all",
+                    (myVrPs.keptDice||[]).length>0?"border-green-400 bg-green-950/40 text-green-300 hover:bg-green-900/40":"border-zinc-700 text-zinc-600 cursor-not-allowed")}>
+                  Bank {myVrPs.turnScore>0?`(+${myVrPs.turnScore})`:''}
+                </button>
+              </div>
+              <div className="text-xs text-zinc-500">Banked: <span className="text-white font-bold">{myVrPs.bankedScore}</span></div>
+            </div>
+          )}
+
+          {myVrPs?.status==='farkled' && <div className="bg-red-950/30 border border-red-500/30 rounded-xl p-3 text-red-400 font-bold">FARKLED - Turn score lost!</div>}
+          {myVrPs?.status==='banked' && vaultPhase!=='done' && <div className="bg-green-950/30 border border-green-500/30 rounded-xl p-3 text-green-400 font-bold">Banked {myVrPs.bankedScore} pts - waiting...</div>}
+
+          {vaultPhase === 'done' && (
+            <div className="bg-yellow-950/30 border border-yellow-500/30 rounded-xl p-3 text-yellow-300 font-bold text-lg animate-pulse">
+              {(activeVrs.winners||[]).length>0
+                ?`${(activeVrs.winners as string[]).map((id:string)=>displayPlayers.find((p:any)=>p.id===id)?.name??id).join(' & ')} wins!`
+                :'No winner - all farkled!'}
+            </div>
+          )}
+
+          <div className="text-[10px] text-zinc-600 text-left bg-zinc-900/40 rounded-lg p-2 space-y-0.5">
+            <div className="font-bold text-zinc-500 mb-1">SCORING REFERENCE</div>
+            <div>Single 1 = 100pts | Single 5 = 50pts</div>
+            <div>3-of-a-kind = face x 100 (1s=1000) | x2/x3/x4 for 4/5/6-of-a-kind</div>
+            <div>Straight (5-in-a-row) = 1500pts</div>
+          </div>
+        </div>
+      );
+    }
+
     // Handle OVERCLOCK phase (both singleplayer and multiplayer)
-    if (renderPhase === 'overclock') {
       const mpClickCounts = isMultiplayer ? (multiplayerGameState?.overclockClickCounts || {}) : overclockClickCounts;
       const myId = isMultiplayer ? myMultiplayerPlayer?.id : 'p1';
       const myClicks = myId ? (mpClickCounts[myId] || 0) : 0;
@@ -7985,7 +8371,7 @@ export default function Game() {
                               <Trophy size={14} className="text-yellow-400" />
                               <div className="text-sm font-bold text-yellow-200 tracking-widest">WAGER</div>
                             </div>
-                            <div className="text-[10px] uppercase tracking-widest text-yellow-400/70">{allowedProtocols.filter(p => ['HIGH_CIRCUIT','READ_THE_TABLE','MARGIN','PROTOCOL_COIN_FLIP'].includes(p as any)).length} selected</div>
+                            <div className="text-[10px] uppercase tracking-widest text-yellow-400/70">{allowedProtocols.filter(p => ['HIGH_CIRCUIT','READ_THE_TABLE','MARGIN','PROTOCOL_COIN_FLIP','VAULT_RUN'].includes(p as any)).length} selected</div>
                           </summary>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 pb-4">
                             {[
@@ -7993,6 +8379,7 @@ export default function Game() {
                               { id: 'READ_THE_TABLE',      label: 'READ THE TABLE',      desc: 'Liar\'s Dice — roll 5 hidden dice, bid totals, call bluffs. Lose all dice = eliminated.' },
                               { id: 'MARGIN',  label: 'MARGIN',  desc: '4-wave card challenge: guess color → higher/lower → inside/outside → suit. Each guess costs 10s.' },
                               { id: 'PROTOCOL_COIN_FLIP',  label: 'COIN FLIP PROTOCOL',  desc: 'Everyone flips a coin. Most heads wins. Ties rematch until one player wins.' },
+                              { id: 'VAULT_RUN',           label: 'VAULT RUN',           desc: 'Farkle dice game! Roll 6 dice, keep scoring dice, bank or reroll. Highest score wins; bottom 2 lose 30s.' },
                             ].map((p) => (
                               <div key={p.id} className="flex items-start space-x-3 p-3 rounded bg-yellow-950/20 border border-yellow-600/10" data-testid={`row-protocol-config-${p.id}`}>
                                 <Switch

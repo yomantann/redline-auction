@@ -26,6 +26,9 @@ import {
   rttChallenge,
   marginSubmitGuess,
   marginForfeit,
+  vaultKeep,
+  vaultReroll,
+  vaultBank,
   type GameDuration
 } from "./gameEngine";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
@@ -825,6 +828,27 @@ export async function registerRoutes(
       const lobbyCode = playerToLobby.get(socket.id);
       if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in a lobby" }); return; }
       const result = marginForfeit(lobbyCode, socket.id);
+      if (callback) callback(result);
+    });
+
+    socket.on("vault_keep", (data: { keptIndices: number[] }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in a lobby" }); return; }
+      const result = vaultKeep(lobbyCode, socket.id, data.keptIndices ?? []);
+      if (callback) callback(result);
+    });
+
+    socket.on("vault_reroll", (_data: Record<string, never>, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in a lobby" }); return; }
+      const result = vaultReroll(lobbyCode, socket.id);
+      if (callback) callback(result);
+    });
+
+    socket.on("vault_bank", (_data: Record<string, never>, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) { if (callback) callback({ success: false, error: "Not in a lobby" }); return; }
+      const result = vaultBank(lobbyCode, socket.id);
       if (callback) callback(result);
     });
 

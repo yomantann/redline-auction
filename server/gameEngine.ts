@@ -81,7 +81,7 @@ export type ProtocolType =
   // HAUNTED mode protocols (placeholder — mechanics not yet implemented)
   | 'HAUNTED_SEANCE' | 'HAUNTED_CURSE_ECHO' | 'HAUNTED_WAIL' | 'HAUNTED_MIRROR'
   // WAGER mode protocols
-  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'MARGIN' | 'PROTOCOL_COIN_FLIP'
+  | 'HIGH_CIRCUIT' | 'READ_THE_TABLE' | 'MARGIN' | 'PROTOCOL_COIN_FLIP' | 'VAULT_RUN'
   | null;
 
 // Protocol pools by variant
@@ -108,7 +108,7 @@ const HAUNTED_PROTOCOLS: ProtocolType[] = [
 
 // WAGER mode protocol pool
 const WAGER_PROTOCOLS: ProtocolType[] = [
-  'HIGH_CIRCUIT', 'READ_THE_TABLE', 'MARGIN', 'PROTOCOL_COIN_FLIP'
+  'HIGH_CIRCUIT', 'READ_THE_TABLE', 'MARGIN', 'PROTOCOL_COIN_FLIP', 'VAULT_RUN'
 ];
 
 // Driver/Character ability definitions (minimal for server-side processing)
@@ -288,13 +288,32 @@ export interface MarginRunState {
   winners: string[];                         // player IDs who earn a trophy
 }
 
+// ─── VAULT RUN types (Farkle dice game) ──────────────────────────────────────
+export interface VaultRunPlayerState {
+  dice: number[];           // current un-banked dice values (remaining to roll)
+  keptDice: number[];       // dice kept/set-aside this turn (scored but not yet banked)
+  bankedScore: number;      // total locked score from previous turns
+  turnScore: number;        // score from keptDice this turn (lost on farkle)
+  status: 'choosing' | 'banked' | 'farkled';
+  rollCount: number;        // how many times rolled this turn
+  hotDice: boolean;         // all 6 scored — eligible to re-roll all 6
+}
+
+export interface VaultRunState {
+  phase: 'rolling' | 'done';
+  playerStates: Record<string, VaultRunPlayerState>;
+  deadline: number;         // unix ms deadline for the phase
+  winners: string[];        // player IDs with highest banked score
+  losers: string[];         // bottom 2 + ties who lose 30s
+}
+
 export interface GameState {
   gameId: string; // Unique identifier for database snapshots
   lobbyCode: string;
   players: GamePlayer[];
   round: number;
   totalRounds: number;
-  phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'margin_run' | 'round_end' | 'game_over';
+  phase: 'driver_selection' | 'wager_phase' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'coin_flip_round' | 'read_the_table' | 'margin_run' | 'vault_run' | 'round_end' | 'game_over';
   roundStartTime: number | null;
   countdownRemaining: number;
   gameDuration: GameDuration;
@@ -329,6 +348,7 @@ export interface GameState {
   coinFlipWinnerIds?: string[];
   liarsDiceState?: LiarsDiceState;
   marginRunState?: MarginRunState;
+  vaultRunState?: VaultRunState;
 }
 
 // Active games storage
@@ -782,6 +802,8 @@ function startCountdown(lobbyCode: string) {
         startReadTheTable(lobbyCode);
       } else if (g.activeProtocol === 'MARGIN') {
         startMarginRun(lobbyCode);
+      } else if (g.activeProtocol === 'VAULT_RUN') {
+        startVaultRun(lobbyCode);
       } else {
         startBidding(lobbyCode);
       }
@@ -1538,7 +1560,298 @@ export function marginForfeit(lobbyCode: string, socketId: string): { success: b
   return { success: true };
 }
 
-function getDriverBidAdjustment(driverId: string | undefined, holdTime: number, game: GameState, player: GamePlayer): { holdTime: number; reason?: string } {
+// ─── VAULT RUN (Farkle Dice Game) ─────────────────────────────────────────────
+
+function rollDice(count: number): number[] {
+  return Array.from({ length: count }, () => Math.floor(Math.random() * 6) + 1);
+}
+
+/** Score a set of kept dice according to Farkle/Vault rules. */
+function scoreVaultDice(dice: number[]): number {
+  if (dice.length === 0) return 0;
+  const counts: Record<number, number> = {};
+  for (const d of dice) counts[d] = (counts[d] || 0) + 1;
+
+  // Straight: 1-2-3-4-5 or 2-3-4-5-6 in exactly 5+ distinct dice
+  if (dice.length >= 5) {
+    const sorted = [...new Set(dice)].sort((a, b) => a - b);
+    if (sorted.length >= 5) {
+      if ([1,2,3,4,5].every(v => sorted.includes(v))) return 1500;
+      if ([2,3,4,5,6].every(v => sorted.includes(v))) return 1500;
+    }
+  }
+
+  let score = 0;
+  for (const [faceStr, cnt] of Object.entries(counts)) {
+    const face = Number(faceStr);
+    const baseThreeOfKind = face === 1 ? 1000 : face * 100;
+    if (cnt >= 6) score += baseThreeOfKind * 4;
+    else if (cnt >= 5) score += baseThreeOfKind * 3;
+    else if (cnt >= 4) score += baseThreeOfKind * 2;
+    else if (cnt >= 3) score += baseThreeOfKind;
+    else {
+      if (face === 1) score += cnt * 100;
+      else if (face === 5) score += cnt * 50;
+    }
+  }
+  return score;
+}
+
+function hasScoringDice(dice: number[]): boolean {
+  if (dice.length === 0) return false;
+  const counts: Record<number, number> = {};
+  for (const d of dice) counts[d] = (counts[d] || 0) + 1;
+  for (const cnt of Object.values(counts)) if (cnt >= 3) return true;
+  if (counts[1] || counts[5]) return true;
+  if (dice.length >= 5) {
+    const sorted = [...new Set(dice)].sort((a, b) => a - b);
+    if (sorted.length >= 5 && (
+      [1,2,3,4,5].every(v => sorted.includes(v)) ||
+      [2,3,4,5,6].every(v => sorted.includes(v))
+    )) return true;
+  }
+  return false;
+}
+
+function startVaultRun(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game) return;
+  game.phase = 'vault_run';
+  game.roundWinner = null;
+  game.eliminatedThisRound = [];
+
+  const activePlayers = game.players.filter(p => !p.isEliminated);
+  const playerStates: Record<string, VaultRunPlayerState> = {};
+
+  activePlayers.forEach(p => {
+    const dice = rollDice(6);
+    const scoring = hasScoringDice(dice);
+    playerStates[p.id] = {
+      dice: scoring ? dice : [],
+      keptDice: [],
+      bankedScore: 0,
+      turnScore: 0,
+      status: scoring ? 'choosing' : 'farkled',
+      rollCount: 1,
+      hotDice: false,
+    };
+    if (!scoring) addGameLogEntry(game, { type: 'protocol', playerId: p.id, playerName: p.name, message: `${p.name} FARKLED on first roll! (${dice.join(',')})`, basic: true });
+  });
+
+  game.vaultRunState = {
+    phase: 'rolling',
+    playerStates,
+    deadline: Date.now() + 50000,
+    winners: [],
+    losers: [],
+  };
+
+  broadcastGameState(lobbyCode);
+  log(`VAULT RUN started for round ${game.round} in lobby ${lobbyCode}`, "game");
+
+  // Schedule bot turns
+  activePlayers.filter(p => p.isBot).forEach(bot => {
+    const ps = playerStates[bot.id];
+    if (ps.status === 'choosing') {
+      const t = setTimeout(() => executeBotVaultTurn(lobbyCode, bot.id), 1200 + Math.random() * 1500);
+      gameIntervals.set(`${lobbyCode}_vault_bot_${bot.id}`, t as unknown as NodeJS.Timeout);
+    }
+  });
+
+  // Auto-resolve farkled bots and check if all done immediately
+  checkVaultAllDone(lobbyCode);
+
+  // Deadline fallback
+  const deadline = setTimeout(() => {
+    const g = activeGames.get(lobbyCode);
+    if (!g || !g.vaultRunState || g.vaultRunState.phase === 'done') return;
+    Object.values(g.vaultRunState.playerStates).forEach(ps => {
+      if (ps.status === 'choosing') { ps.bankedScore += ps.turnScore; ps.status = 'banked'; }
+    });
+    endVaultRun(lobbyCode);
+  }, 50000);
+  gameIntervals.set(`${lobbyCode}_vault_deadline`, deadline as unknown as NodeJS.Timeout);
+}
+
+function executeBotVaultTurn(lobbyCode: string, botId: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.vaultRunState) return;
+  const ps = game.vaultRunState.playerStates[botId];
+  if (!ps || ps.status !== 'choosing') return;
+
+  // Bot: keep all scorable singles + combos
+  const counts: Record<number, number> = {};
+  for (const d of ps.dice) counts[d] = (counts[d] || 0) + 1;
+  const toKeepIndices: number[] = [];
+  const usedIndices = new Set<number>();
+  // Find straight
+  let straightKept = false;
+  if (ps.dice.length >= 5) {
+    const sortedUniq = [...new Set(ps.dice)].sort((a,b)=>a-b);
+    if (sortedUniq.length >= 5 && ([1,2,3,4,5].every(v=>sortedUniq.includes(v)) || [2,3,4,5,6].every(v=>sortedUniq.includes(v)))) {
+      ps.dice.forEach((_,i) => { toKeepIndices.push(i); usedIndices.add(i); });
+      straightKept = true;
+    }
+  }
+  if (!straightKept) {
+    // 3+ of a kind
+    for (const [faceStr, cnt] of Object.entries(counts)) {
+      if (cnt >= 3) {
+        const face = Number(faceStr);
+        let added = 0;
+        ps.dice.forEach((d, i) => { if (d === face && !usedIndices.has(i) && added < cnt) { toKeepIndices.push(i); usedIndices.add(i); added++; } });
+      }
+    }
+    // singles 1 and 5
+    ps.dice.forEach((d, i) => { if (!usedIndices.has(i) && (d === 1 || d === 5)) { toKeepIndices.push(i); usedIndices.add(i); } });
+  }
+
+  if (toKeepIndices.length === 0) {
+    // No scoring — shouldn't happen but just bank with 0
+    ps.bankedScore += ps.turnScore; ps.status = 'banked';
+    broadcastGameState(lobbyCode); checkVaultAllDone(lobbyCode); return;
+  }
+
+  const keptValues = toKeepIndices.map(i => ps.dice[i]);
+  ps.keptDice = [...ps.keptDice, ...keptValues];
+  ps.turnScore = scoreVaultDice(ps.keptDice);
+  const remaining = ps.dice.filter((_, i) => !toKeepIndices.includes(i));
+  ps.hotDice = remaining.length === 0;
+  ps.dice = remaining;
+
+  // Decide: bank if turnScore >= 350 or rollCount >= 3
+  if (ps.turnScore >= 350 || ps.rollCount >= 3) {
+    ps.bankedScore += ps.turnScore; ps.turnScore = 0; ps.keptDice = []; ps.status = 'banked';
+    broadcastGameState(lobbyCode); checkVaultAllDone(lobbyCode);
+  } else {
+    // Reroll
+    const rerollCount = ps.hotDice ? 6 : ps.dice.length;
+    if (rerollCount === 0) { ps.bankedScore += ps.turnScore; ps.status = 'banked'; broadcastGameState(lobbyCode); checkVaultAllDone(lobbyCode); return; }
+    const newDice = rollDice(rerollCount);
+    ps.dice = newDice; ps.rollCount++; ps.hotDice = false;
+    if (!hasScoringDice(newDice)) {
+      ps.turnScore = 0; ps.keptDice = []; ps.status = 'farkled';
+      broadcastGameState(lobbyCode); checkVaultAllDone(lobbyCode);
+    } else {
+      broadcastGameState(lobbyCode);
+      const t = setTimeout(() => executeBotVaultTurn(lobbyCode, botId), 1000 + Math.random() * 800);
+      gameIntervals.set(`${lobbyCode}_vault_bot_${botId}`, t as unknown as NodeJS.Timeout);
+    }
+  }
+}
+
+function checkVaultAllDone(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.vaultRunState || game.vaultRunState.phase === 'done') return;
+  const allDone = Object.values(game.vaultRunState.playerStates).every(s => s.status === 'banked' || s.status === 'farkled');
+  if (allDone) {
+    const t = gameIntervals.get(`${lobbyCode}_vault_deadline`);
+    if (t) clearTimeout(t);
+    endVaultRun(lobbyCode);
+  }
+}
+
+function endVaultRun(lobbyCode: string) {
+  const game = activeGames.get(lobbyCode);
+  if (!game || !game.vaultRunState || game.vaultRunState.phase === 'done') return;
+  const vrs = game.vaultRunState;
+  vrs.phase = 'done';
+
+  const scores = Object.entries(vrs.playerStates).map(([pid, ps]) => ({ pid, score: ps.bankedScore }));
+  scores.sort((a, b) => b.score - a.score);
+
+  if (scores.length === 0) { broadcastGameState(lobbyCode); setTimeout(() => endRound(lobbyCode), 3000); return; }
+
+  const maxScore = scores[0].score;
+  vrs.winners = scores.filter(s => s.score === maxScore).map(s => s.pid);
+
+  // Bottom 2 + ties lose 30s
+  const ascending = [...scores].reverse();
+  const minScore = ascending[0].score;
+  const losers: string[] = ascending.filter(s => s.score === minScore).map(s => s.pid);
+  if (losers.length < 2 && ascending.length > losers.length) {
+    const secondMin = ascending[losers.length].score;
+    ascending.filter(s => s.score === secondMin && !losers.includes(s.pid)).forEach(s => losers.push(s.pid));
+  }
+  vrs.losers = losers;
+
+  losers.forEach(pid => {
+    const player = game.players.find(p => p.id === pid);
+    if (player) {
+      player.remainingTime = Math.max(0, player.remainingTime - 30);
+      addGameLogEntry(game, { type: 'protocol', playerId: pid, playerName: player.name, message: `VAULT RUN: ${player.name} loses 30s (bottom score)`, basic: true });
+    }
+  });
+
+  broadcastGameState(lobbyCode);
+  setTimeout(() => endRound(lobbyCode), 3000);
+}
+
+export function vaultKeep(lobbyCode: string, socketId: string, keptIndices: number[]): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game || game.phase !== 'vault_run') return { success: false, error: 'Not in Vault Run' };
+  const vrs = game.vaultRunState;
+  if (!vrs) return { success: false, error: 'No vault state' };
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player) return { success: false, error: 'Player not found' };
+  const ps = vrs.playerStates[player.id];
+  if (!ps || ps.status !== 'choosing') return { success: false, error: 'Not choosing' };
+  if (keptIndices.length === 0) return { success: false, error: 'Must keep at least one die' };
+
+  const keptValues = keptIndices.filter(i => i >= 0 && i < ps.dice.length).map(i => ps.dice[i]);
+  if (keptValues.length === 0) return { success: false, error: 'Invalid indices' };
+  const newKept = [...ps.keptDice, ...keptValues];
+  if (scoreVaultDice(newKept) === 0) return { success: false, error: 'Selection scores 0 points' };
+
+  ps.keptDice = newKept;
+  ps.turnScore = scoreVaultDice(ps.keptDice);
+  ps.dice = ps.dice.filter((_, i) => !keptIndices.includes(i));
+  ps.hotDice = ps.dice.length === 0;
+  broadcastGameState(lobbyCode);
+  return { success: true };
+}
+
+export function vaultReroll(lobbyCode: string, socketId: string): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game || game.phase !== 'vault_run') return { success: false, error: 'Not in Vault Run' };
+  const vrs = game.vaultRunState;
+  if (!vrs) return { success: false, error: 'No vault state' };
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player) return { success: false, error: 'Player not found' };
+  const ps = vrs.playerStates[player.id];
+  if (!ps || ps.status !== 'choosing') return { success: false, error: 'Not choosing' };
+  if (ps.keptDice.length === 0) return { success: false, error: 'Must keep at least one die first' };
+
+  const rerollCount = ps.hotDice ? 6 : ps.dice.length;
+  if (rerollCount === 0) return { success: false, error: 'No dice to reroll' };
+  const newDice = rollDice(rerollCount);
+  ps.dice = newDice; ps.rollCount++; ps.hotDice = false;
+  if (!hasScoringDice(newDice)) {
+    ps.turnScore = 0; ps.keptDice = []; ps.status = 'farkled';
+    broadcastGameState(lobbyCode);
+    checkVaultAllDone(lobbyCode);
+    return { success: true };
+  }
+  broadcastGameState(lobbyCode);
+  return { success: true };
+}
+
+export function vaultBank(lobbyCode: string, socketId: string): { success: boolean; error?: string } {
+  const game = activeGames.get(lobbyCode);
+  if (!game || game.phase !== 'vault_run') return { success: false, error: 'Not in Vault Run' };
+  const vrs = game.vaultRunState;
+  if (!vrs) return { success: false, error: 'No vault state' };
+  const player = game.players.find(p => p.socketId === socketId);
+  if (!player) return { success: false, error: 'Player not found' };
+  const ps = vrs.playerStates[player.id];
+  if (!ps || ps.status !== 'choosing') return { success: false, error: 'Not choosing' };
+  if (ps.keptDice.length === 0) return { success: false, error: 'Must keep at least one die before banking' };
+
+  ps.bankedScore += ps.turnScore; ps.turnScore = 0; ps.keptDice = []; ps.status = 'banked';
+  broadcastGameState(lobbyCode);
+  checkVaultAllDone(lobbyCode);
+  return { success: true };
+}(driverId: string | undefined, holdTime: number, game: GameState, player: GamePlayer): { holdTime: number; reason?: string } {
   if (!driverId || !game.settings.abilitiesEnabled) return { holdTime };
   const ability = DRIVER_ABILITIES[driverId];
   if (!ability) return { holdTime };
@@ -2244,6 +2557,42 @@ function endRound(lobbyCode: string) {
     if (apMg.length <= 1 || game.round >= game.totalRounds) setTimeout(() => endGame(lobbyCode), 3000);
     else if (ahMg.length === 0 && game.isMultiplayer) { game.round = game.totalRounds; setTimeout(() => endGame(lobbyCode), 3000); }
     recordGameSnapshot({ gameId: game.gameId, snapshotType: game.eliminatedThisRound.length > 0 ? 'elimination' : 'round_end', roundNumber: game.round, winnerPlayerId: game.roundWinner?.id || null, winningHoldTime: null, minBidSeconds: getMinBidPenalty(game.settings.gameDuration), eliminatedPlayerIds: game.eliminatedThisRound, momentFlagsTriggered: [], protocolsTriggered: ['MARGIN'], limitBreaksTriggered: [], playerPositions: game.players.map(p => ({ playerId: p.id, tokens: p.tokens, remainingTime: p.remainingTime, isEliminated: p.isEliminated })), lobbyCode: game.lobbyCode, gameSettings: { difficulty: game.settings.difficulty, variant: game.settings.variant, gameDuration: game.settings.gameDuration, protocolsEnabled: game.settings.protocolsEnabled, abilitiesEnabled: game.settings.abilitiesEnabled }, isMultiplayer: 1 });
+    return;
+  }
+
+  // --- VAULT_RUN ---
+  if (game.activeProtocol === 'VAULT_RUN') {
+    const vrs = game.vaultRunState;
+    const winnerIds = vrs?.winners ?? [];
+    winnerIds.forEach(wid => {
+      const winner = game.players.find(p => p.id === wid);
+      if (winner) {
+        winner.tokens += 1;
+        winner.protocolWinsEarned.push('VAULT_RUN');
+        if (!game.roundWinner) game.roundWinner = { id: winner.id, name: winner.name, bid: 0 };
+        addGameLogEntry(game, { type: 'win', playerId: winner.id, playerName: winner.name, message: `VAULT RUN: ${winner.name} wins!`, basic: true });
+      }
+    });
+    const winnerId = game.roundWinner?.id || null;
+    if (emitToLobby) {
+      const topScore = vrs?.playerStates[winnerIds[0]]?.bankedScore ?? 0;
+      const winMsg = winnerIds.length > 0
+        ? `${winnerIds.map(id => game.players.find(p => p.id === id)?.name ?? id).join(' & ')} wins with ${topScore} pts!`
+        : 'No winner — everyone farkled!';
+      emitToLobby(lobbyCode, 'protocol_reveal', { protocol: 'VAULT_RUN', msg: 'VAULT RUN COMPLETE', sub: winMsg });
+    }
+    game.players.forEach(p => { if (p.pendingRoundImpacts?.length) { p.roundImpacts.push(...p.pendingRoundImpacts); p.pendingRoundImpacts = []; } });
+    processAbilities(game, winnerId);
+    game.players.forEach(p => { if (p.remainingTime < 0) p.remainingTime = 0; if (p.remainingTime === 0 && !p.isEliminated) { p.isEliminated = true; if (!game.eliminatedThisRound.includes(p.id)) game.eliminatedThisRound.push(p.id); } });
+    broadcastGameState(lobbyCode);
+    processRealityModeAbilities(game, winnerId, 'end');
+    game.players.forEach(p => { (p as any).roundEndAcknowledged = !p.isBot && !p.isEliminated ? false : true; });
+    if (game.eliminatedThisRound.length > 0 && game.firstEliminatedIds.length === 0) game.firstEliminatedIds = [...game.eliminatedThisRound];
+    const apVr = game.players.filter(p => !p.isEliminated);
+    const ahVr = apVr.filter(p => !p.isBot);
+    if (apVr.length <= 1 || game.round >= game.totalRounds) setTimeout(() => endGame(lobbyCode), 3000);
+    else if (ahVr.length === 0 && game.isMultiplayer) { game.round = game.totalRounds; setTimeout(() => endGame(lobbyCode), 3000); }
+    recordGameSnapshot({ gameId: game.gameId, snapshotType: game.eliminatedThisRound.length > 0 ? 'elimination' : 'round_end', roundNumber: game.round, winnerPlayerId: game.roundWinner?.id || null, winningHoldTime: null, minBidSeconds: getMinBidPenalty(game.settings.gameDuration), eliminatedPlayerIds: game.eliminatedThisRound, momentFlagsTriggered: [], protocolsTriggered: ['VAULT_RUN'], limitBreaksTriggered: [], playerPositions: game.players.map(p => ({ playerId: p.id, tokens: p.tokens, remainingTime: p.remainingTime, isEliminated: p.isEliminated })), lobbyCode: game.lobbyCode, gameSettings: { difficulty: game.settings.difficulty, variant: game.settings.variant, gameDuration: game.settings.gameDuration, protocolsEnabled: game.settings.protocolsEnabled, abilitiesEnabled: game.settings.abilitiesEnabled }, isMultiplayer: 1 });
     return;
   }
 
@@ -3401,6 +3750,15 @@ function emitProtocolDetails(game: GameState, protocol: ProtocolType) {
         protocol: 'PROTOCOL_COIN_FLIP',
         msg: 'COIN FLIP PROTOCOL',
         sub: 'Everyone flips a coin. Most heads wins the round. Ties go to a rematch!',
+        targetPlayerId: null,
+      });
+      break;
+    }
+    case 'VAULT_RUN': {
+      emitToLobby(game.lobbyCode, 'protocol_detail', {
+        protocol: 'VAULT_RUN',
+        msg: 'VAULT RUN',
+        sub: 'Roll 6 dice and set aside scoring dice. Bank to lock points or reroll for more — but Farkle and you lose it all! Highest banker wins. Bottom 2 lose 30s.',
         targetPlayerId: null,
       });
       break;
@@ -4682,6 +5040,13 @@ export function broadcastGameState(lobbyCode: string) {
         winners: mrs.winners,
       };
     })() : null,
+    vaultRunState: game.vaultRunState ? {
+      phase: game.vaultRunState.phase,
+      playerStates: game.vaultRunState.playerStates,
+      deadline: game.vaultRunState.deadline,
+      winners: game.vaultRunState.winners,
+      losers: game.vaultRunState.losers,
+    } : null,
   };
   
   emitToLobby(lobbyCode, 'game_state', stateForClients);
