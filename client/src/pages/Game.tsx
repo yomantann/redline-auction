@@ -4030,7 +4030,10 @@ export default function Game() {
 
     // Check if game over
     const activePls = players.filter(p => !p.isEliminated);
-    if (activePls.length <= 1 || round >= totalRounds) {
+    const overclockGameOver = variant === 'HAUNTED'
+      ? (activePls.length === 0 || round >= totalRounds)
+      : (activePls.length <= 1 || round >= totalRounds);
+    if (overclockGameOver) {
       setTimeout(() => setPhase('game_end'), 3000);
     }
   };
@@ -5760,7 +5763,7 @@ export default function Game() {
       );
     }
     
-    if (round >= totalRounds || remainingActivePlayers.length <= 1) {
+    if (round >= totalRounds || (variant !== 'HAUNTED' && remainingActivePlayers.length <= 1)) {
        // Game End condition
 
        // Award SP Bonus Trophies if protocols are enabled (before final placement sort)
@@ -5844,10 +5847,14 @@ export default function Game() {
     const activePlayers = variant === 'HAUNTED'
       ? players.filter(p => !p.isEliminated)          // alive + ghosts (ghosts may revive)
       : players.filter(p => !p.isEliminated && p.remainingTime > 0);
-    
-    if (activePlayers.length <= 1 || round >= totalRounds) {
-      // End game immediately if only 1 or 0 players remain
-      // Keep existing overlays (moment flags / protocol notices) visible.
+
+    // Haunted mode: only end the game at the round limit, or if truly nobody can play (all eliminated)
+    const gameOver = variant === 'HAUNTED'
+      ? (activePlayers.length === 0 || round >= totalRounds)
+      : (activePlayers.length <= 1 || round >= totalRounds);
+
+    if (gameOver) {
+      // End game
       setPhase('game_end');
       return;
     }
@@ -5901,6 +5908,16 @@ export default function Game() {
     const timer = setTimeout(() => nextRound(), 1500);
     return () => clearTimeout(timer);
   }, [phase, isBotOnlyRound]);
+
+  // Auto-advance round_end when ALL players are ghosts (all-ghost tie round in haunted SP)
+  useEffect(() => {
+    if (phase !== 'round_end' || isMultiplayer || variant !== 'HAUNTED') return;
+    const allGhosted = players.filter(p => !p.isEliminated).length > 0 &&
+      players.filter(p => !p.isEliminated).every(p => p.isGhost);
+    if (!allGhosted) return;
+    const timer = setTimeout(() => nextRound(), 2000);
+    return () => clearTimeout(timer);
+  }, [phase, players, isMultiplayer, variant]);
 
   const selectRandomCharacter = () => {
       // Pool based on variant
@@ -5962,7 +5979,6 @@ export default function Game() {
         relicConsumed: (mp as any).relicConsumed || false,
         ghostAbility: (mp as any).ghostAbility || null,
         ghostAbilityUsed: (mp as any).ghostAbilityUsed || false,
-        possessionRoundsLeft: (mp as any).possessionRoundsLeft ?? undefined,
         possessionRoundsLeft: (mp as any).possessionRoundsLeft ?? undefined,
       currentBid: mp.currentBid,
         isHolding: mp.isHolding,
@@ -7862,14 +7878,9 @@ export default function Game() {
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
                   <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
                   <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
-                  {purgatoryLeft !== undefined && ghostPlayer?.possessionTargetId && (
-                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''} (or when target is eliminated)</div>
-                  )}
-                  {purgatoryLeft !== undefined && !ghostPlayer?.possessionTargetId && (
+                  {purgatoryLeft !== undefined && (
                     <div className="text-zinc-500 text-xs mt-1">
-                      {ghostPlayer?.ghostAbility === 'purgatory'
-                        ? `⌛ Returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`
-                        : `🔄 3-round fallback: returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`}
+                      ⌛ Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}
                     </div>
                   )}
                 </div>
@@ -8213,14 +8224,9 @@ export default function Game() {
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
                   <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
                   <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
-                  {purgatoryLeft !== undefined && ghostPlayer?.possessionTargetId && (
-                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''} (or when target is eliminated)</div>
-                  )}
-                  {purgatoryLeft !== undefined && !ghostPlayer?.possessionTargetId && (
+                  {purgatoryLeft !== undefined && (
                     <div className="text-zinc-500 text-xs mt-1">
-                      {ghostPlayer?.ghostAbility === 'purgatory'
-                        ? `⌛ Returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`
-                        : `🔄 3-round fallback: returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`}
+                      ⌛ Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}
                     </div>
                   )}
                 </div>
@@ -8294,14 +8300,9 @@ export default function Game() {
                 <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
                   <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
                   <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
-                  {purgatoryLeft !== undefined && ghostPlayer?.possessionTargetId && (
-                    <div className="text-zinc-500 text-xs mt-1">Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''} (or when target is eliminated)</div>
-                  )}
-                  {purgatoryLeft !== undefined && !ghostPlayer?.possessionTargetId && (
+                  {purgatoryLeft !== undefined && (
                     <div className="text-zinc-500 text-xs mt-1">
-                      {ghostPlayer?.ghostAbility === 'purgatory'
-                        ? `⌛ Returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`
-                        : `🔄 3-round fallback: returns in ${purgatoryLeft} round${purgatoryLeft !== 1 ? 's' : ''}`}
+                      ⌛ Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}
                     </div>
                   )}
                 </div>
