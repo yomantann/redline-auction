@@ -19,7 +19,6 @@ import type {
   PlayerProfile,
   CosmeticItem,
   EquippedCosmetics,
-  WinsPerMode,
 } from "@shared/schema";
 
 // ─── Conversion Rates ────────────────────────────────────────────────────────
@@ -228,8 +227,8 @@ export interface MilestoneDefinition {
   check: (profile: PlayerProfile) => boolean;
 }
 
-/** Helper to sum all wins across a winsPerMode object. */
-function totalWins(winsPerMode: WinsPerMode): number {
+/** Helper to sum all wins across a winsPerMode record. */
+function totalWins(winsPerMode: Record<string, number>): number {
   return Object.values(winsPerMode).reduce((s, v) => s + (v ?? 0), 0);
 }
 
@@ -238,13 +237,16 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     id: 'milestone_10_wins',
     cosmeticId: 'logo_apex',
     description: 'Win 10 total games across any mode.',
-    check: (p) => totalWins(p.winsPerMode) >= 10,
+    check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 10,
   },
   {
     id: 'milestone_5_haunted_wins',
     cosmeticId: 'border_haunted',
     description: 'Win 5 Haunted mode games (SP or MP).',
-    check: (p) => ((p.winsPerMode.sp_haunted ?? 0) + (p.winsPerMode.mp_haunted ?? 0)) >= 5,
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 5;
+    },
   },
   // Add more milestones here as needed
 ];
@@ -262,22 +264,25 @@ function getSlotFromType(type: import("@shared/schema").CosmeticType): keyof Equ
 }
 
 /**
- * Creates a fresh default player profile for a new user.
+ * Creates a fresh default player profile object for a new authenticated user.
  * Always includes the four default "no cosmetic" items in ownedCosmetics.
- *
- * REPLIT_AUTH_HOOK: When Replit Auth is live, call this with:
- *   id        = req.user.id          (Replit Auth userId)
- *   username  = req.user.name || req.user.username
- * and store replitUserId = req.user.id on the profile.
+ * Pass the Replit Auth userId as `id` and the user's display name as `username`.
  */
-export function createDefaultProfile(id: string, username: string): PlayerProfile {
-  const now = new Date().toISOString();
+export function createDefaultProfile(
+  id: string,
+  username: string,
+  profileImageUrl?: string | null,
+): Omit<PlayerProfile, 'createdAt' | 'updatedAt'> & { createdAt: Date; updatedAt: Date } {
+  const now = new Date();
   return {
     id,
     username,
+    profileImageUrl: profileImageUrl ?? null,
     currencyBalance: 0,
     lifetimeEarned: 0,
     lifetimeSpent: 0,
+    totalWins: 0,
+    totalGames: 0,
     ownedCosmetics: [...DEFAULT_OWNED_COSMETICS],
     equippedCosmetics: {},
     convertedTrophies: 0,
@@ -297,15 +302,17 @@ export function createDefaultProfile(id: string, username: string): PlayerProfil
 function applyMilestones(profile: PlayerProfile): PlayerProfile {
   let updated = { ...profile };
   for (const milestone of MILESTONE_DEFINITIONS) {
+    const owned = (updated.ownedCosmetics ?? []) as string[];
+    const unlocked = (updated.milestoneUnlocks ?? []) as string[];
     if (
-      !updated.ownedCosmetics.includes(milestone.cosmeticId) &&
-      !updated.milestoneUnlocks.includes(milestone.cosmeticId) &&
+      !owned.includes(milestone.cosmeticId) &&
+      !unlocked.includes(milestone.cosmeticId) &&
       milestone.check(updated)
     ) {
       updated = {
         ...updated,
-        ownedCosmetics: [...updated.ownedCosmetics, milestone.cosmeticId],
-        milestoneUnlocks: [...updated.milestoneUnlocks, milestone.cosmeticId],
+        ownedCosmetics: [...owned, milestone.cosmeticId],
+        milestoneUnlocks: [...unlocked, milestone.cosmeticId],
       };
       console.log(`[Milestone] User ${updated.id} unlocked cosmetic '${milestone.cosmeticId}' via milestone '${milestone.id}'`);
     }
@@ -337,40 +344,42 @@ export function convertGameToCurrency(
   updatedProfile: PlayerProfile;
 } {
   // Idempotency check
-  if (profile.convertedGameIds.includes(gameId)) {
+  if ((profile.convertedGameIds as string[]).includes(gameId)) {
     return { creditsEarned: 0, milestoneUnlocked: [], updatedProfile: profile };
   }
 
   const creditsEarned = trophies * CREDITS_PER_TROPHY + momentFlags * CREDITS_PER_MOMENT_FLAG;
-  const now = new Date().toISOString();
+  const now = new Date();
 
   // Build updated winsPerMode
-  let winsPerMode: WinsPerMode = { ...profile.winsPerMode };
+  const winsPerMode: Record<string, number> = { ...(profile.winsPerMode as Record<string, number>) };
   if (isWinner) {
     const modePrefix = isMultiplayer ? 'mp' : 'sp';
     const variantKey = variant === 'SOCIAL_OVERDRIVE'
       ? 'social' : variant === 'BIO_FUEL'
         ? 'bio' : variant === 'HAUNTED'
           ? 'haunted' : 'standard';
-    const key = `${modePrefix}_${variantKey}` as keyof WinsPerMode;
-    winsPerMode = { ...winsPerMode, [key]: (winsPerMode[key] ?? 0) + 1 };
+    const key = `${modePrefix}_${variantKey}`;
+    winsPerMode[key] = (winsPerMode[key] ?? 0) + 1;
   }
 
   let updated: PlayerProfile = {
     ...profile,
     currencyBalance: profile.currencyBalance + creditsEarned,
     lifetimeEarned: profile.lifetimeEarned + creditsEarned,
+    totalGames: profile.totalGames + 1,
+    totalWins: isWinner ? profile.totalWins + 1 : profile.totalWins,
     convertedTrophies: profile.convertedTrophies + trophies,
     convertedMomentFlags: profile.convertedMomentFlags + momentFlags,
-    convertedGameIds: [...profile.convertedGameIds, gameId],
+    convertedGameIds: [...(profile.convertedGameIds as string[]), gameId],
     winsPerMode,
     updatedAt: now,
   };
 
   // Check milestones after updating wins
-  const prevMilestones = new Set(updated.milestoneUnlocks);
+  const prevMilestones = new Set((updated.milestoneUnlocks ?? []) as string[]);
   updated = applyMilestones(updated);
-  const milestoneUnlocked = updated.milestoneUnlocks.filter((m) => !prevMilestones.has(m));
+  const milestoneUnlocked = ((updated.milestoneUnlocks ?? []) as string[]).filter((m) => !prevMilestones.has(m));
 
   return { creditsEarned, milestoneUnlocked, updatedProfile: updated };
 }
@@ -400,7 +409,7 @@ export function convertAchievementsToCurrency(
     lifetimeEarned: profile.lifetimeEarned + creditsEarned,
     convertedTrophies: profile.convertedTrophies + newTrophies,
     convertedMomentFlags: profile.convertedMomentFlags + newFlags,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date(),
   };
 
   return { creditsEarned, updatedProfile };
@@ -417,7 +426,7 @@ export function purchaseCosmetic(
   const item = COSMETICS_CATALOG.find((c) => c.id === cosmeticId);
   if (!item) throw new Error(`Cosmetic '${cosmeticId}' not found.`);
   if (item.earnableOnly) throw new Error(`Cosmetic '${cosmeticId}' cannot be purchased.`);
-  if (profile.ownedCosmetics.includes(cosmeticId))
+  if ((profile.ownedCosmetics as string[]).includes(cosmeticId))
     throw new Error(`Cosmetic '${cosmeticId}' already owned.`);
   if (profile.currencyBalance < item.cost)
     throw new Error(`Insufficient credits. Need ${item.cost}, have ${profile.currencyBalance}.`);
@@ -426,8 +435,8 @@ export function purchaseCosmetic(
     ...profile,
     currencyBalance: profile.currencyBalance - item.cost,
     lifetimeSpent: profile.lifetimeSpent + item.cost,
-    ownedCosmetics: [...profile.ownedCosmetics, cosmeticId],
-    updatedAt: new Date().toISOString(),
+    ownedCosmetics: [...(profile.ownedCosmetics as string[]), cosmeticId],
+    updatedAt: new Date(),
   };
 }
 
@@ -441,19 +450,19 @@ export function equipCosmetic(
 ): PlayerProfile {
   const item = COSMETICS_CATALOG.find((c) => c.id === cosmeticId);
   if (!item) throw new Error(`Cosmetic '${cosmeticId}' not found.`);
-  if (!profile.ownedCosmetics.includes(cosmeticId))
+  if (!(profile.ownedCosmetics as string[]).includes(cosmeticId))
     throw new Error(`Cosmetic '${cosmeticId}' not owned.`);
 
   const slot = getSlotFromType(item.type);
-  const newEquipped: EquippedCosmetics = {
-    ...profile.equippedCosmetics,
+  const newEquipped: Record<string, string> = {
+    ...(profile.equippedCosmetics as Record<string, string>),
     [slot]: cosmeticId,
   };
 
   return {
     ...profile,
     equippedCosmetics: newEquipped,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date(),
   };
 }
 
@@ -468,13 +477,13 @@ export function unequipCosmetic(
   if (!item) throw new Error(`Cosmetic '${cosmeticId}' not found.`);
 
   const slot = getSlotFromType(item.type);
-  const newEquipped: EquippedCosmetics = { ...profile.equippedCosmetics };
+  const newEquipped: Record<string, string> = { ...(profile.equippedCosmetics as Record<string, string>) };
   delete newEquipped[slot];
 
   return {
     ...profile,
     equippedCosmetics: newEquipped,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date(),
   };
 }
 
@@ -482,22 +491,19 @@ export function unequipCosmetic(
 //
 // STRIPE_HOOK: Steps to wire Stripe:
 //   1. npm install stripe
-//   2. Set STRIPE_SECRET_KEY in environment variables
+//   2. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET in environment variables
 //   3. In purchaseCurrency(), call:
 //        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 //        const intent = await stripe.paymentIntents.create({
-//          amount: amountInCents,  // e.g. amount * 0.01 USD per credit
+//          amount: amountInCents,
 //          currency: 'usd',
 //          metadata: { userId, itemType, itemId, itemLabel },
 //        });
 //        return { clientSecret: intent.client_secret };
-//   4. Add a POST /api/stripe/webhook route (see routes.ts STRIPE_WEBHOOK_ENDPOINT).
-//   5. In the webhook, call addCurrencyFromStripe() and mark the DB row 'completed'.
+//   4. Uncomment the POST /api/stripe/webhook stub in routes.ts.
+//   5. In the webhook handler, call addCurrencyFromStripe() and mark DB row 'completed'.
 //
-// REPLIT_AUTH_HOOK: Replace userId with the Replit Auth userId from req.user.id.
-//   All currency functions already accept userId as a plain string, so no
-//   internal changes are needed – just pass the Replit Auth ID instead of
-//   "local_player".
+// userId passed here is always req.user.claims.sub (Replit Auth) — no changes needed.
 
 /**
  * Placeholder: initiate a currency purchase via Stripe.
@@ -545,6 +551,6 @@ export function addCurrencyFromStripe(
     ...profile,
     currencyBalance: profile.currencyBalance + amount,
     lifetimeEarned: profile.lifetimeEarned + amount,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date(),
   };
 }

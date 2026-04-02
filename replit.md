@@ -116,9 +116,22 @@ shared/           # Shared code between frontend and backend
 
 ## External Dependencies
 
+### Authentication
+- **Replit Auth (OIDC)**: Implemented via `server/replit_integrations/auth/`
+  - `setupAuth(app)` initializes Passport.js with Replit's OpenID Connect provider
+  - `registerAuthRoutes(app)` registers `/api/auth/user`
+  - Login: `/api/login` | Logout: `/api/logout` | Callback: `/api/callback`
+  - Sessions stored in PostgreSQL `sessions` table via `connect-pg-simple`
+  - User records stored in `users` table (id = Replit user sub claim)
+- **Guest mode**: All game routes work unauthenticated; player profile/stats/cosmetic routes silently skip for guests
+- **Player Profiles**: `player_profiles` table stores per-user stats (wins, games, credits, cosmetics)
+- **Client hooks**: `client/src/hooks/use-auth.ts` — `useAuth()` returns `{ user, isLoading, isAuthenticated, logout }`
+- **UI**: `PlayerProfileWidget` in game header shows username/avatar (or GUEST + login link); `GuestBanner` prompts login to save progress
+
 ### Database
 - **PostgreSQL**: Primary database via `DATABASE_URL` environment variable
-- **connect-pg-simple**: Session store for PostgreSQL (available but not currently active)
+- **connect-pg-simple**: Session store for PostgreSQL (sessions table)
+- **Shared DB instance**: `server/db.ts` exports a Drizzle proxy used by both auth storage and snapshot recording
 
 ### UI Framework
 - **Radix UI**: Headless component primitives (dialogs, menus, tooltips, etc.)

@@ -28,12 +28,12 @@ import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessa
 import {
   insertGameSnapshotSchema,
   insertGameSummarySchema,
-  createProfileSchema,
   convertAchievementsSchema,
   convertGameSchema,
   purchaseCosmeticSchema,
   equipCosmeticSchema,
   purchaseCurrencySchema,
+  playerProfiles,
 } from "@shared/schema";
 import {
   COSMETICS_CATALOG,
@@ -47,6 +47,18 @@ import {
   purchaseCurrency,
   addCurrencyFromStripe,
 } from "./currencyEngine";
+import { isAuthenticated } from "./replit_integrations/auth";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+import rateLimit from "express-rate-limit";
+
+// Rate limiter for wallet/profile mutation endpoints — protects against abuse
+const walletRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30,             // 30 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Socket.IO instance - exported for later expansion
 export let io: SocketIOServer;
@@ -706,45 +718,23 @@ export async function registerRoutes(
       const player = game.players.find(p => p.socketId === socket.id);
       if (!player || !player.isGhost) { if (callback) callback?.({ success: false, error: "Not a ghost" }); return; }
 
-      if (data.ability === 'possession' && data.targetId) {
-        player.possessionTargetId = data.targetId;
-        player.possessionRoundsLeft = 3;
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'purgatory') {
+      if (data.ability === 'purgatory') {
         player.possessionRoundsLeft = 2;
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'vendetta_win') {
-        player.isGhost = false;
-        player.remainingTime = 30;
-        const target = game.players.find(p => p.id === data.targetId);
-        if (target) target.remainingTime = Math.max(0, target.remainingTime * 0.75);
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'vendetta_lose') {
-        // Ghost stays ghost; alive player already unaffected (they won)
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'bargain' && data.targetId && data.offerAmount && data.accepted) {
-        const target = game.players.find(p => p.id === data.targetId);
-        if (target && player.tokens >= data.offerAmount) {
-          player.tokens -= data.offerAmount;
-          target.tokens += data.offerAmount;
-          player.remainingTime += data.offerAmount * 40;
-          target.remainingTime = Math.max(0, target.remainingTime - data.offerAmount * 40);
-        }
-        player.ghostAbilityUsed = true;
-      } else if (data.ability === 'curse') {
-        game.ghostCurseActive = true;
         player.ghostAbilityUsed = true;
       } else if (data.ability === 'reaper' && data.targetId) {
         const target = game.players.find(p => p.id === data.targetId);
         if (target && !target.isGhost && !target.isEliminated) {
-          const idx = Math.floor(Math.random() * 8) + 1;
           const savedTime = target.remainingTime;
           target.isGhost = true;
           target.remainingTime = 0;
-          target.ghostImage = `hnt_ghost_${idx}`;
+          target.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
           target.ghostReason = 'forced';
           target.ghostTimeAtDeath = savedTime;
+          target.ghostAbility = Math.random() < 0.25 ? 'reaper' : 'purgatory';
+          target.ghostAbilityUsed = false;
         }
+        // After reaper fires, ghost enters purgatory-style countdown
+        player.possessionRoundsLeft = 2;
         player.ghostAbilityUsed = true;
       }
 
@@ -897,109 +887,49 @@ export async function registerRoutes(
     }
   });
 
-  // ── Player Profile & Wallet API ──────────────────────────────────────────────
-  //
-  // REPLIT_AUTH_HOOK: All routes below use req.params.id as the userId.
-  // When Replit Auth is live, replace every usage of req.params.id with
-  // req.user.id (from the Replit Auth middleware) so the profile is keyed
-  // to the authenticated Replit account, not a client-supplied value.
-  //
-  // Pattern to apply on each route:
-  //   const id = req.user?.id ?? req.params.id;   // prefer auth, fall back to param
-  // or enforce auth-only:
-  //   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  //   const id = req.user.id;
 
-  // GET /api/player/:id – fetch player profile (creates a default one if missing)
-  app.get("/api/player/:id", async (req, res) => {
+  // ── Player Profile & Wallet API ──────────────────────────────────────────────
+  // All wallet/currency routes require Replit Auth (req.user.claims.sub).
+  // Guests (unauthenticated) get { success: true, skipped: true } — never an error.
+
+  // GET /api/player/profile – fetch or auto-create the authenticated player's profile
+  app.get("/api/player/profile", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json(null);
     try {
-      // REPLIT_AUTH_HOOK: const id = req.user?.id ?? req.params.id;
-      const { id } = req.params;
-      let profile = await storage.getPlayerProfile(id);
-      if (!profile) {
-        // REPLIT_AUTH_HOOK: pass req.user.name as username when auth is live
-        profile = createDefaultProfile(id, `Driver_${id.slice(0, 6)}`);
-        await storage.upsertPlayerProfile(profile);
-      }
-      res.json({ success: true, profile });
+      const userId: string = req.user.claims.sub;
+      const [existing] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (existing) return res.json({ success: true, profile: existing });
+
+      // First login — auto-create profile from Replit Auth claims
+      const newProfile = createDefaultProfile(
+        userId,
+        req.user.claims.first_name || req.user.claims.email?.split('@')[0] || 'Driver',
+        req.user.claims.profile_image_url ?? null,
+      );
+      const [created] = await db.insert(playerProfiles).values(newProfile as any).returning();
+      return res.json({ success: true, profile: created });
     } catch (error) {
       log(`Get player profile failed: ${error}`, "api");
       res.status(500).json({ success: false, error: String(error) });
     }
   });
 
-  // POST /api/player – create or update a player profile
-  app.post("/api/player", async (req, res) => {
-    try {
-      // REPLIT_AUTH_HOOK: use req.user.id and req.user.name instead of body id/username
-      const { id, username } = createProfileSchema.parse(req.body);
-      let profile = await storage.getPlayerProfile(id);
-      if (profile) {
-        // Update username only
-        profile = { ...profile, username, updatedAt: new Date().toISOString() };
-      } else {
-        profile = createDefaultProfile(id, username);
-      }
-      const saved = await storage.upsertPlayerProfile(profile);
-      res.json({ success: true, profile: saved });
-    } catch (error) {
-      log(`Create/update player profile failed: ${error}`, "api");
-      res.status(400).json({ success: false, error: String(error) });
-    }
+  // GET /api/cosmetics – return full cosmetics catalog + category config
+  app.get("/api/cosmetics", (_req, res) => {
+    res.json({ success: true, cosmetics: COSMETICS_CATALOG, categoryConfig: COSMETIC_CATEGORY_CONFIG });
   });
 
-  // POST /api/player/:id/convert – legacy general-purpose conversion (no gameId lock)
-  app.post("/api/player/:id/convert", async (req, res) => {
+  // POST /api/player/convert-game – end-game credit conversion (idempotent per gameId)
+  app.post("/api/player/convert-game", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
     try {
-      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
-      const { trophies, momentFlags } = convertAchievementsSchema.parse(req.body);
-
-      let profile = await storage.getPlayerProfile(id);
-      if (!profile) {
-        return res.status(404).json({ success: false, error: "Player profile not found." });
-      }
-
-      const { creditsEarned, updatedProfile } = convertAchievementsToCurrency(
-        profile,
-        trophies,
-        momentFlags,
-      );
-
-      await storage.upsertPlayerProfile(updatedProfile);
-      res.json({ success: true, creditsEarned, profile: updatedProfile });
-    } catch (error) {
-      log(`Convert achievements failed: ${error}`, "api");
-      res.status(400).json({ success: false, error: String(error) });
-    }
-  });
-
-  /**
-   * POST /api/player/:id/convert-game
-   *
-   * End-game credit conversion. Called once per completed game (SP or MP) at
-   * game_end phase.  Idempotent: repeated calls with the same gameId are
-   * silently ignored so the client can retry without doubling credits.
-   *
-   * ANTI-CHEAT:
-   *  - Each gameId can only be converted ONCE per player profile.
-   *  - Trophy / momentFlag counts are capped by the Zod schema (max 200 / 500).
-   *  - Balance is written server-side only; the updated profile is returned.
-   *  - Win tracking & milestone checks happen atomically inside the engine.
-   *
-   * REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id when auth is live.
-   */
-  app.post("/api/player/:id/convert-game", async (req, res) => {
-    try {
-      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
+      const userId: string = req.user.claims.sub;
       const parsed = convertGameSchema.parse(req.body);
 
-      let profile = await storage.getPlayerProfile(id);
-      if (!profile) {
-        // Auto-create profile if not found (handles first-time players)
-        profile = createDefaultProfile(id, `Driver_${id.slice(0, 6)}`);
-      }
+      const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!profile) return res.json({ success: true, skipped: true });
 
-      const alreadyConverted = profile.convertedGameIds.includes(parsed.gameId);
+      const alreadyConverted = (profile.convertedGameIds as string[]).includes(parsed.gameId);
       const { creditsEarned, milestoneUnlocked, updatedProfile } = convertGameToCurrency(
         profile,
         parsed.gameId,
@@ -1010,7 +940,10 @@ export async function registerRoutes(
         parsed.isMultiplayer,
       );
 
-      await storage.upsertPlayerProfile(updatedProfile);
+      await db.update(playerProfiles)
+        .set({ ...(updatedProfile as any), updatedAt: new Date() })
+        .where(eq(playerProfiles.id, userId));
+
       res.json({ success: true, creditsEarned, milestoneUnlocked, alreadyConverted, profile: updatedProfile });
     } catch (error) {
       log(`Convert-game failed: ${error}`, "api");
@@ -1018,26 +951,21 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/cosmetics – return full cosmetics catalog with category config
-  app.get("/api/cosmetics", (_req, res) => {
-    res.json({ success: true, cosmetics: COSMETICS_CATALOG, categoryConfig: COSMETIC_CATEGORY_CONFIG });
-  });
-
-  // POST /api/player/:id/purchase – purchase a cosmetic with in-game credits
-  // (not Stripe – this deducts currencyBalance).
-  // REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id.
-  app.post("/api/player/:id/purchase", async (req, res) => {
+  // POST /api/player/purchase – purchase a cosmetic with in-game credits
+  app.post("/api/player/purchase", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
     try {
-      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
+      const userId: string = req.user.claims.sub;
       const { cosmeticId } = purchaseCosmeticSchema.parse(req.body);
 
-      const profile = await storage.getPlayerProfile(id);
-      if (!profile) {
-        return res.status(404).json({ success: false, error: "Player profile not found." });
-      }
+      const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!profile) return res.json({ success: true, skipped: true });
 
       const updatedProfile = purchaseCosmetic(profile, cosmeticId);
-      await storage.upsertPlayerProfile(updatedProfile);
+      await db.update(playerProfiles)
+        .set({ ...(updatedProfile as any), updatedAt: new Date() })
+        .where(eq(playerProfiles.id, userId));
+
       res.json({ success: true, profile: updatedProfile });
     } catch (error) {
       log(`Purchase cosmetic failed: ${error}`, "api");
@@ -1045,20 +973,21 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/player/:id/equip – equip an owned cosmetic
-  // REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id.
-  app.post("/api/player/:id/equip", async (req, res) => {
+  // POST /api/player/equip – equip an owned cosmetic
+  app.post("/api/player/equip", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
     try {
-      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
+      const userId: string = req.user.claims.sub;
       const { cosmeticId } = equipCosmeticSchema.parse(req.body);
 
-      const profile = await storage.getPlayerProfile(id);
-      if (!profile) {
-        return res.status(404).json({ success: false, error: "Player profile not found." });
-      }
+      const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!profile) return res.json({ success: true, skipped: true });
 
       const updatedProfile = equipCosmetic(profile, cosmeticId);
-      await storage.upsertPlayerProfile(updatedProfile);
+      await db.update(playerProfiles)
+        .set({ equippedCosmetics: updatedProfile.equippedCosmetics as any, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, userId));
+
       res.json({ success: true, profile: updatedProfile });
     } catch (error) {
       log(`Equip cosmetic failed: ${error}`, "api");
@@ -1066,20 +995,21 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/player/:id/unequip – unequip a cosmetic
-  // REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id.
-  app.post("/api/player/:id/unequip", async (req, res) => {
+  // POST /api/player/unequip – unequip a cosmetic
+  app.post("/api/player/unequip", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
     try {
-      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
+      const userId: string = req.user.claims.sub;
       const { cosmeticId } = equipCosmeticSchema.parse(req.body);
 
-      const profile = await storage.getPlayerProfile(id);
-      if (!profile) {
-        return res.status(404).json({ success: false, error: "Player profile not found." });
-      }
+      const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!profile) return res.json({ success: true, skipped: true });
 
       const updatedProfile = unequipCosmetic(profile, cosmeticId);
-      await storage.upsertPlayerProfile(updatedProfile);
+      await db.update(playerProfiles)
+        .set({ equippedCosmetics: updatedProfile.equippedCosmetics as any, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, userId));
+
       res.json({ success: true, profile: updatedProfile });
     } catch (error) {
       log(`Unequip cosmetic failed: ${error}`, "api");
@@ -1087,46 +1017,30 @@ export async function registerRoutes(
     }
   });
 
-  /**
-   * POST /api/player/:id/purchase-currency
-   *
-   * Initiates a Stripe currency purchase (currently a placeholder).
-   * Every request records a stripe_transactions row including what was purchased.
-   *
-   * STRIPE_HOOK – To go live:
-   *   1. Validate payment via Stripe PaymentIntent / webhook before crediting.
-   *   2. Return clientSecret from purchaseCurrency() to the front-end.
-   *   3. The front-end completes the payment via Stripe.js (stripe.confirmPayment).
-   *   4. On webhook `payment_intent.succeeded`, mark the DB row 'completed'
-   *      and call addCurrencyFromStripe() to credit the player.
-   *
-   * REPLIT_AUTH_HOOK: Replace req.params.id with req.user.id.
-   */
-  app.post("/api/player/:id/purchase-currency", async (req, res) => {
+  // POST /api/player/purchase-currency – Stripe placeholder (item metadata tracked)
+  app.post("/api/player/purchase-currency", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
     try {
-      const { id } = req.params; // REPLIT_AUTH_HOOK: use req.user.id
+      const userId: string = req.user.claims.sub;
       const { amount, purchasedItemType, purchasedItemId, purchasedItemLabel } =
         purchaseCurrencySchema.parse(req.body);
 
-      const profile = await storage.getPlayerProfile(id);
-      if (!profile) {
-        return res.status(404).json({ success: false, error: "Player profile not found." });
-      }
+      const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!profile) return res.json({ success: true, skipped: true });
 
-      // Record the pending transaction in the DB with full item metadata.
+      // Record the pending transaction with full item metadata.
       // stripePaymentIntentId is null until Stripe creates a real PaymentIntent.
-      // STRIPE_HOOK: Set stripePaymentIntentId = intent.id from Stripe API call.
       await recordStripeTransaction({
-        userId: id, // REPLIT_AUTH_HOOK: use req.user.id
+        userId,
         stripePaymentIntentId: null,
         creditsAmount: amount,
-        purchasedItemType,
+        purchasedItemType: purchasedItemType ?? 'credits_pack',
         purchasedItemId: purchasedItemId ?? null,
         purchasedItemLabel: purchasedItemLabel ?? null,
         status: 'pending',
       });
 
-      const result = await purchaseCurrency(id, amount, purchasedItemType, purchasedItemId, purchasedItemLabel);
+      const result = await purchaseCurrency(userId, amount, purchasedItemType, purchasedItemId, purchasedItemLabel);
       res.json({ success: true, ...result });
     } catch (error) {
       log(`Purchase currency failed: ${error}`, "api");
@@ -1134,41 +1048,73 @@ export async function registerRoutes(
     }
   });
 
-  // ── Stripe Webhook Endpoint ───────────────────────────────────────────────
+  // POST /api/player/stats – record game result for authenticated player
+  app.post("/api/player/stats", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
+    try {
+      const userId: string = req.user.claims.sub;
+      const { won } = req.body as { won: boolean };
+
+      const [existing] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!existing) return res.json({ success: true, skipped: true });
+
+      await db.update(playerProfiles)
+        .set({
+          totalGames: existing.totalGames + 1,
+          totalWins: won ? existing.totalWins + 1 : existing.totalWins,
+          updatedAt: new Date(),
+        })
+        .where(eq(playerProfiles.id, userId));
+
+      return res.json({ success: true });
+    } catch (error) {
+      log(`Player stats update failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // POST /api/player/cosmetics/equip – slot-based equip (legacy/Game.tsx compatibility)
+  app.post("/api/player/cosmetics/equip", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
+    try {
+      const userId: string = req.user.claims.sub;
+      const { slot, cosmeticId } = req.body as { slot: string; cosmeticId: string };
+
+      const [existing] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!existing) return res.json({ success: true, skipped: true });
+
+      const updated = { ...((existing.equippedCosmetics as Record<string, string>) || {}), [slot]: cosmeticId };
+      await db.update(playerProfiles)
+        .set({ equippedCosmetics: updated, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, userId));
+
+      return res.json({ success: true, equippedCosmetics: updated });
+    } catch (error) {
+      log(`Cosmetic equip failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // ── Stripe Webhook (stub — wire in when Stripe is integrated) ─────────────
   //
-  // STRIPE_HOOK: Uncomment and implement this when Stripe is integrated.
-  // This endpoint must be registered BEFORE express.json() middleware so
-  // Stripe's webhook signature verification can access the raw request body.
+  // STRIPE_HOOK: Uncomment when Stripe is live. Must be before express.json().
   //
-  // app.post("/api/stripe/webhook",
-  //   express.raw({ type: 'application/json' }),
-  //   async (req, res) => {
-  //     const sig = req.headers['stripe-signature'];
-  //     let event;
-  //     try {
-  //       event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  //     } catch (err) {
-  //       log(`Stripe webhook signature verification failed: ${err}`, "stripe");
-  //       return res.status(400).send(`Webhook Error: ${err}`);
-  //     }
-  //
+  // app.post("/api/stripe/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
+  //   const sig = req.headers['stripe-signature'];
+  //   try {
+  //     const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   //     if (event.type === 'payment_intent.succeeded') {
-  //       const intent = event.data.object;
-  //       const { userId, itemType, itemId, itemLabel } = intent.metadata;
-  //       // 1. Find pending stripe_transactions row by stripePaymentIntentId
+  //       const intent = event.data.object as any;
+  //       const { userId } = intent.metadata;
+  //       // 1. Look up pending stripe_transactions row by stripePaymentIntentId
   //       // 2. Mark it 'completed'
-  //       // 3. Load player profile
-  //       // 4. Call addCurrencyFromStripe(profile, intent.amount / CENTS_PER_CREDIT)
-  //       // 5. Save updated profile
+  //       // 3. Load player profile, call addCurrencyFromStripe(), save
   //     }
-  //
-  //     if (event.type === 'payment_intent.payment_failed') {
-  //       // Mark DB row 'failed'
-  //     }
-  //
   //     res.json({ received: true });
+  //   } catch (err) {
+  //     return res.status(400).send(`Webhook Error: ${err}`);
   //   }
-  // );
+  // });
 
   return httpServer;
 }

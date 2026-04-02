@@ -3,19 +3,43 @@ import { pgTable, text, varchar, integer, real, jsonb, timestamp } from "drizzle
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+// Re-export auth models (users + sessions tables for Replit Auth)
+export * from "./models/auth";
+
+// Player profiles — one row per authenticated Replit user
+// Includes full currency/cosmetics/milestone state for the wallet system.
+export const playerProfiles = pgTable("player_profiles", {
+  id: varchar("id").primaryKey(), // Replit user ID (sub claim from OIDC)
+  username: text("username"),
+  profileImageUrl: text("profile_image_url"),
+  // ── Currency ──────────────────────────────────────────────────────────────
+  currencyBalance: integer("currency_balance").default(0).notNull(),
+  lifetimeEarned: integer("lifetime_earned").default(0).notNull(),
+  lifetimeSpent: integer("lifetime_spent").default(0).notNull(),
+  // ── Win/game tracking ─────────────────────────────────────────────────────
+  totalWins: integer("total_wins").default(0).notNull(),
+  totalGames: integer("total_games").default(0).notNull(),
+  winsPerMode: jsonb("wins_per_mode").$type<Record<string, number>>().default({}).notNull(),
+  // ── Cosmetics ─────────────────────────────────────────────────────────────
+  ownedCosmetics: jsonb("owned_cosmetics").$type<string[]>().default([]).notNull(),
+  equippedCosmetics: jsonb("equipped_cosmetics").$type<Record<string, string>>().default({}).notNull(),
+  // ── Conversion anti-cheat ─────────────────────────────────────────────────
+  convertedTrophies: integer("converted_trophies").default(0).notNull(),
+  convertedMomentFlags: integer("converted_moment_flags").default(0).notNull(),
+  convertedGameIds: jsonb("converted_game_ids").$type<string[]>().default([]).notNull(),
+  // ── Milestones ────────────────────────────────────────────────────────────
+  milestoneUnlocks: jsonb("milestone_unlocks").$type<string[]>().default([]).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit({
+  createdAt: true,
+  updatedAt: true,
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
+export type PlayerProfile = typeof playerProfiles.$inferSelect;
 
 // Game Snapshot Schema - Write-only for recording game state
 export const gameSnapshots = pgTable("game_snapshots", {
@@ -139,68 +163,11 @@ export interface WinsPerMode {
   mp_haunted?: number;
 }
 
-export interface PlayerProfile {
-  /**
-   * Internal profile key.
-   *
-   * REPLIT_AUTH_HOOK: Currently set to "local_player" on the client for the demo.
-   * When Replit Auth is wired in, replace every occurrence of "local_player" /
-   * DEMO_USER_ID with the authenticated user's Replit `userId` (available via
-   * `req.user.id` in the Replit Auth middleware).
-   *
-   * The optional `replitUserId` field below is where the Replit Auth ID will be
-   * stored once the auth layer is live.  Until then it stays undefined.
-   */
-  id: string;           // internal profile key (= replitUserId once auth is live)
-  replitUserId?: string; // REPLIT_AUTH_HOOK: set to Replit Auth userId on first login
-  username: string;
-  currencyBalance: number;
-  lifetimeEarned: number;
-  lifetimeSpent: number;
-  ownedCosmetics: string[];        // cosmetic ids
-  equippedCosmetics: EquippedCosmetics;
-  // Conversion tracking – prevents double-converting the same achievements
-  convertedTrophies: number;       // how many trophies have been converted so far
-  convertedMomentFlags: number;    // how many moment flags have been converted
-  // Per-game conversion lock – set of gameIds already converted (anti-cheat)
-  convertedGameIds: string[];
-  // Win tracking for milestone unlocks (Replit Auth milestone system)
-  winsPerMode: WinsPerMode;
-  // Cosmetics unlocked by milestones (not purchased, not earnable-only shop items)
-  milestoneUnlocks: string[];
-  createdAt: string;
-  updatedAt: string;
-}
+// PlayerProfile is derived from the playerProfiles DB table above.
+// Use PlayerProfile (= typeof playerProfiles.$inferSelect) throughout the codebase.
 
-// Zod schemas for API validation
+// Zod schemas for API endpoint validation
 
-export const playerProfileSchema = z.object({
-  id: z.string(),
-  replitUserId: z.string().optional(), // REPLIT_AUTH_HOOK: populated on Replit Auth login
-  username: z.string().min(1).max(32),
-  currencyBalance: z.number().int().min(0),
-  lifetimeEarned: z.number().int().min(0),
-  lifetimeSpent: z.number().int().min(0),
-  ownedCosmetics: z.array(z.string()),
-  equippedCosmetics: z.object({
-    logo: z.string().optional(),
-    border: z.string().optional(),
-    background: z.string().optional(),
-    driverSkin: z.string().optional(),
-  }),
-  convertedTrophies: z.number().int().min(0),
-  convertedMomentFlags: z.number().int().min(0),
-  convertedGameIds: z.array(z.string()),
-  winsPerMode: z.record(z.number().int().min(0)),
-  milestoneUnlocks: z.array(z.string()),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-
-export const createProfileSchema = z.object({
-  id: z.string().min(1),
-  username: z.string().min(1).max(32),
-});
 
 export const convertAchievementsSchema = z.object({
   trophies: z.number().int().min(0),
@@ -235,30 +202,27 @@ export const purchaseCurrencySchema = z.object({
    */
   // What the player is actually buying with this credit purchase.
   // 'credits_pack' = buying a bundle of credits; 'cosmetic' = buying one specific item.
-  purchasedItemType: z.enum(['credits_pack', 'cosmetic']).optional().default('credits_pack'),
+  purchasedItemType: z.enum(['credits_pack', 'cosmetic']).default('credits_pack'),
   purchasedItemId: z.string().optional(),    // cosmetic id (when type = 'cosmetic')
   purchasedItemLabel: z.string().optional(), // human-readable e.g. "1,000 Credits Pack"
 });
 
 // ─── Stripe Transaction Ledger ──────────────────────────────────────────────
 // Records every Stripe currency purchase for audit/accounting.
+// userId = Replit Auth user ID (req.user.claims.sub) — wired in routes.ts.
 //
 // STRIPE_HOOK: When Stripe is wired in:
-//   1. Create a PaymentIntent in POST /api/player/:id/purchase-currency and
+//   1. Create a PaymentIntent in POST /api/player/purchase-currency and
 //      return the clientSecret to the front-end.
 //   2. On Stripe webhook `payment_intent.succeeded`, look up the pending row
 //      by stripePaymentIntentId, mark it 'completed', and call
 //      addCurrencyFromStripe() to credit the player.
 //   3. On `payment_intent.payment_failed`, mark the row 'failed'.
 //   4. On `charge.refunded`, mark the row 'refunded' and deduct the credits.
-//
-// REPLIT_AUTH_HOOK: Replace userId with the Replit Auth userId. The column
-//   is already named user_id so no migration rename is needed.
 
 export const stripeTransactions = pgTable("stripe_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  // REPLIT_AUTH_HOOK: userId = Replit Auth userId once auth is live
-  userId: varchar("user_id").notNull(),
+  userId: varchar("user_id").notNull(), // Replit Auth user ID (sub claim)
   stripePaymentIntentId: varchar("stripe_payment_intent_id"),
   creditsAmount: integer("credits_amount").notNull(),
   // What the player purchased with this transaction

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import {
   ArrowLeft,
   Coins,
@@ -28,17 +29,15 @@ import type {
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 /**
- * REPLIT_AUTH_HOOK: Replace DEMO_USER_ID with the authenticated Replit user ID.
- *
- * When Replit Auth is integrated, use the Replit Auth hook:
- *   import { useAuth } from "@replit/auth-react";    // or equivalent SDK
- *   const { user } = useAuth();
- *   const userId = user?.id ?? DEMO_USER_ID;
- *
- * All API calls below already use this constant so swapping it out is a
- * single-line change per component that uses it.
+ * Credit pack offerings.
+ * STRIPE_HOOK: Map each pack to a Stripe Price ID (e.g. price_xxx) when Stripe is live.
  */
-const DEMO_USER_ID = "local_player";
+const CREDIT_PACKS: { amount: number; label: string; price: string }[] = [
+  { amount: 500,  label: "500 Credits",  price: "$0.99" },
+  { amount: 1200, label: "1,200 Credits", price: "$1.99" },
+  { amount: 3000, label: "3,000 Credits", price: "$3.99" },
+  { amount: 7500, label: "7,500 Credits", price: "$8.99" },
+];
 
 const RARITY_COLORS: Record<CosmeticRarity, string> = {
   common: "text-zinc-300 border-zinc-500/30",
@@ -66,25 +65,13 @@ const TYPE_ICONS: Record<CosmeticType, React.ReactNode> = {
   driverSkin: <span className="text-sm">🏎️</span>,
 };
 
-/**
- * Credit pack offerings.
- * STRIPE_HOOK: Map each pack to a Stripe Price ID (e.g. price_xxx) and pass it
- * to the PaymentIntent metadata when the Stripe integration is live.
- */
-const CREDIT_PACKS: { amount: number; label: string; price: string }[] = [
-  { amount: 500,  label: "500 Credits",  price: "$0.99" },
-  { amount: 1200, label: "1,200 Credits", price: "$1.99" },
-  { amount: 3000, label: "3,000 Credits", price: "$3.99" },
-  { amount: 7500, label: "7,500 Credits", price: "$8.99" },
-];
-
 // ─── API helpers ───────────────────────────────────────────────────────────────
 
-async function fetchProfile(userId: string): Promise<PlayerProfile> {
-  const res = await fetch(`/api/player/${userId}`);
-  if (!res.ok) throw new Error("Failed to fetch profile");
+async function fetchProfile(): Promise<PlayerProfile | null> {
+  const res = await fetch('/api/player/profile', { credentials: 'include' });
+  if (!res.ok) return null;
   const data = await res.json();
-  return data.profile as PlayerProfile;
+  return data?.success ? (data.profile as PlayerProfile) : null;
 }
 
 async function fetchCosmetics(): Promise<CosmeticItem[]> {
@@ -94,10 +81,11 @@ async function fetchCosmetics(): Promise<CosmeticItem[]> {
   return data.cosmetics as CosmeticItem[];
 }
 
-async function apiPurchase(userId: string, cosmeticId: string): Promise<PlayerProfile> {
-  const res = await fetch(`/api/player/${userId}/purchase`, {
+async function apiPurchase(cosmeticId: string): Promise<PlayerProfile> {
+  const res = await fetch('/api/player/purchase', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: 'include',
     body: JSON.stringify({ cosmeticId }),
   });
   const data = await res.json();
@@ -105,10 +93,11 @@ async function apiPurchase(userId: string, cosmeticId: string): Promise<PlayerPr
   return data.profile as PlayerProfile;
 }
 
-async function apiEquip(userId: string, cosmeticId: string): Promise<PlayerProfile> {
-  const res = await fetch(`/api/player/${userId}/equip`, {
+async function apiEquip(cosmeticId: string): Promise<PlayerProfile> {
+  const res = await fetch('/api/player/equip', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: 'include',
     body: JSON.stringify({ cosmeticId }),
   });
   const data = await res.json();
@@ -116,10 +105,11 @@ async function apiEquip(userId: string, cosmeticId: string): Promise<PlayerProfi
   return data.profile as PlayerProfile;
 }
 
-async function apiUnequip(userId: string, cosmeticId: string): Promise<PlayerProfile> {
-  const res = await fetch(`/api/player/${userId}/unequip`, {
+async function apiUnequip(cosmeticId: string): Promise<PlayerProfile> {
+  const res = await fetch('/api/player/unequip', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: 'include',
     body: JSON.stringify({ cosmeticId }),
   });
   const data = await res.json();
@@ -128,19 +118,18 @@ async function apiUnequip(userId: string, cosmeticId: string): Promise<PlayerPro
 }
 
 /**
- * STRIPE_HOOK: When Stripe is integrated, call this with a confirmed Stripe
- * PaymentIntent.  The server will validate the payment before crediting.
- *
+ * STRIPE_HOOK: When Stripe is integrated, this function receives the
+ * clientSecret from the server and opens the Stripe payment sheet.
  * Currently returns a placeholder response.
  */
 async function apiPurchaseCurrency(
-  userId: string,
   amount: number,
   label: string,
 ): Promise<{ clientSecret: string | null; message: string }> {
-  const res = await fetch(`/api/player/${userId}/purchase-currency`, {
+  const res = await fetch('/api/player/purchase-currency', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: 'include',
     body: JSON.stringify({
       amount,
       purchasedItemType: 'credits_pack',
@@ -148,8 +137,8 @@ async function apiPurchaseCurrency(
     }),
   });
   const data = await res.json();
-  if (!data.success) throw new Error(data.error ?? "Purchase currency failed");
-  return { clientSecret: data.clientSecret, message: data.message };
+  if (!data.success && !data.skipped) throw new Error(data.error ?? "Purchase currency failed");
+  return { clientSecret: data.clientSecret ?? null, message: data.message ?? 'Coming soon.' };
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────────────────
@@ -282,17 +271,18 @@ function EquippedPreview({
   profile: PlayerProfile;
   cosmetics: CosmeticItem[];
 }) {
-  const slots: Array<{ key: keyof typeof profile.equippedCosmetics; label: string }> = [
+  const slots: Array<{ key: string; label: string }> = [
     { key: "logo", label: "Logo" },
     { key: "border", label: "Border" },
     { key: "background", label: "Background" },
     { key: "driverSkin", label: "Driver Skin" },
   ];
+  const equipped = profile.equippedCosmetics as Record<string, string>;
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       {slots.map(({ key, label }) => {
-        const id = profile.equippedCosmetics[key];
+        const id = equipped[key];
         const item = id ? cosmetics.find((c) => c.id === id) : undefined;
         return (
           <div
@@ -330,13 +320,12 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<CosmeticType | "all">("all");
   const { toast } = useToast();
-
-  const userId = DEMO_USER_ID;
+  const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, c] = await Promise.all([fetchProfile(userId), fetchCosmetics()]);
+      const [p, c] = await Promise.all([fetchProfile(), fetchCosmetics()]);
       setProfile(p);
       setCosmetics(c);
     } catch (err) {
@@ -344,15 +333,15 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }, [userId, toast]);
+  }, [toast]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!authLoading) load();
+  }, [authLoading, authUser?.id, load]);
 
   const handlePurchase = async (cosmeticId: string) => {
     try {
-      const updated = await apiPurchase(userId, cosmeticId);
+      const updated = await apiPurchase(cosmeticId);
       setProfile(updated);
       const item = cosmetics.find((c) => c.id === cosmeticId);
       toast({
@@ -366,7 +355,7 @@ export default function Profile() {
 
   const handleEquip = async (cosmeticId: string) => {
     try {
-      const updated = await apiEquip(userId, cosmeticId);
+      const updated = await apiEquip(cosmeticId);
       setProfile(updated);
     } catch (err) {
       toast({ title: "Equip failed", description: String(err), variant: "destructive" });
@@ -375,7 +364,7 @@ export default function Profile() {
 
   const handleUnequip = async (cosmeticId: string) => {
     try {
-      const updated = await apiUnequip(userId, cosmeticId);
+      const updated = await apiUnequip(cosmeticId);
       setProfile(updated);
     } catch (err) {
       toast({ title: "Unequip failed", description: String(err), variant: "destructive" });
@@ -389,7 +378,7 @@ export default function Profile() {
    */
   const handleBuyCredits = async (amount: number, label: string) => {
     try {
-      const result = await apiPurchaseCurrency(userId, amount, label);
+      const result = await apiPurchaseCurrency(amount, label);
       toast({
         title: result.clientSecret ? "Payment initiated" : "Coming Soon",
         description: result.message,
@@ -405,17 +394,32 @@ export default function Profile() {
   );
 
   const ownedCosmetics = profile
-    ? cosmetics.filter((c) => profile.ownedCosmetics.includes(c.id))
+    ? cosmetics.filter((c) => (profile.ownedCosmetics as string[]).includes(c.id))
     : [];
 
   const filteredOwned = ownedCosmetics.filter(
     (c) => filterType === "all" || c.type === filterType,
   );
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <RefreshCw className="animate-spin text-primary" size={32} />
+      </div>
+    );
+  }
+
+  // Show login gate for guests
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-4">
+        <div className="text-zinc-400 text-sm">Log in to view your profile, wallet, and cosmetics.</div>
+        <a
+          href="/api/login"
+          className="px-4 py-2 bg-primary text-black font-semibold rounded text-sm hover:bg-primary/80 transition-colors"
+        >
+          Log in with Replit
+        </a>
       </div>
     );
   }
@@ -459,7 +463,7 @@ export default function Profile() {
               <h1 className="text-3xl sm:text-4xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500">
                 DRIVER PROFILE
               </h1>
-              <p className="text-zinc-500 text-sm">{profile.username}</p>
+              <p className="text-zinc-500 text-sm">{profile.username ?? authUser?.firstName ?? 'Driver'}</p>
             </div>
           </div>
           <Button
@@ -562,7 +566,7 @@ export default function Profile() {
             >
               <Package size={14} className="mr-2" /> Inventory
               <Badge variant="secondary" className="ml-2 text-[10px]">
-                {profile.ownedCosmetics.length}
+                {(profile.ownedCosmetics as string[]).length}
               </Badge>
             </TabsTrigger>
           </TabsList>
@@ -577,8 +581,8 @@ export default function Profile() {
                   <CosmeticCard
                     key={item.id}
                     item={item}
-                    isOwned={profile.ownedCosmetics.includes(item.id)}
-                    isEquipped={Object.values(profile.equippedCosmetics).includes(item.id)}
+                    isOwned={(profile.ownedCosmetics as string[]).includes(item.id)}
+                    isEquipped={Object.values(profile.equippedCosmetics as Record<string, string>).includes(item.id)}
                     canAfford={profile.currencyBalance >= item.cost}
                     onPurchase={handlePurchase}
                     onEquip={handleEquip}
@@ -603,7 +607,7 @@ export default function Profile() {
                     key={item.id}
                     item={item}
                     isOwned
-                    isEquipped={Object.values(profile.equippedCosmetics).includes(item.id)}
+                    isEquipped={Object.values(profile.equippedCosmetics as Record<string, string>).includes(item.id)}
                     canAfford={profile.currencyBalance >= item.cost}
                     onPurchase={handlePurchase}
                     onEquip={handleEquip}

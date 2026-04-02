@@ -1,5 +1,3 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
 import {
   gameSnapshots,
   gameSummaries,
@@ -10,21 +8,7 @@ import {
   type InsertContact,
   type InsertStripeTransaction,
 } from "@shared/schema";
-
-const { Pool } = pg;
-
-let pool: pg.Pool | null = null;
-let db: ReturnType<typeof drizzle> | null = null;
-
-function getDb() {
-  if (!db) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-    });
-    db = drizzle(pool);
-  }
-  return db;
-}
+import { getDb } from "./db";
 
 export async function recordGameSnapshot(snapshot: InsertGameSnapshot): Promise<void> {
   try {
@@ -64,7 +48,7 @@ export async function recordStripeTransaction(data: InsertStripeTransaction): Pr
   try {
     const database = getDb();
     await database.insert(stripeTransactions).values(data as any);
-    console.log(`[Stripe] Transaction recorded: ${data.creditsAmount} credits for user ${data.userId} (${data.status})`);
+    console.log(`[Stripe] Transaction recorded: ${data.creditsAmount} credits for user ${data.userId} (${data.purchasedItemType ?? 'credits_pack'} / ${data.status})`);
   } catch (error) {
     console.error(`[Stripe] Failed to record transaction:`, error);
   }
