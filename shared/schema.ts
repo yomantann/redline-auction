@@ -3,19 +3,30 @@ import { pgTable, text, varchar, integer, real, jsonb, timestamp } from "drizzle
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+// Re-export auth models (users + sessions tables for Replit Auth)
+export * from "./models/auth";
+
+// Player profiles — one row per authenticated Replit user
+export const playerProfiles = pgTable("player_profiles", {
+  id: varchar("id").primaryKey(), // Replit user ID (sub claim)
+  username: text("username"),
+  profileImageUrl: text("profile_image_url"),
+  credits: integer("credits").default(0).notNull(),
+  totalWins: integer("total_wins").default(0).notNull(),
+  totalGames: integer("total_games").default(0).notNull(),
+  equippedCosmetics: jsonb("equipped_cosmetics").$type<Record<string, string>>().default({}),
+  unlockedCosmetics: jsonb("unlocked_cosmetics").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit({
+  createdAt: true,
+  updatedAt: true,
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
+export type PlayerProfile = typeof playerProfiles.$inferSelect;
 
 // Game Snapshot Schema - Write-only for recording game state
 export const gameSnapshots = pgTable("game_snapshots", {

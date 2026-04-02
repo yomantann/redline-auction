@@ -25,7 +25,9 @@ import {
   type GameDuration
 } from "./gameEngine";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
-import { insertGameSnapshotSchema, insertGameSummarySchema } from "@shared/schema";
+import { insertGameSnapshotSchema, insertGameSummarySchema, playerProfiles } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 // Socket.IO instance - exported for later expansion
 export let io: SocketIOServer;
@@ -851,6 +853,130 @@ export async function registerRoutes(
       console.error('[Contact] Full error:', error);
       log(`Contact form failed: ${error}`, "api");
       res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
+  // ─── Player profile routes ───────────────────────────────────────────────
+  // Returns the authenticated player's profile, or null for guests.
+  app.get("/api/player/profile", async (req: any, res) => {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      return res.json(null);
+    }
+    try {
+      const userId: string = req.user?.claims?.sub;
+      if (!userId) return res.json(null);
+
+      const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (profile) {
+        return res.json(profile);
+      }
+
+      // First login — create a fresh profile
+      const newProfile = {
+        id: userId,
+        username: req.user?.claims?.first_name || req.user?.claims?.email || "Player",
+        profileImageUrl: req.user?.claims?.profile_image_url || null,
+        credits: 0,
+        totalWins: 0,
+        totalGames: 0,
+        equippedCosmetics: {},
+        unlockedCosmetics: [],
+      };
+      const [created] = await db.insert(playerProfiles).values(newProfile).returning();
+      return res.json(created);
+    } catch (error) {
+      log(`Player profile fetch failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Record a completed game for an authenticated player (skip silently for guests)
+  app.post("/api/player/stats", async (req: any, res) => {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      return res.json({ success: true, skipped: true });
+    }
+    try {
+      const userId: string = req.user?.claims?.sub;
+      if (!userId) return res.json({ success: true, skipped: true });
+
+      const { won } = req.body as { won: boolean };
+
+      const [existing] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!existing) {
+        return res.json({ success: true, skipped: true });
+      }
+
+      await db
+        .update(playerProfiles)
+        .set({
+          totalGames: existing.totalGames + 1,
+          totalWins: won ? existing.totalWins + 1 : existing.totalWins,
+          updatedAt: new Date(),
+        })
+        .where(eq(playerProfiles.id, userId));
+
+      return res.json({ success: true });
+    } catch (error) {
+      log(`Player stats update failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Convert or add credits for an authenticated player (skip silently for guests)
+  app.post("/api/player/credits", async (req: any, res) => {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      return res.json({ success: true, skipped: true });
+    }
+    try {
+      const userId: string = req.user?.claims?.sub;
+      if (!userId) return res.json({ success: true, skipped: true });
+
+      const { delta } = req.body as { delta: number };
+
+      const [existing] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!existing) {
+        return res.json({ success: true, skipped: true });
+      }
+
+      const newCredits = Math.max(0, existing.credits + delta);
+      await db
+        .update(playerProfiles)
+        .set({ credits: newCredits, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, userId));
+
+      return res.json({ success: true, credits: newCredits });
+    } catch (error) {
+      log(`Player credits update failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Equip a cosmetic for an authenticated player (skip silently for guests)
+  app.post("/api/player/cosmetics/equip", async (req: any, res) => {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      return res.json({ success: true, skipped: true });
+    }
+    try {
+      const userId: string = req.user?.claims?.sub;
+      if (!userId) return res.json({ success: true, skipped: true });
+
+      const { slot, cosmeticId } = req.body as { slot: string; cosmeticId: string };
+
+      const [existing] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (!existing) {
+        return res.json({ success: true, skipped: true });
+      }
+
+      const updated = { ...((existing.equippedCosmetics as Record<string, string>) || {}), [slot]: cosmeticId };
+      await db
+        .update(playerProfiles)
+        .set({ equippedCosmetics: updated, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, userId));
+
+      return res.json({ success: true, equippedCosmetics: updated });
+    } catch (error) {
+      log(`Cosmetic equip failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
     }
   });
 

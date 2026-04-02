@@ -8,6 +8,8 @@ import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Mail, Heart } from 'lucide-react';
+import { PlayerProfileWidget } from "@/components/game/PlayerProfileWidget";
+import { GuestBanner } from "@/components/game/GuestBanner";
 
 import { GameOverlay, OverlayType } from "@/components/game/GameOverlay";
 
@@ -8971,6 +8973,9 @@ export default function Game() {
                   <span className="font-bold tracking-widest">21+ ONLY</span>
                 </div>
               )}
+
+              {/* Player Profile / Guest indicator */}
+              <PlayerProfileWidget />
             </div>
           </div>
 
@@ -9097,6 +9102,9 @@ export default function Game() {
           )}
         </div>
       </div>
+
+      {/* Guest save-progress banner */}
+      <GuestBanner />
 
       {/* POPUP LIBRARY DIALOG */}
       <Dialog open={showPopupLibrary} onOpenChange={setShowPopupLibrary}>
