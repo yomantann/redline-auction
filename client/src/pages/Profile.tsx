@@ -90,7 +90,7 @@ function getLimitedTimeLabel(endsAt?: string): string | null {
   const ms = new Date(endsAt).getTime() - Date.now();
   if (ms <= 0) return null;
   const days = Math.floor(ms / 86_400_000);
-  if (days > 1) return `${days}d left`;
+  if (days >= 1) return `${days}d left`;
   const hours = Math.floor(ms / 3_600_000);
   if (hours > 0) return `${hours}h left`;
   return "< 1h left";

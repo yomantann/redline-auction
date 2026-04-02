@@ -9,7 +9,7 @@ interface PlayerProfileWidgetProps {
   showNavLinks?: boolean;
 }
 
-export function PlayerProfileWidget({ equippedLogoUrl, showNavLinks }: PlayerProfileWidgetProps = {}) {
+export function PlayerProfileWidget({ equippedLogoUrl = null, showNavLinks = false }: PlayerProfileWidgetProps = {}) {
   const { user, isLoading, isAuthenticated } = useAuth();
 
   if (isLoading) {
