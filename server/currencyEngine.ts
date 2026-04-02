@@ -202,6 +202,28 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: '/cosmetics/skins/galactic_drifter.png',
     earnableOnly: true,
   },
+
+  // ── Limited-Time Items ──────────────────────────────────────────────────────
+  {
+    id: 'logo_speed_demon',
+    name: 'Speed Demon',
+    type: 'logo',
+    cost: 800,
+    rarity: 'rare',
+    asset: '/cosmetics/logos/speed_demon.png',
+    limitedTime: true,
+    endsAt: '2026-05-31T23:59:59Z',
+  },
+  {
+    id: 'border_turbo',
+    name: 'Turbo Flame',
+    type: 'border',
+    cost: 1000,
+    rarity: 'rare',
+    asset: 'border_turbo',
+    limitedTime: true,
+    endsAt: '2026-05-31T23:59:59Z',
+  },
 ];
 
 // ─── Default Owned Cosmetics ─────────────────────────────────────────────────
@@ -502,10 +524,10 @@ export const CREDIT_PACK_MAP: Record<string, { credits: number; cents: number; l
 
 import Stripe from 'stripe';
 
-function getStripe(): Stripe {
+export function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error('STRIPE_SECRET_KEY is not set.');
-  return new Stripe(key, { apiVersion: '2025-02-24.acacia' });
+  return new Stripe(key, { apiVersion: '2026-03-25.dahlia' });
 }
 
 /**

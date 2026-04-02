@@ -7240,6 +7240,15 @@ export default function Game() {
                             {player.socketId === socket?.id && (
                               <span className="text-xs text-zinc-500">(You)</span>
                             )}
+                            {/* Show equipped logo for current player in the lobby */}
+                            {player.socketId === socket?.id && getLogoUrl(myCosmetics) && (
+                              <img
+                                src={getLogoUrl(myCosmetics)!}
+                                alt="Logo"
+                                className="w-5 h-5 object-contain rounded-full border border-primary/40 bg-black/30"
+                                title="Your equipped logo"
+                              />
+                            )}
                           </div>
                           {player.selectedDriver && (
                             <div className="text-[10px] text-zinc-500">
@@ -9131,7 +9140,10 @@ export default function Game() {
               )}
 
               {/* Player Profile / Guest indicator */}
-              <PlayerProfileWidget />
+              <PlayerProfileWidget
+                equippedLogoUrl={getLogoUrl(myCosmetics)}
+                showNavLinks
+              />
             </div>
           </div>
 

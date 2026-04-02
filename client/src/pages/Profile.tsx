@@ -20,6 +20,7 @@ import {
   User,
   Target,
   X,
+  Clock,
 } from "lucide-react";
 import type {
   PlayerProfile,
@@ -82,6 +83,25 @@ const TYPE_ICONS: Record<CosmeticType, React.ReactNode> = {
   background: <span className="text-sm">🌌</span>,
   driverSkin: <span className="text-sm">🏎️</span>,
 };
+
+/** Returns remaining time string for a limited-time item, or null if expired. */
+function getLimitedTimeLabel(endsAt?: string): string | null {
+  if (!endsAt) return null;
+  const ms = new Date(endsAt).getTime() - Date.now();
+  if (ms <= 0) return null;
+  const days = Math.floor(ms / 86_400_000);
+  if (days > 1) return `${days}d left`;
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours > 0) return `${hours}h left`;
+  return "< 1h left";
+}
+
+/** Returns true if a limited-time item is still available. */
+function isLimitedTimeActive(item: CosmeticItem): boolean {
+  if (!item.limitedTime) return false;
+  if (!item.endsAt) return true;
+  return new Date(item.endsAt).getTime() > Date.now();
+}
 
 // ─── Milestone Display Definitions ─────────────────────────────────────────────
 // Mirrors the server-side MILESTONE_DEFINITIONS in currencyEngine.ts.
@@ -218,26 +238,39 @@ function CosmeticCard({
   onEquip: (id: string) => void;
   onUnequip: (id: string) => void;
 }) {
+  const timeLabel = getLimitedTimeLabel(item.endsAt);
   return (
     <div
       className={`rounded-lg border p-4 flex flex-col gap-3 relative transition-all ${
         RARITY_BG[item.rarity]
       } ${RARITY_COLORS[item.rarity]} ${
         isEquipped ? "ring-2 ring-primary/60" : ""
-      }`}
+      } ${item.limitedTime ? "ring-1 ring-orange-500/40" : ""}`}
     >
-      {/* Rarity badge */}
+      {/* Rarity + category row */}
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-widest opacity-70">
           {item.rarity}
         </span>
+        <span className="text-[10px] uppercase tracking-widest opacity-60 flex items-center gap-1">
+          {TYPE_ICONS[item.type]} {TYPE_LABELS[item.type]}
+        </span>
+      </div>
+
+      {/* Status badges row */}
+      <div className="flex items-center justify-between min-h-[16px]">
+        {item.limitedTime && timeLabel && (
+          <span className="text-[10px] uppercase tracking-widest text-orange-400 font-bold flex items-center gap-1">
+            <Clock size={10} /> {timeLabel}
+          </span>
+        )}
         {isEquipped && (
-          <span className="text-[10px] uppercase tracking-widest text-primary font-bold flex items-center gap-1">
+          <span className="text-[10px] uppercase tracking-widest text-primary font-bold flex items-center gap-1 ml-auto">
             <CheckCircle2 size={10} /> EQUIPPED
           </span>
         )}
         {item.earnableOnly && !isOwned && (
-          <span className="text-[10px] uppercase tracking-widest text-amber-400/80 flex items-center gap-1">
+          <span className="text-[10px] uppercase tracking-widest text-amber-400/80 flex items-center gap-1 ml-auto">
             <Trophy size={10} /> EARNABLE
           </span>
         )}
@@ -554,7 +587,11 @@ export default function Profile() {
   };
 
   const filteredCosmetics = cosmetics.filter(
-    (c) => filterType === "all" || c.type === filterType,
+    (c) => (filterType === "all" || c.type === filterType) && !c.limitedTime,
+  );
+
+  const limitedTimeCosmetics = cosmetics.filter(
+    (c) => isLimitedTimeActive(c) && (filterType === "all" || c.type === filterType),
   );
 
   const ownedCosmetics = profile
@@ -789,9 +826,36 @@ export default function Profile() {
 
           {/* ── Shop Tab ── */}
           <TabsContent value="shop">
-            {filteredCosmetics.length === 0 ? (
+            {/* Limited-Time Section */}
+            {limitedTimeCosmetics.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <Clock size={14} className="text-orange-400" />
+                  <span className="text-sm font-bold text-orange-400 uppercase tracking-widest">Limited Time</span>
+                  <span className="text-xs text-zinc-500">— Rotates out when the timer ends</span>
+                </div>
+                <div className="rounded-lg border border-orange-500/20 bg-orange-950/10 p-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {limitedTimeCosmetics.map((item) => (
+                      <CosmeticCard
+                        key={item.id}
+                        item={item}
+                        isOwned={(profile.ownedCosmetics as string[]).includes(item.id)}
+                        isEquipped={Object.values(profile.equippedCosmetics as Record<string, string>).includes(item.id)}
+                        canAfford={profile.currencyBalance >= item.cost}
+                        onPurchase={handlePurchase}
+                        onEquip={handleEquip}
+                        onUnequip={handleUnequip}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {filteredCosmetics.length === 0 && limitedTimeCosmetics.length === 0 ? (
               <p className="text-center text-zinc-500 py-12">No items in this category.</p>
-            ) : (
+            ) : filteredCosmetics.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {filteredCosmetics.map((item) => (
                   <CosmeticCard
@@ -806,7 +870,7 @@ export default function Profile() {
                   />
                 ))}
               </div>
-            )}
+            ) : null}
           </TabsContent>
 
           {/* ── Inventory Tab ── */}

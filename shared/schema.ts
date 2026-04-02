@@ -142,6 +142,8 @@ export interface CosmeticItem {
   rarity: CosmeticRarity;
   asset: string; // image path or CSS class
   earnableOnly?: boolean; // cannot be purchased, only earned
+  limitedTime?: boolean; // rotates out of the shop after endsAt
+  endsAt?: string; // ISO date string — item hidden from shop after this date
 }
 
 export interface EquippedCosmetics {
