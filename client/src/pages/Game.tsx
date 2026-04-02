@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast"; // Added toast hook
 import { useSocket } from "@/lib/socket";
+import { useAuth } from "@/hooks/use-auth";
 import { GameLayout } from "@/components/game/GameLayout";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { AuctionButton } from "@/components/game/AuctionButton";
 import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Mail, Heart } from 'lucide-react';
+import type { PlayerProfile, EquippedCosmetics } from "@shared/schema";
+import { getLogoUrl, getCardStyles } from "@/lib/cosmeticsStyles";
 import { PlayerProfileWidget } from "@/components/game/PlayerProfileWidget";
 import { GuestBanner } from "@/components/game/GuestBanner";
 
@@ -888,8 +891,24 @@ function LastWillPickerInline({
 
 export default function Game() {
   const { toast } = useToast();
-  
-  // Game State
+  const { user: authUser } = useAuth();
+
+  // ── Player Profile / Cosmetics ──
+  const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
+
+  // Load profile once on mount for authenticated users (non-blocking)
+  useEffect(() => {
+    if (!authUser) return;
+    fetch('/api/player/profile', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((d) => { if (d?.success) setPlayerProfile(d.profile); })
+      .catch(() => {}); // silent – cosmetics are cosmetic-only
+  }, [authUser?.id]);
+
+  // Shortcut to the equipped cosmetics for the local player
+  const myCosmetics: EquippedCosmetics | undefined = playerProfile?.equippedCosmetics;
+
+  // ── Game State ──
   const [phase, setPhase] = useState<GamePhase>('intro');
   const [difficulty, setDifficulty] = useState<GameDifficulty>('CASUAL');
   const [variant, setVariant] = useState<GameVariant>('STANDARD');
@@ -1046,7 +1065,62 @@ export default function Game() {
     }
   };
 
-  // New Overlays State (Array for stacking)
+  /**
+   * Convert end-game trophies and moment flags to credits (server-side, idempotent).
+   * Only call at game_end for the human player.
+   */
+  const convertGameCredits = useCallback(async (
+    gameId: string,
+    trophies: number,
+    momentFlags: number,
+    isWinner: boolean,
+    gameVariant: string,
+    isMP: boolean,
+  ) => {
+    try {
+      const variantMap: Record<string, string> = {
+        STANDARD: 'STANDARD',
+        SOCIAL_OVERDRIVE: 'SOCIAL_OVERDRIVE',
+        BIO_FUEL: 'BIO_FUEL',
+        HAUNTED: 'HAUNTED',
+      };
+      const mappedVariant = variantMap[gameVariant] || 'STANDARD';
+
+      const res = await fetch('/api/player/convert-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          gameId,
+          trophies,
+          momentFlags,
+          isWinner,
+          variant: mappedVariant,
+          isMultiplayer: isMP,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && !data.alreadyConverted) {
+        setPlayerProfile(data.profile);
+        if (data.creditsEarned > 0) {
+          toast({
+            title: `+${data.creditsEarned} Credits Earned!`,
+            description: `${trophies} trophies × 100 + ${momentFlags} flags × 25`,
+            duration: 5000,
+          });
+        }
+        if (data.milestoneUnlocked?.length > 0) {
+          toast({
+            title: '🏆 Milestone Unlocked!',
+            description: `New cosmetic(s) unlocked: ${data.milestoneUnlocked.join(', ')}`,
+            duration: 7000,
+          });
+        }
+      }
+    } catch (_e) {
+      // Silent – currency is cosmetic and shouldn't block UI
+    }
+  }, [toast]);
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
   
   // Helper to add overlay
@@ -1580,6 +1654,24 @@ export default function Game() {
           }
         } else if (state.phase === 'game_over') {
           setPhase('game_end');
+          // ── MP end-game credit conversion ──
+          // state.players contains final standings; find the local player's socket id
+          const mySocketId = socket?.id;
+          const myFinalPlayer = state.players?.find((mp: any) => mp.socketId === mySocketId);
+          if (myFinalPlayer && state.gameId) {
+            const winner = [...(state.players || [])].sort((a: any, b: any) =>
+              b.tokens !== a.tokens ? b.tokens - a.tokens : b.remainingTime - a.remainingTime
+            )[0];
+            const isWinner = winner?.socketId === mySocketId;
+            convertGameCredits(
+              state.gameId,
+              myFinalPlayer?.tokens || 0,
+              myFinalPlayer?.momentFlagsEarned?.length || 0,
+              isWinner,
+              state.settings?.variant || 'STANDARD',
+              true,
+            );
+          }
         }
         setRound(state.round);
       }
@@ -4917,6 +5009,20 @@ export default function Game() {
                   winnerName: sortedForEarlyElim[0]?.name || null,
                 }),
               }).catch(() => {});
+
+              // ── End-game credit conversion for early elimination ──
+              const humanPlayerEarly = sortedForEarlyElim.find((p: any) => p.id === 'p1');
+              if (humanPlayerEarly) {
+                const isHumanWinnerEarly = sortedForEarlyElim[0]?.id === 'p1';
+                convertGameCredits(
+                  gameId,
+                  humanPlayerEarly.tokens || 0,
+                  humanPlayerEarly.eventDatabasePopups?.length || 0,
+                  isHumanWinnerEarly,
+                  variant,
+                  false,
+                );
+              }
             }
           }
 
@@ -5837,6 +5943,16 @@ export default function Game() {
                 winnerName: sorted[0]?.name || null,
               }),
             }).catch(() => {});
+
+            // ── End-game credit conversion (server-side, idempotent) ──
+            // Only convert for the human player (p1).
+            const humanPlayer = sorted.find((p: any) => p.id === 'p1');
+            if (humanPlayer) {
+              const isHumanWinner = sorted[0]?.id === 'p1';
+              const humanTrophies = humanPlayer.tokens || 0;
+              const humanFlags = humanPlayer.eventDatabasePopups?.length || 0;
+              convertGameCredits(gameId, humanTrophies, humanFlags, isHumanWinner, variant, false);
+            }
           }
         }
       }, 3000);
@@ -6913,6 +7029,18 @@ export default function Game() {
                  MULTIPLAYER
               </Button>
             </div>
+
+            {/* Profile / Wallet shortcut */}
+            <Link href="/profile">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-zinc-500 hover:text-primary flex items-center gap-2"
+                data-testid="button-open-profile"
+              >
+                <User size={14} /> PROFILE &amp; SHOP
+              </Button>
+            </Link>
 
           </motion.div>
         );
@@ -8673,12 +8801,20 @@ export default function Game() {
         };
 
         // Helper to render full player stat card
-        const renderPlayerCard = (p: any, i: number) => (
+        const renderPlayerCard = (p: any, i: number) => {
+          // Show logo on winner card only (human player's equipped logo)
+          const isWinnerCard = p.id === winner.id;
+          const isHumanCard = !isMultiplayer ? p.id === 'p1' : p.socketId === socket?.id;
+          const cardLogoUrl = isWinnerCard && isHumanCard ? getLogoUrl(myCosmetics) : null;
+          // Apply cosmetics (border + background) to the human player's card
+          const cardStyle = isHumanCard ? getCardStyles(myCosmetics) : {};
+
+          return (
           <div key={p.id} className={cn(
             "p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden",
             p.id === winner.id && "border-primary/50 bg-primary/10",
             p.id === loser.id && !p.isGhost ? "border-destructive/50 bg-destructive/10" : "border-white/10"
-          )}>
+          )} style={cardStyle}>
             {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
             {p.id === loser.id && !p.isGhost && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
             {p.isGhost && p.id !== winner.id && <div className="absolute top-0 right-0 bg-teal-800/80 text-teal-200 text-[10px] font-bold px-2 py-0.5">👻 GHOST</div>}
@@ -8686,6 +8822,16 @@ export default function Game() {
             <div className="flex items-center gap-2 mb-2">
               <span className="font-bold text-xl text-zinc-500">#{i + 1}</span>
               <span className="font-bold text-lg">{p.name}</span>
+              {/* Winner logo badge */}
+              {cardLogoUrl && (
+                <img
+                  src={cardLogoUrl}
+                  alt="logo"
+                  className="w-6 h-6 object-contain rounded ml-1 opacity-90"
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -8742,6 +8888,7 @@ export default function Game() {
           </div>
             </div>
         );
+        };
 
           return (
             <div className="flex flex-col h-[800px]">
@@ -8840,6 +8987,7 @@ export default function Game() {
                 </div>
 
                 {/* Play Again Button */}
+                <div className="flex flex-col sm:flex-row gap-3 mt-4 items-center">
                 <Button 
                   onClick={() => {
                     if (isMultiplayer && socket) {
@@ -8866,10 +9014,15 @@ export default function Game() {
                   }} 
                   variant="outline" 
                   size="lg" 
-                  className="mt-4"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" /> Play Again
                 </Button>
+                <Link href="/profile">
+                  <Button variant="ghost" size="lg" className="text-primary hover:bg-primary/10">
+                    <User className="mr-2 h-4 w-4" /> Profile &amp; Shop
+                  </Button>
+                </Link>
+                </div>
                   </div>
 
               {/* SCROLLABLE RESULTS SECTION */}
@@ -9744,6 +9897,7 @@ export default function Game() {
                 isSystemFailure={cardSystemFailure}
                 isHyperClickActive={isHyperClickActive}
                 isScrambled={(((isMultiplayer ? (p.id !== myPlayerId) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)) && abilitiesEnabled}
+                equippedCosmetics={isCurrentPlayerCard ? myCosmetics : undefined}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {

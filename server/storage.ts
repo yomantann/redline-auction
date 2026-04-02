@@ -2,6 +2,7 @@ import { type User, type UpsertUser } from "@shared/schema";
 
 // Legacy in-memory storage stub — actual user persistence is handled by Replit Auth
 // (server/replit_integrations/auth/storage.ts).
+// Player profiles are stored in the player_profiles DB table via routes.ts.
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;

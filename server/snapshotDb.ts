@@ -1,4 +1,13 @@
-import { gameSnapshots, gameSummaries, contactMessages, type InsertGameSnapshot, type InsertGameSummary, type InsertContact } from "@shared/schema";
+import {
+  gameSnapshots,
+  gameSummaries,
+  contactMessages,
+  stripeTransactions,
+  type InsertGameSnapshot,
+  type InsertGameSummary,
+  type InsertContact,
+  type InsertStripeTransaction,
+} from "@shared/schema";
 import { getDb } from "./db";
 
 export async function recordGameSnapshot(snapshot: InsertGameSnapshot): Promise<void> {
@@ -15,7 +24,6 @@ export async function recordGameSummary(summary: InsertGameSummary): Promise<voi
   try {
     const database = getDb();
     await database.insert(gameSummaries).values(summary as any);
-
     console.log(`[Summary] Recorded game summary for ${summary.gameId} - winner: ${summary.winnerName}`);
   } catch (error) {
     console.error(`[Summary] Failed to record game summary:`, error);
@@ -33,5 +41,15 @@ export async function recordContactMessage(data: InsertContact): Promise<void> {
     console.log(`[Contact] Message from ${data.name} (${data.email}) recorded`);
   } catch (error) {
     console.error(`[Contact] Failed to record message:`, error);
+  }
+}
+
+export async function recordStripeTransaction(data: InsertStripeTransaction): Promise<void> {
+  try {
+    const database = getDb();
+    await database.insert(stripeTransactions).values(data as any);
+    console.log(`[Stripe] Transaction recorded: ${data.creditsAmount} credits for user ${data.userId} (${data.purchasedItemType ?? 'credits_pack'} / ${data.status})`);
+  } catch (error) {
+    console.error(`[Stripe] Failed to record transaction:`, error);
   }
 }
