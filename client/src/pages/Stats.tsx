@@ -11,7 +11,7 @@ function formatModeKey(key: string): string {
   return key
     .replace('sp_', 'SP ')
     .replace('mp_', 'MP ')
-    .replace('_', ' ')
+    .replaceAll('_', ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -30,7 +30,7 @@ export default function Stats() {
       .finally(() => setLoading(false));
   }, [authLoading, isAuthenticated]);
 
-  const totalWins = profile ? Object.values(profile.winsPerMode as Record<string, number>).reduce((s, v) => s + v, 0) : 0;
+  const totalWins = profile ? Object.values(profile.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0) : 0;
   const winRate = profile && profile.totalGames > 0
     ? `${((totalWins / profile.totalGames) * 100).toFixed(1)}%`
     : '—';

@@ -497,9 +497,9 @@ export default function Profile() {
               </Button>
             </Link>
             {/* Profile avatar from Replit Auth */}
-            {(profile.profileImageUrl || authUser?.profileImageUrl) ? (
+            {(profile.profileImageUrl ?? authUser?.profileImageUrl) ? (
               <img
-                src={(profile.profileImageUrl ?? authUser?.profileImageUrl)!}
+                src={profile.profileImageUrl ?? authUser?.profileImageUrl ?? ''}
                 alt="Profile"
                 className="w-12 h-12 rounded-full object-cover border-2 border-primary/40 shadow-lg shadow-primary/20"
               />
