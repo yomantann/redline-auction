@@ -58,6 +58,10 @@ const walletRateLimit = rateLimit({
   max: 30,             // 30 requests per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
+  // Always respond with JSON so the client never receives an HTML 429 page.
+  handler: (_req, res) => {
+    res.status(429).json({ success: false, error: 'Too many requests. Please wait a moment.' });
+  },
 });
 
 // Socket.IO instance - exported for later expansion

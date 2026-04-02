@@ -900,7 +900,10 @@ export default function Game() {
   useEffect(() => {
     if (!authUser) return;
     fetch('/api/player/profile', { credentials: 'include' })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok || !r.headers.get('content-type')?.includes('application/json')) return null;
+        return r.json();
+      })
       .then((d) => { if (d?.success) setPlayerProfile(d.profile); })
       .catch(() => {}); // silent – cosmetics are cosmetic-only
   }, [authUser?.id]);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,10 +14,11 @@ import {
   Sparkles,
   Trophy,
   Flag,
-  Star,
   CheckCircle2,
   Lock,
   RefreshCw,
+  User,
+  Target,
 } from "lucide-react";
 import type {
   PlayerProfile,
@@ -65,11 +66,48 @@ const TYPE_ICONS: Record<CosmeticType, React.ReactNode> = {
   driverSkin: <span className="text-sm">🏎️</span>,
 };
 
+// ─── Milestone Display Definitions ─────────────────────────────────────────────
+// Mirrors the server-side MILESTONE_DEFINITIONS in currencyEngine.ts.
+// These are static and safe to keep on the client (no sensitive logic).
+
+interface MilestoneDisplay {
+  id: string;
+  cosmeticId: string;
+  label: string;
+  reward: string;
+  goal: number;
+  getProgress: (profile: PlayerProfile) => number;
+}
+
+const MILESTONES_DISPLAY: MilestoneDisplay[] = [
+  {
+    id: 'milestone_10_wins',
+    cosmeticId: 'logo_apex',
+    label: 'Win 10 total games across any mode',
+    reward: 'Apex Legend logo',
+    goal: 10,
+    getProgress: (p) =>
+      Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
+  },
+  {
+    id: 'milestone_5_haunted_wins',
+    cosmeticId: 'border_haunted',
+    label: 'Win 5 Haunted mode games (SP or MP)',
+    reward: 'Haunted Glow border',
+    goal: 5,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0);
+    },
+  },
+];
+
 // ─── API helpers ───────────────────────────────────────────────────────────────
 
 async function fetchProfile(): Promise<PlayerProfile | null> {
   const res = await fetch('/api/player/profile', { credentials: 'include' });
   if (!res.ok) return null;
+  if (!res.headers.get('content-type')?.includes('application/json')) return null;
   const data = await res.json();
   return data?.success ? (data.profile as PlayerProfile) : null;
 }
@@ -77,6 +115,9 @@ async function fetchProfile(): Promise<PlayerProfile | null> {
 async function fetchCosmetics(): Promise<CosmeticItem[]> {
   const res = await fetch("/api/cosmetics");
   if (!res.ok) throw new Error("Failed to fetch cosmetics");
+  if (!res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error("Failed to fetch cosmetics (unexpected response)");
+  }
   const data = await res.json();
   return data.cosmetics as CosmeticItem[];
 }
@@ -88,6 +129,9 @@ async function apiPurchase(cosmeticId: string): Promise<PlayerProfile> {
     credentials: 'include',
     body: JSON.stringify({ cosmeticId }),
   });
+  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`Purchase failed (${res.status})`);
+  }
   const data = await res.json();
   if (!data.success) throw new Error(data.error ?? "Purchase failed");
   return data.profile as PlayerProfile;
@@ -100,6 +144,9 @@ async function apiEquip(cosmeticId: string): Promise<PlayerProfile> {
     credentials: 'include',
     body: JSON.stringify({ cosmeticId }),
   });
+  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`Equip failed (${res.status})`);
+  }
   const data = await res.json();
   if (!data.success) throw new Error(data.error ?? "Equip failed");
   return data.profile as PlayerProfile;
@@ -112,6 +159,9 @@ async function apiUnequip(cosmeticId: string): Promise<PlayerProfile> {
     credentials: 'include',
     body: JSON.stringify({ cosmeticId }),
   });
+  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`Unequip failed (${res.status})`);
+  }
   const data = await res.json();
   if (!data.success) throw new Error(data.error ?? "Unequip failed");
   return data.profile as PlayerProfile;
@@ -136,6 +186,9 @@ async function apiPurchaseCurrency(
       purchasedItemLabel: label,
     }),
   });
+  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+    return { clientSecret: null, message: 'Could not reach the server. Please try again.' };
+  }
   const data = await res.json();
   if (!data.success && !data.skipped) throw new Error(data.error ?? "Purchase currency failed");
   return { clientSecret: data.clientSecret ?? null, message: data.message ?? 'Coming soon.' };
@@ -459,6 +512,18 @@ export default function Profile() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
+            {/* Profile avatar from Replit Auth */}
+            {(profile.profileImageUrl ?? authUser?.profileImageUrl) ? (
+              <img
+                src={profile.profileImageUrl ?? authUser?.profileImageUrl ?? ''}
+                alt="Profile"
+                className="w-12 h-12 rounded-full object-cover border-2 border-primary/40 shadow-lg shadow-primary/20"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary/30 flex items-center justify-center">
+                <User size={20} className="text-primary/70" />
+              </div>
+            )}
             <div>
               <h1 className="text-3xl sm:text-4xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500">
                 DRIVER PROFILE
@@ -531,6 +596,45 @@ export default function Profile() {
           </CardHeader>
           <CardContent>
             <EquippedPreview profile={profile} cosmetics={cosmetics} />
+          </CardContent>
+        </Card>
+
+        {/* ── Milestones ── */}
+        <Card className="bg-zinc-900/50 border-white/10">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-zinc-400">
+              <Target size={16} className="text-yellow-500" /> MILESTONES
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {MILESTONES_DISPLAY.map((m) => {
+              const progress = m.getProgress(profile);
+              const pct = Math.min(100, Math.round((progress / m.goal) * 100));
+              const unlocked = (profile.milestoneUnlocks as string[]).includes(m.id) ||
+                               (profile.ownedCosmetics as string[]).includes(m.cosmeticId);
+              return (
+                <div key={m.id} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={`font-medium ${unlocked ? 'text-yellow-400' : 'text-zinc-300'}`}>
+                      {unlocked && <CheckCircle2 size={11} className="inline mr-1 text-yellow-400" />}
+                      {m.label}
+                    </span>
+                    <span className={`font-mono ${unlocked ? 'text-yellow-400' : 'text-zinc-500'}`}>
+                      {unlocked ? 'UNLOCKED' : `${Math.min(progress, m.goal)} / ${m.goal}`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${unlocked ? 'bg-yellow-400' : 'bg-primary'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-zinc-600 flex items-center gap-1">
+                    <Trophy size={9} /> Reward: {m.reward}
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 
