@@ -24,7 +24,10 @@ export default function Stats() {
     if (authLoading) return;
     if (!isAuthenticated) { setLoading(false); return; }
     fetch('/api/player/profile', { credentials: 'include' })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok || !r.headers.get('content-type')?.includes('application/json')) return null;
+        return r.json();
+      })
       .then((d) => { if (d?.success) setProfile(d.profile); })
       .catch(() => {})
       .finally(() => setLoading(false));

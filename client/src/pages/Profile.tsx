@@ -107,6 +107,7 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
 async function fetchProfile(): Promise<PlayerProfile | null> {
   const res = await fetch('/api/player/profile', { credentials: 'include' });
   if (!res.ok) return null;
+  if (!res.headers.get('content-type')?.includes('application/json')) return null;
   const data = await res.json();
   return data?.success ? (data.profile as PlayerProfile) : null;
 }
@@ -114,6 +115,9 @@ async function fetchProfile(): Promise<PlayerProfile | null> {
 async function fetchCosmetics(): Promise<CosmeticItem[]> {
   const res = await fetch("/api/cosmetics");
   if (!res.ok) throw new Error("Failed to fetch cosmetics");
+  if (!res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error("Failed to fetch cosmetics (unexpected response)");
+  }
   const data = await res.json();
   return data.cosmetics as CosmeticItem[];
 }
@@ -125,6 +129,9 @@ async function apiPurchase(cosmeticId: string): Promise<PlayerProfile> {
     credentials: 'include',
     body: JSON.stringify({ cosmeticId }),
   });
+  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`Purchase failed (${res.status})`);
+  }
   const data = await res.json();
   if (!data.success) throw new Error(data.error ?? "Purchase failed");
   return data.profile as PlayerProfile;
@@ -137,6 +144,9 @@ async function apiEquip(cosmeticId: string): Promise<PlayerProfile> {
     credentials: 'include',
     body: JSON.stringify({ cosmeticId }),
   });
+  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`Equip failed (${res.status})`);
+  }
   const data = await res.json();
   if (!data.success) throw new Error(data.error ?? "Equip failed");
   return data.profile as PlayerProfile;
@@ -149,6 +159,9 @@ async function apiUnequip(cosmeticId: string): Promise<PlayerProfile> {
     credentials: 'include',
     body: JSON.stringify({ cosmeticId }),
   });
+  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`Unequip failed (${res.status})`);
+  }
   const data = await res.json();
   if (!data.success) throw new Error(data.error ?? "Unequip failed");
   return data.profile as PlayerProfile;
@@ -173,6 +186,9 @@ async function apiPurchaseCurrency(
       purchasedItemLabel: label,
     }),
   });
+  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+    return { clientSecret: null, message: 'Could not reach the server. Please try again.' };
+  }
   const data = await res.json();
   if (!data.success && !data.skipped) throw new Error(data.error ?? "Purchase currency failed");
   return { clientSecret: data.clientSecret ?? null, message: data.message ?? 'Coming soon.' };
