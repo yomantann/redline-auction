@@ -116,6 +116,21 @@ shared/           # Shared code between frontend and backend
 
 ## External Dependencies
 
+### Payments (Stripe)
+- **Stripe**: Credit pack purchases for authenticated players only
+  - Server: `stripe` npm package; secret key from `STRIPE_SECRET_KEY` env var
+  - Client: `@stripe/stripe-js` + `@stripe/react-stripe-js` for Stripe Elements modal
+  - **Credit packs** (server-side source of truth in `server/currencyEngine.ts` `CREDIT_PACK_MAP`):
+    - `500` → 500 credits / $0.99
+    - `1200` → 1,200 credits / $1.99
+    - `3000` → 3,000 credits / $3.99
+    - `7500` → 7,500 credits / $8.99
+  - **Flow**: Client calls `POST /api/payments/create-intent` (auth required) → server creates Stripe PaymentIntent → client opens Stripe Elements modal → on payment_intent.succeeded webhook, server credits player profile
+  - **Webhook**: `POST /api/payments/webhook` — raw body, no auth; idempotent by PaymentIntent ID; requires `STRIPE_WEBHOOK_SECRET`
+  - **Config endpoint**: `GET /api/config` returns `{ stripePublishableKey }` (non-sensitive, fetched at Profile page load)
+  - Credits applied ONLY on webhook confirmation — never trusted from client
+  - Transaction ledger: `stripe_transactions` table in PostgreSQL
+
 ### Authentication
 - **Replit Auth (OIDC)**: Implemented via `server/replit_integrations/auth/`
   - `setupAuth(app)` initializes Passport.js with Replit's OpenID Connect provider

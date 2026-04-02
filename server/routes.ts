@@ -34,6 +34,7 @@ import {
   equipCosmeticSchema,
   purchaseCurrencySchema,
   playerProfiles,
+  stripeTransactions,
 } from "@shared/schema";
 import {
   COSMETICS_CATALOG,
@@ -46,7 +47,9 @@ import {
   unequipCosmetic,
   purchaseCurrency,
   addCurrencyFromStripe,
+  CREDIT_PACK_MAP,
 } from "./currencyEngine";
+import Stripe from "stripe";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -892,6 +895,13 @@ export async function registerRoutes(
   });
 
 
+  // GET /api/config – public client configuration (non-sensitive)
+  app.get("/api/config", (_req, res) => {
+    res.json({
+      stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? null,
+    });
+  });
+
   // ── Player Profile & Wallet API ──────────────────────────────────────────────
   // All wallet/currency routes require Replit Auth (req.user.claims.sub).
   // Guests (unauthenticated) get { success: true, skipped: true } — never an error.
@@ -1021,35 +1031,40 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/player/purchase-currency – Stripe placeholder (item metadata tracked)
-  app.post("/api/player/purchase-currency", walletRateLimit, async (req: any, res) => {
-    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
+  // POST /api/payments/create-intent – create a Stripe PaymentIntent for a credit pack
+  app.post("/api/payments/create-intent", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.status(401).json({ success: false, error: 'Login required.' });
     try {
       const userId: string = req.user.claims.sub;
-      const { amount, purchasedItemType, purchasedItemId, purchasedItemLabel } =
-        purchaseCurrencySchema.parse(req.body);
+      const { packKey } = req.body as { packKey: string };
+      if (!packKey || !CREDIT_PACK_MAP[packKey]) {
+        return res.status(400).json({ success: false, error: 'Invalid credit pack.' });
+      }
 
-      const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
-      if (!profile) return res.json({ success: true, skipped: true });
+      const { clientSecret, credits, label } = await purchaseCurrency(userId, packKey);
 
-      // Record the pending transaction with full item metadata.
-      // stripePaymentIntentId is null until Stripe creates a real PaymentIntent.
+      // Record pending transaction (idempotency: PaymentIntent ID set on webhook)
       await recordStripeTransaction({
         userId,
         stripePaymentIntentId: null,
-        creditsAmount: amount,
-        purchasedItemType: purchasedItemType ?? 'credits_pack',
-        purchasedItemId: purchasedItemId ?? null,
-        purchasedItemLabel: purchasedItemLabel ?? null,
+        creditsAmount: credits,
+        purchasedItemType: 'credits_pack',
+        purchasedItemId: packKey,
+        purchasedItemLabel: label,
         status: 'pending',
       });
 
-      const result = await purchaseCurrency(userId, amount, purchasedItemType, purchasedItemId, purchasedItemLabel);
-      res.json({ success: true, ...result });
+      res.json({ success: true, clientSecret });
     } catch (error) {
-      log(`Purchase currency failed: ${error}`, "api");
-      res.status(400).json({ success: false, error: String(error) });
+      log(`Create payment intent failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
     }
+  });
+
+  // POST /api/player/purchase-currency – legacy stub (kept for backward compat)
+  app.post("/api/player/purchase-currency", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
+    res.json({ success: false, error: 'Use /api/payments/create-intent instead.' });
   });
 
   // POST /api/player/stats – record game result for authenticated player
@@ -1099,26 +1114,89 @@ export async function registerRoutes(
     }
   });
 
-  // ── Stripe Webhook (stub — wire in when Stripe is integrated) ─────────────
-  //
-  // STRIPE_HOOK: Uncomment when Stripe is live. Must be before express.json().
-  //
-  // app.post("/api/stripe/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
-  //   const sig = req.headers['stripe-signature'];
-  //   try {
-  //     const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  //     if (event.type === 'payment_intent.succeeded') {
-  //       const intent = event.data.object as any;
-  //       const { userId } = intent.metadata;
-  //       // 1. Look up pending stripe_transactions row by stripePaymentIntentId
-  //       // 2. Mark it 'completed'
-  //       // 3. Load player profile, call addCurrencyFromStripe(), save
-  //     }
-  //     res.json({ received: true });
-  //   } catch (err) {
-  //     return res.status(400).send(`Webhook Error: ${err}`);
-  //   }
-  // });
+  // POST /api/payments/webhook – Stripe webhook (raw body, no auth)
+  // Must use rawBody captured via index.ts express.json verify callback.
+  app.post("/api/payments/webhook", async (req: any, res) => {
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      log('STRIPE_WEBHOOK_SECRET not set — skipping webhook', 'stripe');
+      return res.status(500).json({ error: 'Webhook secret not configured.' });
+    }
+
+    let event: Stripe.Event;
+    try {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' });
+      const rawBody = req.rawBody as Buffer;
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    } catch (err) {
+      log(`Webhook signature verification failed: ${err}`, 'stripe');
+      return res.status(400).send(`Webhook Error: ${err}`);
+    }
+
+    if (event.type === 'payment_intent.succeeded') {
+      const intent = event.data.object as Stripe.PaymentIntent;
+      const { userId, credits } = intent.metadata;
+      const intentId = intent.id;
+
+      if (!userId || !credits) {
+        log(`Webhook missing metadata: intentId=${intentId}`, 'stripe');
+        return res.json({ received: true });
+      }
+
+      try {
+        // Idempotency: check if this intent has already been processed
+        const [existing] = await db
+          .select()
+          .from(stripeTransactions)
+          .where(eq(stripeTransactions.stripePaymentIntentId, intentId));
+
+        if (existing?.status === 'completed') {
+          log(`Webhook: already processed intentId=${intentId}`, 'stripe');
+          return res.json({ received: true });
+        }
+
+        const creditsToAdd = parseInt(credits, 10);
+
+        // Apply credits to player profile
+        const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+        if (profile) {
+          const updated = addCurrencyFromStripe(profile, creditsToAdd);
+          await db.update(playerProfiles)
+            .set({ currencyBalance: updated.currencyBalance, lifetimeEarned: updated.lifetimeEarned, updatedAt: new Date() })
+            .where(eq(playerProfiles.id, userId));
+          log(`Webhook: credited ${creditsToAdd} to user ${userId}`, 'stripe');
+        }
+
+        // Mark transaction completed (upsert by intentId)
+        if (existing) {
+          await db.update(stripeTransactions)
+            .set({ status: 'completed', stripePaymentIntentId: intentId })
+            .where(eq(stripeTransactions.stripePaymentIntentId, intentId));
+        } else {
+          await recordStripeTransaction({
+            userId,
+            stripePaymentIntentId: intentId,
+            creditsAmount: creditsToAdd,
+            purchasedItemType: 'credits_pack',
+            purchasedItemId: intent.metadata.packKey ?? null,
+            purchasedItemLabel: intent.metadata.label ?? null,
+            status: 'completed',
+          });
+        }
+      } catch (err) {
+        log(`Webhook processing error: ${err}`, 'stripe');
+        return res.status(500).json({ error: 'Internal error processing webhook.' });
+      }
+    }
+
+    if (event.type === 'payment_intent.payment_failed') {
+      const intent = event.data.object as Stripe.PaymentIntent;
+      log(`Webhook: payment failed intentId=${intent.id} user=${intent.metadata.userId}`, 'stripe');
+    }
+
+    res.json({ received: true });
+  });
 
   return httpServer;
 }

@@ -19,6 +19,7 @@ import {
   RefreshCw,
   User,
   Target,
+  X,
 } from "lucide-react";
 import type {
   PlayerProfile,
@@ -26,6 +27,22 @@ import type {
   CosmeticType,
   CosmeticRarity,
 } from "@shared/schema";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+
+let _stripePublishableKey: string | null = null;
+const stripePromise = fetch('/api/config')
+  .then((r) => r.json())
+  .then((cfg) => {
+    _stripePublishableKey = cfg.stripePublishableKey;
+    return _stripePublishableKey ? loadStripe(_stripePublishableKey) : null;
+  })
+  .catch(() => null);
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -167,31 +184,19 @@ async function apiUnequip(cosmeticId: string): Promise<PlayerProfile> {
   return data.profile as PlayerProfile;
 }
 
-/**
- * STRIPE_HOOK: When Stripe is integrated, this function receives the
- * clientSecret from the server and opens the Stripe payment sheet.
- * Currently returns a placeholder response.
- */
-async function apiPurchaseCurrency(
-  amount: number,
-  label: string,
-): Promise<{ clientSecret: string | null; message: string }> {
-  const res = await fetch('/api/player/purchase-currency', {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+async function apiCreatePaymentIntent(packKey: string): Promise<string> {
+  const res = await fetch('/api/payments/create-intent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({
-      amount,
-      purchasedItemType: 'credits_pack',
-      purchasedItemLabel: label,
-    }),
+    body: JSON.stringify({ packKey }),
   });
   if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
-    return { clientSecret: null, message: 'Could not reach the server. Please try again.' };
+    throw new Error('Could not reach the server. Please try again.');
   }
   const data = await res.json();
-  if (!data.success && !data.skipped) throw new Error(data.error ?? "Purchase currency failed");
-  return { clientSecret: data.clientSecret ?? null, message: data.message ?? 'Coming soon.' };
+  if (!data.success) throw new Error(data.error ?? 'Failed to create payment.');
+  return data.clientSecret as string;
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────────────────
@@ -365,6 +370,125 @@ function EquippedPreview({
   );
 }
 
+// ─── Stripe Checkout Modal ───────────────────────────────────────────────────
+
+interface CheckoutFormProps {
+  packLabel: string;
+  packPrice: string;
+  onSuccess: () => void;
+  onClose: () => void;
+}
+
+function CheckoutForm({ packLabel, packPrice, onSuccess, onClose }: CheckoutFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setSubmitting(true);
+    setErrorMsg(null);
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: { return_url: window.location.href },
+      redirect: 'if_required',
+    });
+
+    if (error) {
+      setErrorMsg(error.message ?? 'Payment failed. Please try again.');
+      setSubmitting(false);
+    } else {
+      toast({ title: 'Payment successful!', description: `${packLabel} added to your wallet.` });
+      onSuccess();
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10">
+          <div>
+            <div className="text-lg font-bold text-white">Buy {packLabel}</div>
+            <div className="text-sm text-zinc-400">One-time payment of {packPrice}</div>
+          </div>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+          <PaymentElement />
+          {errorMsg && (
+            <div className="text-sm text-red-400 bg-red-950/40 border border-red-500/20 rounded-lg px-3 py-2">
+              {errorMsg}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" className="flex-1 border-zinc-700" onClick={onClose} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button type="submit" className="flex-1" disabled={submitting || !stripe}>
+              {submitting ? 'Processing…' : `Pay ${packPrice}`}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface PaymentModalProps {
+  packKey: string;
+  packLabel: string;
+  packPrice: string;
+  onSuccess: () => void;
+  onClose: () => void;
+}
+
+function PaymentModal({ packKey, packLabel, packPrice, onSuccess, onClose }: PaymentModalProps) {
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    apiCreatePaymentIntent(packKey)
+      .then(setClientSecret)
+      .catch((err) => {
+        setLoadError(String(err));
+        toast({ title: 'Error', description: String(err), variant: 'destructive' });
+      });
+  }, [packKey]);
+
+  if (loadError) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-4">
+          <div className="text-red-400 text-sm">{loadError}</div>
+          <Button onClick={onClose} variant="outline" className="w-full border-zinc-700">Close</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!clientSecret) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+        <RefreshCw className="animate-spin text-primary" size={28} />
+      </div>
+    );
+  }
+
+  return (
+    <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
+      <CheckoutForm packLabel={packLabel} packPrice={packPrice} onSuccess={onSuccess} onClose={onClose} />
+    </Elements>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function Profile() {
@@ -372,6 +496,7 @@ export default function Profile() {
   const [cosmetics, setCosmetics] = useState<CosmeticItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<CosmeticType | "all">("all");
+  const [paymentModal, setPaymentModal] = useState<null | { packKey: string; packLabel: string; packPrice: string }>(null);
   const { toast } = useToast();
   const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
 
@@ -424,22 +549,8 @@ export default function Profile() {
     }
   };
 
-  /**
-   * STRIPE_HOOK: When Stripe is integrated, this handler will receive the
-   * clientSecret from the server and open the Stripe payment sheet.
-   * For now it just shows the "coming soon" message from the server.
-   */
-  const handleBuyCredits = async (amount: number, label: string) => {
-    try {
-      const result = await apiPurchaseCurrency(amount, label);
-      toast({
-        title: result.clientSecret ? "Payment initiated" : "Coming Soon",
-        description: result.message,
-        // STRIPE_HOOK: when clientSecret is non-null, open Stripe.js payment sheet here
-      });
-    } catch (err) {
-      toast({ title: "Purchase failed", description: String(err), variant: "destructive" });
-    }
+  const handleBuyCredits = (pack: { amount: number; label: string; price: string }) => {
+    setPaymentModal({ packKey: String(pack.amount), packLabel: pack.label, packPrice: pack.price });
   };
 
   const filteredCosmetics = cosmetics.filter(
@@ -497,6 +608,7 @@ export default function Profile() {
   ];
 
   return (
+    <>
     <div className="min-h-screen bg-zinc-950 text-white p-4 sm:p-8 flex flex-col items-center font-sans">
       <div className="w-full max-w-4xl space-y-6">
 
@@ -723,27 +835,25 @@ export default function Profile() {
           </TabsContent>
         </Tabs>
 
-        {/* ── Buy Credits (Stripe placeholder) ── */}
+        {/* ── Buy Credits ── */}
         <Card className="bg-zinc-900/30 border-dashed border-white/10">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="text-sm font-bold text-zinc-300">Buy Credits</div>
-                {/* STRIPE_HOOK: Remove "coming soon" label and replace button with Stripe Elements */}
-                <div className="text-xs text-zinc-500">Stripe integration coming soon</div>
+                <div className="text-sm font-bold text-zinc-300 flex items-center gap-1.5">
+                  <Coins size={14} className="text-primary" /> Buy Credits
+                </div>
+                <div className="text-xs text-zinc-500">Credits are added instantly after payment</div>
               </div>
             </div>
-            {/* Credit packs – STRIPE_HOOK: map each pack to a Stripe Price ID */}
             <div className="flex flex-wrap gap-2">
               {CREDIT_PACKS.map((pack) => (
                 <Button
                   key={pack.amount}
                   variant="outline"
                   size="sm"
-                  className="opacity-50 cursor-not-allowed text-xs"
-                  disabled
-                  onClick={() => handleBuyCredits(pack.amount, pack.label)}
-                  title="Stripe integration coming soon"
+                  className="text-xs border-zinc-700 hover:border-primary hover:bg-primary/10 transition-all"
+                  onClick={() => handleBuyCredits(pack)}
                 >
                   <Coins size={12} className="mr-1" />
                   {pack.label} — {pack.price}
@@ -755,5 +865,17 @@ export default function Profile() {
 
       </div>
     </div>
+
+    {/* ── Payment Modal ── */}
+    {paymentModal && (
+      <PaymentModal
+        packKey={paymentModal.packKey}
+        packLabel={paymentModal.packLabel}
+        packPrice={paymentModal.packPrice}
+        onSuccess={load}
+        onClose={() => setPaymentModal(null)}
+      />
+    )}
+    </>
   );
 }

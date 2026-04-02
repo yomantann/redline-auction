@@ -487,49 +487,54 @@ export function unequipCosmetic(
   };
 }
 
-// ─── Stripe Placeholder ──────────────────────────────────────────────────────
-//
-// STRIPE_HOOK: Steps to wire Stripe:
-//   1. npm install stripe
-//   2. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET in environment variables
-//   3. In purchaseCurrency(), call:
-//        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-//        const intent = await stripe.paymentIntents.create({
-//          amount: amountInCents,
-//          currency: 'usd',
-//          metadata: { userId, itemType, itemId, itemLabel },
-//        });
-//        return { clientSecret: intent.client_secret };
-//   4. Uncomment the POST /api/stripe/webhook stub in routes.ts.
-//   5. In the webhook handler, call addCurrencyFromStripe() and mark DB row 'completed'.
-//
-// userId passed here is always req.user.claims.sub (Replit Auth) — no changes needed.
+// ─── Credit Pack Definitions ─────────────────────────────────────────────────
+// Server is the single source of truth for credits→cents mapping.
+// Client only sends the pack key; server looks up the real amounts.
+
+export const CREDIT_PACK_MAP: Record<string, { credits: number; cents: number; label: string }> = {
+  '500':  { credits: 500,  cents:  99, label: '500 Credits'   },
+  '1200': { credits: 1200, cents: 199, label: '1,200 Credits' },
+  '3000': { credits: 3000, cents: 399, label: '3,000 Credits' },
+  '7500': { credits: 7500, cents: 899, label: '7,500 Credits' },
+};
+
+// ─── Stripe ───────────────────────────────────────────────────────────────────
+
+import Stripe from 'stripe';
+
+function getStripe(): Stripe {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY is not set.');
+  return new Stripe(key, { apiVersion: '2025-02-24.acacia' });
+}
 
 /**
- * Placeholder: initiate a currency purchase via Stripe.
- *
- * Returns a placeholder response until Stripe is integrated.
- * When live, returns { clientSecret } from Stripe PaymentIntent.
- *
- * @param _userId        Player's userId (= Replit Auth userId when live)
- * @param _amount        Credits to purchase
- * @param _itemType      What is being purchased ('credits_pack' | 'cosmetic')
- * @param _itemId        Cosmetic id (when itemType = 'cosmetic'), or pack SKU
- * @param _itemLabel     Human-readable label for the transaction record
+ * Creates a Stripe PaymentIntent for a credit pack purchase.
+ * The pack key (e.g. '500', '1200') is resolved server-side to credits + cents.
+ * Returns { clientSecret } for the front-end to confirm the payment.
  */
 export async function purchaseCurrency(
-  _userId: string,
-  _amount: number,
-  _itemType: 'credits_pack' | 'cosmetic' = 'credits_pack',
-  _itemId?: string,
-  _itemLabel?: string,
-): Promise<{ clientSecret: string | null; message: string }> {
-  // STRIPE_HOOK: Create Stripe PaymentIntent here.
-  // On webhook confirmation call addCurrencyFromStripe(userId, amount).
-  return {
-    clientSecret: null,
-    message: 'Stripe integration coming soon.',
-  };
+  userId: string,
+  packKey: string,
+): Promise<{ clientSecret: string; credits: number; label: string }> {
+  const pack = CREDIT_PACK_MAP[packKey];
+  if (!pack) throw new Error(`Unknown credit pack '${packKey}'.`);
+
+  const stripe = getStripe();
+  const intent = await stripe.paymentIntents.create({
+    amount: pack.cents,
+    currency: 'usd',
+    metadata: {
+      userId,
+      packKey,
+      credits: String(pack.credits),
+      label: pack.label,
+    },
+  });
+
+  if (!intent.client_secret) throw new Error('Stripe did not return a client secret.');
+
+  return { clientSecret: intent.client_secret, credits: pack.credits, label: pack.label };
 }
 
 /**
