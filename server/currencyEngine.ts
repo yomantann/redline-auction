@@ -186,7 +186,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_accuser_dreamer',
     name: 'The Dreamer',
     type: 'driverSkin',
-    cost: 1500,
+    cost: 0,
     rarity: 'common',
     asset: 'skin_accuser_dreamer',
     driverIds: ['accuser'],
@@ -394,7 +394,8 @@ export const DEFAULT_OWNED_COSMETICS = [
 
 export interface MilestoneDefinition {
   id: string;
-  cosmeticId: string;  // The cosmetic this milestone unlocks
+  cosmeticId?: string;   // The cosmetic this milestone unlocks (optional)
+  creditReward?: number; // Credits awarded when this milestone is first completed (optional)
   description: string;
   /** Returns true if the given profile meets this milestone. */
   check: (profile: PlayerProfile) => boolean;
@@ -406,22 +407,173 @@ function totalWins(winsPerMode: Record<string, number>): number {
 }
 
 export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
+  // ── Cosmetic milestones (legacy) ────────────────────────────────────────────
   {
     id: 'milestone_10_wins',
     cosmeticId: 'logo_apex',
+    creditReward: 500,
     description: 'Win 10 total games across any mode.',
     check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 10,
   },
   {
     id: 'milestone_5_haunted_wins',
     cosmeticId: 'border_haunted',
+    creditReward: 400,
     description: 'Win 5 Haunted mode games (SP or MP).',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
       return ((m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 5;
     },
   },
-  // Add more milestones here as needed
+
+  // ── Credit reward milestones ─────────────────────────────────────────────────
+  {
+    id: 'milestone_first_game',
+    creditReward: 50,
+    description: 'Play your first game.',
+    check: (p) => p.totalGames >= 1,
+  },
+  {
+    id: 'milestone_10_games',
+    creditReward: 200,
+    description: 'Play 10 total games.',
+    check: (p) => p.totalGames >= 10,
+  },
+  {
+    id: 'milestone_50_games',
+    creditReward: 600,
+    description: 'Play 50 total games.',
+    check: (p) => p.totalGames >= 50,
+  },
+  {
+    id: 'milestone_100_games',
+    creditReward: 1500,
+    description: 'Play 100 total games.',
+    check: (p) => p.totalGames >= 100,
+  },
+  {
+    id: 'milestone_first_win',
+    creditReward: 100,
+    description: 'Win your first game.',
+    check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 1,
+  },
+  {
+    id: 'milestone_5_wins',
+    creditReward: 250,
+    description: 'Win 5 total games across any mode.',
+    check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 5,
+  },
+  {
+    id: 'milestone_25_wins',
+    creditReward: 750,
+    description: 'Win 25 total games across any mode.',
+    check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 25,
+  },
+  {
+    id: 'milestone_50_wins',
+    creditReward: 1500,
+    description: 'Win 50 total games across any mode.',
+    check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 50,
+  },
+  {
+    id: 'milestone_100_wins',
+    creditReward: 4000,
+    description: 'Win 100 total games across any mode.',
+    check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 100,
+  },
+  {
+    id: 'milestone_haunted_10_wins',
+    creditReward: 800,
+    description: 'Win 10 Haunted mode games (SP or MP).',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 10;
+    },
+  },
+  {
+    id: 'milestone_sp_10_wins',
+    creditReward: 500,
+    description: 'Win 10 Single Player games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_standard'] ?? 0) + (m['sp_social'] ?? 0) + (m['sp_bio'] ?? 0) + (m['sp_haunted'] ?? 0)) >= 10;
+    },
+  },
+  {
+    id: 'milestone_mp_5_wins',
+    creditReward: 400,
+    description: 'Win 5 Multiplayer games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['mp_standard'] ?? 0) + (m['mp_social'] ?? 0) + (m['mp_bio'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 5;
+    },
+  },
+  {
+    id: 'milestone_mp_25_wins',
+    creditReward: 1500,
+    description: 'Win 25 Multiplayer games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['mp_standard'] ?? 0) + (m['mp_social'] ?? 0) + (m['mp_bio'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 25;
+    },
+  },
+  {
+    id: 'milestone_sprint_5_wins',
+    creditReward: 300,
+    description: 'Win 5 Sprint (standard) mode games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_standard'] ?? 0) + (m['mp_standard'] ?? 0)) >= 5;
+    },
+  },
+  {
+    id: 'milestone_social_5_wins',
+    creditReward: 450,
+    description: 'Win 5 Social Overdrive games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_social'] ?? 0) + (m['mp_social'] ?? 0)) >= 5;
+    },
+  },
+  {
+    id: 'milestone_bio_5_wins',
+    creditReward: 450,
+    description: 'Win 5 Bio Fuel games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)) >= 5;
+    },
+  },
+  {
+    id: 'milestone_credits_1000',
+    creditReward: 200,
+    description: 'Earn 1,000 total lifetime credits.',
+    check: (p) => p.lifetimeEarned >= 1000,
+  },
+  {
+    id: 'milestone_credits_5000',
+    creditReward: 500,
+    description: 'Earn 5,000 total lifetime credits.',
+    check: (p) => p.lifetimeEarned >= 5000,
+  },
+  {
+    id: 'milestone_credits_10000',
+    creditReward: 1000,
+    description: 'Earn 10,000 total lifetime credits.',
+    check: (p) => p.lifetimeEarned >= 10000,
+  },
+  {
+    id: 'milestone_collector_5',
+    creditReward: 500,
+    description: 'Own 5 or more cosmetics.',
+    check: (p) => ((p.ownedCosmetics as string[]).length) >= 5,
+  },
+  {
+    id: 'milestone_fashion_icon',
+    creditReward: 1000,
+    description: 'Own 10 or more cosmetics.',
+    check: (p) => ((p.ownedCosmetics as string[]).length) >= 10,
+  },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -477,17 +629,19 @@ function applyMilestones(profile: PlayerProfile): PlayerProfile {
   for (const milestone of MILESTONE_DEFINITIONS) {
     const owned = (updated.ownedCosmetics ?? []) as string[];
     const unlocked = (updated.milestoneUnlocks ?? []) as string[];
-    if (
-      !owned.includes(milestone.cosmeticId) &&
-      !unlocked.includes(milestone.cosmeticId) &&
-      milestone.check(updated)
-    ) {
+    const alreadyDone = unlocked.includes(milestone.id) ||
+      (milestone.cosmeticId ? owned.includes(milestone.cosmeticId) : false);
+    if (!alreadyDone && milestone.check(updated)) {
+      const newOwned = milestone.cosmeticId ? [...owned, milestone.cosmeticId] : owned;
+      const creditBonus = milestone.creditReward ?? 0;
       updated = {
         ...updated,
-        ownedCosmetics: [...owned, milestone.cosmeticId],
-        milestoneUnlocks: [...unlocked, milestone.cosmeticId],
+        ownedCosmetics: newOwned,
+        milestoneUnlocks: [...unlocked, milestone.id],
+        currencyBalance: updated.currencyBalance + creditBonus,
+        lifetimeEarned: updated.lifetimeEarned + creditBonus,
       };
-      console.log(`[Milestone] User ${updated.id} unlocked cosmetic '${milestone.cosmeticId}' via milestone '${milestone.id}'`);
+      console.log(`[Milestone] User ${updated.id} completed '${milestone.id}'${milestone.cosmeticId ? ` (cosmetic: ${milestone.cosmeticId})` : ''}${creditBonus ? ` (+${creditBonus} credits)` : ''}`);
     }
   }
   return updated;

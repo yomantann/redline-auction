@@ -7036,12 +7036,12 @@ export default function Game() {
             {/* Profile / Wallet shortcut */}
             <Link href="/profile">
               <Button
-                size="sm"
-                variant="ghost"
-                className="text-zinc-500 hover:text-primary flex items-center gap-2"
+                size="lg"
+                variant="outline"
+                className="text-xl px-12 py-6 border-orange-400/50 text-orange-400 hover:bg-orange-400/20 flex items-center gap-2"
                 data-testid="button-open-profile"
               >
-                <User size={14} /> PROFILE &amp; SHOP
+                <User size={20} /> PROFILE &amp; SHOP
               </Button>
             </Link>
 
