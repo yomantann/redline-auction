@@ -35,6 +35,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
+import { SKIN_ASSET_URLS } from "@/lib/skinAssets";
 
 let _stripePublishableKey: string | null = null;
 const stripePromise = fetch('/api/config')
@@ -102,6 +103,27 @@ function isLimitedTimeActive(item: CosmeticItem): boolean {
   if (!item.endsAt) return true;
   return new Date(item.endsAt).getTime() > Date.now();
 }
+
+/** Human-readable name for each driver ID. Used to display skin requirements on cards. */
+const DRIVER_DISPLAY_NAMES: Record<string, string> = {
+  accuser:       'The Accuser',
+  alpha_prime:   'Alpha Prime',
+  anointed:      'The Anointed',
+  click_click:   'Click-Click',
+  rainbow_dash:  'Rainbow Dash',
+  frostbyte:     'Frostbyte',
+  guardian_h:    'Guardian H',
+  hotwired:      'Hotwired',
+  low_flame:     'Low Flame',
+  pain_hider:    'Pain Hider',
+  panic_bot:     'Panic Bot',
+  the_rind:      'The Rind',
+  roll_safe:     'Roll Safe',
+  sadman:        'Sadman Logic',
+  wandering_eye: 'Wandering Eye',
+  executive_p:   'Executive P',
+  primate:       'Primate Prime',
+};
 
 // ─── Milestone Display Definitions ─────────────────────────────────────────────
 // Mirrors the server-side MILESTONE_DEFINITIONS in currencyEngine.ts.
@@ -278,22 +300,45 @@ function CosmeticCard({
 
       {/* Icon / asset preview */}
       <div className="flex items-center justify-center h-16">
-        {item.asset && item.asset.startsWith("/") ? (
-          <img
-            src={item.asset}
-            alt={item.name}
-            className="h-14 w-14 object-contain rounded"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-          />
-        ) : (
-          <div className="text-4xl opacity-60">{TYPE_ICONS[item.type]}</div>
-        )}
+        {(() => {
+          // For skins: look up Vite-resolved URL from skinAssets map
+          const skinUrl = item.type === 'driverSkin' ? (SKIN_ASSET_URLS[item.asset] ?? SKIN_ASSET_URLS[item.id] ?? null) : null;
+          if (skinUrl) {
+            return (
+              <img
+                src={skinUrl}
+                alt={item.name}
+                className="h-14 w-14 object-contain rounded"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            );
+          }
+          if (item.asset && item.asset.startsWith("/")) {
+            return (
+              <img
+                src={item.asset}
+                alt={item.name}
+                className="h-14 w-14 object-contain rounded"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            );
+          }
+          return <div className="text-4xl opacity-60">{TYPE_ICONS[item.type]}</div>;
+        })()}
       </div>
 
       {/* Name */}
       <div className="text-sm font-bold text-center">{item.name}</div>
+
+      {/* Driver requirement badge (skins only) */}
+      {item.type === 'driverSkin' && item.driverIds && item.driverIds.length > 0 && (
+        <div className="flex items-center justify-center">
+          <span className="text-[10px] bg-zinc-800/80 border border-white/10 text-zinc-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span>🏎️</span>
+            {item.driverIds.map((id) => DRIVER_DISPLAY_NAMES[id] ?? id).join(', ')}
+          </span>
+        </div>
+      )}
 
       {/* Cost */}
       <div className="flex items-center justify-center gap-1 text-xs opacity-70">

@@ -9898,6 +9898,13 @@ export default function Game() {
                   ? ((p as any).abilityUsed === true && (p as any).selectedDriver === 'click_click')
                   : activeAbilities.some(a => a.playerId === p.id && a.ability === 'HYPER CLICK' && a.effect === 'TOKEN_BOOST')
               );
+              // Determine current driver ID for skin gating:
+              // SP: use selectedCharacter.id; MP: use the player's selectedDriver field
+              const myCurrentDriverId = isCurrentPlayerCard
+                ? (isMultiplayer
+                    ? ((multiplayerGameState?.players.find(mp => mp.socketId === socket?.id) as any)?.selectedDriver ?? selectedCharacter?.id)
+                    : selectedCharacter?.id)
+                : undefined;
               return (
               <PlayerStats 
                 key={p.id} 
@@ -9913,6 +9920,7 @@ export default function Game() {
                 isHyperClickActive={isHyperClickActive}
                 isScrambled={(((isMultiplayer ? (p.id !== myPlayerId) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)) && abilitiesEnabled}
                 equippedCosmetics={isCurrentPlayerCard ? myCosmetics : undefined}
+                currentDriverId={myCurrentDriverId}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {
