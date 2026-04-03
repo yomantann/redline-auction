@@ -520,7 +520,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   {
     id: 'milestone_sprint_5_wins',
     creditReward: 300,
-    description: 'Win 5 Sprint (standard) mode games.',
+    description: 'Win 5 Standard mode games (SP or MP).',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
       return ((m['sp_standard'] ?? 0) + (m['mp_standard'] ?? 0)) >= 5;
