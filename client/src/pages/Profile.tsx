@@ -131,7 +131,8 @@ const DRIVER_DISPLAY_NAMES: Record<string, string> = {
 
 interface MilestoneDisplay {
   id: string;
-  cosmeticId: string;
+  cosmeticId?: string;
+  creditReward?: number;
   label: string;
   reward: string;
   goal: number;
@@ -139,11 +140,13 @@ interface MilestoneDisplay {
 }
 
 const MILESTONES_DISPLAY: MilestoneDisplay[] = [
+  // ── Cosmetic milestones ────────────────────────────────────────────────────
   {
     id: 'milestone_10_wins',
     cosmeticId: 'logo_apex',
+    creditReward: 500,
     label: 'Win 10 total games across any mode',
-    reward: 'Apex Legend logo',
+    reward: 'Apex Legend logo + 500 credits',
     goal: 10,
     getProgress: (p) =>
       Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
@@ -151,13 +154,209 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   {
     id: 'milestone_5_haunted_wins',
     cosmeticId: 'border_haunted',
+    creditReward: 400,
     label: 'Win 5 Haunted mode games (SP or MP)',
-    reward: 'Haunted Glow border',
+    reward: 'Haunted Glow border + 400 credits',
     goal: 5,
     getProgress: (p) => {
       const m = p.winsPerMode as Record<string, number>;
       return (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0);
     },
+  },
+  // ── Credit reward milestones ───────────────────────────────────────────────
+  {
+    id: 'milestone_first_game',
+    creditReward: 50,
+    label: 'Play your first game',
+    reward: '50 credits',
+    goal: 1,
+    getProgress: (p) => p.totalGames,
+  },
+  {
+    id: 'milestone_10_games',
+    creditReward: 200,
+    label: 'Play 10 total games',
+    reward: '200 credits',
+    goal: 10,
+    getProgress: (p) => p.totalGames,
+  },
+  {
+    id: 'milestone_50_games',
+    creditReward: 600,
+    label: 'Play 50 total games',
+    reward: '600 credits',
+    goal: 50,
+    getProgress: (p) => p.totalGames,
+  },
+  {
+    id: 'milestone_100_games',
+    creditReward: 1500,
+    label: 'Play 100 total games',
+    reward: '1,500 credits',
+    goal: 100,
+    getProgress: (p) => p.totalGames,
+  },
+  {
+    id: 'milestone_first_win',
+    creditReward: 100,
+    label: 'Win your first game',
+    reward: '100 credits',
+    goal: 1,
+    getProgress: (p) =>
+      Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
+  },
+  {
+    id: 'milestone_5_wins',
+    creditReward: 250,
+    label: 'Win 5 total games across any mode',
+    reward: '250 credits',
+    goal: 5,
+    getProgress: (p) =>
+      Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
+  },
+  {
+    id: 'milestone_25_wins',
+    creditReward: 750,
+    label: 'Win 25 total games across any mode',
+    reward: '750 credits',
+    goal: 25,
+    getProgress: (p) =>
+      Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
+  },
+  {
+    id: 'milestone_50_wins',
+    creditReward: 1500,
+    label: 'Win 50 total games across any mode',
+    reward: '1,500 credits',
+    goal: 50,
+    getProgress: (p) =>
+      Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
+  },
+  {
+    id: 'milestone_100_wins',
+    creditReward: 4000,
+    label: 'Win 100 total games across any mode',
+    reward: '4,000 credits',
+    goal: 100,
+    getProgress: (p) =>
+      Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
+  },
+  {
+    id: 'milestone_haunted_10_wins',
+    creditReward: 800,
+    label: 'Win 10 Haunted mode games (SP or MP)',
+    reward: '800 credits',
+    goal: 10,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_sp_10_wins',
+    creditReward: 500,
+    label: 'Win 10 Single Player games',
+    reward: '500 credits',
+    goal: 10,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_standard'] ?? 0) + (m['sp_social'] ?? 0) + (m['sp_bio'] ?? 0) + (m['sp_haunted'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_mp_5_wins',
+    creditReward: 400,
+    label: 'Win 5 Multiplayer games',
+    reward: '400 credits',
+    goal: 5,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['mp_standard'] ?? 0) + (m['mp_social'] ?? 0) + (m['mp_bio'] ?? 0) + (m['mp_haunted'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_mp_25_wins',
+    creditReward: 1500,
+    label: 'Win 25 Multiplayer games',
+    reward: '1,500 credits',
+    goal: 25,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['mp_standard'] ?? 0) + (m['mp_social'] ?? 0) + (m['mp_bio'] ?? 0) + (m['mp_haunted'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_sprint_5_wins',
+    creditReward: 300,
+    label: 'Win 5 Standard mode games (SP or MP)',
+    reward: '300 credits',
+    goal: 5,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_standard'] ?? 0) + (m['mp_standard'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_social_5_wins',
+    creditReward: 450,
+    label: 'Win 5 Social Overdrive games',
+    reward: '450 credits',
+    goal: 5,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_social'] ?? 0) + (m['mp_social'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_bio_5_wins',
+    creditReward: 450,
+    label: 'Win 5 Bio Fuel games',
+    reward: '450 credits',
+    goal: 5,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_credits_1000',
+    creditReward: 200,
+    label: 'Earn 1,000 lifetime credits',
+    reward: '200 credits',
+    goal: 1000,
+    getProgress: (p) => p.lifetimeEarned,
+  },
+  {
+    id: 'milestone_credits_5000',
+    creditReward: 500,
+    label: 'Earn 5,000 lifetime credits',
+    reward: '500 credits',
+    goal: 5000,
+    getProgress: (p) => p.lifetimeEarned,
+  },
+  {
+    id: 'milestone_credits_10000',
+    creditReward: 1000,
+    label: 'Earn 10,000 lifetime credits',
+    reward: '1,000 credits',
+    goal: 10000,
+    getProgress: (p) => p.lifetimeEarned,
+  },
+  {
+    id: 'milestone_collector_5',
+    creditReward: 500,
+    label: 'Own 5 or more cosmetics',
+    reward: '500 credits',
+    goal: 5,
+    getProgress: (p) => (p.ownedCosmetics as string[]).length,
+  },
+  {
+    id: 'milestone_fashion_icon',
+    creditReward: 1000,
+    label: 'Own 10 or more cosmetics',
+    reward: '1,000 credits',
+    goal: 10,
+    getProgress: (p) => (p.ownedCosmetics as string[]).length,
   },
 ];
 
@@ -251,6 +450,7 @@ function CosmeticCard({
   onPurchase,
   onEquip,
   onUnequip,
+  onExpand,
 }: {
   item: CosmeticItem;
   isOwned: boolean;
@@ -259,8 +459,11 @@ function CosmeticCard({
   onPurchase: (id: string) => void;
   onEquip: (id: string) => void;
   onUnequip: (id: string) => void;
+  onExpand?: (url: string, name: string) => void;
 }) {
   const timeLabel = getLimitedTimeLabel(item.endsAt);
+  const skinUrl = item.type === 'driverSkin' ? (SKIN_ASSET_URLS[item.asset] ?? SKIN_ASSET_URLS[item.id] ?? null) : null;
+  const hasExpandableImage = !!(skinUrl || (item.asset && item.asset.startsWith("/")));
   return (
     <div
       className={`rounded-lg border p-4 flex flex-col gap-3 relative transition-all ${
@@ -299,16 +502,22 @@ function CosmeticCard({
       </div>
 
       {/* Icon / asset preview */}
-      <div className="flex items-center justify-center h-16">
+      <div
+        className={`flex items-center justify-center w-full overflow-hidden rounded-md ${hasExpandableImage ? 'h-40 cursor-zoom-in' : 'h-16'}`}
+        onClick={() => {
+          if (!onExpand) return;
+          const url = skinUrl ?? (item.asset && item.asset.startsWith("/") ? item.asset : null);
+          if (url) onExpand(url, item.name);
+        }}
+        title={hasExpandableImage && onExpand ? "Click to expand" : undefined}
+      >
         {(() => {
-          // For skins: look up Vite-resolved URL from skinAssets map
-          const skinUrl = item.type === 'driverSkin' ? (SKIN_ASSET_URLS[item.asset] ?? SKIN_ASSET_URLS[item.id] ?? null) : null;
           if (skinUrl) {
             return (
               <img
                 src={skinUrl}
                 alt={item.name}
-                className="h-14 w-14 object-contain rounded"
+                className="w-full h-full object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
             );
@@ -318,7 +527,7 @@ function CosmeticCard({
               <img
                 src={item.asset}
                 alt={item.name}
-                className="h-14 w-14 object-contain rounded"
+                className="w-full h-full object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
             );
@@ -403,9 +612,11 @@ function CosmeticCard({
 function EquippedPreview({
   profile,
   cosmetics,
+  onExpand,
 }: {
   profile: PlayerProfile;
   cosmetics: CosmeticItem[];
+  onExpand?: (url: string, name: string) => void;
 }) {
   const slots: Array<{ key: string; label: string }> = [
     { key: "logo", label: "Logo" },
@@ -420,6 +631,10 @@ function EquippedPreview({
       {slots.map(({ key, label }) => {
         const id = equipped[key];
         const item = id ? cosmetics.find((c) => c.id === id) : undefined;
+        const skinUrl = item?.type === 'driverSkin'
+          ? (SKIN_ASSET_URLS[item.asset] ?? SKIN_ASSET_URLS[item.id] ?? null)
+          : null;
+        const hasImage = !!(skinUrl || (item?.asset && item.asset.startsWith("/")));
         return (
           <div
             key={key}
@@ -430,7 +645,26 @@ function EquippedPreview({
             </div>
             {item ? (
               <>
-                <div className="text-3xl opacity-80">{TYPE_ICONS[item.type]}</div>
+                {hasImage ? (
+                  <div
+                    className={`w-full h-24 overflow-hidden rounded flex items-center justify-center ${onExpand ? 'cursor-zoom-in' : ''}`}
+                    onClick={() => {
+                      if (!onExpand) return;
+                      const url = skinUrl ?? (item.asset && item.asset.startsWith("/") ? item.asset : null);
+                      if (url) onExpand(url, item.name);
+                    }}
+                    title={hasImage && onExpand ? "Click to expand" : undefined}
+                  >
+                    <img
+                      src={skinUrl ?? item.asset}
+                      alt={item.name}
+                      className="w-full h-full object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-3xl opacity-80">{TYPE_ICONS[item.type]}</div>
+                )}
                 <div className={`text-xs font-semibold text-center ${RARITY_COLORS[item.rarity]}`}>
                   {item.name}
                 </div>
@@ -575,6 +809,8 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<CosmeticType | "all">("all");
   const [paymentModal, setPaymentModal] = useState<null | { packKey: string; packLabel: string; packPrice: string }>(null);
+  const [expandedSkin, setExpandedSkin] = useState<{ url: string; name: string } | null>(null);
+  const [milestonesExpanded, setMilestonesExpanded] = useState(false);
   const { toast } = useToast();
   const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
 
@@ -629,6 +865,10 @@ export default function Profile() {
 
   const handleBuyCredits = (pack: { amount: number; label: string; price: string }) => {
     setPaymentModal({ packKey: String(pack.amount), packLabel: pack.label, packPrice: pack.price });
+  };
+
+  const handleExpandSkin = (url: string, name: string) => {
+    setExpandedSkin({ url, name });
   };
 
   const filteredCosmetics = cosmetics.filter(
@@ -789,47 +1029,61 @@ export default function Profile() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <EquippedPreview profile={profile} cosmetics={cosmetics} />
+            <EquippedPreview profile={profile} cosmetics={cosmetics} onExpand={handleExpandSkin} />
           </CardContent>
         </Card>
 
         {/* ── Milestones ── */}
         <Card className="bg-zinc-900/50 border-white/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-zinc-400">
-              <Target size={16} className="text-yellow-500" /> MILESTONES
+          <CardHeader
+            className="cursor-pointer select-none"
+            onClick={() => setMilestonesExpanded((v) => !v)}
+          >
+            <CardTitle className="flex items-center justify-between text-sm tracking-widest text-zinc-400">
+              <span className="flex items-center gap-2">
+                <Target size={16} className="text-yellow-500" /> MILESTONES
+                <span className="text-[10px] text-zinc-600 font-normal normal-case tracking-normal">
+                  ({MILESTONES_DISPLAY.filter((m) =>
+                    (profile.milestoneUnlocks as string[]).includes(m.id) ||
+                    (m.cosmeticId ? (profile.ownedCosmetics as string[]).includes(m.cosmeticId) : false)
+                  ).length} / {MILESTONES_DISPLAY.length} completed)
+                </span>
+              </span>
+              <span className="text-zinc-600 text-xs">{milestonesExpanded ? '▲ Collapse' : '▼ Expand'}</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {MILESTONES_DISPLAY.map((m) => {
-              const progress = m.getProgress(profile);
-              const pct = Math.min(100, Math.round((progress / m.goal) * 100));
-              const unlocked = (profile.milestoneUnlocks as string[]).includes(m.id) ||
-                               (profile.ownedCosmetics as string[]).includes(m.cosmeticId);
-              return (
-                <div key={m.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className={`font-medium ${unlocked ? 'text-yellow-400' : 'text-zinc-300'}`}>
-                      {unlocked && <CheckCircle2 size={11} className="inline mr-1 text-yellow-400" />}
-                      {m.label}
-                    </span>
-                    <span className={`font-mono ${unlocked ? 'text-yellow-400' : 'text-zinc-500'}`}>
-                      {unlocked ? 'UNLOCKED' : `${Math.min(progress, m.goal)} / ${m.goal}`}
-                    </span>
+          {milestonesExpanded && (
+            <CardContent className="space-y-4">
+              {MILESTONES_DISPLAY.map((m) => {
+                const progress = m.getProgress(profile);
+                const pct = Math.min(100, Math.round((progress / m.goal) * 100));
+                const unlocked = (profile.milestoneUnlocks as string[]).includes(m.id) ||
+                                 (m.cosmeticId ? (profile.ownedCosmetics as string[]).includes(m.cosmeticId) : false);
+                return (
+                  <div key={m.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={`font-medium ${unlocked ? 'text-yellow-400' : 'text-zinc-300'}`}>
+                        {unlocked && <CheckCircle2 size={11} className="inline mr-1 text-yellow-400" />}
+                        {m.label}
+                      </span>
+                      <span className={`font-mono ${unlocked ? 'text-yellow-400' : 'text-zinc-500'}`}>
+                        {unlocked ? 'UNLOCKED' : `${Math.min(progress, m.goal)} / ${m.goal}`}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${unlocked ? 'bg-yellow-400' : 'bg-primary'}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-zinc-600 flex items-center gap-1">
+                      <Trophy size={9} /> Reward: {m.reward}
+                    </div>
                   </div>
-                  <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${unlocked ? 'bg-yellow-400' : 'bg-primary'}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="text-[10px] text-zinc-600 flex items-center gap-1">
-                    <Trophy size={9} /> Reward: {m.reward}
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
+                );
+              })}
+            </CardContent>
+          )}
         </Card>
 
         {/* ── Type Filter ── */}
@@ -891,6 +1145,7 @@ export default function Profile() {
                         onPurchase={handlePurchase}
                         onEquip={handleEquip}
                         onUnequip={handleUnequip}
+                        onExpand={handleExpandSkin}
                       />
                     ))}
                   </div>
@@ -912,6 +1167,7 @@ export default function Profile() {
                     onPurchase={handlePurchase}
                     onEquip={handleEquip}
                     onUnequip={handleUnequip}
+                    onExpand={handleExpandSkin}
                   />
                 ))}
               </div>
@@ -937,6 +1193,7 @@ export default function Profile() {
                     onPurchase={handlePurchase}
                     onEquip={handleEquip}
                     onUnequip={handleUnequip}
+                    onExpand={handleExpandSkin}
                   />
                 ))}
               </div>
@@ -984,6 +1241,32 @@ export default function Profile() {
         onSuccess={load}
         onClose={() => setPaymentModal(null)}
       />
+    )}
+
+    {/* ── Expanded Skin Image Modal ── */}
+    {expandedSkin && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+        onClick={() => setExpandedSkin(null)}
+      >
+        <div
+          className="relative max-w-lg w-full bg-zinc-900 border border-white/10 rounded-2xl p-4 flex flex-col items-center gap-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="absolute top-3 right-3 text-zinc-400 hover:text-white"
+            onClick={() => setExpandedSkin(null)}
+          >
+            <X size={20} />
+          </button>
+          <div className="text-sm font-bold text-zinc-200">{expandedSkin.name}</div>
+          <img
+            src={expandedSkin.url}
+            alt={expandedSkin.name}
+            className="max-h-[70vh] max-w-full object-contain rounded-lg"
+          />
+        </div>
+      </div>
     )}
     </>
   );
