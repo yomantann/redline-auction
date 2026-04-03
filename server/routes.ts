@@ -48,6 +48,7 @@ import {
   purchaseCurrency,
   addCurrencyFromStripe,
   CREDIT_PACK_MAP,
+  getStripe,
 } from "./currencyEngine";
 import Stripe from "stripe";
 import { isAuthenticated } from "./replit_integrations/auth";
@@ -1126,7 +1127,7 @@ export async function registerRoutes(
 
     let event: Stripe.Event;
     try {
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' });
+      const stripe = getStripe();
       const rawBody = req.rawBody as Buffer;
       event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
     } catch (err) {

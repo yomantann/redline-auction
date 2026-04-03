@@ -168,6 +168,9 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   },
 
   // ── Driver Skins ────────────────────────────────────────────────────────────
+  // Skins are driver-specific: driverIds indicates which character must be active
+  // for the skin overlay to render. Owning a skin is permanent; it just won't
+  // visually apply when playing a different driver.
   {
     id: 'skin_default',
     name: 'Stock Chassis',
@@ -177,30 +180,200 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: '',
     earnableOnly: false,
   },
+
+  // ── Accuser Skins ───────────────────────────────────────────────────────────
   {
-    id: 'skin_chrome',
-    name: 'Chrome Driver',
+    id: 'skin_accuser_dreamer',
+    name: 'The Dreamer',
+    type: 'driverSkin',
+    cost: 1500,
+    rarity: 'common',
+    asset: 'skin_accuser_dreamer',
+    driverIds: ['accuser'],
+  },
+  {
+    id: 'skin_accuser_duchess',
+    name: 'Damning Duchess',
     type: 'driverSkin',
     cost: 2500,
     rarity: 'rare',
-    asset: '/cosmetics/skins/chrome_driver.png',
+    asset: 'skin_accuser_duchess',
+    driverIds: ['accuser'],
+  },
+
+  // ── Alpha Prime Skins ───────────────────────────────────────────────────────
+  {
+    id: 'skin_alpha_ragnar',
+    name: 'Ragnar Ironjaw',
+    type: 'driverSkin',
+    cost: 2500,
+    rarity: 'rare',
+    asset: 'skin_alpha_ragnar',
+    driverIds: ['alpha_prime'],
+  },
+
+  // ── The Anointed Skins ──────────────────────────────────────────────────────
+  {
+    id: 'skin_anointed_masquerade',
+    name: 'Masquerade Sovereign',
+    type: 'driverSkin',
+    cost: 2000,
+    rarity: 'rare',
+    asset: 'skin_anointed_masquerade',
+    driverIds: ['anointed'],
+  },
+
+  // ── Click-Click Skins ───────────────────────────────────────────────────────
+  {
+    id: 'skin_click_roarcat',
+    name: 'Roarcat',
+    type: 'driverSkin',
+    cost: 1500,
+    rarity: 'common',
+    asset: 'skin_click_roarcat',
+    driverIds: ['click_click'],
+  },
+
+  // ── Rainbow Dash Skins ──────────────────────────────────────────────────────
+  {
+    id: 'skin_dash_stormhare',
+    name: 'Stormhare the Swift',
+    type: 'driverSkin',
+    cost: 2000,
+    rarity: 'common',
+    asset: 'skin_dash_stormhare',
+    driverIds: ['rainbow_dash'],
+  },
+
+  // ── Frostbyte Skins ─────────────────────────────────────────────────────────
+  {
+    id: 'skin_frost_glaciodon',
+    name: 'Glaciodon',
+    type: 'driverSkin',
+    cost: 1500,
+    rarity: 'common',
+    asset: 'skin_frost_glaciodon',
+    driverIds: ['frostbyte'],
   },
   {
-    id: 'skin_phantom',
-    name: 'Phantom Racer',
+    id: 'skin_frost_skaldi',
+    name: "Skaldi's Chosen",
     type: 'driverSkin',
-    cost: 4000,
+    cost: 2500,
     rarity: 'rare',
-    asset: '/cosmetics/skins/phantom_racer.png',
+    asset: 'skin_frost_skaldi',
+    driverIds: ['frostbyte'],
   },
+
+  // ── Guardian H Skins ────────────────────────────────────────────────────────
+  {
+    id: 'skin_guardian_ironknuckle',
+    name: 'Ironknuckle',
+    type: 'driverSkin',
+    cost: 2000,
+    rarity: 'rare',
+    asset: 'skin_guardian_ironknuckle',
+    driverIds: ['guardian_h'],
+  },
+
+  // ── Hotwired Skins ──────────────────────────────────────────────────────────
+  {
+    id: 'skin_hotwired_pyra',
+    name: 'Pyra',
+    type: 'driverSkin',
+    cost: 2000,
+    rarity: 'common',
+    asset: 'skin_hotwired_pyra',
+    driverIds: ['hotwired'],
+  },
+
+  // ── Low Flame Skins ─────────────────────────────────────────────────────────
+  {
+    id: 'skin_lowflame_wolfman',
+    name: 'Wolfman',
+    type: 'driverSkin',
+    cost: 2000,
+    rarity: 'rare',
+    asset: 'skin_lowflame_wolfman',
+    driverIds: ['low_flame'],
+  },
+
+  // ── Pain Hider Skins ────────────────────────────────────────────────────────
+  {
+    id: 'skin_pain_highborn',
+    name: 'Highborn Elder',
+    type: 'driverSkin',
+    cost: 2000,
+    rarity: 'rare',
+    asset: 'skin_pain_highborn',
+    driverIds: ['pain_hider'],
+  },
+
+  // ── Panic Bot Skins ─────────────────────────────────────────────────────────
+  {
+    id: 'skin_panic_glitchosaurus',
+    name: 'Glitchosaurus',
+    type: 'driverSkin',
+    cost: 1500,
+    rarity: 'common',
+    asset: 'skin_panic_glitchosaurus',
+    driverIds: ['panic_bot'],
+  },
+
+  // ── The Rind Skins ──────────────────────────────────────────────────────────
+  {
+    id: 'skin_rind_sewer',
+    name: 'Sewer Sharpshooter',
+    type: 'driverSkin',
+    cost: 1500,
+    rarity: 'common',
+    asset: 'skin_rind_sewer',
+    driverIds: ['the_rind'],
+  },
+
+  // ── Roll Safe Skins ─────────────────────────────────────────────────────────
+  {
+    id: 'skin_roll_calculated',
+    name: 'Calculated Ace',
+    type: 'driverSkin',
+    cost: 2000,
+    rarity: 'common',
+    asset: 'skin_roll_calculated',
+    driverIds: ['roll_safe'],
+  },
+
+  // ── Driver-Agnostic (Earnable) ──────────────────────────────────────────────
   {
     id: 'skin_galaxy',
     name: 'Galactic Drifter',
     type: 'driverSkin',
     cost: 0,
     rarity: 'legendary',
-    asset: '/cosmetics/skins/galactic_drifter.png',
+    asset: 'skin_galaxy',
     earnableOnly: true,
+    // No driverIds — this earnable skin applies to any driver
+  },
+
+  // ── Limited-Time Items ──────────────────────────────────────────────────────
+  {
+    id: 'logo_speed_demon',
+    name: 'Speed Demon',
+    type: 'logo',
+    cost: 800,
+    rarity: 'rare',
+    asset: '/cosmetics/logos/speed_demon.png',
+    limitedTime: true,
+    endsAt: '2026-05-31T23:59:59Z',
+  },
+  {
+    id: 'border_turbo',
+    name: 'Turbo Flame',
+    type: 'border',
+    cost: 1000,
+    rarity: 'rare',
+    asset: 'border_turbo',
+    limitedTime: true,
+    endsAt: '2026-05-31T23:59:59Z',
   },
 ];
 
@@ -502,10 +675,10 @@ export const CREDIT_PACK_MAP: Record<string, { credits: number; cents: number; l
 
 import Stripe from 'stripe';
 
-function getStripe(): Stripe {
+export function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error('STRIPE_SECRET_KEY is not set.');
-  return new Stripe(key, { apiVersion: '2025-02-24.acacia' });
+  return new Stripe(key, { apiVersion: '2026-03-25.dahlia' });
 }
 
 /**

@@ -39,9 +39,11 @@ interface PlayerStatsProps {
   hideDetails?: boolean; // New prop to hide extra details
   /** Equipped cosmetics for this player – applies border, background, and driver skin overlay */
   equippedCosmetics?: EquippedCosmetics;
+  /** Active driver/character ID for this player – used to gate driver-specific skins */
+  currentDriverId?: string;
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, isScrambled, isHyperClickActive, children, onClick, hideDetails, equippedCosmetics }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, isScrambled, isHyperClickActive, children, onClick, hideDetails, equippedCosmetics, currentDriverId }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -64,7 +66,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   const applyCosmetics = !!equippedCosmetics && !player.isEliminated && !player.isGhost;
   const borderStyle = applyCosmetics ? (getBorderStyle(equippedCosmetics) ?? undefined) : undefined;
   const backgroundStyle = applyCosmetics ? (getBackgroundStyle(equippedCosmetics) ?? undefined) : undefined;
-  const skinUrl = applyCosmetics ? getDriverSkinUrl(equippedCosmetics) : null;
+  const skinUrl = applyCosmetics ? getDriverSkinUrl(equippedCosmetics, currentDriverId) : null;
 
   return (
     <div 

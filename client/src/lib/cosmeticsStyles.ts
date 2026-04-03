@@ -9,9 +9,16 @@
  *
  * Equip fallback: when no cosmetic is equipped (or the equipped id is
  * 'xxx_default'), we return empty/null so the card uses its standard styling.
+ *
+ * DRIVER-SPECIFIC SKINS:
+ * Skins are scoped to specific drivers. Pass the current player's driver ID
+ * (e.g. 'accuser', 'frostbyte') as the second argument to getDriverSkinUrl.
+ * If the skin's required driver doesn't match, null is returned and no overlay
+ * is applied — the player still owns the skin but it only renders for that driver.
  */
 
 import type { EquippedCosmetics } from "@shared/schema";
+import { SKIN_ASSET_URLS, SKIN_DRIVER_REQUIREMENT } from "./skinAssets";
 
 // ─── Border Styles ────────────────────────────────────────────────────────────
 
@@ -28,6 +35,10 @@ const BORDER_STYLES: Record<string, React.CSSProperties> = {
     borderColor: 'rgba(20, 184, 166, 0.8)',
     boxShadow: '0 0 12px rgba(20, 184, 166, 0.5), inset 0 0 12px rgba(20, 184, 166, 0.08)',
     animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+  },
+  border_turbo: {
+    borderColor: 'rgba(249, 115, 22, 0.8)',
+    boxShadow: '0 0 10px rgba(249, 115, 22, 0.5), inset 0 0 8px rgba(249, 115, 22, 0.06)',
   },
 };
 
@@ -65,25 +76,31 @@ export function getBackgroundStyle(
 }
 
 /**
- * Returns the driver skin image URL for an equipped skin cosmetic, or null for default.
- * When non-null, render an <img> overlay on top of the character portrait.
+ * Returns the driver skin image URL for an equipped skin cosmetic, or null.
+ *
+ * Pass `currentDriverId` (e.g. 'accuser', 'frostbyte') — driver-specific skins
+ * are only rendered when the active character matches the skin's required driver.
+ * Skins with no driver requirement (e.g. earnable legendaries) always render.
  */
 export function getDriverSkinUrl(
   equipped: EquippedCosmetics | undefined,
+  currentDriverId?: string,
 ): string | null {
   if (!equipped?.driverSkin || equipped.driverSkin === 'skin_default') return null;
-  // Skins with image assets
-  const SKIN_URLS: Record<string, string> = {
-    skin_chrome:  '/cosmetics/skins/chrome_driver.png',
-    skin_phantom: '/cosmetics/skins/phantom_racer.png',
-    skin_galaxy:  '/cosmetics/skins/galactic_drifter.png',
-  };
-  return SKIN_URLS[equipped.driverSkin] ?? null;
+
+  const url = SKIN_ASSET_URLS[equipped.driverSkin] ?? null;
+  if (!url) return null;
+
+  // Check driver restriction
+  const requiredDriver = SKIN_DRIVER_REQUIREMENT[equipped.driverSkin];
+  if (requiredDriver && currentDriverId !== requiredDriver) return null;
+
+  return url;
 }
 
 /**
  * Returns the logo image URL for an equipped logo cosmetic, or null for default.
- * Displayed on the game-over winner card and (future) MP lobby.
+ * Displayed on the game-over winner card and MP lobby.
  */
 export function getLogoUrl(
   equipped: EquippedCosmetics | undefined,

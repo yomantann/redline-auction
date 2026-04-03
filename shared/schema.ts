@@ -142,6 +142,10 @@ export interface CosmeticItem {
   rarity: CosmeticRarity;
   asset: string; // image path or CSS class
   earnableOnly?: boolean; // cannot be purchased, only earned
+  limitedTime?: boolean; // rotates out of the shop after endsAt
+  endsAt?: string; // ISO date string — item hidden from shop after this date
+  /** Driver IDs this skin is restricted to. Undefined = any driver. Only meaningful for driverSkin type. */
+  driverIds?: string[];
 }
 
 export interface EquippedCosmetics {
