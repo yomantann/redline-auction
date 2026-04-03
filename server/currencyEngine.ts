@@ -574,6 +574,32 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     description: 'Own 10 or more cosmetics.',
     check: (p) => ((p.ownedCosmetics as string[]).length) >= 10,
   },
+
+  // ── Moment Flag milestones ────────────────────────────────────────────────
+  {
+    id: 'milestone_flags_10',
+    creditReward: 150,
+    description: 'Earn 10 lifetime moment flags.',
+    check: (p) => (p.convertedMomentFlags ?? 0) >= 10,
+  },
+  {
+    id: 'milestone_flags_50',
+    creditReward: 400,
+    description: 'Earn 50 lifetime moment flags.',
+    check: (p) => (p.convertedMomentFlags ?? 0) >= 50,
+  },
+  {
+    id: 'milestone_flags_100',
+    creditReward: 750,
+    description: 'Earn 100 lifetime moment flags.',
+    check: (p) => (p.convertedMomentFlags ?? 0) >= 100,
+  },
+  {
+    id: 'milestone_flags_250',
+    creditReward: 1500,
+    description: 'Earn 250 lifetime moment flags.',
+    check: (p) => (p.convertedMomentFlags ?? 0) >= 250,
+  },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

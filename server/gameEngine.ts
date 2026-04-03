@@ -735,7 +735,7 @@ function startBidding(lobbyCode: string) {
       game.players.forEach(ghost => {
         if (!ghost.isGhost) return;
         if (ghost.possessionRoundsLeft === undefined) {
-          ghost.possessionRoundsLeft = 2; // safety: give a countdown if missing
+          ghost.possessionRoundsLeft = ghost.ghostAbility === 'reaper' ? 3 : 2; // safety: give a countdown if missing
           return;
         }
         const roundsLeft = ghost.possessionRoundsLeft - 1;
@@ -807,7 +807,7 @@ function startBidding(lobbyCode: string) {
   
   game.players.forEach(p => {
     if (!p.isEliminated) {
-      if (p.isBot) {
+      if (p.isBot && !p.isGhost) {
         p.isHolding = true;
       }
       p.currentBid = 0;
@@ -831,6 +831,19 @@ function startBidding(lobbyCode: string) {
   }
 
   game.botTargetBids = calculateBotTargetBids(game);
+
+  // --- ECHO: immediately lock bid for echo-affected players (no hold allowed) ---
+  if (game.settings.variant === 'HAUNTED') {
+    const minBid = getMinBidPenalty(game.gameDuration);
+    game.players.forEach(p => {
+      if (p.isEliminated || p.isGhost || p.echoForcedBid === undefined) return;
+      const effectiveForcedBid = Math.max(p.echoForcedBid, p.patternLockMinBid ?? 0, minBid);
+      p.currentBid = Math.round(effectiveForcedBid * 10) / 10;
+      p.isHolding = false;
+      addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} ECHO: bid locked at ${p.currentBid.toFixed(1)}s (cannot hold)`, basic: true });
+      log(`Echo: ${p.name} bid locked at ${p.currentBid.toFixed(1)}s in lobby ${lobbyCode}`, "game");
+    });
+  }
 
   // --- ECHO / PATTERN LOCK: override bot target bids ---
   if (game.settings.variant === 'HAUNTED') {
@@ -884,17 +897,6 @@ function startBidding(lobbyCode: string) {
         const playerElapsed = (playerHasFireWall && g.activeProtocol === 'PANIC_ROOM') ? rawElapsed : elapsed;
         p.currentBid = playerElapsed + minBid; // Bid starts at min bid value
         
-        // ECHO: if a non-bot player has echoForcedBid, auto-release at max(echoForcedBid, patternLockMinBid)
-        if (!p.isBot && p.echoForcedBid !== undefined) {
-          const effectiveForcedBid = Math.max(p.echoForcedBid, p.patternLockMinBid ?? 0);
-          if (p.currentBid >= effectiveForcedBid) {
-            p.isHolding = false;
-            p.currentBid = Math.round(effectiveForcedBid * 10) / 10;
-            log(`Echo: ${p.name} auto-released at ${p.currentBid.toFixed(1)}s in lobby ${lobbyCode}`, "game");
-            return;
-          }
-        }
-
         // Auto-ghostify (Haunted) or eliminate (other modes) if bid exceeds remaining time
         if (p.currentBid >= p.remainingTime) {
           p.isHolding = false;
@@ -1887,12 +1889,16 @@ function endRound(lobbyCode: string) {
         target.ghostTimeAtDeath = savedTime;
         addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} REAPER: ${target.name} becomes a ghost!`, basic: true });
       }
-      // After reaper fires (or if no targets), ghost enters purgatory-style countdown
+      // After reaper fires (or if no targets), ghost enters countdown
+      // Reaper gets 3 rounds (1 more than purgatory's 2) before reviving
       ghost.ghostAbilityUsed = true;
       if (ghost.possessionRoundsLeft === undefined) {
-        ghost.possessionRoundsLeft = 2;
+        const reaperRounds = ghost.ghostAbility === 'reaper' ? 3 : 2;
+        ghost.possessionRoundsLeft = reaperRounds;
         if (ghost.ghostAbility === 'purgatory') {
           addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} PURGATORY: counting down 2 rounds...`, basic: true });
+        } else if (ghost.ghostAbility === 'reaper') {
+          addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} REAPER: counting down 3 rounds before reviving...`, basic: true });
         }
       }
     });
@@ -1903,8 +1909,8 @@ function endRound(lobbyCode: string) {
     game.players.forEach(ghost => {
       if (!ghost.isGhost) return;
       if (ghost.possessionRoundsLeft === undefined) {
-        // Safety: ensure every ghost has a countdown
-        ghost.possessionRoundsLeft = 2;
+        // Safety: ensure every ghost has a countdown (reaper gets 3, purgatory gets 2)
+        ghost.possessionRoundsLeft = ghost.ghostAbility === 'reaper' ? 3 : 2;
         return;
       }
       const roundsLeft = ghost.possessionRoundsLeft - 1;
@@ -2440,6 +2446,27 @@ function endRound(lobbyCode: string) {
   }
   // Otherwise, wait for players to acknowledge round end (via player_ready_next event)
   
+  // HAUNTED: If all human non-eliminated players are ghosts (already auto-acknowledged),
+  // auto-advance without waiting for player_ready_next to avoid getting stuck.
+  if (game.settings.variant === 'HAUNTED' && game.phase !== 'game_over') {
+    const humanNonEliminated = game.players.filter(p => !p.isBot && !p.isEliminated);
+    const allAutoAcknowledged = humanNonEliminated.length > 0 &&
+      humanNonEliminated.every(p => (p as any).roundEndAcknowledged === true);
+    if (allAutoAcknowledged) {
+      // All human players are ghosts — advance the round automatically after a short delay
+      setTimeout(() => {
+        const g = activeGames.get(lobbyCode);
+        if (!g || g.phase === 'game_over') return;
+        if (g.round >= g.totalRounds) {
+          endGame(lobbyCode);
+        } else {
+          g.round++;
+          startWaitingForReady(lobbyCode);
+        }
+      }, 3500);
+    }
+  }
+  
   // Record snapshot for this round
   recordGameSnapshot({
     gameId: game.gameId,
@@ -2855,6 +2882,81 @@ function startWaitingForReady(lobbyCode: string) {
 
     const DARK_POOL_BOT: ProtocolType[] = ['PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
 
+    // --- ROUND 1 SPECIAL: Tribunal/Conclave always fire before Round 1 so players can vote ---
+    if (game.round === 1) {
+      game.players.forEach(bot => {
+        if (!bot.isBot || bot.isGhost || bot.isEliminated) return;
+        if (!bot.selectedItem || bot.relicConsumed) return;
+        if (bot.selectedItem !== 'tribunal' && bot.selectedItem !== 'conclave') return;
+
+        const alive = game.players.filter(p => !p.isGhost && !p.isEliminated);
+        const opponents = alive.filter(p => p.id !== bot.id);
+        const pickRandom = <T,>(arr: T[]): T | undefined => arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : undefined;
+
+        bot.relicConsumed = true;
+
+        if (bot.selectedItem === 'tribunal') {
+          const target = pickRandom(opponents);
+          if (target) {
+            const botVotes: Record<string, string> = {};
+            game.players.filter(p => p.isBot && !p.isEliminated && p.id !== bot.id).forEach(b => {
+              botVotes[b.id] = Math.random() < 0.5 ? 'A' : 'B';
+            });
+            botVotes[bot.id] = Math.random() < 0.5 ? 'A' : 'B';
+            const newVote: PendingRelicVote = {
+              relicId: 'tribunal',
+              activatorId: bot.id,
+              targetId: target.id,
+              options: [
+                { id: 'A', label: `${target.name} loses 30s next round` },
+                { id: 'B', label: `${target.name} is forced to forfeit bidding next round` },
+              ],
+              votes: botVotes,
+              deadline: Date.now() + 30000,
+            };
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot, R1): vote started targeting ${target.name}`, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL VOTE STARTED', message: `${bot.name} called a Tribunal against ${target.name}! Vote now.`, victimId: target.id });
+            if (game.pendingVote && !game.pendingVote.resolved) {
+              if (!game.voteQueue) game.voteQueue = [];
+              game.voteQueue.push(newVote);
+            } else {
+              game.pendingVote = newVote;
+              setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+            }
+          } else {
+            bot.relicConsumed = false;
+          }
+        } else if (bot.selectedItem === 'conclave') {
+          const botVotes: Record<string, string> = {};
+          const voteOptions = ['A', 'B', 'C', 'D'];
+          game.players.filter(p => p.isBot && !p.isEliminated).forEach(b => {
+            botVotes[b.id] = voteOptions[Math.floor(Math.random() * voteOptions.length)];
+          });
+          const newVote: PendingRelicVote = {
+            relicId: 'conclave',
+            activatorId: bot.id,
+            options: [
+              { id: 'A', label: "Cut everyone's time bank in half" },
+              { id: 'B', label: 'Skip next round as a tie (no bids)' },
+              { id: 'C', label: '100% protocols for the rest of the game' },
+              { id: 'D', label: 'Overclock — bottom 2 players lose a trophy' },
+            ],
+            votes: botVotes,
+            deadline: Date.now() + 30000,
+          };
+          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CONCLAVE (bot, R1): vote started!`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🗳️ CONCLAVE VOTE STARTED', message: `${bot.name} called a Conclave! Vote now.` });
+          if (game.pendingVote && !game.pendingVote.resolved) {
+            if (!game.voteQueue) game.voteQueue = [];
+            game.voteQueue.push(newVote);
+          } else {
+            game.pendingVote = newVote;
+            setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+          }
+        }
+      });
+    }
+
     game.players.forEach(bot => {
       if (!bot.isBot || bot.isGhost || bot.isEliminated) return;
       if (!bot.selectedItem || bot.relicConsumed) return;
@@ -2973,6 +3075,7 @@ function startWaitingForReady(lobbyCode: string) {
             });
             bot.tokens += 1;
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} SÉANCE (bot): ${ghosts.length} ghost(s) revived, +1 trophy`, value: 1, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🕯️ SÉANCE', message: `${bot.name} performed a Séance — ${ghosts.length} ghost(s) revived!` });
           } else {
             bot.relicConsumed = false; // not enough ghosts, don't waste it
           }
@@ -3394,10 +3497,12 @@ function endGame(lobbyCode: string) {
 
   game.phase = 'game_over';
   
-  // Sort players by tokens (descending), then by remaining time
+  // Sort players by tokens (descending), then by remaining time, then random tiebreaker for ghosted ties
   game.players.sort((a, b) => {
     if (b.tokens !== a.tokens) return b.tokens - a.tokens;
-    return b.remainingTime - a.remainingTime;
+    if (b.remainingTime !== a.remainingTime) return b.remainingTime - a.remainingTime;
+    // Final tiebreaker: random for ghosted players with identical tokens + remainingTime
+    return Math.random() < 0.5 ? -1 : 1;
   });
   
   log(`Game over for lobby ${lobbyCode}. Winner: ${game.players[0]?.name}`, "game");
