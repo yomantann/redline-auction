@@ -40,6 +40,7 @@ export function PlayerProfileWidget({ equippedLogoUrl = null, showNavLinks = fal
             href="/profile"
             className="p-1 rounded text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition-colors"
             title="Shop"
+            aria-label="Go to shop"
           >
             <ShoppingBag size={13} />
           </a>
@@ -82,6 +83,7 @@ export function PlayerProfileWidget({ equippedLogoUrl = null, showNavLinks = fal
             href="/profile"
             className="p-1 rounded text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition-colors"
             title="Profile"
+            aria-label="Go to profile"
           >
             <UserCircle size={13} />
           </a>
@@ -89,6 +91,7 @@ export function PlayerProfileWidget({ equippedLogoUrl = null, showNavLinks = fal
             href="/profile"
             className="p-1 rounded text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition-colors"
             title="Shop"
+            aria-label="Go to shop"
           >
             <ShoppingBag size={13} />
           </a>
