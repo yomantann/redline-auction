@@ -36,7 +36,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { SKIN_ASSET_URLS } from "@/lib/skinAssets";
-import bgStandard1 from "@/assets/generated_images/BG/bg_standard_1.png";
+import bgStandard1 from "@/assets/generated_images/BG/bg_standard_redline.png";
 
 let _stripePublishableKey: string | null = null;
 const stripePromise = fetch('/api/config')
