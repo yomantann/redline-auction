@@ -10,7 +10,7 @@ import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Mail, Heart } from 'lucide-react';
 import type { PlayerProfile, EquippedCosmetics } from "@shared/schema";
-import { getLogoUrl, getCardStyles } from "@/lib/cosmeticsStyles";
+import { getLogoUrl, getCardStyles, getDriverSkinUrl } from "@/lib/cosmeticsStyles";
 import { PlayerProfileWidget } from "@/components/game/PlayerProfileWidget";
 import { GuestBanner } from "@/components/game/GuestBanner";
 
@@ -300,15 +300,12 @@ interface Player {
   bidHistory?: number[];                 // All historical bids (for Echo + Pattern Lock relics)
   pendingLastWill?: { targetId: string; curseType: 'time' | 'trophy' }; // Last Will deferred curse
   markedBy?: string;                     // Marked relic: ID of player who marked this player
-  echoForcedBid?: number;               // Echo relic: this player must bid exactly this value next round
   corruptRoundsLeft?: number;            // Corrupt relic: rounds remaining with 'aggressive' override
   patternLockMinBid?: number;            // Pattern Lock: forced minimum bid next round
   deathWishActive?: boolean;             // Death Wish: active this round (win=+2 trophies, lose=-15s extra)
   bloodPactActive?: boolean;             // Blood Pact: active player (all losers also pay winner's bid)
   cursedDiceActive?: boolean;            // Cursed Dice: active (±30s after round end)
   finalWritActive?: boolean;             // Final Writ: this player auto-wins the final round
-  tribunalTimePenalty?: number;          // Tribunal A: lose 30s at start of next round
-  tribunalForfeit?: boolean;             // Tribunal B: forced to forfeit (skip) next round's bidding
 }
 
 interface Character {
@@ -1392,7 +1389,6 @@ export default function Game() {
       ghostAbility?: string;
       selectedItem?: string;
       relicConsumed?: boolean;
-      echoForcedBid?: number | null;
       patternLockMinBid?: number | null;
       markedBy?: string | null;
       deathWishActive?: boolean;
@@ -1401,8 +1397,6 @@ export default function Game() {
       pendingLastWill?: { targetId: string; curseType: 'time' | 'trophy' } | null;
       corruptRoundsLeft?: number | null;
       finalWritActive?: boolean;
-      tribunalTimePenalty?: number | null;
-      tribunalMinBid?: number | null;
       ghostTimeAtDeath?: number | null;
       currentBid: number | null;
       isHolding: boolean;
@@ -2373,17 +2367,6 @@ export default function Game() {
         // (If player holds longer than they have time for)
         const currentPlayer = players.find(p => p.id === 'p1');
         if (currentPlayer && currentPlayer.isHolding && !currentPlayer.isEliminated) {
-            // ECHO: auto-release p1 at max(echoForcedBid, patternLockMinBid) so both constraints are satisfied
-            if (currentPlayer.echoForcedBid !== undefined) {
-              const effectiveForcedBid = Math.max(currentPlayer.echoForcedBid, currentPlayer.patternLockMinBid ?? 0);
-              if (deltaTime >= effectiveForcedBid) {
-                setPlayers(prev => prev.map(p =>
-                  p.id === 'p1' ? { ...p, isHolding: false, currentBid: parseFloat(effectiveForcedBid.toFixed(1)) } : p
-                ));
-                setTimeout(() => toast({ title: '🔁 ECHO', description: `Your bid was locked to ${effectiveForcedBid.toFixed(1)}s by Echo.`, duration: 3000 }), 100);
-              }
-            }
-
             if (deltaTime > currentPlayer.remainingTime) {
                 // Force Eliminate (or ghostify in Haunted mode)
                  setPlayers(prev => prev.map(p => {
@@ -2673,12 +2656,8 @@ export default function Game() {
           bid += Math.random() * 0.8;
           bid = clamp(bid);
 
-          // ECHO: if this bot has echoForcedBid, target the effective forced bid (max of echo and patternLock)
-          if (p.echoForcedBid !== undefined) {
-            const effectiveForcedBid = Math.max(p.echoForcedBid, p.patternLockMinBid ?? 0);
-            newBotBids[p.id] = parseFloat((effectiveForcedBid - minBidTime).toFixed(1));
           // PATTERN LOCK: if this bot has patternLockMinBid, enforce minimum
-          } else if (p.patternLockMinBid !== undefined) {
+          if (p.patternLockMinBid !== undefined) {
             const minHold = Math.max(0, p.patternLockMinBid - minBidTime);
             newBotBids[p.id] = parseFloat(Math.max(bid, minHold).toFixed(1));
           } else {
@@ -2947,8 +2926,8 @@ export default function Game() {
           if (target) {
             const lastBid = target.bidHistory?.length ? target.bidHistory[target.bidHistory.length - 1] : null;
             if (lastBid != null) {
-              target.echoForcedBid = lastBid;
-              setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${target.name}'s last bid (${lastBid.toFixed(1)}s) is locked as their forced bid next round.`, 0), 200);
+              target.remainingTime = Math.max(0, target.remainingTime - lastBid);
+              setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${target.name} lost ${lastBid.toFixed(1)}s from their time bank!`, 0), 200);
             } else {
               setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO: NO HISTORY', `${target.name} has no bid history yet. Echo had no effect.`, 0), 200);
             }
@@ -3063,8 +3042,8 @@ export default function Game() {
       let opts: { id: string; label: string }[] = [];
       if (relicId === 'tribunal' && targetPlayer) {
         opts = [
-          { id: 'A', label: `${targetPlayer.name} loses 30s next round` },
-          { id: 'B', label: `${targetPlayer.name} is forced to forfeit bidding next round` },
+          { id: 'A', label: `${targetPlayer.name} loses 30s from time bank immediately` },
+          { id: 'B', label: `${targetPlayer.name}'s relic is consumed without effect` },
         ];
       } else if (relicId === 'conclave') {
         opts = [
@@ -3130,11 +3109,11 @@ export default function Game() {
     if (vs.relicId === 'tribunal') {
       setPlayers(prev => prev.map(p => {
         if (p.id !== vs.targetId) return p;
-        if (winner.id === 'A') return { ...p, tribunalTimePenalty: (p.tribunalTimePenalty ?? 0) + 30 };
-        if (winner.id === 'B') return { ...p, tribunalForfeit: true };
+        if (winner.id === 'A') return { ...p, remainingTime: Math.max(0, p.remainingTime - 30) };
+        if (winner.id === 'B') return { ...p, relicConsumed: true };
         return p;
       }));
-      setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} receives -30s next round.` : `${vs.targetName} is forced to forfeit bidding next round.`, 0), 200);
+      setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} loses 30s from their time bank immediately!` : `${vs.targetName}'s relic has been consumed without effect!`, 0), 200);
     } else if (vs.relicId === 'conclave') {
       if (winner.id === 'A') {
         setPlayers(prev => prev.map(p => (!p.isEliminated && !p.isGhost) ? { ...p, remainingTime: Math.floor(p.remainingTime / 2 * 10) / 10 } : p));
@@ -3261,13 +3240,12 @@ export default function Game() {
       const bidTime = parseFloat(currentTime.toFixed(1));
       const p1 = players.find(p => p.id === 'p1');
 
-      // PATTERN LOCK / ECHO: block SP release if below forced minimum
-      const effectiveMinBid = Math.max(p1?.patternLockMinBid ?? 0, p1?.echoForcedBid ?? 0);
-      if ((p1?.patternLockMinBid !== undefined || p1?.echoForcedBid !== undefined) && bidTime < effectiveMinBid) {
-        const isEchoLockOnly = p1?.echoForcedBid !== undefined && p1?.patternLockMinBid === undefined;
+      // PATTERN LOCK: block SP release if below forced minimum
+      const effectiveMinBid = p1?.patternLockMinBid ?? 0;
+      if (p1?.patternLockMinBid !== undefined && bidTime < effectiveMinBid) {
         toast({
-          title: isEchoLockOnly ? '🔁 ECHO LOCK' : '🔒 PATTERN LOCK',
-          description: `You cannot release before ${effectiveMinBid.toFixed(1)}s (${isEchoLockOnly ? 'Echo lock' : 'Pattern Lock'} active)!`,
+          title: '🔒 PATTERN LOCK',
+          description: `You cannot release before ${effectiveMinBid.toFixed(1)}s (Pattern Lock active)!`,
           variant: 'destructive',
           duration: 3000,
         });
@@ -3866,11 +3844,10 @@ export default function Game() {
               const target = pickRandom(opponents.filter(p => (p.bidHistory?.length ?? 0) > 0));
               if (target && (target.bidHistory?.length ?? 0) > 0) {
                 const lastBid = target.bidHistory![target.bidHistory!.length - 1];
-                target.echoForcedBid = lastBid;
-                setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${bot.name} used Echo — ${target.name} must replay their last bid (${lastBid.toFixed(1)}s) next round!`, 0), 200);
-                // Give p1 a personal notification if they are the target
+                target.remainingTime = Math.max(0, target.remainingTime - lastBid);
+                setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${bot.name} used Echo — ${target.name} lost ${lastBid.toFixed(1)}s from their time bank!`, 0), 200);
                 if (target.id === 'p1') {
-                  setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO: BID LOCKED', `${bot.name} locked your bid — you MUST bid ${lastBid.toFixed(1)}s next round!`, 0), 400);
+                  setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO: TIME DEDUCTED', `${bot.name} used Echo — you lost ${lastBid.toFixed(1)}s from your time bank!`, 0), 400);
                 }
               }
               break;
@@ -3951,16 +3928,6 @@ export default function Game() {
     setCountdown(isBotOnlyRound ? 3 : COUNTDOWN_SECONDS);
     setPhase('countdown');
     overLimitToastShownRef.current = false; // Reset over-limit flag
-
-    // SP HAUNTED: Tribunal B forfeit — auto-release p1 so they forfeit this round's bid
-    if (variant === 'HAUNTED') {
-      const p1WithForfeit = players.find(p => p.id === 'p1' && p.tribunalForfeit);
-      if (p1WithForfeit) {
-        setPlayers(prev => prev.map(p =>
-          p.id === 'p1' ? { ...p, isHolding: false, currentBid: 0, tribunalForfeit: undefined } : p
-        ));
-      }
-    }
   };
 
   // End Overclock Round Logic (singleplayer) - processes click count results
@@ -4904,10 +4871,8 @@ export default function Game() {
           }
         }
 
-        // Echo / Pattern Lock: clear flags after round end
-        p.echoForcedBid = undefined;
+        // Pattern Lock: clear flags after round end
         p.patternLockMinBid = undefined;
-        // Note: tribunalTimePenalty and tribunalForfeit are applied at round start
       });
 
     }
@@ -6000,26 +5965,6 @@ export default function Game() {
       setPlayerAbilityUsed(false); // Reset ability usage
       setPeekTargetId(null); // Clear PEEK target
       setScrambledPlayers([]); // Clear Scrambled players
-
-      // SP HAUNTED: Apply Tribunal effects at start of new round
-      if (variant === 'HAUNTED') {
-        setPlayers(prev => prev.map(p => {
-          if (p.tribunalTimePenalty && p.tribunalTimePenalty > 0 && !p.isEliminated && !p.isGhost) {
-            const penalty = p.tribunalTimePenalty;
-            setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL A PENALTY', `${p.name} loses ${penalty}s from last round's tribunal vote.`, 3000), 300);
-            return { ...p, remainingTime: Math.max(0, p.remainingTime - penalty), tribunalTimePenalty: undefined };
-          }
-          if (p.tribunalForfeit && !p.isEliminated && !p.isGhost) {
-            if (p.id === 'p1') {
-              // Keep tribunalForfeit on p1 — startCountdown will auto-release them
-              setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL B: FORFEIT', 'You are forced to forfeit bidding this round — your bid will be auto-released.', 0), 300);
-              return p;
-            }
-            return { ...p, tribunalForfeit: undefined };
-          }
-          return p;
-        }));
-      }
     }
   };
 
@@ -9744,13 +9689,28 @@ export default function Game() {
         <DialogContent className="bg-black/90 border-white/10 backdrop-blur-xl">
             <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20">
-                    {typeof selectedPlayerStats?.characterIcon === 'string' ? (
-                        <img src={selectedPlayerStats.characterIcon} alt={selectedPlayerStats?.name} className="w-full h-full object-cover" />
-                    ) : (
-                        <User />
-                    )}
-                </div>
+                {(() => {
+                  const dialogPlayerId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
+                  const isDialogCurrentPlayer = selectedPlayerStats?.id === dialogPlayerId;
+                  const dialogDriverId = isDialogCurrentPlayer
+                    ? (isMultiplayer
+                        ? ((multiplayerGameState?.players.find(mp => mp.socketId === socket?.id) as any)?.selectedDriver ?? selectedCharacter?.id)
+                        : selectedCharacter?.id)
+                    : undefined;
+                  const dialogSkinUrl = isDialogCurrentPlayer && myCosmetics ? getDriverSkinUrl(myCosmetics, dialogDriverId) : null;
+                  return (
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20 relative">
+                        {typeof selectedPlayerStats?.characterIcon === 'string' ? (
+                            <img src={selectedPlayerStats.characterIcon} alt={selectedPlayerStats?.name} className="w-full h-full object-cover" />
+                        ) : (
+                            <User />
+                        )}
+                        {dialogSkinUrl && (
+                          <img src={dialogSkinUrl} alt="skin" className="absolute inset-0 w-full h-full object-cover" />
+                        )}
+                    </div>
+                  );
+                })()}
                 <div className="flex flex-col">
                   <span className="font-display tracking-widest uppercase text-xl">{selectedPlayerStats?.name}</span>
                   {selectedPlayerStats?.driverName && (
