@@ -71,22 +71,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     earnableOnly: false,
   },
   {
-    id: 'logo_redline',
-    name: 'Redline Crest',
-    type: 'logo',
-    cost: 500,
-    rarity: 'common',
-    asset: '/cosmetics/logos/redline_crest.png',
-  },
-  {
-    id: 'logo_circuit',
-    name: 'Circuit Breaker',
-    type: 'logo',
-    cost: 1200,
-    rarity: 'rare',
-    asset: '/cosmetics/logos/circuit_breaker.png',
-  },
-  {
     id: 'logo_apex',
     name: 'Apex Legend',
     type: 'logo',
@@ -106,31 +90,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: '',
     earnableOnly: false,
   },
-  {
-    id: 'border_neon',
-    name: 'Neon Pulse',
-    type: 'border',
-    cost: 750,
-    rarity: 'common',
-    asset: 'border_neon',
-  },
-  {
-    id: 'border_chrome',
-    name: 'Chrome Finish',
-    type: 'border',
-    cost: 1500,
-    rarity: 'rare',
-    asset: 'border_chrome',
-  },
-  {
-    id: 'border_haunted',
-    name: 'Haunted Glow',
-    type: 'border',
-    cost: 0,
-    rarity: 'legendary',
-    asset: 'border_haunted',
-    earnableOnly: true,
-  },
+  
 
   // ── Backgrounds ─────────────────────────────────────────────────────────────
   {
@@ -142,30 +102,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'molten_b',
     earnableOnly: false,
   },
-  {
-    id: 'bg_sunset',
-    name: 'Neon Sunset',
-    type: 'background',
-    cost: 800,
-    rarity: 'common',
-    asset: 'bg_sunset',
-  },
-  {
-    id: 'bg_void',
-    name: 'The Void',
-    type: 'background',
-    cost: 2000,
-    rarity: 'rare',
-    asset: 'bg_void',
-  },
-  {
-    id: 'bg_galaxy',
-    name: 'Meme Galaxy',
-    type: 'background',
-    cost: 5000,
-    rarity: 'legendary',
-    asset: 'bg_galaxy',
-  },
+  
 
   // ── Driver Skins ────────────────────────────────────────────────────────────
   // Skins are driver-specific: driverIds indicates which character must be active
