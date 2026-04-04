@@ -132,7 +132,7 @@ export const CARD_BACKGROUND_URLS: Record<string, string> = {
   orbital_b:       bgOrbital,
   orbital2_b:      bgOrbital2,
   static2_b:       bgStatic2,
-  quantom_b:       bgQuantom,
+  quantum_b:       bgQuantom,
   static_overload_b: bgStaticOverload,
 };
 
@@ -144,6 +144,6 @@ export const CARD_BORDER_URLS: Record<string, string> = {
   border_organic:        borderOrganic,
   border_cryo_glass:     borderCryoGlass,
   border_abyssal_depth:  borderAbyssalDepth,
-  border_quantom:        borderQuantom,
+  border_quantum:        borderQuantom,
   border_static_overload: borderStaticOverload,
 };

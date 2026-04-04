@@ -146,12 +146,12 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     earnableOnly: false,
   },
   {
-    id: 'border_quantom',
-    name: 'Quantom',
+    id: 'border_quantum',
+    name: 'Quantum',
     type: 'border',
     cost: 30000,
     rarity: 'legendary',
-    asset: 'border_quantom',
+    asset: 'border_quantum',
     earnableOnly: false,
   },
   {
@@ -239,12 +239,12 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     earnableOnly: false,
   },
   {
-    id: 'quantom_b',
-    name: 'Quantom',
+    id: 'quantum_b',
+    name: 'Quantum',
     type: 'background',
     cost: 30000,
     rarity: 'legendary',
-    asset: 'quantom_b',
+    asset: 'quantum_b',
     earnableOnly: false,
   },
   {
