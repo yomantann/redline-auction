@@ -886,6 +886,24 @@ function startBidding(lobbyCode: string) {
     // Bot AI: decide when to release
     processBotBids(g);
     
+    // HAUNTED: If all real (non-bot) players are ghosts mid-round, fast-forward.
+    // Release bots at current elapsed time and end the round immediately.
+    if (g.settings.variant === 'HAUNTED' && elapsed > 0.5) {
+      const realActive = g.players.filter(p => !p.isBot && !p.isGhost && !p.isEliminated);
+      if (realActive.length === 0) {
+        const minBid = getMinBidPenalty(g.gameDuration);
+        g.players.forEach(p => {
+          if (p.isBot && p.isHolding && !p.isGhost && !p.isEliminated) {
+            p.isHolding = false;
+            p.currentBid = Math.round((elapsed + minBid) * 10) / 10;
+          }
+        });
+        clearInterval(interval);
+        endRound(lobbyCode);
+        return;
+      }
+    }
+
     // Check if round should end (all non-ghost, non-eliminated players have released)
     const holdingPlayers = g.players.filter(p => p.isHolding && !p.isEliminated && !p.isGhost);
     
@@ -1446,7 +1464,8 @@ function endRound(lobbyCode: string) {
 
   // --- OVERCLOCK PROTOCOL: Click-count based winner/loser determination ---
   if (game.activeProtocol === 'OVERCLOCK') {
-    const overclockActivePlayers = game.players.filter(p => !p.isEliminated);
+    // Ghosts do not participate in OVERCLOCK — they sit it out (countdown still ticks in ghost revival section)
+    const overclockActivePlayers = game.players.filter(p => !p.isEliminated && !p.isGhost);
     if (overclockActivePlayers.length > 0) {
       const clickCounts = game.overclockClickCounts;
       const maxClicks = Math.max(...overclockActivePlayers.map(p => clickCounts[p.id] || 0));
@@ -1476,10 +1495,18 @@ function endRound(lobbyCode: string) {
         loser.remainingTime = Math.max(0, loser.remainingTime - penalty);
         loser.netImpact -= penalty;
         loser.roundImpacts.push({ type: 'OVERCLOCK_PENALTY', value: -penalty, source: 'OVERCLOCK' });
-        if (loser.remainingTime === 0 && !loser.isEliminated) {
-          loser.isEliminated = true;
-          if (!game.eliminatedThisRound.includes(loser.id)) {
-            game.eliminatedThisRound.push(loser.id);
+        if (loser.remainingTime === 0 && !loser.isEliminated && !loser.isGhost) {
+          if (game.settings.variant === 'HAUNTED') {
+            loser.isGhost = true;
+            loser.ghostReason = 'natural';
+            if (!loser.ghostImage) loser.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+            if (!loser.ghostAbility) loser.ghostAbility = assignGhostAbility();
+            loser.ghostAbilityUsed = false;
+          } else {
+            loser.isEliminated = true;
+            if (!game.eliminatedThisRound.includes(loser.id)) {
+              game.eliminatedThisRound.push(loser.id);
+            }
           }
         }
         addGameLogEntry(game, {
@@ -1516,10 +1543,18 @@ function endRound(lobbyCode: string) {
     processAbilities(game, winnerId);
     game.players.forEach(p => {
       if (p.remainingTime < 0) p.remainingTime = 0;
-      if (p.remainingTime === 0 && !p.isEliminated) {
-        p.isEliminated = true;
-        if (!game.eliminatedThisRound.includes(p.id)) {
-          game.eliminatedThisRound.push(p.id);
+      if (p.remainingTime === 0 && !p.isEliminated && !p.isGhost) {
+        if (game.settings.variant === 'HAUNTED') {
+          p.isGhost = true;
+          p.ghostReason = 'natural';
+          if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+          if (!p.ghostAbility) p.ghostAbility = assignGhostAbility();
+          p.ghostAbilityUsed = false;
+        } else {
+          p.isEliminated = true;
+          if (!game.eliminatedThisRound.includes(p.id)) {
+            game.eliminatedThisRound.push(p.id);
+          }
         }
       }
     });
@@ -1602,16 +1637,25 @@ function endRound(lobbyCode: string) {
         p.remainingTime -= p.currentBid;
         if (p.remainingTime <= 0) {
           p.remainingTime = 0;
-          p.isEliminated = true;
-          if (!game.eliminatedThisRound.includes(p.id)) {
-            game.eliminatedThisRound.push(p.id);
-            addGameLogEntry(game, {
-              type: 'elimination',
-              playerId: p.id,
-              playerName: p.name,
-              message: `${p.name} was eliminated (ran out of time)`,
-              basic: true,
-            });
+          if (game.settings.variant === 'HAUNTED' && !p.isGhost) {
+            p.isGhost = true;
+            p.ghostReason = 'natural';
+            if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+            if (!p.ghostAbility) p.ghostAbility = assignGhostAbility();
+            p.ghostAbilityUsed = false;
+            addGameLogEntry(game, { type: 'elimination', playerId: p.id, playerName: p.name, message: `${p.name} became a ghost (ran out of time)`, basic: true });
+          } else if (!p.isEliminated) {
+            p.isEliminated = true;
+            if (!game.eliminatedThisRound.includes(p.id)) {
+              game.eliminatedThisRound.push(p.id);
+              addGameLogEntry(game, {
+                type: 'elimination',
+                playerId: p.id,
+                playerName: p.name,
+                message: `${p.name} was eliminated (ran out of time)`,
+                basic: true,
+              });
+            }
           }
         }
       }
@@ -1722,13 +1766,21 @@ function endRound(lobbyCode: string) {
     // Deduct 10s from all non-eliminated players (FIRE WALL players immune)
     game.players.forEach(p => {
       const hasFireWall = p.selectedDriver === 'low_flame' && game.settings.abilitiesEnabled;
-      if (!p.isEliminated && p.remainingTime > 0 && !hasFireWall) {
+      if (!p.isEliminated && !p.isGhost && p.remainingTime > 0 && !hasFireWall) {
         p.remainingTime = Math.max(0, p.remainingTime - 10);
         p.netImpact -= 10; // Track protocol impact
         if (p.remainingTime === 0) {
-          p.isEliminated = true;
-          if (!game.eliminatedThisRound.includes(p.id)) {
-            game.eliminatedThisRound.push(p.id);
+          if (game.settings.variant === 'HAUNTED') {
+            p.isGhost = true;
+            p.ghostReason = 'natural';
+            if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+            if (!p.ghostAbility) p.ghostAbility = assignGhostAbility();
+            p.ghostAbilityUsed = false;
+          } else {
+            p.isEliminated = true;
+            if (!game.eliminatedThisRound.includes(p.id)) {
+              game.eliminatedThisRound.push(p.id);
+            }
           }
         }
       }
@@ -1775,20 +1827,29 @@ function endRound(lobbyCode: string) {
             value: impact.value,
           });
           // Check for elimination from penalty
-          if (p.remainingTime <= 0 && !p.isEliminated) {
+          if (p.remainingTime <= 0 && !p.isEliminated && !p.isGhost) {
             p.remainingTime = 0;
-            p.isEliminated = true;
-            if (!game.eliminatedThisRound.includes(p.id)) {
-              game.eliminatedThisRound.push(p.id);
-              addGameLogEntry(game, {
-                type: 'elimination',
-                playerId: p.id,
-                playerName: p.name,
-                message: `${p.name} was eliminated (early release penalty)`,
-                basic: true,
-      });
-                }
+            if (game.settings.variant === 'HAUNTED') {
+              p.isGhost = true;
+              p.ghostReason = 'natural';
+              if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+              if (!p.ghostAbility) p.ghostAbility = assignGhostAbility();
+              p.ghostAbilityUsed = false;
+              addGameLogEntry(game, { type: 'elimination', playerId: p.id, playerName: p.name, message: `${p.name} became a ghost (early release penalty)`, basic: true });
+            } else {
+              p.isEliminated = true;
+              if (!game.eliminatedThisRound.includes(p.id)) {
+                game.eliminatedThisRound.push(p.id);
+                addGameLogEntry(game, {
+                  type: 'elimination',
+                  playerId: p.id,
+                  playerName: p.name,
+                  message: `${p.name} was eliminated (early release penalty)`,
+                  basic: true,
+                });
               }
+            }
+          }
             }
           });
         }
@@ -2820,81 +2881,8 @@ function startWaitingForReady(lobbyCode: string) {
 
     const DARK_POOL_BOT: ProtocolType[] = ['PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
 
-    // --- ROUND 1 SPECIAL: Tribunal/Conclave always fire before Round 1 so players can vote ---
-    if (game.round === 1) {
-      game.players.forEach(bot => {
-        if (!bot.isBot || bot.isGhost || bot.isEliminated) return;
-        if (!bot.selectedItem || bot.relicConsumed) return;
-        if (bot.selectedItem !== 'tribunal' && bot.selectedItem !== 'conclave') return;
-
-        const alive = game.players.filter(p => !p.isGhost && !p.isEliminated);
-        const opponents = alive.filter(p => p.id !== bot.id);
-        const pickRandom = <T,>(arr: T[]): T | undefined => arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : undefined;
-
-        bot.relicConsumed = true;
-
-        if (bot.selectedItem === 'tribunal') {
-          const target = pickRandom(opponents);
-          if (target) {
-            const botVotes: Record<string, string> = {};
-            game.players.filter(p => p.isBot && !p.isEliminated && p.id !== bot.id).forEach(b => {
-              botVotes[b.id] = Math.random() < 0.5 ? 'A' : 'B';
-            });
-            botVotes[bot.id] = Math.random() < 0.5 ? 'A' : 'B';
-            const newVote: PendingRelicVote = {
-              relicId: 'tribunal',
-              activatorId: bot.id,
-              targetId: target.id,
-              options: [
-                { id: 'A', label: `${target.name} loses 30s from time bank immediately` },
-                { id: 'B', label: `${target.name}'s relic is consumed without effect` },
-              ],
-              votes: botVotes,
-              deadline: Date.now() + 30000,
-            };
-            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot, R1): vote started targeting ${target.name}`, basic: true });
-            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL VOTE STARTED', message: `${bot.name} called a Tribunal against ${target.name}! Vote now.`, victimId: target.id });
-            if (game.pendingVote && !game.pendingVote.resolved) {
-              if (!game.voteQueue) game.voteQueue = [];
-              game.voteQueue.push(newVote);
-            } else {
-              game.pendingVote = newVote;
-              setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
-            }
-          } else {
-            bot.relicConsumed = false;
-          }
-        } else if (bot.selectedItem === 'conclave') {
-          const botVotes: Record<string, string> = {};
-          const voteOptions = ['A', 'B', 'C', 'D'];
-          game.players.filter(p => p.isBot && !p.isEliminated).forEach(b => {
-            botVotes[b.id] = voteOptions[Math.floor(Math.random() * voteOptions.length)];
-          });
-          const newVote: PendingRelicVote = {
-            relicId: 'conclave',
-            activatorId: bot.id,
-            options: [
-              { id: 'A', label: "Cut everyone's time bank in half" },
-              { id: 'B', label: 'Skip next round as a tie (no bids)' },
-              { id: 'C', label: '100% protocols for the rest of the game' },
-              { id: 'D', label: 'Overclock — bottom 2 players lose a trophy' },
-            ],
-            votes: botVotes,
-            deadline: Date.now() + 30000,
-          };
-          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CONCLAVE (bot, R1): vote started!`, basic: true });
-          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🗳️ CONCLAVE VOTE STARTED', message: `${bot.name} called a Conclave! Vote now.` });
-          if (game.pendingVote && !game.pendingVote.resolved) {
-            if (!game.voteQueue) game.voteQueue = [];
-            game.voteQueue.push(newVote);
-          } else {
-            game.pendingVote = newVote;
-            setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
-          }
-        }
-      });
-    }
-
+    // Note: Tribunal and Conclave bots now use immediate effects (no vote trigger).
+    // The round 1 special section was removed — bots activate via the normal loop below.
     game.players.forEach(bot => {
       if (!bot.isBot || bot.isGhost || bot.isEliminated) return;
       if (!bot.selectedItem || bot.relicConsumed) return;
@@ -3080,34 +3068,19 @@ function startWaitingForReady(lobbyCode: string) {
           break;
         }
         case 'tribunal': {
-          // Bot triggers a proper vote so human players can participate
+          // Bots immediately apply a random effect — they do NOT trigger a player vote.
+          // Only human players can call a vote via the Tribunal relic.
           const target = pickRandom(opponents);
           if (target) {
-            const botVotes: Record<string, string> = {};
-            game.players.filter(p => p.isBot && !p.isEliminated && p.id !== bot.id).forEach(b => {
-              botVotes[b.id] = Math.random() < 0.5 ? 'A' : 'B';
-            });
-            // Also have the activating bot vote
-            botVotes[bot.id] = Math.random() < 0.5 ? 'A' : 'B';
-            const newVote: PendingRelicVote = {
-              relicId: 'tribunal',
-              activatorId: bot.id,
-              targetId: target.id,
-              options: [
-                { id: 'A', label: `${target.name} loses 30s from time bank immediately` },
-                { id: 'B', label: `${target.name}'s relic is consumed without effect` },
-              ],
-              votes: botVotes,
-              deadline: Date.now() + 30000,
-            };
-            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): vote started targeting ${target.name}`, basic: true });
-            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL VOTE STARTED', message: `${bot.name} called a Tribunal against ${target.name}! Vote now.`, victimId: target.id });
-            if (game.pendingVote && !game.pendingVote.resolved) {
-              if (!game.voteQueue) game.voteQueue = [];
-              game.voteQueue.push(newVote);
+            const choice = Math.random() < 0.5 ? 'A' : 'B';
+            if (choice === 'A') {
+              target.remainingTime = Math.max(0, target.remainingTime - 30);
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): ${target.name} loses 30s immediately`, value: -30, basic: true });
+              if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL', message: `${bot.name} sentenced ${target.name} — ${target.name} loses 30s!`, victimId: target.id });
             } else {
-              game.pendingVote = newVote;
-              setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+              target.relicConsumed = true;
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): ${target.name}'s relic consumed without effect`, basic: true });
+              if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL', message: `${bot.name} sentenced ${target.name} — ${target.name}'s relic was consumed!`, victimId: target.id });
             }
           } else {
             bot.relicConsumed = false;
@@ -3115,32 +3088,49 @@ function startWaitingForReady(lobbyCode: string) {
           break;
         }
         case 'conclave': {
-          // Bot triggers a proper vote so human players can participate
-          const botVotes: Record<string, string> = {};
-          const voteOptions = ['A', 'B', 'C', 'D'];
-          game.players.filter(p => p.isBot && !p.isEliminated).forEach(b => {
-            botVotes[b.id] = voteOptions[Math.floor(Math.random() * voteOptions.length)];
-          });
-          const newVote: PendingRelicVote = {
-            relicId: 'conclave',
-            activatorId: bot.id,
-            options: [
-              { id: 'A', label: "Cut everyone's time bank in half" },
-              { id: 'B', label: 'Skip next round as a tie (no bids)' },
-              { id: 'C', label: '100% protocols for the rest of the game' },
-              { id: 'D', label: 'Overclock — bottom 2 players lose a trophy' },
-            ],
-            votes: botVotes,
-            deadline: Date.now() + 30000,
-          };
-          addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CONCLAVE (bot): vote started!`, basic: true });
-          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🗳️ CONCLAVE VOTE STARTED', message: `${bot.name} called a Conclave! Vote now.` });
-          if (game.pendingVote && !game.pendingVote.resolved) {
-            if (!game.voteQueue) game.voteQueue = [];
-            game.voteQueue.push(newVote);
-          } else {
-            game.pendingVote = newVote;
-            setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
+          // Bots immediately apply a random effect — they do NOT trigger a player vote.
+          // Only human players can call a vote via the Conclave relic.
+          const conclaveChoice = ['A', 'B', 'C', 'D'][Math.floor(Math.random() * 4)];
+          switch (conclaveChoice) {
+            case 'A': {
+              game.players.forEach(p => {
+                if (!p.isEliminated && !p.isGhost) {
+                  p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10;
+                }
+              });
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CONCLAVE (bot): all time banks halved!`, basic: true });
+              if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🗳️ CONCLAVE', message: `${bot.name} invoked the Conclave — all time banks cut in half!` });
+              break;
+            }
+            case 'B': {
+              game.skipNextRound = true;
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CONCLAVE (bot): next round skipped as tie`, basic: true });
+              if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🗳️ CONCLAVE', message: `${bot.name} invoked the Conclave — next round is skipped!` });
+              break;
+            }
+            case 'C': {
+              game.protocolsAlwaysOn = true;
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CONCLAVE (bot): 100% protocols rest of game`, basic: true });
+              if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🗳️ CONCLAVE', message: `${bot.name} invoked the Conclave — protocols trigger every round!` });
+              break;
+            }
+            case 'D': {
+              const conclaveAlive = game.players.filter(p => !p.isEliminated && !p.isGhost);
+              if (conclaveAlive.length >= 2) {
+                const conclaveSorted = [...conclaveAlive].sort((a, b) => a.tokens - b.tokens);
+                const minTok = conclaveSorted[0].tokens;
+                const bottom2 = conclaveSorted.filter(p => p.tokens === minTok).slice(0, 2);
+                if (bottom2.length < 2) bottom2.push(conclaveSorted[1]);
+                const penaltySet = new Set(bottom2.slice(0, 2).map(p => p.id));
+                game.players.filter(p => penaltySet.has(p.id)).forEach(p => {
+                  p.tokens = Math.max(0, p.tokens - 1);
+                  addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} CONCLAVE D (bot): -1 trophy`, value: -1, basic: true });
+                });
+              }
+              addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CONCLAVE (bot): bottom 2 players lose a trophy`, basic: true });
+              if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🗳️ CONCLAVE', message: `${bot.name} invoked the Conclave — bottom 2 players lose a trophy!` });
+              break;
+            }
           }
           break;
         }

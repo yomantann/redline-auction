@@ -35,7 +35,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { SKIN_ASSET_URLS } from "@/lib/skinAssets";
+import { SKIN_ASSET_URLS, CARD_BACKGROUND_URLS, CARD_BORDER_URLS } from "@/lib/skinAssets";
 import bgStandard1 from "@/assets/generated_images/BG/bg_standard_redline.png";
 
 let _stripePublishableKey: string | null = null;
@@ -54,10 +54,9 @@ const stripePromise = fetch('/api/config')
  * STRIPE_HOOK: Map each pack to a Stripe Price ID (e.g. price_xxx) when Stripe is live.
  */
 const CREDIT_PACKS: { amount: number; label: string; price: string }[] = [
-  { amount: 500,  label: "500 Credits",  price: "$0.99" },
-  { amount: 1200, label: "1,200 Credits", price: "$1.99" },
-  { amount: 3000, label: "3,000 Credits", price: "$3.99" },
-  { amount: 7500, label: "7,500 Credits", price: "$8.99" },
+  { amount: 25000,  label: "25,000 Credits",  price: "$1.00" },
+  { amount: 125000, label: "125,000 Credits", price: "$5.00" },
+  { amount: 250000, label: "250,000 Credits", price: "$10.00" },
 ];
 
 const RARITY_COLORS: Record<CosmeticRarity, string> = {
@@ -497,7 +496,10 @@ function CosmeticCard({
 }) {
   const timeLabel = getLimitedTimeLabel(item.endsAt);
   const skinUrl = item.type === 'driverSkin' ? (SKIN_ASSET_URLS[item.asset] ?? SKIN_ASSET_URLS[item.id] ?? null) : null;
-  const hasExpandableImage = !!(skinUrl || (item.asset && item.asset.startsWith("/")));
+  const bgUrl = item.type === 'background' ? (CARD_BACKGROUND_URLS[item.asset] ?? CARD_BACKGROUND_URLS[item.id] ?? null) : null;
+  const borderUrl = item.type === 'border' ? (CARD_BORDER_URLS[item.asset] ?? CARD_BORDER_URLS[item.id] ?? null) : null;
+  const previewUrl = skinUrl ?? bgUrl ?? borderUrl ?? (item.asset && item.asset.startsWith("/") ? item.asset : null);
+  const hasExpandableImage = !!previewUrl;
   return (
     <div
       className={`rounded-lg border p-4 flex flex-col gap-3 relative transition-all ${
@@ -540,26 +542,15 @@ function CosmeticCard({
         className={`flex items-center justify-center w-full overflow-hidden rounded-md ${hasExpandableImage ? 'h-40 cursor-zoom-in' : 'h-16'}`}
         onClick={() => {
           if (!onExpand) return;
-          const url = skinUrl ?? (item.asset && item.asset.startsWith("/") ? item.asset : null);
-          if (url) onExpand(url, item.name);
+          if (previewUrl) onExpand(previewUrl, item.name);
         }}
         title={hasExpandableImage && onExpand ? "Click to expand" : undefined}
       >
         {(() => {
-          if (skinUrl) {
+          if (previewUrl) {
             return (
               <img
-                src={skinUrl}
-                alt={item.name}
-                className="w-full h-full object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
-            );
-          }
-          if (item.asset && item.asset.startsWith("/")) {
-            return (
-              <img
-                src={item.asset}
+                src={previewUrl}
                 alt={item.name}
                 className="w-full h-full object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -677,7 +668,10 @@ function EquippedPreview({
         const skinUrl = item?.type === 'driverSkin'
           ? (SKIN_ASSET_URLS[item.asset] ?? SKIN_ASSET_URLS[item.id] ?? null)
           : null;
-        const hasImage = !!(skinUrl || (item?.asset && item.asset.startsWith("/")));
+        const bgUrl = item?.type === 'background' ? (CARD_BACKGROUND_URLS[item.asset] ?? CARD_BACKGROUND_URLS[item.id] ?? null) : null;
+        const borderUrl = item?.type === 'border' ? (CARD_BORDER_URLS[item.asset] ?? CARD_BORDER_URLS[item.id] ?? null) : null;
+        const previewImgUrl = skinUrl ?? bgUrl ?? borderUrl ?? (item?.asset && item.asset.startsWith("/") ? item.asset : null);
+        const hasImage = !!previewImgUrl;
         return (
           <div
             key={key}
@@ -693,13 +687,12 @@ function EquippedPreview({
                     className={`w-full h-24 overflow-hidden rounded flex items-center justify-center ${onExpand ? 'cursor-zoom-in' : ''}`}
                     onClick={() => {
                       if (!onExpand) return;
-                      const url = skinUrl ?? (item.asset && item.asset.startsWith("/") ? item.asset : null);
-                      if (url) onExpand(url, item.name);
+                      if (previewImgUrl) onExpand(previewImgUrl, item.name);
                     }}
                     title={hasImage && onExpand ? "Click to expand" : undefined}
                   >
                     <img
-                      src={skinUrl ?? item.asset}
+                      src={previewImgUrl!}
                       alt={item.name}
                       className="w-full h-full object-contain"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -974,8 +967,10 @@ export default function Profile() {
 
   return (
     <>
-    <div className="min-h-screen text-white p-4 sm:p-8 flex flex-col items-center font-sans" style={{ backgroundImage: `url(${bgStandard1})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
-      <div className="w-full max-w-4xl space-y-6">
+    <div className="min-h-screen text-white p-4 sm:p-8 flex flex-col items-center font-sans relative" style={{ backgroundImage: `url(${bgStandard1})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
+      {/* Dark translucent overlay — dulls the background like other game screens */}
+      <div className="absolute inset-0 bg-black/65 backdrop-blur-[2px] pointer-events-none" />
+      <div className="relative z-10 w-full max-w-4xl space-y-6">
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between">
