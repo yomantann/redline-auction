@@ -42,7 +42,7 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle, ChevronDown
+  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle, ChevronDown, X
 } from "lucide-react";
 
 import { 
@@ -1861,6 +1861,12 @@ export default function Game() {
   const nailInCoffinShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_NAIL_IN_THE_COFFIN has been shown
   const bonusTrophiesAwardedRef = useRef<boolean>(false); // MP: prevent bonus trophy overlays from showing more than once per game
   const prevMpPlayersRef = useRef<any[]>([]); // MP: track previous player states for revival detection
+  // New streak / game-level trackers for 25 new moment flags
+  const p1ConsecutiveWinsRef = useRef<number>(0); // SP: consecutive wins in a row
+  const p1TotalWinsThisGameRef = useRef<number>(0); // SP: total wins this game
+  const p1FirstEliminationRoundRef = useRef<boolean>(false); // SP: was there a first elimination yet
+  const p1EarlyDominatorShownRef = useRef<boolean>(false); // SP: won rounds 1,2,3 shown once
+  const p1LastWinnerIdRef = useRef<string | null>(null); // SP: who won previous round
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -9853,20 +9859,30 @@ export default function Game() {
       {/* Expanded portrait overlay */}
       {expandedDialogPortrait && (
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] cursor-zoom-out"
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-[300] cursor-zoom-out"
           onClick={() => setExpandedDialogPortrait(null)}
         >
-          <div className="relative max-w-[90vw] max-h-[90vh]">
+          <div
+            className="relative inline-block overflow-hidden rounded-lg shadow-2xl cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              className="absolute top-2 right-2 z-10 text-white/70 hover:text-white bg-black/40 rounded-full p-1"
+              onClick={() => setExpandedDialogPortrait(null)}
+            >
+              <X size={18} />
+            </button>
             <img
               src={expandedDialogPortrait.url}
               alt="Driver Portrait"
-              className="max-h-[80vh] max-w-[80vw] object-contain rounded-lg shadow-2xl"
+              className="block max-h-[80vh] max-w-[80vw] object-contain rounded-lg"
             />
             {expandedDialogPortrait.skin && (
               <img
                 src={expandedDialogPortrait.skin}
                 alt="skin"
-                className="absolute inset-0 max-h-[80vh] max-w-[80vw] w-full h-full object-contain rounded-lg"
+                className="absolute inset-0 w-full h-full object-contain rounded-lg pointer-events-none"
               />
             )}
           </div>
