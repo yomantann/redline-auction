@@ -18,7 +18,7 @@
  */
 
 import type { EquippedCosmetics } from "@shared/schema";
-import { SKIN_ASSET_URLS, SKIN_DRIVER_REQUIREMENT } from "./skinAssets";
+import { SKIN_ASSET_URLS, SKIN_DRIVER_REQUIREMENT, CARD_BACKGROUND_URLS, CARD_BORDER_URLS } from "./skinAssets";
 
 // ─── Border Styles ────────────────────────────────────────────────────────────
 
@@ -64,6 +64,15 @@ export function getBorderStyle(
   equipped: EquippedCosmetics | undefined,
 ): React.CSSProperties | null {
   if (!equipped?.border || equipped.border === 'border_default') return null;
+  // Image-based borders (from generated CardBorders)
+  const imgUrl = CARD_BORDER_URLS[equipped.border];
+  if (imgUrl) {
+    return {
+      borderImage: `url(${imgUrl}) 30 round`,
+      borderWidth: '4px',
+      borderStyle: 'solid',
+    };
+  }
   return BORDER_STYLES[equipped.border] ?? null;
 }
 
@@ -72,6 +81,15 @@ export function getBackgroundStyle(
   equipped: EquippedCosmetics | undefined,
 ): React.CSSProperties | null {
   if (!equipped?.background || equipped.background === 'bg_default') return null;
+  // Image-based backgrounds (from generated CardBackground)
+  const imgUrl = CARD_BACKGROUND_URLS[equipped.background];
+  if (imgUrl) {
+    return {
+      backgroundImage: `url(${imgUrl})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+    };
+  }
   return BACKGROUND_STYLES[equipped.background] ?? null;
 }
 

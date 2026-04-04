@@ -558,7 +558,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     category: 'Mystical',
     target: 'Opponent',
     voteType: 'vote',
-    description: "All players vote on one of two fates for your chosen target. A: Target loses 15s next round  |  B: Target must bid at least 30s next round or forfeit. Majority wins. Ties go to A.",
+    description: "All players vote on one of two fates for your chosen target. A: Target loses 30s from their time bank immediately  |  B: Target's relic is consumed without effect. Majority wins. Ties go to A.",
     flavour: 'The table decides your fate.',
   },
   {
@@ -588,7 +588,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🔁',
     category: 'Spooky',
     target: 'Opponent',
-    description: "Choose one opponent. Their bid from the previous round is automatically replayed as their bid next round — they cannot change it. They hold until that exact time elapses and release automatically.",
+    description: "Choose one opponent. Their bid from the previous round is immediately deducted from their time bank — the past repeats, and the cost is instant. No effect if they have no bid history yet.",
     flavour: 'The past has a way of repeating.',
   },
   {
@@ -1014,7 +1014,7 @@ export default function Game() {
     timeLeft: number;
   }>>([]);
   // Ref to track when a bot in SP activates a vote relic (tribunal/conclave)
-  const pendingBotVoteRef = useRef<{ relicId: string; botId: string; botName: string; targetId?: string } | null>(null);
+  // Bot tribunal/conclave now apply immediate random effects — no vote ref needed
 
   // Singleplayer snapshot recording - write-only to database
   const recordSingleplayerSnapshot = async (
@@ -3886,18 +3886,45 @@ export default function Game() {
               break;
             }
             case 'tribunal': {
-              // Store in ref so vote UI is shown after setPlayers resolves
+              // Bots apply immediate random effect — no vote triggered
               const target = pickRandom(opponents);
               if (target) {
-                pendingBotVoteRef.current = { relicId: 'tribunal', botId: bot.id, botName: bot.name, targetId: target.id };
+                const choice = Math.random() < 0.5 ? 'A' : 'B';
+                if (choice === 'A') {
+                  target.remainingTime = Math.max(0, target.remainingTime - 30);
+                  setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', `${bot.name} sentenced ${target.name} — ${target.name} loses 30s immediately!`, 0), 200);
+                } else {
+                  target.relicConsumed = true;
+                  setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', `${bot.name} sentenced ${target.name} — ${target.name}'s relic was consumed!`, 0), 200);
+                }
               } else {
                 bot.relicConsumed = false;
               }
               break;
             }
             case 'conclave': {
-              // Store in ref so vote UI is shown after setPlayers resolves
-              pendingBotVoteRef.current = { relicId: 'conclave', botId: bot.id, botName: bot.name };
+              // Bots apply immediate random effect — no vote triggered
+              const conclaveChoice = ['A', 'B', 'C', 'D'][Math.floor(Math.random() * 4)];
+              if (conclaveChoice === 'A') {
+                next.forEach((p: any) => { if (!p.isEliminated && !p.isGhost) p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10; });
+                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE', `${bot.name} invoked the Conclave — all time banks halved!`, 0), 200);
+              } else if (conclaveChoice === 'B') {
+                (window as any).__conclaveSkipNextRound = true;
+                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE', `${bot.name} invoked the Conclave — next round will be skipped!`, 0), 200);
+              } else if (conclaveChoice === 'C') {
+                (window as any).__conclaveProtocolsAlwaysOn = true;
+                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE', `${bot.name} invoked the Conclave — protocols trigger every round!`, 0), 200);
+              } else {
+                const alive = next.filter((p: any) => !p.isEliminated && !p.isGhost);
+                if (alive.length >= 2) {
+                  const conclaveSorted = [...alive].sort((a: any, b: any) => a.tokens - b.tokens);
+                  const minTok = conclaveSorted[0].tokens;
+                  const penIds = new Set(conclaveSorted.filter((p: any) => p.tokens === minTok).slice(0, 2).map((p: any) => p.id));
+                  if (penIds.size < 2) penIds.add(conclaveSorted[1].id);
+                  next.forEach((p: any) => { if (penIds.has(p.id)) p.tokens = Math.max(0, p.tokens - 1); });
+                }
+                setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE', `${bot.name} invoked the Conclave — bottom 2 players lose a trophy!`, 0), 200);
+              }
               break;
             }
             default:
@@ -3908,17 +3935,7 @@ export default function Game() {
         return next;
       });
 
-      // After bot setPlayers: if a bot queued a vote relic, show the vote UI.
-      // Use a brief delay to allow React to flush the setPlayers updater before reading the ref.
-      setTimeout(() => {
-        if (pendingBotVoteRef.current) {
-          const voteData = pendingBotVoteRef.current;
-          pendingBotVoteRef.current = null;
-          setTimeout(() => {
-            fireRelicEffect(voteData.relicId, voteData.botId, voteData.targetId);
-          }, 100);
-        }
-      }, 50);
+      // After bot setPlayers: bots now apply tribunal/conclave effects immediately (no vote UI).
     }
 
     // Start timer at minimum bid time (penalty value)
@@ -9699,11 +9716,11 @@ export default function Game() {
                     : undefined;
                   const dialogSkinUrl = isDialogCurrentPlayer && myCosmetics ? getDriverSkinUrl(myCosmetics, dialogDriverId) : null;
                   return (
-                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20 relative">
+                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/20 relative flex-shrink-0">
                         {typeof selectedPlayerStats?.characterIcon === 'string' ? (
                             <img src={selectedPlayerStats.characterIcon} alt={selectedPlayerStats?.name} className="w-full h-full object-cover" />
                         ) : (
-                            <User />
+                            <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User /></div>
                         )}
                         {dialogSkinUrl && (
                           <img src={dialogSkinUrl} alt="skin" className="absolute inset-0 w-full h-full object-cover" />
@@ -9762,6 +9779,41 @@ export default function Game() {
                         );
                     })()}
                 </div>
+
+                {/* Driver Portrait — expandable full-size view */}
+                {typeof selectedPlayerStats?.characterIcon === 'string' && (
+                  (() => {
+                    const portraitSelf = (() => {
+                      const dialogPlayerId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
+                      const isDialogSelf = selectedPlayerStats?.id === dialogPlayerId;
+                      const dialogDriverId = isDialogSelf
+                        ? (isMultiplayer
+                            ? ((multiplayerGameState?.players.find(mp => mp.socketId === socket?.id) as any)?.selectedDriver ?? selectedCharacter?.id)
+                            : selectedCharacter?.id)
+                        : undefined;
+                      return isDialogSelf && myCosmetics ? getDriverSkinUrl(myCosmetics, dialogDriverId) : null;
+                    })();
+                    return (
+                      <div className="bg-white/5 rounded border border-white/10 overflow-hidden">
+                        <div className="text-[10px] text-zinc-500 uppercase tracking-widest px-3 pt-2">Driver Portrait</div>
+                        <div className="relative w-full max-h-64 flex items-center justify-center overflow-hidden p-2">
+                          <img
+                            src={selectedPlayerStats.characterIcon}
+                            alt={selectedPlayerStats.name}
+                            className="max-h-60 max-w-full object-contain rounded"
+                          />
+                          {portraitSelf && (
+                            <img
+                              src={portraitSelf}
+                              alt="skin"
+                              className="absolute inset-2 max-h-60 max-w-full object-contain rounded"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
 
                 {/* Stats Grid - Hidden if masked (time = -1) */}
                 {selectedPlayerStats?.remainingTime !== -1 && (
@@ -9878,6 +9930,7 @@ export default function Game() {
                 isDoubleTokens={isDoubleTokens}
                 isSystemFailure={cardSystemFailure}
                 isHyperClickActive={isHyperClickActive}
+                hideEliminated={variant === 'HAUNTED'}
                 isScrambled={(((isMultiplayer ? (p.id !== myPlayerId) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)) && abilitiesEnabled}
                 equippedCosmetics={isCurrentPlayerCard ? myCosmetics : undefined}
                 currentDriverId={myCurrentDriverId}

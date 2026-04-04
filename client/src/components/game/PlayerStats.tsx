@@ -37,13 +37,14 @@ interface PlayerStatsProps {
   children?: React.ReactNode; // Slot for animations
   onClick?: () => void;
   hideDetails?: boolean; // New prop to hide extra details
+  hideEliminated?: boolean; // When true, never show the ELIMINATED badge (used in Haunted mode)
   /** Equipped cosmetics for this player – applies border, background, and driver skin overlay */
   equippedCosmetics?: EquippedCosmetics;
   /** Active driver/character ID for this player – used to gate driver-specific skins */
   currentDriverId?: string;
 }
 
-export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, isScrambled, isHyperClickActive, children, onClick, hideDetails, equippedCosmetics, currentDriverId }: PlayerStatsProps) {
+export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, formatTime, peekActive, isDoubleTokens, isSystemFailure, isScrambled, isHyperClickActive, children, onClick, hideDetails, hideEliminated, equippedCosmetics, currentDriverId }: PlayerStatsProps) {
   // Default formatter if not provided
   const format = formatTime || ((s: number) => s.toFixed(1));
 
@@ -77,7 +78,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
         ? "bg-primary/5 border-primary/30 shadow-[0_0_15px_rgba(255,215,0,0.1)]" 
         : "bg-card/50 border-white/5",
       player.isGhost && "opacity-70 border-teal-500/40 bg-teal-950/20",
-      !player.isGhost && player.isEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
+      !player.isGhost && player.isEliminated && !hideEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
     style={{ ...backgroundStyle, ...borderStyle }}
@@ -148,7 +149,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
             )}
           </div>
           <div className="flex flex-col">
-            <span className={cn("font-display font-bold tracking-wide leading-tight", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isGhost && "text-teal-400", !player.isGhost && player.isEliminated && "text-red-500")}>
+            <span className={cn("font-display font-bold tracking-wide leading-tight", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isGhost && "text-teal-400", !player.isGhost && player.isEliminated && !hideEliminated && "text-red-500")}>
               {player.name}
             </span>
             {player.driverName && (
@@ -189,7 +190,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
               <Ghost size={10} /> GHOST
            </span>
         )}
-        {!player.isGhost && player.isEliminated && (
+        {!player.isGhost && player.isEliminated && !hideEliminated && (
             <span className="text-[10px] bg-red-950 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold">
              ELIMINATED
            </span>
