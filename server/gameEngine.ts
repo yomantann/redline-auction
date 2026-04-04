@@ -152,15 +152,12 @@ export interface GamePlayer {
   bidHistory?: number[];
   pendingLastWill?: { targetId: string; curseType: 'time' | 'trophy' };
   markedBy?: string;
-  echoForcedBid?: number;
   corruptRoundsLeft?: number;
   patternLockMinBid?: number;
   deathWishActive?: boolean;
   bloodPactActive?: boolean;
   cursedDiceActive?: boolean;
   finalWritActive?: boolean;      // Final Writ relic: this player auto-wins the final round
-  tribunalTimePenalty?: number;   // Tribunal option A: lose 30s at start of next round
-  tribunalForfeit?: boolean;      // Tribunal option B: forced to forfeit (skip) next round's bidding
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -817,46 +814,14 @@ function startBidding(lobbyCode: string) {
     }
   });
 
-  // --- TRIBUNAL B: FORFEIT — forced players release immediately at round start ---
-  if (game.settings.variant === 'HAUNTED') {
-    const minBid = getMinBidPenalty(game.gameDuration);
-    game.players.forEach(p => {
-      if (p.tribunalForfeit && !p.isEliminated && !p.isGhost) {
-        p.tribunalForfeit = false;
-        p.isHolding = false;
-        p.currentBid = minBid;
-        addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} TRIBUNAL B: forfeited bidding (auto-released)`, basic: true });
-      }
-    });
-  }
-
   game.botTargetBids = calculateBotTargetBids(game);
 
-  // --- ECHO: immediately lock bid for echo-affected players (no hold allowed) ---
-  if (game.settings.variant === 'HAUNTED') {
-    const minBid = getMinBidPenalty(game.gameDuration);
-    game.players.forEach(p => {
-      if (p.isEliminated || p.isGhost || p.echoForcedBid === undefined) return;
-      const effectiveForcedBid = Math.max(p.echoForcedBid, p.patternLockMinBid ?? 0, minBid);
-      p.currentBid = Math.round(effectiveForcedBid * 10) / 10;
-      p.isHolding = false;
-      addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} ECHO: bid locked at ${p.currentBid.toFixed(1)}s (cannot hold)`, basic: true });
-      log(`Echo: ${p.name} bid locked at ${p.currentBid.toFixed(1)}s in lobby ${lobbyCode}`, "game");
-    });
-  }
-
-  // --- ECHO / PATTERN LOCK: override bot target bids ---
+  // --- PATTERN LOCK: override bot target bids ---
   if (game.settings.variant === 'HAUNTED') {
     const minBid = getMinBidPenalty(game.gameDuration);
     game.players.forEach(p => {
       if (!p.isBot || p.isEliminated || p.isGhost) return;
-      if (p.echoForcedBid !== undefined) {
-        // Bot targets max(echoForcedBid, patternLockMinBid) so both constraints are satisfied
-        const effectiveForcedBid = Math.max(p.echoForcedBid, p.patternLockMinBid ?? 0);
-        const holdTarget = Math.max(0, effectiveForcedBid - minBid);
-        game.botTargetBids[p.id] = holdTarget;
-        log(`Echo override: bot ${p.name} target hold = ${holdTarget.toFixed(1)}s in lobby ${lobbyCode}`, "game");
-      } else if (p.patternLockMinBid !== undefined) {
+      if (p.patternLockMinBid !== undefined) {
         // Bot cannot release before patternLockMinBid; if current target is below it, raise it
         const holdMin = Math.max(0, p.patternLockMinBid - minBid);
         if ((game.botTargetBids[p.id] ?? 0) < holdMin) {
@@ -2358,9 +2323,7 @@ function endRound(lobbyCode: string) {
   // --- HAUNTED: Clear per-round relic flags ---
   if (game.settings.variant === 'HAUNTED') {
     game.players.forEach(p => {
-      p.echoForcedBid = undefined;
       p.patternLockMinBid = undefined;
-      // Note: tribunalTimePenalty and tribunalForfeit are applied at next round start, cleared there
     });
     // Clear resolved vote state; dequeue next if any
     if (game.pendingVote?.resolved) {
@@ -2845,31 +2808,6 @@ function startWaitingForReady(lobbyCode: string) {
   game.eliminatedThisRound = [];
   game.isDoubleTokensRound = false;
 
-  // --- TRIBUNAL DEFERRED EFFECTS: apply time penalty at start of round ---
-  if (game.settings.variant === 'HAUNTED') {
-    game.players.forEach(p => {
-      if (p.tribunalTimePenalty && p.tribunalTimePenalty > 0 && !p.isEliminated && !p.isGhost) {
-        const penalty = p.tribunalTimePenalty;
-        p.remainingTime = Math.max(0, p.remainingTime - penalty);
-        p.tribunalTimePenalty = undefined;
-        addGameLogEntry(game, {
-          type: 'impact',
-          playerId: p.id,
-          playerName: p.name,
-          message: `${p.name} TRIBUNAL A: -${penalty}s time penalty from last round's vote`,
-          value: -penalty,
-          basic: true,
-        });
-      }
-      // Tribunal B: forced forfeit — auto-submit zero bid this round
-      if (p.tribunalForfeit && !p.isEliminated && !p.isGhost) {
-        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL: FORFEIT', message: `${p.name} is forced to forfeit bidding this round!`, victimId: p.id });
-        addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} TRIBUNAL B: forced forfeit this round`, basic: true });
-        p.tribunalForfeit = false;
-      }
-    });
-  }
-  
   game.overclockClickCounts = {};
   
   // --- MP: BOT RELIC ACTIVATION ---
@@ -2903,19 +2841,19 @@ function startWaitingForReady(lobbyCode: string) {
               botVotes[b.id] = Math.random() < 0.5 ? 'A' : 'B';
             });
             botVotes[bot.id] = Math.random() < 0.5 ? 'A' : 'B';
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot, R1): vote started targeting ${target.name}`, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL VOTE STARTED', message: `${bot.name} called a Tribunal against ${target.name}! Vote now.`, victimId: target.id });
             const newVote: PendingRelicVote = {
               relicId: 'tribunal',
               activatorId: bot.id,
               targetId: target.id,
               options: [
-                { id: 'A', label: `${target.name} loses 30s next round` },
-                { id: 'B', label: `${target.name} is forced to forfeit bidding next round` },
+                { id: 'A', label: `${target.name} loses 30s from time bank immediately` },
+                { id: 'B', label: `${target.name}'s relic is consumed without effect` },
               ],
               votes: botVotes,
               deadline: Date.now() + 30000,
             };
-            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot, R1): vote started targeting ${target.name}`, basic: true });
-            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL VOTE STARTED', message: `${bot.name} called a Tribunal against ${target.name}! Vote now.`, victimId: target.id });
             if (game.pendingVote && !game.pendingVote.resolved) {
               if (!game.voteQueue) game.voteQueue = [];
               game.voteQueue.push(newVote);
@@ -3101,8 +3039,8 @@ function startWaitingForReady(lobbyCode: string) {
           const echoTarget = pickRandom(opponents.filter(p => (p.bidHistory?.length ?? 0) > 0));
           if (echoTarget && echoTarget.bidHistory && echoTarget.bidHistory.length > 0) {
             const lastBid = echoTarget.bidHistory[echoTarget.bidHistory.length - 1];
-            echoTarget.echoForcedBid = lastBid;
-            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} ECHO (bot): ${echoTarget.name} forced to replay ${lastBid.toFixed(1)}s`, basic: true });
+            echoTarget.remainingTime = Math.max(0, echoTarget.remainingTime - lastBid);
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} ECHO (bot): ${echoTarget.name} -${lastBid.toFixed(1)}s from time bank`, basic: true });
           } else {
             bot.relicConsumed = false; // no valid history target
           }
@@ -3156,8 +3094,8 @@ function startWaitingForReady(lobbyCode: string) {
               activatorId: bot.id,
               targetId: target.id,
               options: [
-                { id: 'A', label: `${target.name} loses 30s next round` },
-                { id: 'B', label: `${target.name} is forced to forfeit bidding next round` },
+                { id: 'A', label: `${target.name} loses 30s from time bank immediately` },
+                { id: 'B', label: `${target.name}'s relic is consumed without effect` },
               ],
               votes: botVotes,
               deadline: Date.now() + 30000,
@@ -3688,9 +3626,8 @@ export function playerReleaseBid(lobbyCode: string, socketId: string) {
   // During bidding: lock in the bid
   if (game.phase === 'bidding' && player.isHolding) {
     // PATTERN LOCK: block release if player hasn't reached their forced minimum bid yet
-    // Also accounts for echoForcedBid — effective minimum is max(patternLockMinBid, echoForcedBid)
     if (game.settings.variant === 'HAUNTED' && player.patternLockMinBid !== undefined) {
-      const effectiveMinBid = Math.max(player.patternLockMinBid, player.echoForcedBid ?? 0);
+      const effectiveMinBid = player.patternLockMinBid;
       const currentBidValue = player.currentBid ?? 0;
       if (currentBidValue < effectiveMinBid) {
         // Reject the release — player must keep holding
@@ -3883,7 +3820,6 @@ export function broadcastGameState(lobbyCode: string) {
       protocolWinsEarned: p.protocolWinsEarned,
       // Relic state fields
       markedBy: p.markedBy || null,
-      echoForcedBid: p.echoForcedBid ?? null,
       patternLockMinBid: p.patternLockMinBid ?? null,
       deathWishActive: p.deathWishActive || false,
       bloodPactActive: p.bloodPactActive || false,
@@ -3891,8 +3827,6 @@ export function broadcastGameState(lobbyCode: string) {
       corruptRoundsLeft: p.corruptRoundsLeft ?? null,
       pendingLastWill: p.pendingLastWill || null,
       finalWritActive: p.finalWritActive || false,
-      tribunalTimePenalty: p.tribunalTimePenalty ?? null,
-      tribunalForfeit: p.tribunalForfeit ?? false,
     })),
     roundWinner: game.roundWinner,
     eliminatedThisRound: game.eliminatedThisRound,
@@ -3935,6 +3869,11 @@ export function activateRelicMP(
   if (!activator) return { success: false, error: 'Player not found' };
   if (activator.relicConsumed) return { success: false, error: 'Relic already consumed' };
   if (game.settings.variant !== 'HAUNTED') return { success: false, error: 'Not haunted mode' };
+
+  // Tribunal and Conclave votes can only be started at the beginning of a round
+  if ((relicId === 'tribunal' || relicId === 'conclave') && game.phase !== 'waiting_for_ready') {
+    return { success: false, error: 'Tribunal and Conclave can only be used at the start of a round' };
+  }
 
   activator.relicConsumed = true;
 
@@ -4033,9 +3972,9 @@ export function activateRelicMP(
       if (target) {
         const lastBid = target.bidHistory?.length ? target.bidHistory[target.bidHistory.length - 1] : null;
         if (lastBid != null) {
-          target.echoForcedBid = lastBid;
-          addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} forced to replay ${lastBid.toFixed(1)}s next round`, basic: true });
-          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO', message: `${activator.name} used Echo — ${target.name} must replay their last bid (${lastBid.toFixed(1)}s) next round!`, victimId: target.id });
+          target.remainingTime = Math.max(0, target.remainingTime - lastBid);
+          addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} -${lastBid.toFixed(1)}s from time bank`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO', message: `${activator.name} used Echo — ${target.name} lost ${lastBid.toFixed(1)}s from their time bank!`, victimId: target.id });
         } else {
           addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} has no bid history — no effect`, basic: true });
           if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO: NO HISTORY', message: `${activator.name} used Echo on ${target.name} — no bid history, no effect.` });
@@ -4159,8 +4098,8 @@ export function activateRelicMP(
         activatorId: activator.id,
         targetId: target.id,
         options: [
-          { id: 'A', label: `${target.name} loses 30s next round` },
-          { id: 'B', label: `${target.name} is forced to forfeit bidding next round` },
+          { id: 'A', label: `${target.name} loses 30s from time bank immediately` },
+          { id: 'B', label: `${target.name}'s relic is consumed without effect` },
         ],
         votes,
         deadline: Date.now() + 30000,
@@ -4276,11 +4215,13 @@ function resolveVoteRelic(lobbyCode: string) {
     const target = game.players.find(p => p.id === vote.targetId);
     if (target) {
       if (winner.id === 'A') {
-        target.tribunalTimePenalty = (target.tribunalTimePenalty ?? 0) + 30;
-        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL A: -30s at start of next round`, value: -30, basic: true });
+        target.remainingTime = Math.max(0, target.remainingTime - 30);
+        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL A: -30s from time bank immediately`, value: -30, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL: TIME DEDUCTED', message: `${target.name} loses 30s from their time bank!`, victimId: target.id });
       } else {
-        target.tribunalForfeit = true;
-        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL B: forced to forfeit next round's bid`, basic: true });
+        target.relicConsumed = true;
+        addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL B: relic consumed without effect`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL: RELIC CONSUMED', message: `${target.name}'s relic has been consumed without effect!`, victimId: target.id });
       }
     }
   } else if (vote.relicId === 'conclave') {
@@ -4334,15 +4275,22 @@ function resolveVoteRelic(lobbyCode: string) {
   }
 
   // Dequeue next vote if one is waiting
-  if (game.voteQueue && game.voteQueue.length > 0) {
+  while (game.voteQueue && game.voteQueue.length > 0) {
     const nextVote = game.voteQueue.shift()!;
+    // Skip tribunal/conclave votes that were queued but can no longer start (not at round start)
+    if ((nextVote.relicId === 'tribunal' || nextVote.relicId === 'conclave') && game.phase !== 'waiting_for_ready') {
+      addGameLogEntry(game, { type: 'ability', message: `Queued ${nextVote.relicId} vote discarded — no longer at round start`, basic: true });
+      continue;
+    }
     // Refresh deadline and reset resolved flag
     nextVote.deadline = Date.now() + 30000;
     nextVote.resolved = false;
     game.pendingVote = nextVote;
     addGameLogEntry(game, { type: 'ability', message: `Next queued vote starting: ${nextVote.relicId}`, basic: true });
     setTimeout(() => resolveVoteRelic(lobbyCode), 31000);
-  } else {
+    break;
+  }
+  if (!game.pendingVote || game.pendingVote.resolved) {
     game.pendingVote = null;
   }
 

@@ -36,6 +36,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { SKIN_ASSET_URLS } from "@/lib/skinAssets";
+import bgStandard1 from "@/assets/generated_images/BG/bg_standard_1.png";
 
 let _stripePublishableKey: string | null = null;
 const stripePromise = fetch('/api/config')
@@ -973,7 +974,7 @@ export default function Profile() {
 
   return (
     <>
-    <div className="min-h-screen bg-zinc-950 text-white p-4 sm:p-8 flex flex-col items-center font-sans">
+    <div className="min-h-screen text-white p-4 sm:p-8 flex flex-col items-center font-sans" style={{ backgroundImage: `url(${bgStandard1})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
       <div className="w-full max-w-4xl space-y-6">
 
         {/* ── Header ── */}
@@ -1064,7 +1065,7 @@ export default function Profile() {
         </Card>
 
         {/* ── Equipped Cosmetics Preview ── */}
-        <Card className="bg-zinc-900/50 border-white/10">
+        <Card className="bg-gradient-to-r from-yellow-950/40 to-primary/10 border-primary/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-zinc-400">
               <Sparkles size={16} className="text-primary" /> CURRENTLY EQUIPPED
@@ -1244,7 +1245,7 @@ export default function Profile() {
         </Tabs>
 
         {/* ── Buy Credits ── */}
-        <Card className="bg-zinc-900/30 border-dashed border-white/10">
+        <Card className="bg-gradient-to-r from-yellow-950/40 to-primary/10 border-primary/30">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-3">
               <div>
