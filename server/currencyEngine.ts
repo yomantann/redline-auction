@@ -134,12 +134,12 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
 
   // ── Backgrounds ─────────────────────────────────────────────────────────────
   {
-    id: 'bg_default',
-    name: 'Dark Grid',
+    id: 'molten_b',
+    name: 'Molten',
     type: 'background',
     cost: 0,
     rarity: 'common',
-    asset: '',
+    asset: 'molten_b',
     earnableOnly: false,
   },
   {
@@ -171,15 +171,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   // Skins are driver-specific: driverIds indicates which character must be active
   // for the skin overlay to render. Owning a skin is permanent; it just won't
   // visually apply when playing a different driver.
-  {
-    id: 'skin_default',
-    name: 'Stock Chassis',
-    type: 'driverSkin',
-    cost: 0,
-    rarity: 'common',
-    asset: '',
-    earnableOnly: false,
-  },
 
   // ── Accuser Skins ───────────────────────────────────────────────────────────
   {
