@@ -2997,6 +2997,10 @@ function startWaitingForReady(lobbyCode: string) {
               ghost.ghostAbility = null;
               ghost.ghostAbilityUsed = false;
               ghost.possessionRoundsLeft = undefined;
+              if (game.phase === 'bidding') {
+                ghost.isHolding = true;
+                ghost.currentBid = 0;
+              }
               addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived by bot Séance with ${seanceReviveTime.toFixed(1)}s!`, basic: true });
             });
             bot.tokens += 1;
@@ -4058,6 +4062,11 @@ export function activateRelicMP(
         ghost.ghostAbility = null;
         ghost.ghostAbilityUsed = false;
         ghost.possessionRoundsLeft = undefined;
+        // Allow revived players to immediately participate if bidding is already in progress
+        if (game.phase === 'bidding') {
+          ghost.isHolding = true;
+          ghost.currentBid = 0;
+        }
         addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived by Séance with ${seanceReviveTime.toFixed(1)}s!`, basic: true });
       });
       activator.tokens += 1;
