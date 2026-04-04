@@ -77,6 +77,11 @@ import borderAbyssalDepth from "../assets/generated_images/CardBorders/abyssal d
 import borderQuantom from "../assets/generated_images/CardBorders/quantom.png";
 import borderStaticOverload from "../assets/generated_images/CardBorders/static overload.png";
 
+// ── Logos ─────────────────────────────────────────────────────────────────────
+import logoNeonRed from "../assets/generated_images/logos/redline_auction_futuristic_logo_red_neon.png";
+import logoAbstractSymbol from "../assets/generated_images/logos/redline_auction_abstract_symbol_logo.png";
+import logoTypography from "../assets/generated_images/logos/redline_auction_typography_logo.png";
+
 // ─── Maps ────────────────────────────────────────────────────────────────────
 
 /** Resolved image URL for each purchaseable skin cosmetic ID. */
@@ -146,4 +151,11 @@ export const CARD_BORDER_URLS: Record<string, string> = {
   border_abyssal_depth:  borderAbyssalDepth,
   border_quantum:        borderQuantom,
   border_static_overload: borderStaticOverload,
+};
+
+/** Logo image URLs (by catalog ID) */
+export const LOGO_ASSET_URLS: Record<string, string> = {
+  logo_neon_red:      logoNeonRed,
+  logo_abstract:      logoAbstractSymbol,
+  logo_typography:    logoTypography,
 };

@@ -985,6 +985,7 @@ export default function Game() {
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string, visibility?: string }[]>([]);
   
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<Player | null>(null);
+  const [expandedDialogPortrait, setExpandedDialogPortrait] = useState<{ url: string; skin?: string | null } | null>(null);
 
   // Ghost ability state (Haunted mode)
   const [relicModalOpen, setRelicModalOpen] = useState(false);             // Relic activation modal open
@@ -3003,7 +3004,7 @@ export default function Game() {
             ghost.isGhost = false;
             ghost.remainingTime = seanceReviveTime;
             ghost.ghostImage = undefined;
-            ghost.characterIcon = undefined;
+            ghost.characterIcon = getDriverCharIcon(ghost);
             ghost.ghostAbility = null;
             ghost.ghostAbilityUsed = false;
             ghost.possessionRoundsLeft = undefined;
@@ -3803,7 +3804,7 @@ export default function Game() {
                   ghost.isGhost = false;
                   ghost.remainingTime = reviveTime;
                   ghost.ghostImage = undefined;
-                  ghost.characterIcon = undefined;
+                  ghost.characterIcon = getDriverCharIcon(ghost);
                   ghost.ghostAbility = null;
                   ghost.ghostAbilityUsed = false;
                   ghost.possessionRoundsLeft = undefined;
@@ -9716,7 +9717,15 @@ export default function Game() {
                     : undefined;
                   const dialogSkinUrl = isDialogCurrentPlayer && myCosmetics ? getDriverSkinUrl(myCosmetics, dialogDriverId) : null;
                   return (
-                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/20 relative flex-shrink-0">
+                    <div
+                      className="w-14 h-14 rounded-lg overflow-hidden border border-white/20 relative flex-shrink-0 cursor-zoom-in"
+                      title={typeof selectedPlayerStats?.characterIcon === 'string' ? 'Click to expand portrait' : undefined}
+                      onClick={() => {
+                        if (typeof selectedPlayerStats?.characterIcon === 'string') {
+                          setExpandedDialogPortrait({ url: selectedPlayerStats.characterIcon, skin: dialogSkinUrl });
+                        }
+                      }}
+                    >
                         {typeof selectedPlayerStats?.characterIcon === 'string' ? (
                             <img src={selectedPlayerStats.characterIcon} alt={selectedPlayerStats?.name} className="w-full h-full object-cover" />
                         ) : (
@@ -9780,41 +9789,6 @@ export default function Game() {
                     })()}
                 </div>
 
-                {/* Driver Portrait — expandable full-size view */}
-                {typeof selectedPlayerStats?.characterIcon === 'string' && (
-                  (() => {
-                    const portraitSelf = (() => {
-                      const dialogPlayerId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
-                      const isDialogSelf = selectedPlayerStats?.id === dialogPlayerId;
-                      const dialogDriverId = isDialogSelf
-                        ? (isMultiplayer
-                            ? ((multiplayerGameState?.players.find(mp => mp.socketId === socket?.id) as any)?.selectedDriver ?? selectedCharacter?.id)
-                            : selectedCharacter?.id)
-                        : undefined;
-                      return isDialogSelf && myCosmetics ? getDriverSkinUrl(myCosmetics, dialogDriverId) : null;
-                    })();
-                    return (
-                      <div className="bg-white/5 rounded border border-white/10 overflow-hidden">
-                        <div className="text-[10px] text-zinc-500 uppercase tracking-widest px-3 pt-2">Driver Portrait</div>
-                        <div className="relative w-full max-h-64 flex items-center justify-center overflow-hidden p-2">
-                          <img
-                            src={selectedPlayerStats.characterIcon}
-                            alt={selectedPlayerStats.name}
-                            className="max-h-60 max-w-full object-contain rounded"
-                          />
-                          {portraitSelf && (
-                            <img
-                              src={portraitSelf}
-                              alt="skin"
-                              className="absolute inset-2 max-h-60 max-w-full object-contain rounded"
-                            />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()
-                )}
-
                 {/* Stats Grid - Hidden if masked (time = -1) */}
                 {selectedPlayerStats?.remainingTime !== -1 && (
                     <div className="grid grid-cols-2 gap-3">
@@ -9875,6 +9849,29 @@ export default function Game() {
             </div>
         </DialogContent>
       </Dialog>
+
+      {/* Expanded portrait overlay */}
+      {expandedDialogPortrait && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] cursor-zoom-out"
+          onClick={() => setExpandedDialogPortrait(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]">
+            <img
+              src={expandedDialogPortrait.url}
+              alt="Driver Portrait"
+              className="max-h-[80vh] max-w-[80vw] object-contain rounded-lg shadow-2xl"
+            />
+            {expandedDialogPortrait.skin && (
+              <img
+                src={expandedDialogPortrait.skin}
+                alt="skin"
+                className="absolute inset-0 max-h-[80vh] max-w-[80vw] w-full h-full object-contain rounded-lg"
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 min-h-[600px]">
         {/* Main Game Area */}

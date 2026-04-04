@@ -35,7 +35,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { SKIN_ASSET_URLS, CARD_BACKGROUND_URLS, CARD_BORDER_URLS } from "@/lib/skinAssets";
+import { SKIN_ASSET_URLS, CARD_BACKGROUND_URLS, CARD_BORDER_URLS, LOGO_ASSET_URLS } from "@/lib/skinAssets";
 import bgStandard1 from "@/assets/generated_images/BG/bg_standard_redline.png";
 
 let _stripePublishableKey: string | null = null;
@@ -143,10 +143,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   // ── Cosmetic milestones ────────────────────────────────────────────────────
   {
     id: 'milestone_10_wins',
-    cosmeticId: 'logo_apex',
     creditReward: 500,
     label: 'Win 10 total games across any mode',
-    reward: 'Apex Legend logo + 500 credits',
+    reward: '500 credits',
     goal: 10,
     getProgress: (p) =>
       Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
@@ -498,7 +497,8 @@ function CosmeticCard({
   const skinUrl = item.type === 'driverSkin' ? (SKIN_ASSET_URLS[item.asset] ?? SKIN_ASSET_URLS[item.id] ?? null) : null;
   const bgUrl = item.type === 'background' ? (CARD_BACKGROUND_URLS[item.asset] ?? CARD_BACKGROUND_URLS[item.id] ?? null) : null;
   const borderUrl = item.type === 'border' ? (CARD_BORDER_URLS[item.asset] ?? CARD_BORDER_URLS[item.id] ?? null) : null;
-  const previewUrl = skinUrl ?? bgUrl ?? borderUrl ?? (item.asset && item.asset.startsWith("/") ? item.asset : null);
+  const logoUrl = item.type === 'logo' ? (LOGO_ASSET_URLS[item.asset] ?? LOGO_ASSET_URLS[item.id] ?? (item.asset && item.asset.startsWith('/') ? item.asset : null)) : null;
+  const previewUrl = skinUrl ?? bgUrl ?? borderUrl ?? logoUrl ?? (item.asset && item.asset.startsWith("/") ? item.asset : null);
   const hasExpandableImage = !!previewUrl;
   return (
     <div
@@ -670,7 +670,8 @@ function EquippedPreview({
           : null;
         const bgUrl = item?.type === 'background' ? (CARD_BACKGROUND_URLS[item.asset] ?? CARD_BACKGROUND_URLS[item.id] ?? null) : null;
         const borderUrl = item?.type === 'border' ? (CARD_BORDER_URLS[item.asset] ?? CARD_BORDER_URLS[item.id] ?? null) : null;
-        const previewImgUrl = skinUrl ?? bgUrl ?? borderUrl ?? (item?.asset && item.asset.startsWith("/") ? item.asset : null);
+        const logoUrl = item?.type === 'logo' ? (LOGO_ASSET_URLS[item.asset] ?? LOGO_ASSET_URLS[item.id] ?? (item?.asset && item.asset.startsWith('/') ? item.asset : null)) : null;
+        const previewImgUrl = skinUrl ?? bgUrl ?? borderUrl ?? logoUrl ?? (item?.asset && item.asset.startsWith("/") ? item.asset : null);
         const hasImage = !!previewImgUrl;
         return (
           <div
@@ -908,7 +909,7 @@ export default function Profile() {
   };
 
   const filteredCosmetics = cosmetics.filter(
-    (c) => (filterType === "all" || c.type === filterType) && !c.limitedTime,
+    (c) => (filterType === "all" || c.type === filterType) && !c.limitedTime && c.id !== 'logo_default' && c.id !== 'border_default',
   );
 
   const limitedTimeCosmetics = cosmetics.filter(

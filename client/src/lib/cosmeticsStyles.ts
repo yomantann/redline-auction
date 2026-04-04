@@ -18,7 +18,7 @@
  */
 
 import type { EquippedCosmetics } from "@shared/schema";
-import { SKIN_ASSET_URLS, SKIN_DRIVER_REQUIREMENT, CARD_BACKGROUND_URLS, CARD_BORDER_URLS } from "./skinAssets";
+import { SKIN_ASSET_URLS, SKIN_DRIVER_REQUIREMENT, CARD_BACKGROUND_URLS, CARD_BORDER_URLS, LOGO_ASSET_URLS } from "./skinAssets";
 
 // ─── Border Styles ────────────────────────────────────────────────────────────
 
@@ -125,9 +125,9 @@ export function getLogoUrl(
 ): string | null {
   if (!equipped?.logo || equipped.logo === 'logo_default') return null;
   const LOGO_URLS: Record<string, string> = {
-    logo_redline:  '/cosmetics/logos/redline_crest.png',
-    logo_circuit:  '/cosmetics/logos/circuit_breaker.png',
-    logo_apex:     '/cosmetics/logos/apex_legend.png',
+    logo_redline:    '/cosmetics/logos/redline_crest.png',
+    logo_circuit:    '/cosmetics/logos/circuit_breaker.png',
+    ...LOGO_ASSET_URLS,
   };
   return LOGO_URLS[equipped.logo] ?? null;
 }

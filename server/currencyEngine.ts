@@ -71,13 +71,31 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     earnableOnly: false,
   },
   {
-    id: 'logo_apex',
-    name: 'Apex Legend',
+    id: 'logo_neon_red',
+    name: 'Neon Red',
     type: 'logo',
-    cost: 0,
-    rarity: 'legendary',
-    asset: '/cosmetics/logos/apex_legend.png',
-    earnableOnly: true,
+    cost: 5000,
+    rarity: 'rare',
+    asset: 'logo_neon_red',
+    earnableOnly: false,
+  },
+  {
+    id: 'logo_abstract',
+    name: 'Abstract Symbol',
+    type: 'logo',
+    cost: 5000,
+    rarity: 'rare',
+    asset: 'logo_abstract',
+    earnableOnly: false,
+  },
+  {
+    id: 'logo_typography',
+    name: 'Typography',
+    type: 'logo',
+    cost: 5000,
+    rarity: 'rare',
+    asset: 'logo_typography',
+    earnableOnly: false,
   },
 
   // ── Borders ────────────────────────────────────────────────────────────────
@@ -488,7 +506,6 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   // ── Cosmetic milestones (legacy) ────────────────────────────────────────────
   {
     id: 'milestone_10_wins',
-    cosmeticId: 'logo_apex',
     creditReward: 500,
     description: 'Win 10 total games across any mode.',
     check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 10,
