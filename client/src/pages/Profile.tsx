@@ -358,6 +358,39 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
     goal: 10,
     getProgress: (p) => (p.ownedCosmetics as string[]).length,
   },
+  // ── Moment Flag milestones ──────────────────────────────────────────────────
+  {
+    id: 'milestone_flags_10',
+    creditReward: 150,
+    label: 'Earn 10 lifetime moment flags',
+    reward: '150 credits',
+    goal: 10,
+    getProgress: (p) => (p.convertedMomentFlags ?? 0),
+  },
+  {
+    id: 'milestone_flags_50',
+    creditReward: 400,
+    label: 'Earn 50 lifetime moment flags',
+    reward: '400 credits',
+    goal: 50,
+    getProgress: (p) => (p.convertedMomentFlags ?? 0),
+  },
+  {
+    id: 'milestone_flags_100',
+    creditReward: 750,
+    label: 'Earn 100 lifetime moment flags',
+    reward: '750 credits',
+    goal: 100,
+    getProgress: (p) => (p.convertedMomentFlags ?? 0),
+  },
+  {
+    id: 'milestone_flags_250',
+    creditReward: 1500,
+    label: 'Earn 250 lifetime moment flags',
+    reward: '1,500 credits',
+    goal: 250,
+    getProgress: (p) => (p.convertedMomentFlags ?? 0),
+  },
 ];
 
 // ─── API helpers ───────────────────────────────────────────────────────────────
@@ -585,6 +618,15 @@ function CosmeticCard({
       ) : item.earnableOnly ? (
         <Button size="sm" variant="ghost" disabled className="text-xs opacity-50">
           <Lock size={12} className="mr-1" /> Earn only
+        </Button>
+      ) : item.cost === 0 ? (
+        <Button
+          size="sm"
+          variant="default"
+          className="text-xs bg-green-600 hover:bg-green-500 text-white"
+          onClick={() => onPurchase(item.id)}
+        >
+          <ShoppingBag size={12} className="mr-1" /> Claim Free
         </Button>
       ) : (
         <Button
@@ -1034,7 +1076,7 @@ export default function Profile() {
         </Card>
 
         {/* ── Milestones ── */}
-        <Card className="bg-zinc-900/50 border-white/10">
+        <Card className="bg-purple-950/20 border-purple-800/30">
           <CardHeader
             className="cursor-pointer select-none"
             onClick={() => setMilestonesExpanded((v) => !v)}
