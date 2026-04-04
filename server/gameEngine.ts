@@ -2841,8 +2841,6 @@ function startWaitingForReady(lobbyCode: string) {
               botVotes[b.id] = Math.random() < 0.5 ? 'A' : 'B';
             });
             botVotes[bot.id] = Math.random() < 0.5 ? 'A' : 'B';
-            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot, R1): vote started targeting ${target.name}`, basic: true });
-            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL VOTE STARTED', message: `${bot.name} called a Tribunal against ${target.name}! Vote now.`, victimId: target.id });
             const newVote: PendingRelicVote = {
               relicId: 'tribunal',
               activatorId: bot.id,
@@ -2854,6 +2852,8 @@ function startWaitingForReady(lobbyCode: string) {
               votes: botVotes,
               deadline: Date.now() + 30000,
             };
+            addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot, R1): vote started targeting ${target.name}`, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL VOTE STARTED', message: `${bot.name} called a Tribunal against ${target.name}! Vote now.`, victimId: target.id });
             if (game.pendingVote && !game.pendingVote.resolved) {
               if (!game.voteQueue) game.voteQueue = [];
               game.voteQueue.push(newVote);
