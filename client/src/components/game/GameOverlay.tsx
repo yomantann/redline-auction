@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, AlertTriangle, Play, Skull, Zap, TrendingUp, Crosshair, Flame, Hourglass, X, PartyPopper, Martini, Scale, Lightbulb, Sparkles, Meh, Award, Lock, Crown, HeartPulse, Ghost, Orbit, Rocket, History, Bug, Bird, Axe, Waves, CircleDot, Swords, BatteryFull, Timer, Repeat2, Star, Shield, Gauge, Target, BarChart3, Bomb, Anchor } from "lucide-react";
-
+import { Trophy, AlertTriangle, Play, Skull, Zap, TrendingUp, Crosshair, Flame, Hourglass, X, PartyPopper, Martini, Scale, Lightbulb, Sparkles, Meh, Award, Lock, Crown, HeartPulse, Ghost, Orbit, Rocket, History, Bug, Bird, Axe } from "lucide-react";
 export type OverlayType = 
   | "round_start" 
   | "round_win" 
@@ -33,32 +32,6 @@ export type OverlayType =
   | "bio_event"    
   | "bonus_trophy"
   | "persistent_ghost"
-  // ── 25 new moment flags ──────────────────────────────────────────────────
-  | "marathon_bid"          // bid > 90s
-  | "overtime_legend"       // bid > 130s
-  | "speed_round"           // won with bid ≤ 2s
-  | "high_noon"             // bid within 0.5s of 60s
-  | "photo_finish"          // won with margin < 0.2s
-  | "blowout"               // won with margin > 30s
-  | "glass_cannon"          // won with < 5s remaining
-  | "banked"                // won with > 150s remaining
-  | "zero_hour"             // won when starting time ≤ 20s
-  | "double_down"           // won 2 consecutive rounds
-  | "triple_crown"          // won 3 consecutive rounds
-  | "dominator"             // won 4+ rounds this game
-  | "no_mercy"              // won in a duel (2 non-eliminated players)
-  | "first_blood_flag"      // first elimination of the game
-  | "final_survivor"        // reached final round without being eliminated
-  | "protocol_breaker"      // won despite a harmful protocol
-  | "power_surge"           // won while leading in both tokens AND time
-  | "comeback_arc"          // won while trailing in tokens
-  | "time_warp"             // net time gain this round was positive
-  | "bounty"                // beat the current token leader (MP)
-  | "hidden_lucky_seven"    // bid within 0.2s of 7.0s
-  | "hidden_full_house"     // all non-eliminated players bid within 5s
-  | "hidden_efficiency"     // remaining > 3× bid after winning
-  | "hidden_early_dominator" // won rounds 1, 2 AND 3
-  | "hidden_veteran"        // still non-eliminated at round 8+
   | null;
 
 interface OverlayItem {
@@ -114,33 +87,6 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "bonus_trophy": return <Trophy size={48} className="text-yellow-400" />;
       case "persistent_ghost": return <Ghost size={48} className="text-teal-300" />;
 
-      // ── New moment flag icons ─────────────────────────────────────────────
-      case "marathon_bid":        return <Waves size={48} className="text-orange-400" />;
-      case "overtime_legend":     return <Flame size={48} className="text-rose-500" />;
-      case "speed_round":         return <Rocket size={48} className="text-cyan-400" />;
-      case "high_noon":           return <CircleDot size={48} className="text-yellow-500" />;
-      case "photo_finish":        return <Crosshair size={48} className="text-fuchsia-400" />;
-      case "blowout":             return <Swords size={48} className="text-red-400" />;
-      case "glass_cannon":        return <Skull size={48} className="text-orange-300" />;
-      case "banked":              return <BatteryFull size={48} className="text-emerald-400" />;
-      case "zero_hour":           return <Timer size={48} className="text-red-600" />;
-      case "double_down":         return <Repeat2 size={48} className="text-indigo-400" />;
-      case "triple_crown":        return <Crown size={48} className="text-yellow-400" />;
-      case "dominator":           return <Star size={48} className="text-yellow-500" />;
-      case "no_mercy":            return <Swords size={48} className="text-red-600" />;
-      case "first_blood_flag":    return <Skull size={48} className="text-red-500" />;
-      case "final_survivor":      return <Shield size={48} className="text-emerald-300" />;
-      case "protocol_breaker":    return <Shield size={48} className="text-sky-400" />;
-      case "power_surge":         return <Gauge size={48} className="text-lime-400" />;
-      case "comeback_arc":        return <TrendingUp size={48} className="text-teal-400" />;
-      case "time_warp":           return <Zap size={48} className="text-violet-400" />;
-      case "bounty":              return <Target size={48} className="text-amber-500" />;
-      case "hidden_lucky_seven":  return <Orbit size={48} className="text-green-300" />;
-      case "hidden_full_house":   return <BarChart3 size={48} className="text-pink-300" />;
-      case "hidden_efficiency":   return <Gauge size={48} className="text-cyan-300" />;
-      case "hidden_early_dominator": return <Bomb size={48} className="text-rose-300" />;
-      case "hidden_veteran":      return <Anchor size={48} className="text-zinc-300" />;
-
       default: return null;
     }
   };
@@ -178,11 +124,6 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "hidden_patch_notes":
       case "hidden_redemption":
       case "hidden_nail_in_the_coffin":
-      case "hidden_lucky_seven":
-      case "hidden_full_house":
-      case "hidden_efficiency":
-      case "hidden_early_dominator":
-      case "hidden_veteran":
         return "text-pink-400 border-pink-500/50 bg-black/95 shadow-[0_0_30px_rgba(236,72,153,0.3)]";
 
       case "mirror_match": return "text-[#d2b48c] border-[#d2b48c]/20 bg-black/80";
@@ -192,28 +133,6 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "bonus_trophy": return "text-yellow-400 border-yellow-500/50 bg-black/95 shadow-[0_0_30px_rgba(234,179,8,0.3)]";
       case "persistent_ghost": return "text-teal-300 border-teal-500/40 bg-black/90 shadow-[0_0_20px_rgba(45,212,191,0.2)]";
 
-      // New moment flags
-      case "marathon_bid":         return "text-orange-400 border-orange-500/20 bg-black/80";
-      case "overtime_legend":      return "text-rose-500 border-rose-500/30 bg-black/85 shadow-[0_0_20px_rgba(244,63,94,0.2)]";
-      case "speed_round":          return "text-cyan-400 border-cyan-500/20 bg-black/80";
-      case "high_noon":            return "text-yellow-500 border-yellow-500/20 bg-black/80";
-      case "photo_finish":         return "text-fuchsia-400 border-fuchsia-500/30 bg-black/85 shadow-[0_0_20px_rgba(232,121,249,0.2)]";
-      case "blowout":              return "text-red-400 border-red-500/20 bg-black/80";
-      case "glass_cannon":         return "text-orange-300 border-orange-400/20 bg-black/80";
-      case "banked":               return "text-emerald-400 border-emerald-500/20 bg-black/80";
-      case "zero_hour":            return "text-red-600 border-red-700/20 bg-black/80";
-      case "double_down":          return "text-indigo-400 border-indigo-500/20 bg-black/80";
-      case "triple_crown":         return "text-yellow-400 border-yellow-500/30 bg-black/85 shadow-[0_0_20px_rgba(234,179,8,0.2)]";
-      case "dominator":            return "text-yellow-500 border-yellow-600/30 bg-black/85 shadow-[0_0_25px_rgba(234,179,8,0.25)]";
-      case "no_mercy":             return "text-red-600 border-red-700/20 bg-black/80";
-      case "first_blood_flag":     return "text-red-500 border-red-600/20 bg-black/80";
-      case "final_survivor":       return "text-emerald-300 border-emerald-400/30 bg-black/85 shadow-[0_0_20px_rgba(52,211,153,0.2)]";
-      case "protocol_breaker":     return "text-sky-400 border-sky-500/20 bg-black/80";
-      case "power_surge":          return "text-lime-400 border-lime-500/20 bg-black/80";
-      case "comeback_arc":         return "text-teal-400 border-teal-500/20 bg-black/80";
-      case "time_warp":            return "text-violet-400 border-violet-500/20 bg-black/80";
-      case "bounty":               return "text-amber-500 border-amber-600/20 bg-black/80";
-      
       default: 
         return "text-muted-foreground border-white/10 bg-black/80";
     }

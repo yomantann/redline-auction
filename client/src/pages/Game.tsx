@@ -1077,6 +1077,7 @@ export default function Game() {
     isWinner: boolean,
     gameVariant: string,
     isMP: boolean,
+    momentFlagTypes?: string[],
   ) => {
     try {
       const variantMap: Record<string, string> = {
@@ -1095,6 +1096,7 @@ export default function Game() {
           gameId,
           trophies,
           momentFlags,
+          momentFlagTypes,
           isWinner,
           variant: mappedVariant,
           isMultiplayer: isMP,
@@ -1144,12 +1146,6 @@ export default function Game() {
           'precision_strike', 'overkill', 'clutch_play', 'late_panic', 'mirror_match',
           'hidden_67', 'hidden_redline_reversal', 'hidden_deja_bid', 'hidden_patch_notes', 'hidden_redemption',
           'hidden_nail_in_the_coffin',
-          // new flags
-          'marathon_bid', 'overtime_legend', 'speed_round', 'high_noon', 'photo_finish',
-          'blowout', 'glass_cannon', 'banked', 'zero_hour', 'double_down', 'triple_crown',
-          'dominator', 'no_mercy', 'first_blood_flag', 'final_survivor', 'protocol_breaker',
-          'power_surge', 'comeback_arc', 'time_warp', 'bounty',
-          'hidden_lucky_seven', 'hidden_full_house', 'hidden_efficiency', 'hidden_early_dominator', 'hidden_veteran',
       ];
         if (soundEnabled && MOMENT_FLAG_TYPES.includes(type) && type !== 'hidden_patch_notes') {
           const now = Date.now();
@@ -1674,6 +1670,7 @@ export default function Game() {
               isWinner,
               state.settings?.variant || 'STANDARD',
               true,
+              myFinalPlayer?.momentFlagsEarned || [],
             );
           }
         }
@@ -1867,12 +1864,6 @@ export default function Game() {
   const nailInCoffinShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_NAIL_IN_THE_COFFIN has been shown
   const bonusTrophiesAwardedRef = useRef<boolean>(false); // MP: prevent bonus trophy overlays from showing more than once per game
   const prevMpPlayersRef = useRef<any[]>([]); // MP: track previous player states for revival detection
-  // New streak / game-level trackers for 25 new moment flags
-  const p1ConsecutiveWinsRef = useRef<number>(0); // SP: consecutive wins in a row
-  const p1TotalWinsThisGameRef = useRef<number>(0); // SP: total wins this game
-  const p1FirstEliminationRoundRef = useRef<boolean>(false); // SP: was there a first elimination yet
-  const p1EarlyDominatorShownRef = useRef<boolean>(false); // SP: won rounds 1,2,3 shown once
-  const p1LastWinnerIdRef = useRef<string | null>(null); // SP: who won previous round
   useEffect(() => {
     if (!isMultiplayer || !multiplayerGameState || !socket) return;
     
@@ -5019,6 +5010,7 @@ export default function Game() {
                   isHumanWinnerEarly,
                   variant,
                   false,
+                  humanPlayerEarly.eventDatabasePopups || [],
                 );
               }
             }
@@ -5657,192 +5649,6 @@ export default function Game() {
       }
     }
 
-    // ── 25 NEW MOMENT FLAGS (SP) ────────────────────────────────────────────────
-    if (!isMultiplayer && winnerId === 'p1') {
-      const winnerPlayer5 = finalPlayers.find(p => p.id === 'p1');
-      const winnerBid5 = winnerPlayer5?.currentBid ?? 0;
-      const nonElimBefore = players.filter(p => !p.isEliminated);
-      const sortedBid5 = nonElimBefore.filter(p => p.currentBid !== null)
-        .sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
-      const secondBid5 = sortedBid5.length > 1 ? (sortedBid5[1].currentBid ?? 0) : 0;
-      const margin5 = winnerBid5 - secondBid5;
-      const winnerRemaining5 = winnerPlayer5?.remainingTime ?? 0;
-      const approxStartTime5 = winnerRemaining5 + winnerBid5;
-      const p1Tokens5 = players.find(p => p.id === 'p1')?.tokens ?? 0;
-      const allTokens5 = players.map(p => p.tokens);
-      const maxTokens5 = Math.max(...allTokens5);
-      const allTimes5 = players.filter(p => !p.isEliminated).map(p => p.remainingTime);
-      const maxTime5 = Math.max(...allTimes5);
-
-      // marathon_bid: bid > 90s
-      if (winnerBid5 > 90) {
-        setTimeout(() => addOverlay('marathon_bid', 'MARATHON BID', `Held for ${winnerBid5.toFixed(1)}s!`, 0), 600);
-        momentCount++; roundMomentFlags.push('MARATHON_BID');
-      }
-      // overtime_legend: bid > 130s
-      if (winnerBid5 > 130) {
-        setTimeout(() => addOverlay('overtime_legend', 'OVERTIME LEGEND', `${winnerBid5.toFixed(1)}s — an iron grip!`, 0), 700);
-        momentCount++; roundMomentFlags.push('OVERTIME_LEGEND');
-      }
-      // speed_round: won with bid ≤ 2s
-      if (winnerBid5 > 0 && winnerBid5 <= 2) {
-        setTimeout(() => addOverlay('speed_round', 'SPEED ROUND', `Won with only ${winnerBid5.toFixed(1)}s!`, 0), 600);
-        momentCount++; roundMomentFlags.push('SPEED_ROUND');
-      }
-      // high_noon: bid within 0.5s of 60s
-      if (Math.abs(winnerBid5 - 60) <= 0.5 && winnerBid5 > 0) {
-        setTimeout(() => addOverlay('high_noon', 'HIGH NOON', `Landed at exactly ${winnerBid5.toFixed(1)}s`, 0), 800);
-        momentCount++; roundMomentFlags.push('HIGH_NOON');
-      }
-      // photo_finish: won with margin < 0.2s
-      if (sortedBid5.length > 1 && margin5 > 0 && margin5 < 0.2) {
-        setTimeout(() => addOverlay('photo_finish', 'PHOTO FINISH', `Won by just ${margin5.toFixed(2)}s!`, 0), 600);
-        momentCount++; roundMomentFlags.push('PHOTO_FINISH');
-      }
-      // blowout: won with margin > 30s
-      if (sortedBid5.length > 1 && margin5 > 30) {
-        setTimeout(() => addOverlay('blowout', 'BLOWOUT', `Crushed by ${margin5.toFixed(1)}s!`, 0), 600);
-        momentCount++; roundMomentFlags.push('BLOWOUT');
-      }
-      // glass_cannon: won with < 5s remaining
-      if (winnerRemaining5 < 5 && winnerRemaining5 >= 0) {
-        setTimeout(() => addOverlay('glass_cannon', 'GLASS CANNON', 'Won on fumes!', 0), 800);
-        momentCount++; roundMomentFlags.push('GLASS_CANNON');
-      }
-      // banked: won with > 150s remaining
-      if (winnerRemaining5 > 150) {
-        setTimeout(() => addOverlay('banked', 'BANKED', `${winnerRemaining5.toFixed(0)}s still in reserve!`, 0), 800);
-        momentCount++; roundMomentFlags.push('BANKED');
-      }
-      // zero_hour: won when starting time ≤ 20s (approx start = remaining + bid)
-      if (approxStartTime5 <= 20 && approxStartTime5 > 0) {
-        setTimeout(() => addOverlay('zero_hour', 'ZERO HOUR', 'Won starting on near-empty!', 0), 700);
-        momentCount++; roundMomentFlags.push('ZERO_HOUR');
-      }
-      // double_down: won 2 consecutive rounds
-      if (p1LastWinnerIdRef.current === 'p1') {
-        p1ConsecutiveWinsRef.current += 1;
-      } else {
-        p1ConsecutiveWinsRef.current = 1;
-      }
-      if (p1ConsecutiveWinsRef.current === 2) {
-        setTimeout(() => addOverlay('double_down', 'DOUBLE DOWN', 'Two wins in a row!', 0), 900);
-        momentCount++; roundMomentFlags.push('DOUBLE_DOWN');
-      }
-      // triple_crown: won 3 consecutive rounds
-      if (p1ConsecutiveWinsRef.current === 3) {
-        setTimeout(() => addOverlay('triple_crown', 'TRIPLE CROWN', 'Three consecutive wins!', 0), 900);
-        momentCount++; roundMomentFlags.push('TRIPLE_CROWN');
-      }
-      // dominator: won 4+ rounds this game
-      p1TotalWinsThisGameRef.current += 1;
-      if (p1TotalWinsThisGameRef.current === 4) {
-        setTimeout(() => addOverlay('dominator', 'DOMINATOR', 'Four rounds claimed this game!', 0), 1000);
-        momentCount++; roundMomentFlags.push('DOMINATOR');
-      }
-      // no_mercy: won in a duel (exactly 2 non-eliminated players)
-      if (nonElimBefore.length === 2) {
-        setTimeout(() => addOverlay('no_mercy', 'NO MERCY', 'Won in a 1v1 duel!', 0), 700);
-        momentCount++; roundMomentFlags.push('NO_MERCY');
-      }
-      // power_surge: leading in BOTH tokens AND time before this win
-      if (p1Tokens5 >= maxTokens5 && winnerRemaining5 >= maxTime5 && nonElimBefore.length > 1) {
-        setTimeout(() => addOverlay('power_surge', 'POWER SURGE', 'Dominant on all fronts!', 0), 800);
-        momentCount++; roundMomentFlags.push('POWER_SURGE');
-      }
-      // comeback_arc: won while trailing in tokens (different from comeback_hope which requires sole last place)
-      if (p1Tokens5 < maxTokens5 - 1) {
-        setTimeout(() => addOverlay('comeback_arc', 'COMEBACK ARC', 'Won from behind!', 0), 800);
-        momentCount++; roundMomentFlags.push('COMEBACK_ARC');
-      }
-      // time_warp: net time gain this round was positive (won more time than spent)
-      // Net = ability effects summed. Use netImpact if positive.
-      const p1FinalPlayer = finalPlayers.find(p => p.id === 'p1');
-      if ((p1FinalPlayer?.netImpact ?? 0) > 0) {
-        setTimeout(() => addOverlay('time_warp', 'TIME WARP', 'Net positive time this round!', 0), 700);
-        momentCount++; roundMomentFlags.push('TIME_WARP');
-      }
-      // hidden_lucky_seven: bid within 0.2s of 7.0s
-      if (Math.abs(winnerBid5 - 7.0) <= 0.2 && winnerBid5 > 0) {
-        setTimeout(() => addOverlay('hidden_lucky_seven', 'LUCKY SEVEN', 'Bid landed right on 7!', 0), 1000);
-        momentCount++; roundMomentFlags.push('HIDDEN_LUCKY_SEVEN');
-      }
-      // hidden_full_house: all non-eliminated players bid within 5s of each other
-      if (sortedBid5.length >= 3) {
-        const topB = sortedBid5[0].currentBid ?? 0;
-        const botB = sortedBid5[sortedBid5.length - 1].currentBid ?? 0;
-        if (topB - botB <= 5 && topB > 0) {
-          setTimeout(() => addOverlay('hidden_full_house', 'FULL HOUSE', 'Everyone bid within 5s of each other!', 0), 1200);
-          momentCount++; roundMomentFlags.push('HIDDEN_FULL_HOUSE');
-        }
-      }
-      // hidden_efficiency: remaining > 3× bid
-      if (winnerBid5 > 0 && winnerRemaining5 > winnerBid5 * 3) {
-        setTimeout(() => addOverlay('hidden_efficiency', 'PEAK EFFICIENCY', `${winnerRemaining5.toFixed(0)}s left vs ${winnerBid5.toFixed(1)}s spent!`, 0), 1000);
-        momentCount++; roundMomentFlags.push('HIDDEN_EFFICIENCY');
-      }
-      // hidden_early_dominator: won rounds 1, 2 AND 3 (shown once when round 3 is won)
-      if (round === 3 && p1TotalWinsThisGameRef.current >= 3 && !p1EarlyDominatorShownRef.current) {
-        p1EarlyDominatorShownRef.current = true;
-        setTimeout(() => addOverlay('hidden_early_dominator', 'EARLY DOMINATOR', 'Won the first three rounds!', 0), 1500);
-        momentCount++; roundMomentFlags.push('HIDDEN_EARLY_DOMINATOR');
-      }
-    }
-    // Update last winner tracker for consecutive win detection
-    if (!isMultiplayer) {
-      p1LastWinnerIdRef.current = winnerId ?? null;
-    }
-
-    // hidden_veteran: still non-eliminated at round 8+ (any player, shown once)
-    if (!isMultiplayer && round >= 8) {
-      const p1Alive = !finalPlayers.find(p => p.id === 'p1')?.isEliminated;
-      if (p1Alive && !roundMomentFlags.includes('HIDDEN_VETERAN')) {
-        // Only fire once — check via eventDatabasePopups
-        const alreadyShown = players.find(p => p.id === 'p1')?.eventDatabasePopups?.includes('HIDDEN_VETERAN');
-        if (!alreadyShown) {
-          setTimeout(() => addOverlay('hidden_veteran', 'VETERAN', `Survived to round ${round}!`, 0), 1400);
-          // Don't bump momentCount for this since it's a one-time survival flag
-          roundMomentFlags.push('HIDDEN_VETERAN');
-        }
-      }
-    }
-
-    // first_blood_flag: first elimination of the entire game
-    if (!isMultiplayer && playersOut.length > 0 && !p1FirstEliminationRoundRef.current) {
-      p1FirstEliminationRoundRef.current = true;
-      // Only show to p1 if p1 is NOT the one eliminated
-      const p1WasEliminated2 = playersOut.includes(players.find(p => p.id === 'p1')?.name ?? '');
-      if (!p1WasEliminated2) {
-        setTimeout(() => addOverlay('first_blood_flag', 'FIRST BLOOD', `${playersOut[0]} eliminated!`, 0), 1200);
-      }
-    }
-
-    // protocol_breaker: won despite an active harmful protocol (SYSTEM_FAILURE, PANIC_ROOM, etc.)
-    const harmfulProtocols = ['SYSTEM_FAILURE', 'PANIC_ROOM', 'OVERCLOCK_SURGE', 'BLOOD_MARKET', 'DATA_BLACKOUT'];
-    if (!isMultiplayer && winnerId === 'p1' && activeProtocol && harmfulProtocols.includes(activeProtocol)) {
-      setTimeout(() => addOverlay('protocol_breaker', 'PROTOCOL BREAKER', `Won through ${activeProtocol.replace(/_/g, ' ')}!`, 0), 1000);
-      momentCount++; roundMomentFlags.push('PROTOCOL_BREAKER');
-    }
-
-    // bounty: beat the current token leader (SP — for MP see below)
-    if (!isMultiplayer && winnerId === 'p1') {
-      const tokenLeader = [...players].filter(p => !p.isEliminated && p.id !== 'p1')
-        .sort((a, b) => b.tokens - a.tokens)[0];
-      if (tokenLeader && tokenLeader.tokens > (players.find(p => p.id === 'p1')?.tokens ?? 0)) {
-        setTimeout(() => addOverlay('bounty', 'BOUNTY', `Took down the leader ${tokenLeader.name}!`, 0), 1100);
-        momentCount++; roundMomentFlags.push('BOUNTY');
-      }
-    }
-
-    // final_survivor: reached final round without ever being eliminated (one-time, final round only)
-    if (!isMultiplayer && winnerId === 'p1' && round === totalRounds) {
-      const p1EverEliminated = players.find(p => p.id === 'p1')?.isEliminated ?? false;
-      if (!p1EverEliminated) {
-        setTimeout(() => addOverlay('final_survivor', 'FINAL SURVIVOR', 'Reached the end unscathed!', 0), 1600);
-        momentCount++; roundMomentFlags.push('FINAL_SURVIVOR');
-      }
-    }
-
     // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s.
     // distinct flags and both fire correctly in co-occurrence cases — e.g. Round 1 deadlock where
     // all players start with equal banks, or back-to-back deadlocks that keep banks aligned.
@@ -6134,7 +5940,8 @@ export default function Game() {
               const isHumanWinner = sorted[0]?.id === 'p1';
               const humanTrophies = humanPlayer.tokens || 0;
               const humanFlags = humanPlayer.eventDatabasePopups?.length || 0;
-              convertGameCredits(gameId, humanTrophies, humanFlags, isHumanWinner, variant, false);
+              const humanFlagTypes = humanPlayer.eventDatabasePopups || [];
+              convertGameCredits(gameId, humanTrophies, humanFlags, isHumanWinner, variant, false, humanFlagTypes);
             }
           }
         }

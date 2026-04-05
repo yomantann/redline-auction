@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS "player_profiles" (
   "equipped_cosmetics"     jsonb   NOT NULL DEFAULT '{}',
   "converted_trophies"     integer NOT NULL DEFAULT 0,
   "converted_moment_flags" integer NOT NULL DEFAULT 0,
+  "moment_flags_per_type"  jsonb   NOT NULL DEFAULT '{}',
   "converted_game_ids"     jsonb   NOT NULL DEFAULT '[]',
   "milestone_unlocks"      jsonb   NOT NULL DEFAULT '[]',
   "created_at"             timestamp NOT NULL DEFAULT now(),
@@ -28,6 +29,7 @@ ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "lifetime_spent"         
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "wins_per_mode"          jsonb   NOT NULL DEFAULT '{}';
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "milestone_unlocks"      jsonb   NOT NULL DEFAULT '[]';
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "converted_moment_flags" integer NOT NULL DEFAULT 0;
+ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "moment_flags_per_type"  jsonb   NOT NULL DEFAULT '{}';
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "converted_game_ids"     jsonb   NOT NULL DEFAULT '[]';
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "equipped_cosmetics"     jsonb   NOT NULL DEFAULT '{}';
 

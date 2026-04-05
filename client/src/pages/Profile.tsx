@@ -381,6 +381,234 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
     goal: 250,
     getProgress: (p) => (p.convertedMomentFlags ?? 0),
   },
+
+  // ── Specific Moment Flag Milestones ────────────────────────────────────────
+  // Easter Egg (Hidden Flag) Milestones
+  {
+    id: 'milestone_easter_egg_first',
+    creditReward: 500,
+    label: 'Discover your first Easter egg',
+    reward: '500 credits',
+    goal: 1,
+    getProgress: (p) => {
+      const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
+      const hidden = ['HIDDEN_67','HIDDEN_REDLINE_REVERSAL','HIDDEN_DEJA_BID','PATCH_NOTES_PENDING','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN'];
+      return hidden.some(f => (perType[f] ?? 0) >= 1) ? 1 : 0;
+    },
+  },
+  {
+    id: 'milestone_easter_egg_two',
+    creditReward: 1000,
+    label: 'Discover 2 different Easter eggs',
+    reward: '1,000 credits',
+    goal: 2,
+    getProgress: (p) => {
+      const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
+      const hidden = ['HIDDEN_67','HIDDEN_REDLINE_REVERSAL','HIDDEN_DEJA_BID','PATCH_NOTES_PENDING','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN'];
+      return hidden.filter(f => (perType[f] ?? 0) >= 1).length;
+    },
+  },
+  {
+    id: 'milestone_easter_egg_all',
+    creditReward: 5000,
+    label: 'Discover all 6 Easter eggs',
+    reward: '5,000 credits',
+    goal: 6,
+    getProgress: (p) => {
+      const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
+      const hidden = ['HIDDEN_67','HIDDEN_REDLINE_REVERSAL','HIDDEN_DEJA_BID','PATCH_NOTES_PENDING','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN'];
+      return hidden.filter(f => (perType[f] ?? 0) >= 1).length;
+    },
+  },
+  {
+    id: 'milestone_hidden_67_3x',
+    creditReward: 1500,
+    label: 'Trigger the Redline Signal Easter egg 3 times',
+    reward: '1,500 credits',
+    goal: 3,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_67'] ?? 0,
+  },
+  {
+    id: 'milestone_hidden_redemption_first',
+    creditReward: 500,
+    label: 'Trigger the Redemption Arc Easter egg once',
+    reward: '500 credits',
+    goal: 1,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_REDEMPTION'] ?? 0,
+  },
+  {
+    id: 'milestone_hidden_nail_3x',
+    creditReward: 1000,
+    label: 'Trigger Nail in the Coffin 3 times',
+    reward: '1,000 credits',
+    goal: 3,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_NAIL_IN_THE_COFFIN'] ?? 0,
+  },
+  {
+    id: 'milestone_hidden_deja_bid',
+    creditReward: 300,
+    label: 'Trigger the Déjà Bid Easter egg once',
+    reward: '300 credits',
+    goal: 1,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_DEJA_BID'] ?? 0,
+  },
+  // Clutch / Skill Milestones
+  {
+    id: 'milestone_clutch_3x',
+    creditReward: 500,
+    label: 'Earn Clutch Play 3 times',
+    reward: '500 credits',
+    goal: 3,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['CLUTCH_PLAY'] ?? 0,
+  },
+  {
+    id: 'milestone_clutch_10x',
+    creditReward: 2000,
+    label: 'Earn Clutch Play 10 times',
+    reward: '2,000 credits',
+    goal: 10,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['CLUTCH_PLAY'] ?? 0,
+  },
+  {
+    id: 'milestone_precision_5x',
+    creditReward: 500,
+    label: 'Earn Precision Strike 5 times',
+    reward: '500 credits',
+    goal: 5,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['PRECISION_STRIKE'] ?? 0,
+  },
+  {
+    id: 'milestone_overkill_3x',
+    creditReward: 500,
+    label: 'Earn Overkill 3 times',
+    reward: '500 credits',
+    goal: 3,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['OVERKILL'] ?? 0,
+  },
+  {
+    id: 'milestone_late_panic_5x',
+    creditReward: 750,
+    label: 'Earn Late Panic 5 times',
+    reward: '750 credits',
+    goal: 5,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['LATE_PANIC'] ?? 0,
+  },
+  // Strategic Milestones
+  {
+    id: 'milestone_genius_5x',
+    creditReward: 750,
+    label: 'Earn Genius Move 5 times',
+    reward: '750 credits',
+    goal: 5,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['GENIUS_MOVE'] ?? 0,
+  },
+  {
+    id: 'milestone_fake_calm_5x',
+    creditReward: 500,
+    label: 'Earn Fake Calm 5 times',
+    reward: '500 credits',
+    goal: 5,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['FAKE_CALM'] ?? 0,
+  },
+  {
+    id: 'milestone_smug_3x',
+    creditReward: 300,
+    label: 'Earn Smug Confidence 3 times',
+    reward: '300 credits',
+    goal: 3,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['SMUG_CONFIDENCE'] ?? 0,
+  },
+  // Domination Milestones
+  {
+    id: 'milestone_last_standing_3x',
+    creditReward: 750,
+    label: 'Be Last One Standing 3 times',
+    reward: '750 credits',
+    goal: 3,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['LAST_ONE_STANDING'] ?? 0,
+  },
+  {
+    id: 'milestone_last_standing_10x',
+    creditReward: 3000,
+    label: 'Be Last One Standing 10 times',
+    reward: '3,000 credits',
+    goal: 10,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['LAST_ONE_STANDING'] ?? 0,
+  },
+  // Comeback Milestones
+  {
+    id: 'milestone_comeback_5x',
+    creditReward: 1000,
+    label: 'Earn Comeback Hope 5 times',
+    reward: '1,000 credits',
+    goal: 5,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['COMEBACK_HOPE'] ?? 0,
+  },
+  {
+    id: 'milestone_comeback_10x',
+    creditReward: 3000,
+    label: 'Earn Comeback Hope 10 times',
+    reward: '3,000 credits',
+    goal: 10,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['COMEBACK_HOPE'] ?? 0,
+  },
+  // Sync / Pattern Milestones
+  {
+    id: 'milestone_deadlock_3x',
+    creditReward: 500,
+    label: 'Trigger Deadlock Sync 3 times',
+    reward: '500 credits',
+    goal: 3,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['DEADLOCK_SYNC'] ?? 0,
+  },
+  {
+    id: 'milestone_mirror_3x',
+    creditReward: 500,
+    label: 'Trigger Mirror Match 3 times',
+    reward: '500 credits',
+    goal: 3,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['MIRROR_MATCH'] ?? 0,
+  },
+  {
+    id: 'milestone_deadlock_and_mirror',
+    creditReward: 1000,
+    label: 'Achieve both Deadlock Sync and Mirror Match',
+    reward: '1,000 credits',
+    goal: 2,
+    getProgress: (p) => {
+      const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
+      return [(perType['DEADLOCK_SYNC'] ?? 0) >= 1, (perType['MIRROR_MATCH'] ?? 0) >= 1].filter(Boolean).length;
+    },
+  },
+  // Chaos Milestones
+  {
+    id: 'milestone_patch_notes_3x',
+    creditReward: 1500,
+    label: 'Trigger 3+ moment flags in one round, 3 separate times',
+    reward: '1,500 credits',
+    goal: 3,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['PATCH_NOTES_PENDING'] ?? 0,
+  },
+  {
+    id: 'milestone_easy_w_5x',
+    creditReward: 500,
+    label: 'Earn Easy W 5 times',
+    reward: '500 credits',
+    goal: 5,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['EASY_W'] ?? 0,
+  },
+  // Mastery Milestone
+  {
+    id: 'milestone_unique_10_flag_types',
+    creditReward: 2500,
+    label: 'Trigger 10 different unique moment flag types',
+    reward: '2,500 credits',
+    goal: 10,
+    getProgress: (p) => {
+      const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
+      return Object.values(perType).filter(v => v >= 1).length;
+    },
+  },
 ];
 
 // ─── API helpers ───────────────────────────────────────────────────────────────

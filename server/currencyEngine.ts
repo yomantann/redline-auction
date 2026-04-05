@@ -549,6 +549,20 @@ function totalWins(winsPerMode: Record<string, number>): number {
   return Object.values(winsPerMode).reduce((s, v) => s + (v ?? 0), 0);
 }
 
+/** Helper: get count for a specific moment flag type from profile. */
+function flagCount(profile: PlayerProfile, flag: string): number {
+  const perType = profile.momentFlagsPerType as Record<string, number> | null | undefined;
+  if (!perType) return 0;
+  return perType[flag.toUpperCase()] ?? 0;
+}
+
+/** Helper: count how many distinct flag types from a given set have been earned at least once. */
+function distinctFlagsEarned(profile: PlayerProfile, flags: string[]): number {
+  const perType = profile.momentFlagsPerType as Record<string, number> | null | undefined;
+  if (!perType) return 0;
+  return flags.filter(f => (perType[f.toUpperCase()] ?? 0) >= 1).length;
+}
+
 export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   // ── Cosmetic milestones ──────────────────────────────────────────────────────
   {
@@ -735,6 +749,178 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     description: 'Earn 250 lifetime moment flags.',
     check: (p) => (p.convertedMomentFlags ?? 0) >= 250,
   },
+
+  // ── Specific Moment Flag Milestones ──────────────────────────────────────
+  // Easter Egg (Hidden Flag) Milestones
+  {
+    id: 'milestone_easter_egg_first',
+    creditReward: 500,
+    description: 'Discover your first Easter egg (trigger any hidden moment flag).',
+    check: (p) => distinctFlagsEarned(p, [
+      'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
+      'PATCH_NOTES_PENDING', 'HIDDEN_REDEMPTION', 'HIDDEN_NAIL_IN_THE_COFFIN',
+    ]) >= 1,
+  },
+  {
+    id: 'milestone_easter_egg_two',
+    creditReward: 1000,
+    description: 'Discover 2 different Easter eggs.',
+    check: (p) => distinctFlagsEarned(p, [
+      'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
+      'PATCH_NOTES_PENDING', 'HIDDEN_REDEMPTION', 'HIDDEN_NAIL_IN_THE_COFFIN',
+    ]) >= 2,
+  },
+  {
+    id: 'milestone_easter_egg_all',
+    creditReward: 5000,
+    description: 'Discover all 6 Easter eggs.',
+    check: (p) => distinctFlagsEarned(p, [
+      'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
+      'PATCH_NOTES_PENDING', 'HIDDEN_REDEMPTION', 'HIDDEN_NAIL_IN_THE_COFFIN',
+    ]) >= 6,
+  },
+  {
+    id: 'milestone_hidden_67_3x',
+    creditReward: 1500,
+    description: 'Trigger the Redline Signal Easter egg 3 times.',
+    check: (p) => flagCount(p, 'HIDDEN_67') >= 3,
+  },
+  {
+    id: 'milestone_hidden_redemption_first',
+    creditReward: 500,
+    description: 'Trigger the Redemption Arc Easter egg once.',
+    check: (p) => flagCount(p, 'HIDDEN_REDEMPTION') >= 1,
+  },
+  {
+    id: 'milestone_hidden_nail_3x',
+    creditReward: 1000,
+    description: 'Trigger Nail in the Coffin 3 times.',
+    check: (p) => flagCount(p, 'HIDDEN_NAIL_IN_THE_COFFIN') >= 3,
+  },
+  {
+    id: 'milestone_hidden_deja_bid',
+    creditReward: 300,
+    description: 'Trigger the Déjà Bid Easter egg once.',
+    check: (p) => flagCount(p, 'HIDDEN_DEJA_BID') >= 1,
+  },
+  // Clutch / Skill Milestones
+  {
+    id: 'milestone_clutch_3x',
+    creditReward: 500,
+    description: 'Earn Clutch Play 3 times.',
+    check: (p) => flagCount(p, 'CLUTCH_PLAY') >= 3,
+  },
+  {
+    id: 'milestone_clutch_10x',
+    creditReward: 2000,
+    description: 'Earn Clutch Play 10 times.',
+    check: (p) => flagCount(p, 'CLUTCH_PLAY') >= 10,
+  },
+  {
+    id: 'milestone_precision_5x',
+    creditReward: 500,
+    description: 'Earn Precision Strike 5 times.',
+    check: (p) => flagCount(p, 'PRECISION_STRIKE') >= 5,
+  },
+  {
+    id: 'milestone_overkill_3x',
+    creditReward: 500,
+    description: 'Earn Overkill 3 times.',
+    check: (p) => flagCount(p, 'OVERKILL') >= 3,
+  },
+  {
+    id: 'milestone_late_panic_5x',
+    creditReward: 750,
+    description: 'Earn Late Panic 5 times.',
+    check: (p) => flagCount(p, 'LATE_PANIC') >= 5,
+  },
+  // Strategic Milestones
+  {
+    id: 'milestone_genius_5x',
+    creditReward: 750,
+    description: 'Earn Genius Move 5 times.',
+    check: (p) => flagCount(p, 'GENIUS_MOVE') >= 5,
+  },
+  {
+    id: 'milestone_fake_calm_5x',
+    creditReward: 500,
+    description: 'Earn Fake Calm 5 times.',
+    check: (p) => flagCount(p, 'FAKE_CALM') >= 5,
+  },
+  {
+    id: 'milestone_smug_3x',
+    creditReward: 300,
+    description: 'Earn Smug Confidence 3 times.',
+    check: (p) => flagCount(p, 'SMUG_CONFIDENCE') >= 3,
+  },
+  // Domination Milestones
+  {
+    id: 'milestone_last_standing_3x',
+    creditReward: 750,
+    description: 'Be Last One Standing 3 times.',
+    check: (p) => flagCount(p, 'LAST_ONE_STANDING') >= 3,
+  },
+  {
+    id: 'milestone_last_standing_10x',
+    creditReward: 3000,
+    description: 'Be Last One Standing 10 times.',
+    check: (p) => flagCount(p, 'LAST_ONE_STANDING') >= 10,
+  },
+  // Comeback Milestones
+  {
+    id: 'milestone_comeback_5x',
+    creditReward: 1000,
+    description: 'Earn Comeback Hope 5 times.',
+    check: (p) => flagCount(p, 'COMEBACK_HOPE') >= 5,
+  },
+  {
+    id: 'milestone_comeback_10x',
+    creditReward: 3000,
+    description: 'Earn Comeback Hope 10 times.',
+    check: (p) => flagCount(p, 'COMEBACK_HOPE') >= 10,
+  },
+  // Sync / Pattern Milestones
+  {
+    id: 'milestone_deadlock_3x',
+    creditReward: 500,
+    description: 'Trigger Deadlock Sync 3 times.',
+    check: (p) => flagCount(p, 'DEADLOCK_SYNC') >= 3,
+  },
+  {
+    id: 'milestone_mirror_3x',
+    creditReward: 500,
+    description: 'Trigger Mirror Match 3 times.',
+    check: (p) => flagCount(p, 'MIRROR_MATCH') >= 3,
+  },
+  {
+    id: 'milestone_deadlock_and_mirror',
+    creditReward: 1000,
+    description: 'Achieve both Deadlock Sync and Mirror Match at least once each.',
+    check: (p) => flagCount(p, 'DEADLOCK_SYNC') >= 1 && flagCount(p, 'MIRROR_MATCH') >= 1,
+  },
+  // Chaos Milestones
+  {
+    id: 'milestone_patch_notes_3x',
+    creditReward: 1500,
+    description: 'Trigger 3+ moment flags in a single round, 3 times total.',
+    check: (p) => flagCount(p, 'PATCH_NOTES_PENDING') >= 3,
+  },
+  {
+    id: 'milestone_easy_w_5x',
+    creditReward: 500,
+    description: 'Earn Easy W 5 times.',
+    check: (p) => flagCount(p, 'EASY_W') >= 5,
+  },
+  // Mastery Milestone
+  {
+    id: 'milestone_unique_10_flag_types',
+    creditReward: 2500,
+    description: 'Trigger 10 different unique moment flag types.',
+    check: (p) => {
+      const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
+      return Object.values(perType).filter(v => v >= 1).length >= 10;
+    },
+  },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -773,6 +959,7 @@ export function createDefaultProfile(
     equippedCosmetics: {},
     convertedTrophies: 0,
     convertedMomentFlags: 0,
+    momentFlagsPerType: {},
     convertedGameIds: [],
     winsPerMode: {},
     milestoneUnlocks: [],
@@ -826,6 +1013,7 @@ export function convertGameToCurrency(
   isWinner: boolean,
   variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED',
   isMultiplayer: boolean,
+  momentFlagTypes?: string[],
 ): {
   creditsEarned: number;
   milestoneUnlocked: string[];
@@ -859,6 +1047,14 @@ export function convertGameToCurrency(
     totalWins: isWinner ? profile.totalWins + 1 : profile.totalWins,
     convertedTrophies: profile.convertedTrophies + trophies,
     convertedMomentFlags: profile.convertedMomentFlags + momentFlags,
+    momentFlagsPerType: (() => {
+      const current: Record<string, number> = { ...(profile.momentFlagsPerType as Record<string, number> ?? {}) };
+      for (const flag of (momentFlagTypes ?? [])) {
+        const key = flag.toUpperCase();
+        current[key] = (current[key] ?? 0) + 1;
+      }
+      return current;
+    })(),
     convertedGameIds: [...(profile.convertedGameIds as string[]), gameId],
     winsPerMode,
     updatedAt: now,
