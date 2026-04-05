@@ -5650,6 +5650,7 @@ export default function Game() {
     }
 
     // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s.
+    // Note: DEADLOCK_SYNC (same bid → no winner) and MIRROR_MATCH (same post-round bank) are
     // distinct flags and both fire correctly in co-occurrence cases — e.g. Round 1 deadlock where
     // all players start with equal banks, or back-to-back deadlocks that keep banks aligned.
     // Stats are tracked directly here for ALL matching players (not via roundMomentFlags),
