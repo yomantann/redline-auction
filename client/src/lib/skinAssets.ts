@@ -72,7 +72,6 @@ import skinRollIntelOfficer from "../assets/generated_images/Skins/roll_intel of
 import skinRindGutterGladiator from "../assets/generated_images/Skins/rind_gutter gladiator.png";
 import skinClickSirWhiskersWrong from "../assets/generated_images/Skins/click_sir whiskers wrong.png";
 import skinGuardianUnmovedMarshal from "../assets/generated_images/Skins/guardian_unmoved marshal.png";
-import skinHotwiredHighScoreHazard from "../assets/generated_images/Skins/hotwired_high score hazard.png";
 import skinPainWalkingWound from "../assets/generated_images/Skins/pain_the walking wound.png";
 
 // ── Card Backgrounds ─────────────────────────────────────────────────────────
@@ -85,7 +84,6 @@ import bgOrbital from "../assets/generated_images/CardBackground/orbital_b.png";
 import bgOrbital2 from "../assets/generated_images/CardBackground/orbital2_b.png";
 import bgStatic2 from "../assets/generated_images/CardBackground/static2_b.png";
 import bgStaticOverload from "../assets/generated_images/CardBackground/static overload_b.png";
-import bgGalactic from "../assets/generated_images/CardBackground/galactic.png";
 
 // ── Card Borders ─────────────────────────────────────────────────────────────
 import borderSteel from "../assets/generated_images/CardBorders/steel.png";
@@ -137,7 +135,6 @@ export const SKIN_ASSET_URLS: Record<string, string> = {
   skin_rind_gutter_gladiator:     skinRindGutterGladiator,
   skin_click_sir_whiskers_wrong:  skinClickSirWhiskersWrong,
   skin_guardian_unmoved_marshal:  skinGuardianUnmovedMarshal,
-  skin_hotwired_high_score_hazard: skinHotwiredHighScoreHazard,
   skin_pain_walking_wound:        skinPainWalkingWound,
 };
 
