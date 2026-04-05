@@ -10,7 +10,7 @@ import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Mail, Heart } from 'lucide-react';
 import type { PlayerProfile, EquippedCosmetics } from "@shared/schema";
-import { getLogoUrl, getCardStyles, getDriverSkinUrl } from "@/lib/cosmeticsStyles";
+import { getLogoUrl, getCardStyles, getDriverSkinUrl, getBorderImageUrl } from "@/lib/cosmeticsStyles";
 import { PlayerProfileWidget } from "@/components/game/PlayerProfileWidget";
 import { GuestBanner } from "@/components/game/GuestBanner";
 
@@ -42,7 +42,7 @@ import {
 import { 
   Trophy, AlertTriangle, RefreshCw, LogOut, SkipForward, Clock, Settings, Eye, EyeOff,
   Shield, MousePointer2, Snowflake, Rocket, Brain, Zap, Megaphone, Flame, TrendingUp, User,
-  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle, ChevronDown
+  Users, Globe, Lock, BookOpen, CircleHelp, Martini, PartyPopper, Skull, Info, Share2, Shuffle, ChevronDown, X
 } from "lucide-react";
 
 import { 
@@ -1077,6 +1077,8 @@ export default function Game() {
     isWinner: boolean,
     gameVariant: string,
     isMP: boolean,
+    momentFlagTypes?: string[],
+    isCompetitive?: boolean,
   ) => {
     try {
       const variantMap: Record<string, string> = {
@@ -1095,9 +1097,11 @@ export default function Game() {
           gameId,
           trophies,
           momentFlags,
+          momentFlagTypes,
           isWinner,
           variant: mappedVariant,
           isMultiplayer: isMP,
+          isCompetitive: isCompetitive ?? false,
         }),
       });
       const data = await res.json();
@@ -1668,6 +1672,8 @@ export default function Game() {
               isWinner,
               state.settings?.variant || 'STANDARD',
               true,
+              myFinalPlayer?.momentFlagsEarned || [],
+              state.settings?.difficulty === 'COMPETITIVE',
             );
           }
         }
@@ -5007,6 +5013,8 @@ export default function Game() {
                   isHumanWinnerEarly,
                   variant,
                   false,
+                  humanPlayerEarly.eventDatabasePopups || [],
+                  difficulty === 'COMPETITIVE',
                 );
               }
             }
@@ -5937,7 +5945,8 @@ export default function Game() {
               const isHumanWinner = sorted[0]?.id === 'p1';
               const humanTrophies = humanPlayer.tokens || 0;
               const humanFlags = humanPlayer.eventDatabasePopups?.length || 0;
-              convertGameCredits(gameId, humanTrophies, humanFlags, isHumanWinner, variant, false);
+              const humanFlagTypes = humanPlayer.eventDatabasePopups || [];
+              convertGameCredits(gameId, humanTrophies, humanFlags, isHumanWinner, variant, false, humanFlagTypes, difficulty === 'COMPETITIVE');
             }
           }
         }
@@ -8783,13 +8792,28 @@ export default function Game() {
           const cardLogoUrl = isWinnerCard && isHumanCard ? getLogoUrl(myCosmetics) : null;
           // Apply cosmetics (border + background) to the human player's card
           const cardStyle = isHumanCard ? getCardStyles(myCosmetics) : {};
+          const cardBorderImgUrl = isHumanCard ? getBorderImageUrl(myCosmetics) : null;
 
           return (
           <div key={p.id} className={cn(
-            "p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden",
+            "p-4 rounded border bg-card/50 flex flex-col gap-2 relative",
             p.id === winner.id && "border-primary/50 bg-primary/10",
             p.id === loser.id && !p.isGhost ? "border-destructive/50 bg-destructive/10" : "border-white/10"
           )} style={cardStyle}>
+            {/* Image-based border overlay for cosmetic borders */}
+            {cardBorderImgUrl && (
+              <img
+                src={cardBorderImgUrl}
+                alt=""
+                aria-hidden="true"
+                className="absolute pointer-events-none z-20 rounded"
+                style={{ top: '-6px', right: '-6px', bottom: '-6px', left: '-6px',
+                         width: 'calc(100% + 12px)', height: 'calc(100% + 12px)',
+                         mixBlendMode: 'multiply' }}
+                loading="eager"
+                decoding="async"
+              />
+            )}
             {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
             {p.id === loser.id && !p.isGhost && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
             {p.isGhost && p.id !== winner.id && <div className="absolute top-0 right-0 bg-teal-800/80 text-teal-200 text-[10px] font-bold px-2 py-0.5">👻 GHOST</div>}
@@ -9853,20 +9877,30 @@ export default function Game() {
       {/* Expanded portrait overlay */}
       {expandedDialogPortrait && (
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] cursor-zoom-out"
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-[300] cursor-zoom-out"
           onClick={() => setExpandedDialogPortrait(null)}
         >
-          <div className="relative max-w-[90vw] max-h-[90vh]">
+          <div
+            className="relative inline-block overflow-hidden rounded-lg shadow-2xl cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              className="absolute top-2 right-2 z-10 text-white/70 hover:text-white bg-black/40 rounded-full p-1"
+              onClick={() => setExpandedDialogPortrait(null)}
+            >
+              <X size={18} />
+            </button>
             <img
               src={expandedDialogPortrait.url}
               alt="Driver Portrait"
-              className="max-h-[80vh] max-w-[80vw] object-contain rounded-lg shadow-2xl"
+              className="block max-h-[80vh] max-w-[80vw] object-contain rounded-lg"
             />
             {expandedDialogPortrait.skin && (
               <img
                 src={expandedDialogPortrait.skin}
                 alt="skin"
-                className="absolute inset-0 max-h-[80vh] max-w-[80vw] w-full h-full object-contain rounded-lg"
+                className="absolute inset-0 w-full h-full object-contain rounded-lg pointer-events-none"
               />
             )}
           </div>

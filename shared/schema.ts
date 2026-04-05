@@ -26,6 +26,7 @@ export const playerProfiles = pgTable("player_profiles", {
   // ── Conversion anti-cheat ─────────────────────────────────────────────────
   convertedTrophies: integer("converted_trophies").default(0).notNull(),
   convertedMomentFlags: integer("converted_moment_flags").default(0).notNull(),
+  momentFlagsPerType: jsonb("moment_flags_per_type").$type<Record<string, number>>().default({}).notNull(),
   convertedGameIds: jsonb("converted_game_ids").$type<string[]>().default([]).notNull(),
   // ── Milestones ────────────────────────────────────────────────────────────
   milestoneUnlocks: jsonb("milestone_unlocks").$type<string[]>().default([]).notNull(),
@@ -183,9 +184,11 @@ export const convertGameSchema = z.object({
   gameId: z.string().min(1),
   trophies: z.number().int().min(0).max(200),   // sanity cap
   momentFlags: z.number().int().min(0).max(500), // sanity cap
+  momentFlagTypes: z.array(z.string()).optional(), // per-type breakdown for milestone checks
   isMultiplayer: z.boolean(),
   variant: z.enum(['STANDARD', 'SOCIAL_OVERDRIVE', 'BIO_FUEL', 'HAUNTED']),
   isWinner: z.boolean(),
+  isCompetitive: z.boolean().optional(),
 });
 
 export const purchaseCosmeticSchema = z.object({

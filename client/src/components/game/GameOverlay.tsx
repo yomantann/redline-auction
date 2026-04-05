@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, AlertTriangle, Play, Skull, Zap, TrendingUp, Crosshair, Flame, Hourglass, X, PartyPopper, Martini, Scale, Lightbulb, Sparkles, Meh, Award, Lock, Crown, HeartPulse, Ghost, Orbit, Rocket, History, Bug, Bird, Axe } from "lucide-react";
-
 export type OverlayType = 
   | "round_start" 
   | "round_win" 
@@ -133,7 +132,7 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "bio_event": return "text-orange-400 border-orange-500/20 bg-black/90";
       case "bonus_trophy": return "text-yellow-400 border-yellow-500/50 bg-black/95 shadow-[0_0_30px_rgba(234,179,8,0.3)]";
       case "persistent_ghost": return "text-teal-300 border-teal-500/40 bg-black/90 shadow-[0_0_20px_rgba(45,212,191,0.2)]";
-      
+
       default: 
         return "text-muted-foreground border-white/10 bg-black/80";
     }

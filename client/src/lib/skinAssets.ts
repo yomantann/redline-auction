@@ -52,8 +52,21 @@ import skinPanicGlitchosaurus from "../assets/generated_images/Skins/panic_glitc
 // ── The Rind ─────────────────────────────────────────────────────────────────
 import skinRindSewer from "../assets/generated_images/Skins/rind_sewer sharpshooter.png";
 
+// ── Executive P ──────────────────────────────────────────────────────────────
+import skinExecutiveRailBaron from "../assets/generated_images/Skins/executive_the rail baron.png";
+
+// ── Low Flame (2nd skin) ──────────────────────────────────────────────────────
+import skinLowflameHighNoon from "../assets/generated_images/Skins/lowflame_high noon nothing.png";
+
+// ── The Anointed (2nd skin) ───────────────────────────────────────────────────
+import skinAnointedDivineSentinel from "../assets/generated_images/Skins/anointed_divine sentinel.png";
+
+// ── Rainbow Dash (2nd skin) ───────────────────────────────────────────────────
+import skinDashColosseumSprint from "../assets/generated_images/Skins/dash_colosseum sprint.png";
+
 // ── Roll Safe ────────────────────────────────────────────────────────────────
 import skinRollCalculated from "../assets/generated_images/Skins/roll_calculated ace.png";
+import skinRollIntelOfficer from "../assets/generated_images/Skins/roll_intel officer.png";
 
 // ── Card Backgrounds ─────────────────────────────────────────────────────────
 import bgMolten from "../assets/generated_images/CardBackground/molten_b.png";
@@ -86,22 +99,27 @@ import logoTypography from "../assets/generated_images/logos/redline_auction_typ
 
 /** Resolved image URL for each purchaseable skin cosmetic ID. */
 export const SKIN_ASSET_URLS: Record<string, string> = {
-  skin_accuser_dreamer:       skinAccuserDreamer,
-  skin_accuser_duchess:       skinAccuserDuchess,
-  skin_alpha_ragnar:          skinAlphaRagnar,
-  skin_alpha_hewn_knight:     skinAlphaHewnKnight,
-  skin_anointed_masquerade:   skinAnointedMasquerade,
-  skin_click_roarcat:         skinClickRoarcat,
-  skin_dash_stormhare:        skinDashStormhare,
-  skin_frost_glaciodon:       skinFrostGlaciodon,
-  skin_frost_skaldi:          skinFrostSkaldi,
-  skin_guardian_ironknuckle:  skinGuardianIronknuckle,
-  skin_hotwired_pyra:         skinHotwiredPyra,
-  skin_lowflame_wolfman:      skinLowflameWolfman,
-  skin_pain_highborn:         skinPainHighborn,
-  skin_panic_glitchosaurus:   skinPanicGlitchosaurus,
-  skin_rind_sewer:            skinRindSewer,
-  skin_roll_calculated:       skinRollCalculated,
+  skin_accuser_dreamer:           skinAccuserDreamer,
+  skin_accuser_duchess:           skinAccuserDuchess,
+  skin_alpha_ragnar:              skinAlphaRagnar,
+  skin_alpha_hewn_knight:         skinAlphaHewnKnight,
+  skin_anointed_masquerade:       skinAnointedMasquerade,
+  skin_anointed_divine_sentinel:  skinAnointedDivineSentinel,
+  skin_click_roarcat:             skinClickRoarcat,
+  skin_dash_stormhare:            skinDashStormhare,
+  skin_dash_colosseum_sprint:     skinDashColosseumSprint,
+  skin_frost_glaciodon:           skinFrostGlaciodon,
+  skin_frost_skaldi:              skinFrostSkaldi,
+  skin_guardian_ironknuckle:      skinGuardianIronknuckle,
+  skin_executive_rail_baron:      skinExecutiveRailBaron,
+  skin_hotwired_pyra:             skinHotwiredPyra,
+  skin_lowflame_wolfman:          skinLowflameWolfman,
+  skin_lowflame_high_noon:        skinLowflameHighNoon,
+  skin_pain_highborn:             skinPainHighborn,
+  skin_panic_glitchosaurus:       skinPanicGlitchosaurus,
+  skin_rind_sewer:                skinRindSewer,
+  skin_roll_calculated:           skinRollCalculated,
+  skin_roll_intel_officer:        skinRollIntelOfficer,
 };
 
 /**
@@ -109,22 +127,27 @@ export const SKIN_ASSET_URLS: Record<string, string> = {
  * If a skin ID is absent from this map it is driver-agnostic (e.g. legendary skins).
  */
 export const SKIN_DRIVER_REQUIREMENT: Record<string, string> = {
-  skin_accuser_dreamer:       'accuser',
-  skin_accuser_duchess:       'accuser',
-  skin_alpha_ragnar:          'alpha_prime',
-  skin_alpha_hewn_knight:     'alpha_prime',
-  skin_anointed_masquerade:   'anointed',
-  skin_click_roarcat:         'click_click',
-  skin_dash_stormhare:        'rainbow_dash',
-  skin_frost_glaciodon:       'frostbyte',
-  skin_frost_skaldi:          'frostbyte',
-  skin_guardian_ironknuckle:  'guardian_h',
-  skin_hotwired_pyra:         'hotwired',
-  skin_lowflame_wolfman:      'low_flame',
-  skin_pain_highborn:         'pain_hider',
-  skin_panic_glitchosaurus:   'panic_bot',
-  skin_rind_sewer:            'the_rind',
-  skin_roll_calculated:       'roll_safe',
+  skin_accuser_dreamer:           'accuser',
+  skin_accuser_duchess:           'accuser',
+  skin_alpha_ragnar:              'alpha_prime',
+  skin_alpha_hewn_knight:         'alpha_prime',
+  skin_anointed_masquerade:       'anointed',
+  skin_anointed_divine_sentinel:  'anointed',
+  skin_click_roarcat:             'click_click',
+  skin_dash_stormhare:            'rainbow_dash',
+  skin_dash_colosseum_sprint:     'rainbow_dash',
+  skin_frost_glaciodon:           'frostbyte',
+  skin_frost_skaldi:              'frostbyte',
+  skin_guardian_ironknuckle:      'guardian_h',
+  skin_executive_rail_baron:      'executive_p',
+  skin_hotwired_pyra:             'hotwired',
+  skin_lowflame_wolfman:          'low_flame',
+  skin_lowflame_high_noon:        'low_flame',
+  skin_pain_highborn:             'pain_hider',
+  skin_panic_glitchosaurus:       'panic_bot',
+  skin_rind_sewer:                'the_rind',
+  skin_roll_calculated:           'roll_safe',
+  skin_roll_intel_officer:        'roll_safe',
 };
 
 /** Card background image URLs (by catalog ID) */
