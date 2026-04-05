@@ -2472,7 +2472,8 @@ function endRound(lobbyCode: string) {
   
   // HAUNTED: If all human non-eliminated players are ghosts (already auto-acknowledged),
   // auto-advance without waiting for player_ready_next to avoid getting stuck.
-  if (game.settings.variant === 'HAUNTED' && game.phase !== 'game_over') {
+  // Note: game.phase is 'round_end' here; the game_over guard inside the setTimeout handles the async case.
+  if (game.settings.variant === 'HAUNTED') {
     const humanNonEliminated = game.players.filter(p => !p.isBot && !p.isEliminated);
     const allAutoAcknowledged = humanNonEliminated.length > 0 &&
       humanNonEliminated.every(p => (p as any).roundEndAcknowledged === true);
