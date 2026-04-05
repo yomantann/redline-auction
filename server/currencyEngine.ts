@@ -83,7 +83,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'logo_abstract',
     name: 'Abstract Symbol',
     type: 'logo',
-    cost: 15000,
+    cost: 10000,
     rarity: 'rare',
     asset: 'logo_abstract',
     earnableOnly: false,
