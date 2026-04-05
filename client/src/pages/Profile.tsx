@@ -1334,7 +1334,7 @@ export default function Profile() {
         {/* ── Performance Stats ── */}
         {(() => {
           const wins = profile.winsPerMode as Record<string, number> ?? {};
-          const games = (profile as any).gamesPerMode as Record<string, number> ?? {};
+          const games = profile.gamesPerMode as Record<string, number> ?? {};
 
           // SP vs MP
           const spWins = (wins.sp_standard ?? 0) + (wins.sp_social ?? 0) + (wins.sp_bio ?? 0) + (wins.sp_haunted ?? 0);
