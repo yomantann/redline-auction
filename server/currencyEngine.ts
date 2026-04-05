@@ -1084,6 +1084,7 @@ export function createDefaultProfile(
     momentFlagsPerType: {},
     convertedGameIds: [],
     winsPerMode: {},
+    gamesPerMode: {},
     milestoneUnlocks: [],
     createdAt: now,
     updatedAt: now,
@@ -1151,16 +1152,25 @@ export function convertGameToCurrency(
   const creditsEarned = trophies * CREDITS_PER_TROPHY + momentFlags * CREDITS_PER_MOMENT_FLAG;
   const now = new Date();
 
-  // Build updated winsPerMode
+  // Build updated winsPerMode and gamesPerMode
   const winsPerMode: Record<string, number> = { ...(profile.winsPerMode as Record<string, number>) };
+  const gamesPerMode: Record<string, number> = { ...(profile.gamesPerMode as Record<string, number> ?? {}) };
+
+  const modePrefix = isMultiplayer ? 'mp' : 'sp';
+  const variantKey = variant === 'SOCIAL_OVERDRIVE'
+    ? 'social' : variant === 'BIO_FUEL'
+      ? 'bio' : variant === 'HAUNTED'
+        ? 'haunted' : 'standard';
+  const modeKey = `${modePrefix}_${variantKey}`;
+
+  // Track games played per mode (always, win or loss)
+  gamesPerMode[modeKey] = (gamesPerMode[modeKey] ?? 0) + 1;
+  if (isCompetitive) {
+    gamesPerMode['comp'] = (gamesPerMode['comp'] ?? 0) + 1;
+  }
+
   if (isWinner) {
-    const modePrefix = isMultiplayer ? 'mp' : 'sp';
-    const variantKey = variant === 'SOCIAL_OVERDRIVE'
-      ? 'social' : variant === 'BIO_FUEL'
-        ? 'bio' : variant === 'HAUNTED'
-          ? 'haunted' : 'standard';
-    const key = `${modePrefix}_${variantKey}`;
-    winsPerMode[key] = (winsPerMode[key] ?? 0) + 1;
+    winsPerMode[modeKey] = (winsPerMode[modeKey] ?? 0) + 1;
     if (isCompetitive) {
       winsPerMode['comp'] = (winsPerMode['comp'] ?? 0) + 1;
     }
@@ -1184,6 +1194,7 @@ export function convertGameToCurrency(
     })(),
     convertedGameIds: [...(profile.convertedGameIds as string[]), gameId],
     winsPerMode,
+    gamesPerMode,
     updatedAt: now,
   };
 

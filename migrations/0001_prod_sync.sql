@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS "player_profiles" (
 -- Add any columns that may be missing in older deployments
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "lifetime_spent"         integer NOT NULL DEFAULT 0;
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "wins_per_mode"          jsonb   NOT NULL DEFAULT '{}';
+ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "games_per_mode"         jsonb   NOT NULL DEFAULT '{}';
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "milestone_unlocks"      jsonb   NOT NULL DEFAULT '[]';
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "converted_moment_flags" integer NOT NULL DEFAULT 0;
 ALTER TABLE "player_profiles" ADD COLUMN IF NOT EXISTS "moment_flags_per_type"  jsonb   NOT NULL DEFAULT '{}';

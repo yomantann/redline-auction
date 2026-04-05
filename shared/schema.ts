@@ -20,6 +20,7 @@ export const playerProfiles = pgTable("player_profiles", {
   totalWins: integer("total_wins").default(0).notNull(),
   totalGames: integer("total_games").default(0).notNull(),
   winsPerMode: jsonb("wins_per_mode").$type<Record<string, number>>().default({}).notNull(),
+  gamesPerMode: jsonb("games_per_mode").$type<Record<string, number>>().default({}).notNull(),
   // ── Cosmetics ─────────────────────────────────────────────────────────────
   ownedCosmetics: jsonb("owned_cosmetics").$type<string[]>().default([]).notNull(),
   equippedCosmetics: jsonb("equipped_cosmetics").$type<Record<string, string>>().default({}).notNull(),
