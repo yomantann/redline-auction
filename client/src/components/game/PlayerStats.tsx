@@ -1,7 +1,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { User, Cpu, Trophy, Clock, Zap, Ghost } from "lucide-react";
-import { getBorderStyle, getBackgroundStyle, getDriverSkinUrl } from "@/lib/cosmeticsStyles";
+import { getBorderStyle, getBackgroundStyle, getDriverSkinUrl, getBorderImageUrl } from "@/lib/cosmeticsStyles";
 import type { EquippedCosmetics } from "@shared/schema";
 
 interface Player {
@@ -66,8 +66,12 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // Cosmetic styles (only applied when not eliminated/ghost to preserve game feedback colours)
   const applyCosmetics = !!equippedCosmetics && !player.isEliminated && !player.isGhost;
   const borderStyle = applyCosmetics ? (getBorderStyle(equippedCosmetics) ?? undefined) : undefined;
+  const borderImageUrl = applyCosmetics ? getBorderImageUrl(equippedCosmetics) : null;
   const backgroundStyle = applyCosmetics ? (getBackgroundStyle(equippedCosmetics) ?? undefined) : undefined;
   const skinUrl = applyCosmetics ? getDriverSkinUrl(equippedCosmetics, currentDriverId) : null;
+  // When an image background is equipped the card uses a photo — add a text-shadow so the
+  // player name stays legible against any background image.
+  const hasImageBackground = applyCosmetics && !!backgroundStyle?.backgroundImage;
 
   return (
     <div 
@@ -84,6 +88,22 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     style={{ ...backgroundStyle, ...borderStyle }}
     data-testid={`player-card-${player.id}`}
     >
+      {/* Image-based border overlay — rendered as an absolutely-positioned img that extends
+          slightly beyond the card so the full border frame is visible. mix-blend-mode:multiply
+          makes the white outer padding of the PNG invisible on the dark card background. */}
+      {borderImageUrl && (
+        <img
+          src={borderImageUrl}
+          alt=""
+          aria-hidden="true"
+          className="absolute pointer-events-none z-20 rounded-lg"
+          style={{ top: '-6px', right: '-6px', bottom: '-6px', left: '-6px',
+                   width: 'calc(100% + 12px)', height: 'calc(100% + 12px)',
+                   mixBlendMode: 'multiply' }}
+          loading="eager"
+          decoding="async"
+        />
+      )}
       {/* Animation Container */}
       {children}
 
@@ -149,7 +169,9 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
             )}
           </div>
           <div className="flex flex-col">
-            <span className={cn("font-display font-bold tracking-wide leading-tight", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isGhost && "text-teal-400", !player.isGhost && player.isEliminated && !hideEliminated && "text-red-500")}>
+            <span className={cn("font-display font-bold tracking-wide leading-tight", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isGhost && "text-teal-400", !player.isGhost && player.isEliminated && !hideEliminated && "text-red-500")}
+              style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+            >
               {player.name}
             </span>
             {player.driverName && (

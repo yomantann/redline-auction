@@ -10,7 +10,7 @@ import { PlayerStats } from "@/components/game/PlayerStats";
 import { MusicPlayer } from "@/components/game/MusicPlayer";
 import { Mail, Heart } from 'lucide-react';
 import type { PlayerProfile, EquippedCosmetics } from "@shared/schema";
-import { getLogoUrl, getCardStyles, getDriverSkinUrl } from "@/lib/cosmeticsStyles";
+import { getLogoUrl, getCardStyles, getDriverSkinUrl, getBorderImageUrl } from "@/lib/cosmeticsStyles";
 import { PlayerProfileWidget } from "@/components/game/PlayerProfileWidget";
 import { GuestBanner } from "@/components/game/GuestBanner";
 
@@ -8788,13 +8788,28 @@ export default function Game() {
           const cardLogoUrl = isWinnerCard && isHumanCard ? getLogoUrl(myCosmetics) : null;
           // Apply cosmetics (border + background) to the human player's card
           const cardStyle = isHumanCard ? getCardStyles(myCosmetics) : {};
+          const cardBorderImgUrl = isHumanCard ? getBorderImageUrl(myCosmetics) : null;
 
           return (
           <div key={p.id} className={cn(
-            "p-4 rounded border bg-card/50 flex flex-col gap-2 relative overflow-hidden",
+            "p-4 rounded border bg-card/50 flex flex-col gap-2 relative",
             p.id === winner.id && "border-primary/50 bg-primary/10",
             p.id === loser.id && !p.isGhost ? "border-destructive/50 bg-destructive/10" : "border-white/10"
           )} style={cardStyle}>
+            {/* Image-based border overlay for cosmetic borders */}
+            {cardBorderImgUrl && (
+              <img
+                src={cardBorderImgUrl}
+                alt=""
+                aria-hidden="true"
+                className="absolute pointer-events-none z-20 rounded"
+                style={{ top: '-6px', right: '-6px', bottom: '-6px', left: '-6px',
+                         width: 'calc(100% + 12px)', height: 'calc(100% + 12px)',
+                         mixBlendMode: 'multiply' }}
+                loading="eager"
+                decoding="async"
+              />
+            )}
             {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}
             {p.id === loser.id && !p.isGhost && <div className="absolute top-0 right-0 bg-destructive text-white text-[10px] font-bold px-2 py-0.5">ELIMINATED</div>}
             {p.isGhost && p.id !== winner.id && <div className="absolute top-0 right-0 bg-teal-800/80 text-teal-200 text-[10px] font-bold px-2 py-0.5">👻 GHOST</div>}

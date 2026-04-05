@@ -64,16 +64,21 @@ export function getBorderStyle(
   equipped: EquippedCosmetics | undefined,
 ): React.CSSProperties | null {
   if (!equipped?.border || equipped.border === 'border_default') return null;
-  // Image-based borders (from generated CardBorders)
-  const imgUrl = CARD_BORDER_URLS[equipped.border];
-  if (imgUrl) {
-    return {
-      borderImage: `url(${imgUrl}) 30 round`,
-      borderWidth: '4px',
-      borderStyle: 'solid',
-    };
-  }
+  // Image-based borders are rendered via getBorderImageUrl overlay — skip border-image CSS here
+  if (CARD_BORDER_URLS[equipped.border]) return null;
   return BORDER_STYLES[equipped.border] ?? null;
+}
+
+/**
+ * Returns the PNG image URL for image-based border cosmetics, or null.
+ * Used to render the border as an absolutely-positioned overlay with mix-blend-mode
+ * so the white outer padding of the PNG becomes invisible on the dark card background.
+ */
+export function getBorderImageUrl(
+  equipped: EquippedCosmetics | undefined,
+): string | null {
+  if (!equipped?.border || equipped.border === 'border_default') return null;
+  return CARD_BORDER_URLS[equipped.border] ?? null;
 }
 
 /** Returns the background inline style for an equipped background cosmetic, or null for default. */
