@@ -72,6 +72,18 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // When an image background is equipped the card uses a photo — add a text-shadow so the
   // player name stays legible against any background image.
   const hasImageBackground = applyCosmetics && !!backgroundStyle?.backgroundImage;
+  // Shared text-shadow applied to player name, token count, and time display when an image
+  // background is equipped so all labels remain legible on bright backgrounds.
+  const bgTextShadow: React.CSSProperties | undefined = hasImageBackground
+    ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' }
+    : undefined;
+  // Border image extends 5 px beyond each card edge so the visible border design sits
+  // flush with (rather than inset from) the card boundary.
+  const borderImgStyle: React.CSSProperties = {
+    top: '-5px', right: '-5px', bottom: '-5px', left: '-5px',
+    width: 'calc(100% + 10px)', height: 'calc(100% + 10px)',
+    objectFit: 'fill', mixBlendMode: 'multiply',
+  };
 
   return (
     <div 
@@ -97,9 +109,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
           alt=""
           aria-hidden="true"
           className="absolute pointer-events-none z-20 rounded-lg"
-          style={{ top: '-5px', right: '-5px', bottom: '-5px', left: '-5px',
-                   width: 'calc(100% + 10px)', height: 'calc(100% + 10px)',
-                   objectFit: 'fill', mixBlendMode: 'multiply' }}
+          style={borderImgStyle}
           loading="eager"
           decoding="async"
         />
@@ -170,7 +180,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
           </div>
           <div className="flex flex-col">
             <span className={cn("font-display font-bold tracking-wide leading-tight", isCurrentPlayer ? "text-foreground" : "text-muted-foreground", player.isGhost && "text-teal-400", !player.isGhost && player.isEliminated && !hideEliminated && "text-red-500")}
-              style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+              style={bgTextShadow}
             >
               {player.name}
             </span>
@@ -222,25 +232,25 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       <div className="flex items-center gap-4">
         <div className="flex flex-col">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider"
-            style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+            style={bgTextShadow}
           >Tokens</span>
           <div className="flex items-center gap-1.5 text-primary">
             <Trophy size={14} />
             <span className="font-mono text-xl font-bold"
-              style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+              style={bgTextShadow}
             >{player.tokens}</span>
           </div>
         </div>
         
         <div className="flex flex-col">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider"
-            style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+            style={bgTextShadow}
           >Time Left</span>
           <div className="flex items-center gap-1.5 text-zinc-500">
             <Clock size={14} />
             <div className="flex items-center gap-2">
                 <span className={cn("font-mono text-xl font-bold", !showTime && "text-zinc-700 blur-[2px]")}
-                  style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+                  style={bgTextShadow}
                 >
                   {getDisplayTime()}
                 </span>
