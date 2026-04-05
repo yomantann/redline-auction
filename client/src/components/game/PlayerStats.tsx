@@ -96,8 +96,10 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
           src={borderImageUrl}
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full pointer-events-none z-20 rounded-lg"
-          style={{ objectFit: 'fill', mixBlendMode: 'multiply' }}
+          className="absolute pointer-events-none z-20 rounded-lg"
+          style={{ top: '-5px', right: '-5px', bottom: '-5px', left: '-5px',
+                   width: 'calc(100% + 10px)', height: 'calc(100% + 10px)',
+                   objectFit: 'fill', mixBlendMode: 'multiply' }}
           loading="eager"
           decoding="async"
         />
@@ -219,19 +221,27 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
 
       <div className="flex items-center gap-4">
         <div className="flex flex-col">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Tokens</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider"
+            style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+          >Tokens</span>
           <div className="flex items-center gap-1.5 text-primary">
             <Trophy size={14} />
-            <span className="font-mono text-xl font-bold">{player.tokens}</span>
+            <span className="font-mono text-xl font-bold"
+              style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+            >{player.tokens}</span>
           </div>
         </div>
         
         <div className="flex flex-col">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Time Left</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider"
+            style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+          >Time Left</span>
           <div className="flex items-center gap-1.5 text-zinc-500">
             <Clock size={14} />
             <div className="flex items-center gap-2">
-                <span className={cn("font-mono text-xl font-bold", !showTime && "text-zinc-700 blur-[2px]")}>
+                <span className={cn("font-mono text-xl font-bold", !showTime && "text-zinc-700 blur-[2px]")}
+                  style={hasImageBackground ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' } : undefined}
+                >
                   {getDisplayTime()}
                 </span>
                 {/* SHOW IMPACT */}
