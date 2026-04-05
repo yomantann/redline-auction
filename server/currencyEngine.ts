@@ -515,6 +515,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_lowflame_wolfman',
     driverIds: ['low_flame'],
   },
+  {
+    id: 'skin_lowflame_orbital_rest',
+    name: 'Orbital Rest',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_lowflame_orbital_rest',
+    driverIds: ['low_flame'],
+  },
 
   // ── Pain Hider Skins ────────────────────────────────────────────────────────
   {

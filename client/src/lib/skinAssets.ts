@@ -23,12 +23,15 @@ import skinAlphaHewnKnight from "../assets/generated_images/Skins/alpha_the hewn
 
 // ── The Anointed ─────────────────────────────────────────────────────────────
 import skinAnointedMasquerade from "../assets/generated_images/Skins/anointed_masquerade sovereign.png";
+import skinAnointedDivineSentinel from "../assets/generated_images/Skins/anointed_divine sentinel.png";
 
 // ── Click-Click ──────────────────────────────────────────────────────────────
 import skinClickRoarcat from "../assets/generated_images/Skins/click_roarcat.png";
+import skinClickSirWhiskersWrong from "../assets/generated_images/Skins/click_sir whiskers wrong.png";
 
 // ── Rainbow Dash ─────────────────────────────────────────────────────────────
 import skinDashStormhare from "../assets/generated_images/Skins/dash_stormhare the swift.png";
+import skinDashColosseumSprint from "../assets/generated_images/Skins/dash_colosseum sprint.png";
 
 // ── Frostbyte ────────────────────────────────────────────────────────────────
 import skinFrostGlaciodon from "../assets/generated_images/Skins/frost_glaciodon.png";
@@ -36,43 +39,34 @@ import skinFrostSkaldi from "../assets/generated_images/Skins/frost_skaldi's cho
 
 // ── Guardian H ───────────────────────────────────────────────────────────────
 import skinGuardianIronknuckle from "../assets/generated_images/Skins/guardian_ironknuckle.png";
+import skinGuardianUnmovedMarshal from "../assets/generated_images/Skins/guardian_unmoved marshal.png";
 
 // ── Hotwired ─────────────────────────────────────────────────────────────────
 import skinHotwiredPyra from "../assets/generated_images/Skins/hotwired_pyra.png";
 
 // ── Low Flame ────────────────────────────────────────────────────────────────
 import skinLowflameWolfman from "../assets/generated_images/Skins/lowflame_wolfman.png";
+import skinLowflameHighNoon from "../assets/generated_images/Skins/lowflame_high noon nothing.png";
+import skinlowflameorbitalrest from "../assets/generated_images/Skins/lowflame_orbital rest.png";
 
 // ── Pain Hider ───────────────────────────────────────────────────────────────
 import skinPainHighborn from "../assets/generated_images/Skins/pain_highborn elder.png";
+import skinPainWalkingWound from "../assets/generated_images/Skins/pain_the walking wound.png";
 
 // ── Panic Bot ────────────────────────────────────────────────────────────────
 import skinPanicGlitchosaurus from "../assets/generated_images/Skins/panic_glitchosaurus.png";
 
 // ── The Rind ─────────────────────────────────────────────────────────────────
 import skinRindSewer from "../assets/generated_images/Skins/rind_sewer sharpshooter.png";
-
+import skinRindGutterGladiator from "../assets/generated_images/Skins/rind_gutter gladiator.png";
 // ── Executive P ──────────────────────────────────────────────────────────────
 import skinExecutiveRailBaron from "../assets/generated_images/Skins/executive_the rail baron.png";
-
-// ── Low Flame (2nd skin) ──────────────────────────────────────────────────────
-import skinLowflameHighNoon from "../assets/generated_images/Skins/lowflame_high noon nothing.png";
-
-// ── The Anointed (2nd skin) ───────────────────────────────────────────────────
-import skinAnointedDivineSentinel from "../assets/generated_images/Skins/anointed_divine sentinel.png";
-
-// ── Rainbow Dash (2nd skin) ───────────────────────────────────────────────────
-import skinDashColosseumSprint from "../assets/generated_images/Skins/dash_colosseum sprint.png";
 
 // ── Roll Safe ────────────────────────────────────────────────────────────────
 import skinRollCalculated from "../assets/generated_images/Skins/roll_calculated ace.png";
 import skinRollIntelOfficer from "../assets/generated_images/Skins/roll_intel officer.png";
 
 // ── Additional Named Skins ────────────────────────────────────────────────────
-import skinRindGutterGladiator from "../assets/generated_images/Skins/rind_gutter gladiator.png";
-import skinClickSirWhiskersWrong from "../assets/generated_images/Skins/click_sir whiskers wrong.png";
-import skinGuardianUnmovedMarshal from "../assets/generated_images/Skins/guardian_unmoved marshal.png";
-import skinPainWalkingWound from "../assets/generated_images/Skins/pain_the walking wound.png";
 
 // ── Card Backgrounds ─────────────────────────────────────────────────────────
 import bgMolten from "../assets/generated_images/CardBackground/molten_b.png";
@@ -128,6 +122,7 @@ export const SKIN_ASSET_URLS: Record<string, string> = {
   skin_hotwired_pyra:             skinHotwiredPyra,
   skin_lowflame_wolfman:          skinLowflameWolfman,
   skin_lowflame_high_noon:        skinLowflameHighNoon,
+  skin_lowflame_orbital_rest:     skinlowflameorbitalrest,
   skin_pain_highborn:             skinPainHighborn,
   skin_panic_glitchosaurus:       skinPanicGlitchosaurus,
   skin_rind_sewer:                skinRindSewer,
@@ -160,6 +155,7 @@ export const SKIN_DRIVER_REQUIREMENT: Record<string, string> = {
   skin_hotwired_pyra:             'hotwired',
   skin_lowflame_wolfman:          'low_flame',
   skin_lowflame_high_noon:        'low_flame',
+  skin_lowflame_orbital_rest:     'low_flame',
   skin_pain_highborn:             'pain_hider',
   skin_panic_glitchosaurus:       'panic_bot',
   skin_rind_sewer:                'the_rind',
