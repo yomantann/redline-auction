@@ -1337,7 +1337,7 @@ export default function Profile() {
 
         {/* ── Milestones ── */}
         {(() => {
-          const milestoneCategories5: Array<{
+          const categoryDefinitions: Array<{
             key: string;
             label: string;
             icon: React.ReactNode;
@@ -1420,7 +1420,7 @@ export default function Profile() {
               </CardHeader>
               {milestonesExpanded && (
                 <CardContent className="space-y-3">
-                  {milestoneCategories5.map((cat) => {
+                  {categoryDefinitions.map((cat) => {
                     const catMilestones = MILESTONES_DISPLAY.filter((m) => cat.ids.includes(m.id));
                     const catCompleted = catMilestones.filter((m) =>
                       (profile.milestoneUnlocks as string[]).includes(m.id) ||
