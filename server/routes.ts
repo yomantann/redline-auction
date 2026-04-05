@@ -944,6 +944,10 @@ export async function registerRoutes(
         req.user.claims.profile_image_url ?? null,
       );
       const [created] = await db.insert(playerProfiles).values(newProfile as any).returning();
+      if (!created) {
+        log(`Profile creation returned empty for user ${userId}`, "api");
+        return res.status(500).json({ success: false, error: 'Profile creation failed – please retry' });
+      }
       return res.json({ success: true, profile: created });
     } catch (error) {
       log(`Get player profile failed: ${error}`, "api");

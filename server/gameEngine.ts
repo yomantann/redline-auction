@@ -904,6 +904,23 @@ function startBidding(lobbyCode: string) {
       }
     }
 
+    // Safety valve: if the round has been running for more than 5 minutes without ending,
+    // force-release any still-holding players and end the round.  This guards against any
+    // edge-case where a player/bot is stuck holding indefinitely (e.g. network loss or a
+    // ghost bot that slipped through without a botTargetBids entry).
+    if (elapsed > 300) {
+      g.players.forEach(p => {
+        if (p.isHolding && !p.isEliminated) {
+          p.isHolding = false;
+          if (p.currentBid === 0) p.currentBid = Math.round(elapsed * 10) / 10;
+        }
+      });
+      clearInterval(interval);
+      log(`Round ${g.round} force-ended in lobby ${lobbyCode} after safety timeout`, "game");
+      endRound(lobbyCode);
+      return;
+    }
+
     // Check if round should end (all non-ghost, non-eliminated players have released)
     const holdingPlayers = g.players.filter(p => p.isHolding && !p.isEliminated && !p.isGhost);
     
