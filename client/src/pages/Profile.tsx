@@ -655,7 +655,11 @@ async function fetchProfile(): Promise<PlayerProfile | null> {
   if (!res.ok) return null;
   if (!res.headers.get('content-type')?.includes('application/json')) return null;
   const data = await res.json();
-  return data?.success ? (data.profile as PlayerProfile) : null;
+  // Server returns { skipped: true } when session is not yet established (e.g. right after
+  // server restart while the client still has stale auth cache).  Signal null so the caller
+  // can distinguish and retry.
+  if (data?.skipped) return null;
+  return data?.success && data.profile ? (data.profile as PlayerProfile) : null;
 }
 
 async function fetchCosmetics(): Promise<CosmeticItem[]> {
@@ -1120,12 +1124,24 @@ export default function Profile() {
       const [p, c] = await Promise.all([fetchProfile(), fetchCosmetics()]);
       setProfile(p);
       setCosmetics(c);
+      // If profile is still null after a successful fetch (e.g. server session not yet
+      // established right after a restart while the client has stale auth cache), retry
+      // once after a short delay before giving up and showing the error UI.
+      // 1 500 ms is long enough for the server session middleware to settle after restart.
+      if (!p && authUser) {
+        setTimeout(async () => {
+          try {
+            const retried = await fetchProfile();
+            if (retried) setProfile(retried);
+          } catch { /* ignore retry errors */ }
+        }, 1500 /* ms – one retry after server-session settle time */);
+      }
     } catch (err) {
       toast({ title: "Error", description: String(err), variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, authUser]);
 
   useEffect(() => {
     if (!authLoading) load();

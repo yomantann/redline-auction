@@ -11,7 +11,10 @@ const SHORT_TOTAL_ROUNDS = 9;
 const COUNTDOWN_SECONDS = 3;
 const MIN_PLAYERS = 4;
 
-// Min bid / penalty based on game duration
+// Safety valve: force-end a bidding round that hasn't resolved after this many seconds.
+// This prevents any edge-case (ghost bots, network loss, etc.) from permanently stalling a lobby.
+const ROUND_SAFETY_TIMEOUT_SECONDS = 300; // 5 minutes
+
 function getMinBidPenalty(duration: GameDuration): number {
   switch (duration) {
     case 'short': return 1.0;  // Sprint: 1s min bid
@@ -902,6 +905,24 @@ function startBidding(lobbyCode: string) {
         endRound(lobbyCode);
         return;
       }
+    }
+
+    // Safety valve: if the round has been running for more than 5 minutes without ending,
+    // force-release any still-holding players and end the round.  This guards against any
+    // edge-case where a player/bot is stuck holding indefinitely (e.g. network loss or a
+    // ghost bot that slipped through without a botTargetBids entry).
+    if (elapsed > ROUND_SAFETY_TIMEOUT_SECONDS) {
+      g.players.forEach(p => {
+        if (p.isHolding && !p.isEliminated) {
+          p.isHolding = false;
+          // Record elapsed seconds as the bid (consistent with how normal bids work)
+          if (p.currentBid === 0) p.currentBid = Math.round(elapsed * 10) / 10;
+        }
+      });
+      clearInterval(interval);
+      log(`Round ${g.round} force-ended in lobby ${lobbyCode} after safety timeout`, "game");
+      endRound(lobbyCode);
+      return;
     }
 
     // Check if round should end (all non-ghost, non-eliminated players have released)

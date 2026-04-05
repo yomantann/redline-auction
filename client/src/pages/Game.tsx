@@ -2278,7 +2278,9 @@ export default function Game() {
       const timeoutIds: NodeJS.Timeout[] = [];
       
       players.forEach(p => {
-        if (p.isBot && !p.isHolding) {
+        // Ghost bots do not participate in bidding — skip them so they never start
+        // holding with no botBids entry, which would prevent the round from ending.
+        if (p.isBot && !p.isHolding && !p.isGhost) {
           const delay = isBotOnlyRound
             ? Math.random() * 200 + 50   // 50–250ms when bot-only (speedup)
             : Math.random() * 2000 + 500; // 0.5s to 2.5s normally
@@ -2421,7 +2423,9 @@ export default function Game() {
         }
 
         // Check if everyone released
-        const activePlayers = players.filter(p => !p.isEliminated); 
+        // Ghosts cannot hold — exclude them so a stale isHolding on a ghost player
+        // (or a ghost bot that slipped through) can never prevent the round from ending.
+        const activePlayers = players.filter(p => !p.isEliminated && !p.isGhost);
         const holdingPlayers = activePlayers.filter(p => p.isHolding);
         
         if (holdingPlayers.length === 0) {
@@ -2700,6 +2704,7 @@ export default function Game() {
       const minBidOffset = getTimerStart();
       const botsToRelease = players.filter(p => 
         p.isBot && 
+        !p.isGhost &&
         p.isHolding && 
         botBids[p.id] + minBidOffset <= currentTime
       );
