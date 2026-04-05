@@ -324,6 +324,89 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
       return (m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0);
     },
   },
+
+  // ── Non-Casual (Reality Mode) Win Milestones ──────────────────────────────
+  {
+    id: 'milestone_noncasual_5_wins',
+    creditReward: 2000,
+    label: 'Win 5 Reality Mode games (Social, Bio Fuel, or Haunted)',
+    reward: '2,000 credits',
+    goal: 5,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_social'] ?? 0) + (m['mp_social'] ?? 0)
+           + (m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)
+           + (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_noncasual_20_wins',
+    creditReward: 8000,
+    label: 'Win 20 Reality Mode games (Social, Bio Fuel, or Haunted)',
+    reward: '8,000 credits',
+    goal: 20,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_social'] ?? 0) + (m['mp_social'] ?? 0)
+           + (m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)
+           + (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_social_15_wins',
+    creditReward: 4000,
+    label: 'Win 15 Social Overdrive games',
+    reward: '4,000 credits',
+    goal: 15,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_social'] ?? 0) + (m['mp_social'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_bio_15_wins',
+    creditReward: 4000,
+    label: 'Win 15 Bio Fuel games',
+    reward: '4,000 credits',
+    goal: 15,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_sp_25_wins',
+    creditReward: 5000,
+    label: 'Win 25 Single Player games',
+    reward: '5,000 credits',
+    goal: 25,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_standard'] ?? 0) + (m['sp_social'] ?? 0) + (m['sp_bio'] ?? 0) + (m['sp_haunted'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_sp_50_wins',
+    creditReward: 15000,
+    label: 'Win 50 Single Player games',
+    reward: '15,000 credits',
+    goal: 50,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['sp_standard'] ?? 0) + (m['sp_social'] ?? 0) + (m['sp_bio'] ?? 0) + (m['sp_haunted'] ?? 0);
+    },
+  },
+  {
+    id: 'milestone_mp_50_wins',
+    creditReward: 25000,
+    label: 'Win 50 Multiplayer games',
+    reward: '25,000 credits',
+    goal: 50,
+    getProgress: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return (m['mp_standard'] ?? 0) + (m['mp_social'] ?? 0) + (m['mp_bio'] ?? 0) + (m['mp_haunted'] ?? 0);
+    },
+  },
   {
     id: 'milestone_credits_5000',
     creditReward: 250000,
@@ -423,33 +506,33 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   {
     id: 'milestone_hidden_67_3x',
     creditReward: 1500,
-    label: 'Trigger a hidden signal 6 times',
+    label: 'Uncover a hidden numerical moment 3 times',
     reward: '1,500 credits',
-    goal: 6,
+    goal: 3,
     getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_67'] ?? 0,
   },
   {
     id: 'milestone_hidden_redemption_first',
     creditReward: 500,
-    label: 'Trigger a hidden comeback twice',
+    label: 'Trigger a hidden comeback 3 times',
     reward: '500 credits',
-    goal: 2,
+    goal: 3,
     getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_REDEMPTION'] ?? 0,
   },
   {
     id: 'milestone_hidden_nail_3x',
     creditReward: 1000,
-    label: 'Uncover a hidden finishing move 6 times',
+    label: 'Uncover a hidden finishing move 3 times',
     reward: '1,000 credits',
-    goal: 6,
+    goal: 3,
     getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_NAIL_IN_THE_COFFIN'] ?? 0,
   },
   {
     id: 'milestone_hidden_deja_bid',
     creditReward: 300,
-    label: 'Trigger a hidden repeating pattern twice',
+    label: 'Trigger a hidden repeating pattern 3 times',
     reward: '300 credits',
-    goal: 2,
+    goal: 3,
     getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_DEJA_BID'] ?? 0,
   },
   // Clutch / Skill Milestones

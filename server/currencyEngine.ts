@@ -705,8 +705,76 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
       return ((m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)) >= 5;
     },
   },
+
+  // ── Non-Casual (Reality Mode) Win Milestones ──────────────────────────────
   {
-    id: 'milestone_credits_5000',
+    id: 'milestone_noncasual_5_wins',
+    creditReward: 2000,
+    description: 'Win 5 Reality Mode games (Social Overdrive, Bio Fuel, or Haunted).',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_social'] ?? 0) + (m['mp_social'] ?? 0)
+            + (m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)
+            + (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 5;
+    },
+  },
+  {
+    id: 'milestone_noncasual_20_wins',
+    creditReward: 8000,
+    description: 'Win 20 Reality Mode games (Social Overdrive, Bio Fuel, or Haunted).',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_social'] ?? 0) + (m['mp_social'] ?? 0)
+            + (m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)
+            + (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 20;
+    },
+  },
+  {
+    id: 'milestone_social_15_wins',
+    creditReward: 4000,
+    description: 'Win 15 Social Overdrive games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_social'] ?? 0) + (m['mp_social'] ?? 0)) >= 15;
+    },
+  },
+  {
+    id: 'milestone_bio_15_wins',
+    creditReward: 4000,
+    description: 'Win 15 Bio Fuel games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)) >= 15;
+    },
+  },
+  {
+    id: 'milestone_sp_25_wins',
+    creditReward: 5000,
+    description: 'Win 25 Single Player games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_standard'] ?? 0) + (m['sp_social'] ?? 0) + (m['sp_bio'] ?? 0) + (m['sp_haunted'] ?? 0)) >= 25;
+    },
+  },
+  {
+    id: 'milestone_sp_50_wins',
+    creditReward: 15000,
+    description: 'Win 50 Single Player games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['sp_standard'] ?? 0) + (m['sp_social'] ?? 0) + (m['sp_bio'] ?? 0) + (m['sp_haunted'] ?? 0)) >= 50;
+    },
+  },
+  {
+    id: 'milestone_mp_50_wins',
+    creditReward: 25000,
+    description: 'Win 50 Multiplayer games.',
+    check: (p) => {
+      const m = p.winsPerMode as Record<string, number>;
+      return ((m['mp_standard'] ?? 0) + (m['mp_social'] ?? 0) + (m['mp_bio'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 50;
+    },
+  },
+  {
     creditReward: 250000,
     description: 'Earn 5,000 total lifetime credits.',
     check: (p) => p.lifetimeEarned >= 5000,
@@ -782,26 +850,26 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   {
     id: 'milestone_hidden_67_3x',
     creditReward: 1500,
-    description: 'Trigger a hidden signal 6 times.',
-    check: (p) => flagCount(p, 'HIDDEN_67') >= 6,
+    description: 'Uncover a hidden numerical moment 3 times.',
+    check: (p) => flagCount(p, 'HIDDEN_67') >= 3,
   },
   {
     id: 'milestone_hidden_redemption_first',
     creditReward: 500,
-    description: 'Trigger a hidden comeback twice.',
-    check: (p) => flagCount(p, 'HIDDEN_REDEMPTION') >= 2,
+    description: 'Trigger a hidden comeback 3 times.',
+    check: (p) => flagCount(p, 'HIDDEN_REDEMPTION') >= 3,
   },
   {
     id: 'milestone_hidden_nail_3x',
     creditReward: 1000,
-    description: 'Uncover a hidden finishing move 6 times.',
-    check: (p) => flagCount(p, 'HIDDEN_NAIL_IN_THE_COFFIN') >= 6,
+    description: 'Uncover a hidden finishing move 3 times.',
+    check: (p) => flagCount(p, 'HIDDEN_NAIL_IN_THE_COFFIN') >= 3,
   },
   {
     id: 'milestone_hidden_deja_bid',
     creditReward: 300,
-    description: 'Trigger a hidden repeating pattern twice.',
-    check: (p) => flagCount(p, 'HIDDEN_DEJA_BID') >= 2,
+    description: 'Trigger a hidden repeating pattern 3 times.',
+    check: (p) => flagCount(p, 'HIDDEN_DEJA_BID') >= 3,
   },
   // Clutch / Skill Milestones
   {
