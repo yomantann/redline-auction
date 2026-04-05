@@ -248,15 +248,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   // ── Backgrounds ─────────────────────────────────────────────────────────────
   // ── Generated Card Backgrounds ──────────────────────────────────────────────
   {
-    id: 'molten_b',
-    name: 'Molten',
-    type: 'background',
-    cost: 10000,
-    rarity: 'rare',
-    asset: 'molten_b',
-    earnableOnly: false,
-  },
-  {
     id: 'dual_b',
     name: 'Dual',
     type: 'background',
@@ -272,6 +263,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 0,
     rarity: 'common',
     asset: 'organic_b',
+    earnableOnly: false,
+  },
+  {
+    id: 'molten_b',
+    name: 'Molten',
+    type: 'background',
+    cost: 10000,
+    rarity: 'rare',
+    asset: 'molten_b',
     earnableOnly: false,
   },
   {
