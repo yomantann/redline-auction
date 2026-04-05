@@ -143,108 +143,115 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   // ── Cosmetic milestones ────────────────────────────────────────────────────
   {
     id: 'milestone_10_wins',
-    creditReward: 500,
+    cosmeticId: 'border_molten',
     label: 'Win 10 total games across any mode',
-    reward: '500 credits',
+    reward: 'Molten border',
     goal: 10,
     getProgress: (p) =>
       Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
   },
   {
     id: 'milestone_5_haunted_wins',
-    cosmeticId: 'border_haunted',
-    creditReward: 400,
+    cosmeticId: 'abyssal_depth_b',
     label: 'Win 5 Haunted mode games (SP or MP)',
-    reward: 'Haunted Glow border + 400 credits',
+    reward: 'Abyssal Depth background',
     goal: 5,
     getProgress: (p) => {
       const m = p.winsPerMode as Record<string, number>;
       return (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0);
     },
   },
+  {
+    id: 'milestone_collector_5',
+    cosmeticId: 'logo_neon_red',
+    label: 'Own 5 or more cosmetics',
+    reward: 'Neon Red logo',
+    goal: 5,
+    getProgress: (p) => (p.ownedCosmetics as string[]).length,
+  },
   // ── Credit reward milestones ───────────────────────────────────────────────
   {
     id: 'milestone_first_game',
-    creditReward: 50,
+    creditReward: 200,
     label: 'Play your first game',
-    reward: '50 credits',
+    reward: '200 credits',
     goal: 1,
     getProgress: (p) => p.totalGames,
   },
   {
     id: 'milestone_10_games',
-    creditReward: 200,
+    creditReward: 1000,
     label: 'Play 10 total games',
-    reward: '200 credits',
+    reward: '1,000 credits',
     goal: 10,
     getProgress: (p) => p.totalGames,
   },
   {
     id: 'milestone_50_games',
-    creditReward: 600,
+    creditReward: 10000,
     label: 'Play 50 total games',
-    reward: '600 credits',
+    reward: '10,000 credits',
     goal: 50,
     getProgress: (p) => p.totalGames,
   },
   {
     id: 'milestone_100_games',
-    creditReward: 1500,
+    creditReward: 20000,
     label: 'Play 100 total games',
-    reward: '1,500 credits',
+    reward: '20,000 credits',
     goal: 100,
     getProgress: (p) => p.totalGames,
   },
   {
     id: 'milestone_first_win',
-    creditReward: 100,
+    creditReward: 500,
     label: 'Win your first game',
-    reward: '100 credits',
+    reward: '500 credits',
     goal: 1,
     getProgress: (p) =>
       Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
   },
   {
-    id: 'milestone_5_wins',
-    creditReward: 250,
-    label: 'Win 5 total games across any mode',
-    reward: '250 credits',
-    goal: 5,
-    getProgress: (p) =>
-      Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
-  },
-  {
     id: 'milestone_25_wins',
-    creditReward: 750,
+    creditReward: 5000,
     label: 'Win 25 total games across any mode',
-    reward: '750 credits',
+    reward: '5,000 credits',
     goal: 25,
     getProgress: (p) =>
       Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
   },
   {
     id: 'milestone_50_wins',
-    creditReward: 1500,
+    creditReward: 30000,
     label: 'Win 50 total games across any mode',
-    reward: '1,500 credits',
+    reward: '30,000 credits',
     goal: 50,
     getProgress: (p) =>
       Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
   },
   {
     id: 'milestone_100_wins',
-    creditReward: 4000,
+    creditReward: 50000,
     label: 'Win 100 total games across any mode',
-    reward: '4,000 credits',
+    reward: '50,000 credits',
     goal: 100,
     getProgress: (p) =>
       Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
   },
   {
+    id: 'milestone_500_wins',
+    creditReward: 200000,
+    label: 'Win 500 total games across any mode',
+    reward: '200,000 credits',
+    goal: 500,
+    getProgress: (p) =>
+      Object.values(p.winsPerMode as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0),
+  },
+  {
     id: 'milestone_haunted_10_wins',
-    creditReward: 800,
+    cosmeticId: 'static_overload_b',
     label: 'Win 10 Haunted mode games (SP or MP)',
-    reward: '800 credits',
+    reward: 'Static Overload background',
     goal: 10,
     getProgress: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -253,9 +260,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_sp_10_wins',
-    creditReward: 500,
+    creditReward: 2000,
     label: 'Win 10 Single Player games',
-    reward: '500 credits',
+    reward: '2,000 credits',
     goal: 10,
     getProgress: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -264,9 +271,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_mp_5_wins',
-    creditReward: 400,
+    creditReward: 2000,
     label: 'Win 5 Multiplayer games',
-    reward: '400 credits',
+    reward: '2,000 credits',
     goal: 5,
     getProgress: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -275,9 +282,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_mp_25_wins',
-    creditReward: 1500,
+    creditReward: 10000,
     label: 'Win 25 Multiplayer games',
-    reward: '1,500 credits',
+    reward: '10,000 credits',
     goal: 25,
     getProgress: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -286,9 +293,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_sprint_5_wins',
-    creditReward: 300,
+    creditReward: 1000,
     label: 'Win 5 Standard mode games (SP or MP)',
-    reward: '300 credits',
+    reward: '1,000 credits',
     goal: 5,
     getProgress: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -297,9 +304,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_social_5_wins',
-    creditReward: 450,
+    creditReward: 1000,
     label: 'Win 5 Social Overdrive games',
-    reward: '450 credits',
+    reward: '1,000 credits',
     goal: 5,
     getProgress: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -308,9 +315,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_bio_5_wins',
-    creditReward: 450,
+    creditReward: 1000,
     label: 'Win 5 Bio Fuel games',
-    reward: '450 credits',
+    reward: '1,000 credits',
     goal: 5,
     getProgress: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -318,36 +325,20 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
     },
   },
   {
-    id: 'milestone_credits_1000',
-    creditReward: 200,
-    label: 'Earn 1,000 lifetime credits',
-    reward: '200 credits',
-    goal: 1000,
-    getProgress: (p) => p.lifetimeEarned,
-  },
-  {
     id: 'milestone_credits_5000',
-    creditReward: 500,
+    creditReward: 250000,
     label: 'Earn 5,000 lifetime credits',
-    reward: '500 credits',
+    reward: '250,000 credits',
     goal: 5000,
     getProgress: (p) => p.lifetimeEarned,
   },
   {
-    id: 'milestone_credits_10000',
-    creditReward: 1000,
-    label: 'Earn 10,000 lifetime credits',
-    reward: '1,000 credits',
-    goal: 10000,
+    id: 'milestone_credits_1000000',
+    creditReward: 250000,
+    label: 'Earn 1,000,000 lifetime credits',
+    reward: '250,000 credits',
+    goal: 1000000,
     getProgress: (p) => p.lifetimeEarned,
-  },
-  {
-    id: 'milestone_collector_5',
-    creditReward: 500,
-    label: 'Own 5 or more cosmetics',
-    reward: '500 credits',
-    goal: 5,
-    getProgress: (p) => (p.ownedCosmetics as string[]).length,
   },
   {
     id: 'milestone_fashion_icon',

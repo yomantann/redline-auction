@@ -330,6 +330,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_anointed_masquerade',
     driverIds: ['anointed'],
   },
+  {
+    id: 'skin_anointed_divine_sentinel',
+    name: 'Divine Sentinel',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_anointed_divine_sentinel',
+    driverIds: ['anointed'],
+  },
 
   // ── Click-Click Skins ───────────────────────────────────────────────────────
   {
@@ -352,6 +361,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_dash_stormhare',
     driverIds: ['rainbow_dash'],
   },
+  {
+    id: 'skin_dash_colosseum_sprint',
+    name: 'Colosseum Sprint',
+    type: 'driverSkin',
+    cost: 35000,
+    rarity: 'rare',
+    asset: 'skin_dash_colosseum_sprint',
+    driverIds: ['rainbow_dash'],
+  },
 
   // ── Frostbyte Skins ─────────────────────────────────────────────────────────
   {
@@ -371,6 +389,17 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     rarity: 'rare',
     asset: 'skin_frost_skaldi',
     driverIds: ['frostbyte'],
+  },
+
+  // ── Executive P Skins ───────────────────────────────────────────────────────
+  {
+    id: 'skin_executive_rail_baron',
+    name: 'The Rail Baron',
+    type: 'driverSkin',
+    cost: 35000,
+    rarity: 'rare',
+    asset: 'skin_executive_rail_baron',
+    driverIds: ['executive_p'],
   },
 
   // ── Guardian H Skins ────────────────────────────────────────────────────────
@@ -403,6 +432,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 35000,
     rarity: 'rare',
     asset: 'skin_lowflame_wolfman',
+    driverIds: ['low_flame'],
+  },
+  {
+    id: 'skin_lowflame_high_noon',
+    name: 'High Noon Nothing',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_lowflame_high_noon',
     driverIds: ['low_flame'],
   },
 
@@ -447,6 +485,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 25000,
     rarity: 'common',
     asset: 'skin_roll_calculated',
+    driverIds: ['roll_safe'],
+  },
+  {
+    id: 'skin_roll_intel_officer',
+    name: 'Intel Officer',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_roll_intel_officer',
     driverIds: ['roll_safe'],
   },
 
@@ -503,82 +550,87 @@ function totalWins(winsPerMode: Record<string, number>): number {
 }
 
 export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
-  // ── Cosmetic milestones (legacy) ────────────────────────────────────────────
+  // ── Cosmetic milestones ──────────────────────────────────────────────────────
   {
     id: 'milestone_10_wins',
-    creditReward: 500,
+    cosmeticId: 'border_molten',
     description: 'Win 10 total games across any mode.',
     check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 10,
   },
   {
     id: 'milestone_5_haunted_wins',
-    cosmeticId: 'border_haunted',
-    creditReward: 400,
+    cosmeticId: 'abyssal_depth_b',
     description: 'Win 5 Haunted mode games (SP or MP).',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
       return ((m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 5;
     },
   },
+  {
+    id: 'milestone_collector_5',
+    cosmeticId: 'logo_neon_red',
+    description: 'Own 5 or more cosmetics.',
+    check: (p) => ((p.ownedCosmetics as string[]).length) >= 5,
+  },
 
   // ── Credit reward milestones ─────────────────────────────────────────────────
   {
     id: 'milestone_first_game',
-    creditReward: 50,
+    creditReward: 200,
     description: 'Play your first game.',
     check: (p) => p.totalGames >= 1,
   },
   {
     id: 'milestone_10_games',
-    creditReward: 200,
+    creditReward: 1000,
     description: 'Play 10 total games.',
     check: (p) => p.totalGames >= 10,
   },
   {
     id: 'milestone_50_games',
-    creditReward: 600,
+    creditReward: 10000,
     description: 'Play 50 total games.',
     check: (p) => p.totalGames >= 50,
   },
   {
     id: 'milestone_100_games',
-    creditReward: 1500,
+    creditReward: 20000,
     description: 'Play 100 total games.',
     check: (p) => p.totalGames >= 100,
   },
   {
     id: 'milestone_first_win',
-    creditReward: 100,
+    creditReward: 500,
     description: 'Win your first game.',
     check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 1,
   },
   {
-    id: 'milestone_5_wins',
-    creditReward: 250,
-    description: 'Win 5 total games across any mode.',
-    check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 5,
-  },
-  {
     id: 'milestone_25_wins',
-    creditReward: 750,
+    creditReward: 5000,
     description: 'Win 25 total games across any mode.',
     check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 25,
   },
   {
     id: 'milestone_50_wins',
-    creditReward: 1500,
+    creditReward: 30000,
     description: 'Win 50 total games across any mode.',
     check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 50,
   },
   {
     id: 'milestone_100_wins',
-    creditReward: 4000,
+    creditReward: 50000,
     description: 'Win 100 total games across any mode.',
     check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 100,
   },
   {
+    id: 'milestone_500_wins',
+    creditReward: 200000,
+    description: 'Win 500 total games across any mode.',
+    check: (p) => totalWins(p.winsPerMode as Record<string, number>) >= 500,
+  },
+  {
     id: 'milestone_haunted_10_wins',
-    creditReward: 800,
+    cosmeticId: 'static_overload_b',
     description: 'Win 10 Haunted mode games (SP or MP).',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -587,7 +639,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_sp_10_wins',
-    creditReward: 500,
+    creditReward: 2000,
     description: 'Win 10 Single Player games.',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -596,7 +648,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_mp_5_wins',
-    creditReward: 400,
+    creditReward: 2000,
     description: 'Win 5 Multiplayer games.',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -605,7 +657,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_mp_25_wins',
-    creditReward: 1500,
+    creditReward: 10000,
     description: 'Win 25 Multiplayer games.',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -614,7 +666,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_sprint_5_wins',
-    creditReward: 300,
+    creditReward: 1000,
     description: 'Win 5 Standard mode games (SP or MP).',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -623,7 +675,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_social_5_wins',
-    creditReward: 450,
+    creditReward: 1000,
     description: 'Win 5 Social Overdrive games.',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -632,7 +684,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_bio_5_wins',
-    creditReward: 450,
+    creditReward: 1000,
     description: 'Win 5 Bio Fuel games.',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
@@ -640,28 +692,16 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     },
   },
   {
-    id: 'milestone_credits_1000',
-    creditReward: 200,
-    description: 'Earn 1,000 total lifetime credits.',
-    check: (p) => p.lifetimeEarned >= 1000,
-  },
-  {
     id: 'milestone_credits_5000',
-    creditReward: 500,
+    creditReward: 250000,
     description: 'Earn 5,000 total lifetime credits.',
     check: (p) => p.lifetimeEarned >= 5000,
   },
   {
-    id: 'milestone_credits_10000',
-    creditReward: 1000,
-    description: 'Earn 10,000 total lifetime credits.',
-    check: (p) => p.lifetimeEarned >= 10000,
-  },
-  {
-    id: 'milestone_collector_5',
-    creditReward: 500,
-    description: 'Own 5 or more cosmetics.',
-    check: (p) => ((p.ownedCosmetics as string[]).length) >= 5,
+    id: 'milestone_credits_1000000',
+    creditReward: 250000,
+    description: 'Earn 1,000,000 total lifetime credits.',
+    check: (p) => p.lifetimeEarned >= 1000000,
   },
   {
     id: 'milestone_fashion_icon',
