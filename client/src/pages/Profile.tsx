@@ -1127,13 +1127,14 @@ export default function Profile() {
       // If profile is still null after a successful fetch (e.g. server session not yet
       // established right after a restart while the client has stale auth cache), retry
       // once after a short delay before giving up and showing the error UI.
+      // 1 500 ms is long enough for the server session middleware to settle after restart.
       if (!p && authUser) {
         setTimeout(async () => {
           try {
             const retried = await fetchProfile();
             if (retried) setProfile(retried);
           } catch { /* ignore retry errors */ }
-        }, 1500);
+        }, 1500 /* ms – one retry after server-session settle time */);
       }
     } catch (err) {
       toast({ title: "Error", description: String(err), variant: "destructive" });
