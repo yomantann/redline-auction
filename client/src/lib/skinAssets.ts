@@ -20,19 +20,24 @@ import skinAccuserDuchess from "../assets/generated_images/Skins/accuser_the dam
 // ── Alpha Prime ──────────────────────────────────────────────────────────────
 import skinAlphaRagnar from "../assets/generated_images/Skins/alpha_ragnar ironjaw.png";
 import skinAlphaHewnKnight from "../assets/generated_images/Skins/alpha_the hewn knight.png";
+import skinAlphaGraviton from "../assets/generated_images/Skins/alpha_graviton.png";
 
 // ── The Anointed ─────────────────────────────────────────────────────────────
 import skinAnointedMasquerade from "../assets/generated_images/Skins/anointed_masquerade sovereign.png";
+import skinAnointedCleanCut from "../assets/generated_images/Skins/anointed_clean cut.png";
 
 // ── Click-Click ──────────────────────────────────────────────────────────────
 import skinClickRoarcat from "../assets/generated_images/Skins/click_roarcat.png";
 
 // ── Rainbow Dash ─────────────────────────────────────────────────────────────
 import skinDashStormhare from "../assets/generated_images/Skins/dash_stormhare the swift.png";
+import skinDashYataiYang from "../assets/generated_images/Skins/dash_yatai yang.png";
 
 // ── Frostbyte ────────────────────────────────────────────────────────────────
 import skinFrostGlaciodon from "../assets/generated_images/Skins/frost_glaciodon.png";
 import skinFrostSkaldi from "../assets/generated_images/Skins/frost_skaldi's chosen.png";
+import skinFrostFrozenFront from "../assets/generated_images/Skins/frost_frozen front.png";
+import skinFrostColdConjurer from "../assets/generated_images/Skins/frost_cold conjurer.png";
 
 // ── Guardian H ───────────────────────────────────────────────────────────────
 import skinGuardianIronknuckle from "../assets/generated_images/Skins/guardian_ironknuckle.png";
@@ -57,6 +62,7 @@ import skinExecutiveRailBaron from "../assets/generated_images/Skins/executive_t
 
 // ── Low Flame (2nd skin) ──────────────────────────────────────────────────────
 import skinLowflameHighNoon from "../assets/generated_images/Skins/lowflame_high noon nothing.png";
+import skinLowflameBounty from "../assets/generated_images/Skins/lowflame_the bounty can wait.png";
 
 // ── The Anointed (2nd skin) ───────────────────────────────────────────────────
 import skinAnointedDivineSentinel from "../assets/generated_images/Skins/anointed_divine sentinel.png";
@@ -70,10 +76,13 @@ import skinRollIntelOfficer from "../assets/generated_images/Skins/roll_intel of
 
 // ── Additional Named Skins ────────────────────────────────────────────────────
 import skinRindGutterGladiator from "../assets/generated_images/Skins/rind_gutter gladiator.png";
+import skinRindValhallaVermin from "../assets/generated_images/Skins/rind_valhalla vermin.png";
 import skinClickSirWhiskersWrong from "../assets/generated_images/Skins/click_sir whiskers wrong.png";
 import skinGuardianUnmovedMarshal from "../assets/generated_images/Skins/guardian_unmoved marshal.png";
 import skinHotwiredHighScoreHazard from "../assets/generated_images/Skins/hotwired_high score hazard.png";
 import skinPainWalkingWound from "../assets/generated_images/Skins/pain_the walking wound.png";
+import skinWanderingDohyun from "../assets/generated_images/Skins/wandering_dohyun's last run.png";
+import skinWanderingNunbit from "../assets/generated_images/Skins/wandering_nunbit monster.png";
 
 // ── Card Backgrounds ─────────────────────────────────────────────────────────
 import bgMolten from "../assets/generated_images/CardBackground/molten_b.png";
@@ -117,28 +126,37 @@ export const SKIN_ASSET_URLS: Record<string, string> = {
   skin_accuser_duchess:           skinAccuserDuchess,
   skin_alpha_ragnar:              skinAlphaRagnar,
   skin_alpha_hewn_knight:         skinAlphaHewnKnight,
+  skin_alpha_graviton:            skinAlphaGraviton,
   skin_anointed_masquerade:       skinAnointedMasquerade,
   skin_anointed_divine_sentinel:  skinAnointedDivineSentinel,
+  skin_anointed_clean_cut:        skinAnointedCleanCut,
   skin_click_roarcat:             skinClickRoarcat,
   skin_dash_stormhare:            skinDashStormhare,
   skin_dash_colosseum_sprint:     skinDashColosseumSprint,
+  skin_dash_yatai_yang:           skinDashYataiYang,
   skin_frost_glaciodon:           skinFrostGlaciodon,
   skin_frost_skaldi:              skinFrostSkaldi,
+  skin_frost_frozen_front:        skinFrostFrozenFront,
+  skin_frost_cold_conjurer:       skinFrostColdConjurer,
   skin_guardian_ironknuckle:      skinGuardianIronknuckle,
   skin_executive_rail_baron:      skinExecutiveRailBaron,
   skin_hotwired_pyra:             skinHotwiredPyra,
   skin_lowflame_wolfman:          skinLowflameWolfman,
   skin_lowflame_high_noon:        skinLowflameHighNoon,
+  skin_lowflame_bounty:           skinLowflameBounty,
   skin_pain_highborn:             skinPainHighborn,
   skin_panic_glitchosaurus:       skinPanicGlitchosaurus,
   skin_rind_sewer:                skinRindSewer,
   skin_roll_calculated:           skinRollCalculated,
   skin_roll_intel_officer:        skinRollIntelOfficer,
   skin_rind_gutter_gladiator:     skinRindGutterGladiator,
+  skin_rind_valhalla_vermin:      skinRindValhallaVermin,
   skin_click_sir_whiskers_wrong:  skinClickSirWhiskersWrong,
   skin_guardian_unmoved_marshal:  skinGuardianUnmovedMarshal,
   skin_hotwired_high_score_hazard: skinHotwiredHighScoreHazard,
   skin_pain_walking_wound:        skinPainWalkingWound,
+  skin_wandering_dohyun:          skinWanderingDohyun,
+  skin_wandering_nunbit:          skinWanderingNunbit,
 };
 
 /**
@@ -150,28 +168,37 @@ export const SKIN_DRIVER_REQUIREMENT: Record<string, string> = {
   skin_accuser_duchess:           'accuser',
   skin_alpha_ragnar:              'alpha_prime',
   skin_alpha_hewn_knight:         'alpha_prime',
+  skin_alpha_graviton:            'alpha_prime',
   skin_anointed_masquerade:       'anointed',
   skin_anointed_divine_sentinel:  'anointed',
+  skin_anointed_clean_cut:        'anointed',
   skin_click_roarcat:             'click_click',
   skin_dash_stormhare:            'rainbow_dash',
   skin_dash_colosseum_sprint:     'rainbow_dash',
+  skin_dash_yatai_yang:           'rainbow_dash',
   skin_frost_glaciodon:           'frostbyte',
   skin_frost_skaldi:              'frostbyte',
+  skin_frost_frozen_front:        'frostbyte',
+  skin_frost_cold_conjurer:       'frostbyte',
   skin_guardian_ironknuckle:      'guardian_h',
   skin_executive_rail_baron:      'executive_p',
   skin_hotwired_pyra:             'hotwired',
   skin_lowflame_wolfman:          'low_flame',
   skin_lowflame_high_noon:        'low_flame',
+  skin_lowflame_bounty:           'low_flame',
   skin_pain_highborn:             'pain_hider',
   skin_panic_glitchosaurus:       'panic_bot',
   skin_rind_sewer:                'the_rind',
   skin_roll_calculated:           'roll_safe',
   skin_roll_intel_officer:        'roll_safe',
   skin_rind_gutter_gladiator:     'the_rind',
+  skin_rind_valhalla_vermin:      'the_rind',
   skin_click_sir_whiskers_wrong:  'click_click',
   skin_guardian_unmoved_marshal:  'guardian_h',
   skin_hotwired_high_score_hazard: 'hotwired',
   skin_pain_walking_wound:        'pain_hider',
+  skin_wandering_dohyun:          'wandering_eye',
+  skin_wandering_nunbit:          'wandering_eye',
 };
 
 /** Card background image URLs (by catalog ID) */

@@ -374,6 +374,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['alpha_prime'],
   },
   {
+    id: 'skin_alpha_graviton',
+    name: 'Graviton',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_alpha_graviton',
+    driverIds: ['alpha_prime'],
+  },
+  {
     id: 'skin_alpha_hewn_knight',
     name: 'The Hewn Knight',
     type: 'driverSkin',
@@ -400,6 +409,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 25000,
     rarity: 'common',
     asset: 'skin_anointed_divine_sentinel',
+    driverIds: ['anointed'],
+  },
+  {
+    id: 'skin_anointed_clean_cut',
+    name: 'Clean Cut',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_anointed_clean_cut',
     driverIds: ['anointed'],
   },
 
@@ -433,6 +451,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_dash_colosseum_sprint',
     driverIds: ['rainbow_dash'],
   },
+  {
+    id: 'skin_dash_yatai_yang',
+    name: 'Yatai Yang',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_dash_yatai_yang',
+    driverIds: ['rainbow_dash'],
+  },
 
   // ── Frostbyte Skins ─────────────────────────────────────────────────────────
   {
@@ -451,6 +478,24 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 40000,
     rarity: 'rare',
     asset: 'skin_frost_skaldi',
+    driverIds: ['frostbyte'],
+  },
+  {
+    id: 'skin_frost_cold_conjurer',
+    name: 'Cold Conjurer',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_frost_cold_conjurer',
+    driverIds: ['frostbyte'],
+  },
+  {
+    id: 'skin_frost_frozen_front',
+    name: 'Frozen Front',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_frost_frozen_front',
     driverIds: ['frostbyte'],
   },
 
@@ -504,6 +549,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 25000,
     rarity: 'common',
     asset: 'skin_lowflame_high_noon',
+    driverIds: ['low_flame'],
+  },
+  {
+    id: 'skin_lowflame_bounty',
+    name: 'The Bounty Can Wait',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_lowflame_bounty',
     driverIds: ['low_flame'],
   },
 
@@ -571,6 +625,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['the_rind'],
   },
   {
+    id: 'skin_rind_valhalla_vermin',
+    name: 'Valhalla Vermin',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_rind_valhalla_vermin',
+    driverIds: ['the_rind'],
+  },
+  {
     id: 'skin_click_sir_whiskers_wrong',
     name: 'Sir Whiskers Wrong',
     type: 'driverSkin',
@@ -605,6 +668,26 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     rarity: 'rare',
     asset: 'skin_pain_walking_wound',
     driverIds: ['pain_hider'],
+  },
+
+  // ── Wandering Eye Skins ─────────────────────────────────────────────────────
+  {
+    id: 'skin_wandering_dohyun',
+    name: "Dohyun's Last Run",
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_wandering_dohyun',
+    driverIds: ['wandering_eye'],
+  },
+  {
+    id: 'skin_wandering_nunbit',
+    name: 'Nunbit Monster',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_wandering_nunbit',
+    driverIds: ['wandering_eye'],
   },
 
   // ── Limited-Time Items ──────────────────────────────────────────────────────
