@@ -85,6 +85,7 @@ import bgOrbital from "../assets/generated_images/CardBackground/orbital_b.png";
 import bgOrbital2 from "../assets/generated_images/CardBackground/orbital2_b.png";
 import bgStatic2 from "../assets/generated_images/CardBackground/static2_b.png";
 import bgStaticOverload from "../assets/generated_images/CardBackground/static overload_b.png";
+import bgGalactic from "../assets/generated_images/CardBackground/galactic.png";
 
 // ── Card Borders ─────────────────────────────────────────────────────────────
 import borderSteel from "../assets/generated_images/CardBorders/steel.png";
@@ -95,11 +96,18 @@ import borderCryoGlass from "../assets/generated_images/CardBorders/cryo glass.p
 import borderAbyssalDepth from "../assets/generated_images/CardBorders/abyssal depth.png";
 import borderQuantom from "../assets/generated_images/CardBorders/quantom.png";
 import borderStaticOverload from "../assets/generated_images/CardBorders/static overload.png";
+import borderGalactic from "../assets/generated_images/CardBorders/galactic.png";
 
 // ── Logos ─────────────────────────────────────────────────────────────────────
 import logoNeonRed from "../assets/generated_images/logos/redline_auction_futuristic_logo_red_neon.png";
 import logoAbstractSymbol from "../assets/generated_images/logos/redline_auction_abstract_symbol_logo.png";
 import logoTypography from "../assets/generated_images/logos/redline_auction_typography_logo.png";
+import logoCrackedCrown from "../assets/generated_images/logos/cracked crown.png";
+import logoExecutioner from "../assets/generated_images/logos/executioner.png";
+import logoExecutioner2 from "../assets/generated_images/logos/executioner2.png";
+import logoGoldenSkull from "../assets/generated_images/logos/golden skull.png";
+import logoVelocity from "../assets/generated_images/logos/velocity.png";
+import logoWarlord from "../assets/generated_images/logos/warlord.png";
 
 // ─── Maps ────────────────────────────────────────────────────────────────────
 
@@ -177,6 +185,7 @@ export const CARD_BACKGROUND_URLS: Record<string, string> = {
   orbital2_b:      bgOrbital2,
   static2_b:       bgStatic2,
   static_overload_b: bgStaticOverload,
+  galactic_b:      bgGalactic,
 };
 
 /** Card border image URLs (by catalog ID) */
@@ -189,11 +198,18 @@ export const CARD_BORDER_URLS: Record<string, string> = {
   border_abyssal_depth:  borderAbyssalDepth,
   border_quantum:        borderQuantom,
   border_static_overload: borderStaticOverload,
+  border_galactic:       borderGalactic,
 };
 
 /** Logo image URLs (by catalog ID) */
 export const LOGO_ASSET_URLS: Record<string, string> = {
-  logo_neon_red:      logoNeonRed,
-  logo_abstract:      logoAbstractSymbol,
-  logo_typography:    logoTypography,
+  logo_neon_red:        logoNeonRed,
+  logo_abstract:        logoAbstractSymbol,
+  logo_typography:      logoTypography,
+  logo_cracked_crown:   logoCrackedCrown,
+  logo_executioner:     logoExecutioner,
+  logo_executioner2:    logoExecutioner2,
+  logo_golden_skull:    logoGoldenSkull,
+  logo_velocity:        logoVelocity,
+  logo_warlord:         logoWarlord,
 };

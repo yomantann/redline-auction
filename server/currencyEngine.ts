@@ -97,6 +97,60 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'logo_typography',
     earnableOnly: false,
   },
+  {
+    id: 'logo_cracked_crown',
+    name: 'Cracked Crown',
+    type: 'logo',
+    cost: 15000,
+    rarity: 'rare',
+    asset: 'logo_cracked_crown',
+    earnableOnly: false,
+  },
+  {
+    id: 'logo_executioner',
+    name: 'Executioner',
+    type: 'logo',
+    cost: 15000,
+    rarity: 'rare',
+    asset: 'logo_executioner',
+    earnableOnly: false,
+  },
+  {
+    id: 'logo_executioner2',
+    name: 'Executioner II',
+    type: 'logo',
+    cost: 15000,
+    rarity: 'rare',
+    asset: 'logo_executioner2',
+    earnableOnly: false,
+  },
+  {
+    id: 'logo_golden_skull',
+    name: 'Golden Skull',
+    type: 'logo',
+    cost: 20000,
+    rarity: 'legendary',
+    asset: 'logo_golden_skull',
+    earnableOnly: false,
+  },
+  {
+    id: 'logo_velocity',
+    name: 'Velocity',
+    type: 'logo',
+    cost: 15000,
+    rarity: 'rare',
+    asset: 'logo_velocity',
+    earnableOnly: false,
+  },
+  {
+    id: 'logo_warlord',
+    name: 'Warlord',
+    type: 'logo',
+    cost: 20000,
+    rarity: 'legendary',
+    asset: 'logo_warlord',
+    earnableOnly: false,
+  },
 
   // ── Borders ────────────────────────────────────────────────────────────────
   {
@@ -181,6 +235,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'border_static_overload',
     earnableOnly: false,
   },
+  {
+    id: 'border_galactic',
+    name: 'Galactic',
+    type: 'border',
+    cost: 30000,
+    rarity: 'legendary',
+    asset: 'border_galactic',
+    earnableOnly: false,
+  },
 
   // ── Backgrounds ─────────────────────────────────────────────────────────────
   // ── Generated Card Backgrounds ──────────────────────────────────────────────
@@ -263,6 +326,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 30000,
     rarity: 'legendary',
     asset: 'static_overload_b',
+    earnableOnly: false,
+  },
+  {
+    id: 'galactic_b',
+    name: 'Galactic',
+    type: 'background',
+    cost: 30000,
+    rarity: 'legendary',
+    asset: 'galactic_b',
     earnableOnly: false,
   },
 
