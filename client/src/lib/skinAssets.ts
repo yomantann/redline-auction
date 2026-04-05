@@ -68,6 +68,13 @@ import skinDashColosseumSprint from "../assets/generated_images/Skins/dash_colos
 import skinRollCalculated from "../assets/generated_images/Skins/roll_calculated ace.png";
 import skinRollIntelOfficer from "../assets/generated_images/Skins/roll_intel officer.png";
 
+// ── Additional Named Skins ────────────────────────────────────────────────────
+import skinRindGutterGladiator from "../assets/generated_images/Skins/rind_gutter gladiator.png";
+import skinClickSirWhiskersWrong from "../assets/generated_images/Skins/click_sir whiskers wrong.png";
+import skinGuardianUnmovedMarshal from "../assets/generated_images/Skins/guardian_unmoved marshal.png";
+import skinHotwiredHighScoreHazard from "../assets/generated_images/Skins/hotwired_high score hazard.png";
+import skinPainWalkingWound from "../assets/generated_images/Skins/pain_the walking wound.png";
+
 // ── Card Backgrounds ─────────────────────────────────────────────────────────
 import bgMolten from "../assets/generated_images/CardBackground/molten_b.png";
 import bgDual from "../assets/generated_images/CardBackground/dual_b.png";
@@ -77,8 +84,8 @@ import bgCryoGlass from "../assets/generated_images/CardBackground/cryo glass_b.
 import bgOrbital from "../assets/generated_images/CardBackground/orbital_b.png";
 import bgOrbital2 from "../assets/generated_images/CardBackground/orbital2_b.png";
 import bgStatic2 from "../assets/generated_images/CardBackground/static2_b.png";
-import bgQuantom from "../assets/generated_images/CardBackground/quatom_b.png";
 import bgStaticOverload from "../assets/generated_images/CardBackground/static overload_b.png";
+import bgGalactic from "../assets/generated_images/CardBackground/galactic.png";
 
 // ── Card Borders ─────────────────────────────────────────────────────────────
 import borderSteel from "../assets/generated_images/CardBorders/steel.png";
@@ -89,11 +96,18 @@ import borderCryoGlass from "../assets/generated_images/CardBorders/cryo glass.p
 import borderAbyssalDepth from "../assets/generated_images/CardBorders/abyssal depth.png";
 import borderQuantom from "../assets/generated_images/CardBorders/quantom.png";
 import borderStaticOverload from "../assets/generated_images/CardBorders/static overload.png";
+import borderGalactic from "../assets/generated_images/CardBorders/galactic.png";
 
 // ── Logos ─────────────────────────────────────────────────────────────────────
 import logoNeonRed from "../assets/generated_images/logos/redline_auction_futuristic_logo_red_neon.png";
 import logoAbstractSymbol from "../assets/generated_images/logos/redline_auction_abstract_symbol_logo.png";
 import logoTypography from "../assets/generated_images/logos/redline_auction_typography_logo.png";
+import logoCrackedCrown from "../assets/generated_images/logos/cracked crown.png";
+import logoExecutioner from "../assets/generated_images/logos/executioner.png";
+import logoExecutioner2 from "../assets/generated_images/logos/executioner2.png";
+import logoGoldenSkull from "../assets/generated_images/logos/golden skull.png";
+import logoVelocity from "../assets/generated_images/logos/velocity.png";
+import logoWarlord from "../assets/generated_images/logos/warlord.png";
 
 // ─── Maps ────────────────────────────────────────────────────────────────────
 
@@ -120,6 +134,11 @@ export const SKIN_ASSET_URLS: Record<string, string> = {
   skin_rind_sewer:                skinRindSewer,
   skin_roll_calculated:           skinRollCalculated,
   skin_roll_intel_officer:        skinRollIntelOfficer,
+  skin_rind_gutter_gladiator:     skinRindGutterGladiator,
+  skin_click_sir_whiskers_wrong:  skinClickSirWhiskersWrong,
+  skin_guardian_unmoved_marshal:  skinGuardianUnmovedMarshal,
+  skin_hotwired_high_score_hazard: skinHotwiredHighScoreHazard,
+  skin_pain_walking_wound:        skinPainWalkingWound,
 };
 
 /**
@@ -148,6 +167,11 @@ export const SKIN_DRIVER_REQUIREMENT: Record<string, string> = {
   skin_rind_sewer:                'the_rind',
   skin_roll_calculated:           'roll_safe',
   skin_roll_intel_officer:        'roll_safe',
+  skin_rind_gutter_gladiator:     'the_rind',
+  skin_click_sir_whiskers_wrong:  'click_click',
+  skin_guardian_unmoved_marshal:  'guardian_h',
+  skin_hotwired_high_score_hazard: 'hotwired',
+  skin_pain_walking_wound:        'pain_hider',
 };
 
 /** Card background image URLs (by catalog ID) */
@@ -160,8 +184,8 @@ export const CARD_BACKGROUND_URLS: Record<string, string> = {
   orbital_b:       bgOrbital,
   orbital2_b:      bgOrbital2,
   static2_b:       bgStatic2,
-  quantum_b:       bgQuantom,
   static_overload_b: bgStaticOverload,
+  galactic_b:      bgGalactic,
 };
 
 /** Card border image URLs (by catalog ID) */
@@ -174,11 +198,18 @@ export const CARD_BORDER_URLS: Record<string, string> = {
   border_abyssal_depth:  borderAbyssalDepth,
   border_quantum:        borderQuantom,
   border_static_overload: borderStaticOverload,
+  border_galactic:       borderGalactic,
 };
 
 /** Logo image URLs (by catalog ID) */
 export const LOGO_ASSET_URLS: Record<string, string> = {
-  logo_neon_red:      logoNeonRed,
-  logo_abstract:      logoAbstractSymbol,
-  logo_typography:    logoTypography,
+  logo_neon_red:        logoNeonRed,
+  logo_abstract:        logoAbstractSymbol,
+  logo_typography:      logoTypography,
+  logo_cracked_crown:   logoCrackedCrown,
+  logo_executioner:     logoExecutioner,
+  logo_executioner2:    logoExecutioner2,
+  logo_golden_skull:    logoGoldenSkull,
+  logo_velocity:        logoVelocity,
+  logo_warlord:         logoWarlord,
 };

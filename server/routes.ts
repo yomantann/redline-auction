@@ -49,6 +49,7 @@ import {
   addCurrencyFromStripe,
   CREDIT_PACK_MAP,
   getStripe,
+  applyMilestones,
 } from "./currencyEngine";
 import Stripe from "stripe";
 import { isAuthenticated } from "./replit_integrations/auth";
@@ -913,7 +914,28 @@ export async function registerRoutes(
     try {
       const userId: string = req.user.claims.sub;
       const [existing] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
-      if (existing) return res.json({ success: true, profile: existing });
+      if (existing) {
+        // Check if any milestones have become newly eligible since last conversion
+        const withMilestones = applyMilestones(existing as any);
+        const newlyUnlocked = ((withMilestones.milestoneUnlocks ?? []) as string[]).filter(
+          (m) => !((existing.milestoneUnlocks ?? []) as string[]).includes(m),
+        );
+        if (newlyUnlocked.length > 0) {
+          // Persist the updated profile (new cosmetics / credits awarded)
+          await db
+            .update(playerProfiles)
+            .set({
+              ownedCosmetics: withMilestones.ownedCosmetics as any,
+              milestoneUnlocks: withMilestones.milestoneUnlocks as any,
+              currencyBalance: withMilestones.currencyBalance,
+              lifetimeEarned: withMilestones.lifetimeEarned,
+              updatedAt: new Date(),
+            })
+            .where(eq(playerProfiles.id, userId));
+          return res.json({ success: true, profile: withMilestones });
+        }
+        return res.json({ success: true, profile: existing });
+      }
 
       // First login — auto-create profile from Replit Auth claims
       const newProfile = createDefaultProfile(
