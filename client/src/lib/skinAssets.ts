@@ -84,6 +84,7 @@ import bgOrbital from "../assets/generated_images/CardBackground/orbital_b.png";
 import bgOrbital2 from "../assets/generated_images/CardBackground/orbital2_b.png";
 import bgStatic2 from "../assets/generated_images/CardBackground/static2_b.png";
 import bgStaticOverload from "../assets/generated_images/CardBackground/static overload_b.png";
+import bgGalactic from "../assets/generated_images/CardBackground/galactic.png";
 
 // ── Card Borders ─────────────────────────────────────────────────────────────
 import borderSteel from "../assets/generated_images/CardBorders/steel.png";
