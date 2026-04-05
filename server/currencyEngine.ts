@@ -536,26 +536,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   },
 
   // ── Limited-Time Items ──────────────────────────────────────────────────────
-  {
-    id: 'logo_speed_demon',
-    name: 'Speed Demon',
-    type: 'logo',
-    cost: 800,
-    rarity: 'rare',
-    asset: '/cosmetics/logos/speed_demon.png',
-    limitedTime: true,
-    endsAt: '2026-05-31T23:59:59Z',
-  },
-  {
-    id: 'border_turbo',
-    name: 'Turbo Flame',
-    type: 'border',
-    cost: 1000,
-    rarity: 'rare',
-    asset: 'border_turbo',
-    limitedTime: true,
-    endsAt: '2026-05-31T23:59:59Z',
-  },
+  // (Placeholder items removed — real limited-time items will be added here)
 ];
 
 // ─── Default Owned Cosmetics ─────────────────────────────────────────────────

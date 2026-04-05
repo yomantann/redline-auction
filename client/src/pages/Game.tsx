@@ -1379,6 +1379,7 @@ export default function Game() {
     phase: 'driver_selection' | 'waiting_for_ready' | 'countdown' | 'bidding' | 'overclock' | 'round_end' | 'game_over';
     countdownRemaining: number;
     elapsedTime: number;
+    gameId?: string;
     players: Array<{
       id: string;
       socketId: string | null;
@@ -1407,6 +1408,7 @@ export default function Game() {
       isHolding: boolean;
       totalTimeBid: number;
       abilityUsed: boolean;
+      momentFlagsEarned?: string[];
       roundImpact?: { type: string; value: number; source: string };
     }>;
     roundWinner: { id: string; name: string; bid: number } | null;
