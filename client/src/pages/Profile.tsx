@@ -432,9 +432,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   // Easter Egg (Hidden Flag) Milestones — descriptions intentionally vague
   {
     id: 'milestone_easter_egg_first',
-    creditReward: 500,
+    creditReward: 10000,
     label: 'Uncover your first hidden secret',
-    reward: '500 credits',
+    reward: '10,000 credits',
     goal: 1,
     getProgress: (p) => {
       const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
@@ -444,9 +444,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_easter_egg_two',
-    creditReward: 1000,
+    creditReward: 25000,
     label: 'Uncover 4 different hidden secrets',
-    reward: '1,000 credits',
+    reward: '25,000 credits',
     goal: 4,
     getProgress: (p) => {
       const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
@@ -456,9 +456,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_easter_egg_all',
-    creditReward: 5000,
+    creditReward: 200000,
     label: 'Uncover every hidden secret',
-    reward: '5,000 credits',
+    reward: '200,000 credits',
     goal: 6,
     getProgress: (p) => {
       const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
@@ -468,33 +468,33 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_hidden_67_3x',
-    creditReward: 1500,
+    creditReward: 10000,
     label: 'Uncover a hidden numerical moment 3 times',
-    reward: '1,500 credits',
+    reward: '10,000 credits',
     goal: 3,
     getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_67'] ?? 0,
   },
   {
     id: 'milestone_hidden_redemption_first',
-    creditReward: 500,
+    creditReward: 10000,
     label: 'Trigger a hidden comeback 3 times',
-    reward: '500 credits',
+    reward: '10,000 credits',
     goal: 3,
     getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_REDEMPTION'] ?? 0,
   },
   {
     id: 'milestone_hidden_nail_3x',
-    creditReward: 1000,
+    creditReward: 10000,
     label: 'Uncover a hidden finishing move 3 times',
-    reward: '1,000 credits',
+    reward: '10,000 credits',
     goal: 3,
     getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_NAIL_IN_THE_COFFIN'] ?? 0,
   },
   {
     id: 'milestone_hidden_deja_bid',
-    creditReward: 300,
+    creditReward: 10000,
     label: 'Trigger a hidden repeating pattern 3 times',
-    reward: '300 credits',
+    reward: '10,000 credits',
     goal: 3,
     getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_DEJA_BID'] ?? 0,
   },
@@ -625,15 +625,6 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
       const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
       return [(perType['DEADLOCK_SYNC'] ?? 0) >= 1, (perType['MIRROR_MATCH'] ?? 0) >= 1].filter(Boolean).length;
     },
-  },
-  // Chaos Milestones
-  {
-    id: 'milestone_patch_notes_3x',
-    creditReward: 1500,
-    label: 'Trigger 3+ moment flags in one round, 6 separate times',
-    reward: '1,500 credits',
-    goal: 6,
-    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['PATCH_NOTES_PENDING'] ?? 0,
   },
   {
     id: 'milestone_easy_w_5x',
@@ -1113,6 +1104,13 @@ export default function Profile() {
   const [paymentModal, setPaymentModal] = useState<null | { packKey: string; packLabel: string; packPrice: string }>(null);
   const [expandedSkin, setExpandedSkin] = useState<{ url: string; name: string } | null>(null);
   const [milestonesExpanded, setMilestonesExpanded] = useState(false);
+  const [milestoneCategories, setMilestoneCategories] = useState<Record<string, boolean>>({
+    progression: false,
+    victories: false,
+    collection: false,
+    moments: false,
+    secrets: false,
+  });
   const { toast } = useToast();
   const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
 
@@ -1338,57 +1336,156 @@ export default function Profile() {
         </Card>
 
         {/* ── Milestones ── */}
-        <Card className="bg-purple-950/20 border-purple-800/30">
-          <CardHeader
-            className="cursor-pointer select-none"
-            onClick={() => setMilestonesExpanded((v) => !v)}
-          >
-            <CardTitle className="flex items-center justify-between text-sm tracking-widest text-zinc-400">
-              <span className="flex items-center gap-2">
-                <Target size={16} className="text-yellow-500" /> MILESTONES
-                <span className="text-[10px] text-zinc-600 font-normal normal-case tracking-normal">
-                  ({MILESTONES_DISPLAY.filter((m) =>
-                    (profile.milestoneUnlocks as string[]).includes(m.id) ||
-                    (m.cosmeticId ? (profile.ownedCosmetics as string[]).includes(m.cosmeticId) : false)
-                  ).length} / {MILESTONES_DISPLAY.length} completed)
-                </span>
-              </span>
-              <span className="text-zinc-600 text-xs">{milestonesExpanded ? '▲ Collapse' : '▼ Expand'}</span>
-            </CardTitle>
-          </CardHeader>
-          {milestonesExpanded && (
-            <CardContent className="space-y-4">
-              {MILESTONES_DISPLAY.map((m) => {
-                const progress = m.getProgress(profile);
-                const pct = Math.min(100, Math.round((progress / m.goal) * 100));
-                const unlocked = (profile.milestoneUnlocks as string[]).includes(m.id) ||
-                                 (m.cosmeticId ? (profile.ownedCosmetics as string[]).includes(m.cosmeticId) : false);
-                return (
-                  <div key={m.id} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className={`font-medium ${unlocked ? 'text-yellow-400' : 'text-zinc-300'}`}>
-                        {unlocked && <CheckCircle2 size={11} className="inline mr-1 text-yellow-400" />}
-                        {m.label}
-                      </span>
-                      <span className={`font-mono ${unlocked ? 'text-yellow-400' : 'text-zinc-500'}`}>
-                        {unlocked ? 'UNLOCKED' : `${Math.min(progress, m.goal)} / ${m.goal}`}
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${unlocked ? 'bg-yellow-400' : 'bg-primary'}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <div className="text-[10px] text-zinc-600 flex items-center gap-1">
-                      <Trophy size={9} /> Reward: {m.reward}
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          )}
-        </Card>
+        {(() => {
+          const milestoneCategories5: Array<{
+            key: string;
+            label: string;
+            icon: React.ReactNode;
+            ids: string[];
+          }> = [
+            {
+              key: 'progression',
+              label: 'PROGRESSION',
+              icon: <Trophy size={14} className="text-yellow-500" />,
+              ids: [
+                'milestone_first_game','milestone_10_games','milestone_50_games','milestone_100_games',
+                'milestone_10_wins','milestone_first_win','milestone_25_wins','milestone_50_wins',
+                'milestone_100_wins','milestone_500_wins','milestone_credits_5000','milestone_credits_1000000',
+              ],
+            },
+            {
+              key: 'victories',
+              label: 'VICTORIES',
+              icon: <Flag size={14} className="text-blue-400" />,
+              ids: [
+                'milestone_sp_10_wins','milestone_mp_5_wins','milestone_mp_25_wins',
+                'milestone_sprint_5_wins','milestone_social_5_wins','milestone_bio_5_wins',
+                'milestone_5_haunted_wins','milestone_haunted_10_wins',
+                'milestone_competitive_first_win','milestone_competitive_5_wins',
+                'milestone_competitive_25_wins','milestone_competitive_50_wins',
+              ],
+            },
+            {
+              key: 'collection',
+              label: 'COLLECTION',
+              icon: <Sparkles size={14} className="text-purple-400" />,
+              ids: ['milestone_collector_5','milestone_fashion_icon'],
+            },
+            {
+              key: 'moments',
+              label: 'MOMENTS',
+              icon: <Target size={14} className="text-primary" />,
+              ids: [
+                'milestone_flags_10','milestone_flags_50','milestone_flags_100','milestone_flags_250',
+                'milestone_clutch_3x','milestone_clutch_10x','milestone_precision_5x','milestone_overkill_3x',
+                'milestone_late_panic_5x','milestone_genius_5x','milestone_fake_calm_5x','milestone_smug_3x',
+                'milestone_last_standing_3x','milestone_last_standing_10x',
+                'milestone_comeback_5x','milestone_comeback_10x',
+                'milestone_deadlock_3x','milestone_mirror_3x','milestone_deadlock_and_mirror',
+                'milestone_easy_w_5x','milestone_unique_10_flag_types',
+              ],
+            },
+            {
+              key: 'secrets',
+              label: 'SECRETS',
+              icon: <Lock size={14} className="text-zinc-400" />,
+              ids: [
+                'milestone_easter_egg_first','milestone_easter_egg_two','milestone_easter_egg_all',
+                'milestone_hidden_67_3x','milestone_hidden_redemption_first',
+                'milestone_hidden_nail_3x','milestone_hidden_deja_bid',
+              ],
+            },
+          ];
+
+          const totalCompleted = MILESTONES_DISPLAY.filter((m) =>
+            (profile.milestoneUnlocks as string[]).includes(m.id) ||
+            (m.cosmeticId ? (profile.ownedCosmetics as string[]).includes(m.cosmeticId) : false)
+          ).length;
+
+          return (
+            <Card className="bg-purple-950/20 border-purple-800/30">
+              <CardHeader
+                className="cursor-pointer select-none"
+                onClick={() => setMilestonesExpanded((v) => !v)}
+              >
+                <CardTitle className="flex items-center justify-between text-sm tracking-widest text-zinc-400">
+                  <span className="flex items-center gap-2">
+                    <Target size={16} className="text-yellow-500" /> MILESTONES
+                    <span className="text-[10px] text-zinc-600 font-normal normal-case tracking-normal">
+                      ({totalCompleted} / {MILESTONES_DISPLAY.length} completed)
+                    </span>
+                  </span>
+                  <span className="text-zinc-600 text-xs">{milestonesExpanded ? '▲ Collapse' : '▼ Expand'}</span>
+                </CardTitle>
+              </CardHeader>
+              {milestonesExpanded && (
+                <CardContent className="space-y-3">
+                  {milestoneCategories5.map((cat) => {
+                    const catMilestones = MILESTONES_DISPLAY.filter((m) => cat.ids.includes(m.id));
+                    const catCompleted = catMilestones.filter((m) =>
+                      (profile.milestoneUnlocks as string[]).includes(m.id) ||
+                      (m.cosmeticId ? (profile.ownedCosmetics as string[]).includes(m.cosmeticId) : false)
+                    ).length;
+                    const isOpen = milestoneCategories[cat.key];
+                    return (
+                      <div key={cat.key} className="rounded-lg border border-white/5 overflow-hidden">
+                        <button
+                          className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-white/5 transition-colors"
+                          onClick={() =>
+                            setMilestoneCategories((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }))
+                          }
+                        >
+                          <span className="flex items-center gap-2 text-xs font-bold tracking-widest text-zinc-300">
+                            {cat.icon} {cat.label}
+                            <span className="text-[10px] text-zinc-600 font-normal normal-case tracking-normal">
+                              ({catCompleted}/{catMilestones.length})
+                            </span>
+                          </span>
+                          <span className="text-zinc-600 text-[10px]">{isOpen ? '▲' : '▼'}</span>
+                        </button>
+                        {isOpen && (
+                          <div className="px-3 pb-3 space-y-4 border-t border-white/5 pt-3">
+                            {catMilestones.map((m) => {
+                              const progress = m.getProgress(profile);
+                              const pct = Math.min(100, Math.round((progress / m.goal) * 100));
+                              const unlocked =
+                                (profile.milestoneUnlocks as string[]).includes(m.id) ||
+                                (m.cosmeticId
+                                  ? (profile.ownedCosmetics as string[]).includes(m.cosmeticId)
+                                  : false);
+                              return (
+                                <div key={m.id} className="space-y-1">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className={`font-medium ${unlocked ? 'text-yellow-400' : 'text-zinc-300'}`}>
+                                      {unlocked && <CheckCircle2 size={11} className="inline mr-1 text-yellow-400" />}
+                                      {m.label}
+                                    </span>
+                                    <span className={`font-mono ${unlocked ? 'text-yellow-400' : 'text-zinc-500'}`}>
+                                      {unlocked ? 'UNLOCKED' : `${Math.min(progress, m.goal)} / ${m.goal}`}
+                                    </span>
+                                  </div>
+                                  <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${unlocked ? 'bg-yellow-400' : 'bg-primary'}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <div className="text-[10px] text-zinc-600 flex items-center gap-1">
+                                    <Trophy size={9} /> Reward: {m.reward}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              )}
+            </Card>
+          );
+        })()}
 
         {/* ── Type Filter ── */}
         <div className="flex flex-wrap gap-2">

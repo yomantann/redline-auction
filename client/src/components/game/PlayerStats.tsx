@@ -77,7 +77,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     <div 
       onClick={onClick}
       className={cn(
-      "relative p-4 rounded-lg border flex flex-col gap-3 transition-all duration-300",
+      "relative p-4 rounded-lg border flex flex-col gap-3 transition-all duration-300 isolate",
       isCurrentPlayer 
         ? "bg-primary/5 border-primary/30 shadow-[0_0_15px_rgba(255,215,0,0.1)]" 
         : "bg-card/50 border-white/5",
@@ -88,18 +88,16 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     style={{ ...backgroundStyle, ...borderStyle }}
     data-testid={`player-card-${player.id}`}
     >
-      {/* Image-based border overlay — rendered as an absolutely-positioned img that extends
-          slightly beyond the card so the full border frame is visible. mix-blend-mode:multiply
-          makes the white outer padding of the PNG invisible on the dark card background. */}
+      {/* Image-based border overlay — rendered as an absolutely-positioned img filling the
+          card. isolation:isolate on the card ensures mix-blend-mode:multiply composites
+          against the card's own dark background, making the white PNG padding invisible. */}
       {borderImageUrl && (
         <img
           src={borderImageUrl}
           alt=""
           aria-hidden="true"
-          className="absolute pointer-events-none z-20 rounded-lg"
-          style={{ top: '-6px', right: '-6px', bottom: '-6px', left: '-6px',
-                   width: 'calc(100% + 12px)', height: 'calc(100% + 12px)',
-                   mixBlendMode: 'multiply' }}
+          className="absolute inset-0 w-full h-full pointer-events-none z-20 rounded-lg"
+          style={{ objectFit: 'fill', mixBlendMode: 'multiply' }}
           loading="eager"
           decoding="async"
         />

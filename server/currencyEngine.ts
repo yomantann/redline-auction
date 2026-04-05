@@ -74,7 +74,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'logo_neon_red',
     name: 'Neon Red',
     type: 'logo',
-    cost: 5000,
+    cost: 15000,
     rarity: 'rare',
     asset: 'logo_neon_red',
     earnableOnly: false,
@@ -83,7 +83,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'logo_abstract',
     name: 'Abstract Symbol',
     type: 'logo',
-    cost: 5000,
+    cost: 15000,
     rarity: 'rare',
     asset: 'logo_abstract',
     earnableOnly: false,
@@ -92,8 +92,8 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'logo_typography',
     name: 'Typography',
     type: 'logo',
-    cost: 5000,
-    rarity: 'rare',
+    cost: 0,
+    rarity: 'common',
     asset: 'logo_typography',
     earnableOnly: false,
   },
@@ -188,8 +188,8 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'molten_b',
     name: 'Molten',
     type: 'background',
-    cost: 0,
-    rarity: 'common',
+    cost: 10000,
+    rarity: 'rare',
     asset: 'molten_b',
     earnableOnly: false,
   },
@@ -257,15 +257,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     earnableOnly: false,
   },
   {
-    id: 'quantum_b',
-    name: 'Quantum',
-    type: 'background',
-    cost: 30000,
-    rarity: 'legendary',
-    asset: 'quantum_b',
-    earnableOnly: false,
-  },
-  {
     id: 'static_overload_b',
     name: 'Static Overload',
     type: 'background',
@@ -294,7 +285,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_accuser_duchess',
     name: 'Damning Duchess',
     type: 'driverSkin',
-    cost: 35000,
+    cost: 40000,
     rarity: 'rare',
     asset: 'skin_accuser_duchess',
     driverIds: ['accuser'],
@@ -325,7 +316,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_anointed_masquerade',
     name: 'Masquerade Sovereign',
     type: 'driverSkin',
-    cost: 35000,
+    cost: 40000,
     rarity: 'rare',
     asset: 'skin_anointed_masquerade',
     driverIds: ['anointed'],
@@ -365,7 +356,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_dash_colosseum_sprint',
     name: 'Colosseum Sprint',
     type: 'driverSkin',
-    cost: 35000,
+    cost: 40000,
     rarity: 'rare',
     asset: 'skin_dash_colosseum_sprint',
     driverIds: ['rainbow_dash'],
@@ -385,7 +376,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_frost_skaldi',
     name: "Skaldi's Chosen",
     type: 'driverSkin',
-    cost: 35000,
+    cost: 40000,
     rarity: 'rare',
     asset: 'skin_frost_skaldi',
     driverIds: ['frostbyte'],
@@ -396,7 +387,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_executive_rail_baron',
     name: 'The Rail Baron',
     type: 'driverSkin',
-    cost: 35000,
+    cost: 40000,
     rarity: 'rare',
     asset: 'skin_executive_rail_baron',
     driverIds: ['executive_p'],
@@ -407,7 +398,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_guardian_ironknuckle',
     name: 'Ironknuckle',
     type: 'driverSkin',
-    cost: 35000,
+    cost: 40000,
     rarity: 'rare',
     asset: 'skin_guardian_ironknuckle',
     driverIds: ['guardian_h'],
@@ -418,8 +409,8 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_hotwired_pyra',
     name: 'Pyra',
     type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
+    cost: 125000,
+    rarity: 'legendary',
     asset: 'skin_hotwired_pyra',
     driverIds: ['hotwired'],
   },
@@ -429,7 +420,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_lowflame_wolfman',
     name: 'Wolfman',
     type: 'driverSkin',
-    cost: 35000,
+    cost: 40000,
     rarity: 'rare',
     asset: 'skin_lowflame_wolfman',
     driverIds: ['low_flame'],
@@ -449,7 +440,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_pain_highborn',
     name: 'Highborn Elder',
     type: 'driverSkin',
-    cost: 35000,
+    cost: 40000,
     rarity: 'rare',
     asset: 'skin_pain_highborn',
     driverIds: ['pain_hider'],
@@ -471,8 +462,8 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_rind_sewer',
     name: 'Sewer Sharpshooter',
     type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
+    cost: 125000,
+    rarity: 'legendary',
     asset: 'skin_rind_sewer',
     driverIds: ['the_rind'],
   },
@@ -495,6 +486,53 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     rarity: 'common',
     asset: 'skin_roll_intel_officer',
     driverIds: ['roll_safe'],
+  },
+
+  // ── Additional Named Skins ──────────────────────────────────────────────────
+  {
+    id: 'skin_rind_gutter_gladiator',
+    name: 'Gutter Gladiator',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_rind_gutter_gladiator',
+    driverIds: ['the_rind'],
+  },
+  {
+    id: 'skin_click_sir_whiskers_wrong',
+    name: 'Sir Whiskers Wrong',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_click_sir_whiskers_wrong',
+    driverIds: ['click_click'],
+  },
+  {
+    id: 'skin_guardian_unmoved_marshal',
+    name: 'Unmoved Marshal',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_guardian_unmoved_marshal',
+    driverIds: ['guardian_h'],
+  },
+  {
+    id: 'skin_hotwired_high_score_hazard',
+    name: 'High Score Hazard',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_hotwired_high_score_hazard',
+    driverIds: ['hotwired'],
+  },
+  {
+    id: 'skin_pain_walking_wound',
+    name: 'The Walking Wound',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_pain_walking_wound',
+    driverIds: ['pain_hider'],
   },
 
   // ── Limited-Time Items ──────────────────────────────────────────────────────
@@ -792,7 +830,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   // Easter Egg (Hidden Flag) Milestones — descriptions intentionally vague
   {
     id: 'milestone_easter_egg_first',
-    creditReward: 500,
+    creditReward: 10000,
     description: 'Uncover your first hidden secret.',
     check: (p) => distinctFlagsEarned(p, [
       'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
@@ -801,7 +839,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_easter_egg_two',
-    creditReward: 1000,
+    creditReward: 25000,
     description: 'Uncover 4 different hidden secrets.',
     check: (p) => distinctFlagsEarned(p, [
       'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
@@ -810,7 +848,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_easter_egg_all',
-    creditReward: 5000,
+    creditReward: 200000,
     description: 'Uncover every hidden secret.',
     check: (p) => distinctFlagsEarned(p, [
       'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
@@ -819,25 +857,25 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_hidden_67_3x',
-    creditReward: 1500,
+    creditReward: 10000,
     description: 'Uncover a hidden numerical moment 3 times.',
     check: (p) => flagCount(p, 'HIDDEN_67') >= 3,
   },
   {
     id: 'milestone_hidden_redemption_first',
-    creditReward: 500,
+    creditReward: 10000,
     description: 'Trigger a hidden comeback 3 times.',
     check: (p) => flagCount(p, 'HIDDEN_REDEMPTION') >= 3,
   },
   {
     id: 'milestone_hidden_nail_3x',
-    creditReward: 1000,
+    creditReward: 10000,
     description: 'Uncover a hidden finishing move 3 times.',
     check: (p) => flagCount(p, 'HIDDEN_NAIL_IN_THE_COFFIN') >= 3,
   },
   {
     id: 'milestone_hidden_deja_bid',
-    creditReward: 300,
+    creditReward: 10000,
     description: 'Trigger a hidden repeating pattern 3 times.',
     check: (p) => flagCount(p, 'HIDDEN_DEJA_BID') >= 3,
   },
@@ -936,13 +974,6 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     description: 'Achieve both Deadlock Sync and Mirror Match at least once each.',
     check: (p) => flagCount(p, 'DEADLOCK_SYNC') >= 1 && flagCount(p, 'MIRROR_MATCH') >= 1,
   },
-  // Chaos Milestones
-  {
-    id: 'milestone_patch_notes_3x',
-    creditReward: 1500,
-    description: 'Trigger 3+ moment flags in a single round, 6 times total.',
-    check: (p) => flagCount(p, 'PATCH_NOTES_PENDING') >= 6,
-  },
   {
     id: 'milestone_easy_w_5x',
     creditReward: 500,
@@ -1009,8 +1040,9 @@ export function createDefaultProfile(
 /**
  * Checks all milestone definitions and automatically grants any cosmetics the
  * player has now qualified for.  Safe to call multiple times (idempotent).
+ * Exported so the profile endpoint can apply milestones on load.
  */
-function applyMilestones(profile: PlayerProfile): PlayerProfile {
+export function applyMilestones(profile: PlayerProfile): PlayerProfile {
   let updated = { ...profile };
   for (const milestone of MILESTONE_DEFINITIONS) {
     const owned = (updated.ownedCosmetics ?? []) as string[];
