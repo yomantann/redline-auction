@@ -954,6 +954,7 @@ export async function registerRoutes(
         parsed.variant,
         parsed.isMultiplayer,
         parsed.momentFlagTypes,
+        parsed.isCompetitive,
       );
 
       await db.update(playerProfiles)

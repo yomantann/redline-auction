@@ -706,72 +706,41 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     },
   },
 
-  // ── Non-Casual (Reality Mode) Win Milestones ──────────────────────────────
+  // ── Competitive Win Milestones ─────────────────────────────────────────────
   {
-    id: 'milestone_noncasual_5_wins',
-    creditReward: 2000,
-    description: 'Win 5 Reality Mode games (Social Overdrive, Bio Fuel, or Haunted).',
+    id: 'milestone_competitive_first_win',
+    creditReward: 1000,
+    description: 'Win your first Competitive game.',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
-      return ((m['sp_social'] ?? 0) + (m['mp_social'] ?? 0)
-            + (m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)
-            + (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 5;
+      return (m['comp'] ?? 0) >= 1;
     },
   },
   {
-    id: 'milestone_noncasual_20_wins',
-    creditReward: 8000,
-    description: 'Win 20 Reality Mode games (Social Overdrive, Bio Fuel, or Haunted).',
+    id: 'milestone_competitive_5_wins',
+    creditReward: 3000,
+    description: 'Win 5 Competitive games.',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
-      return ((m['sp_social'] ?? 0) + (m['mp_social'] ?? 0)
-            + (m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)
-            + (m['sp_haunted'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 20;
+      return (m['comp'] ?? 0) >= 5;
     },
   },
   {
-    id: 'milestone_social_15_wins',
-    creditReward: 4000,
-    description: 'Win 15 Social Overdrive games.',
-    check: (p) => {
-      const m = p.winsPerMode as Record<string, number>;
-      return ((m['sp_social'] ?? 0) + (m['mp_social'] ?? 0)) >= 15;
-    },
-  },
-  {
-    id: 'milestone_bio_15_wins',
-    creditReward: 4000,
-    description: 'Win 15 Bio Fuel games.',
-    check: (p) => {
-      const m = p.winsPerMode as Record<string, number>;
-      return ((m['sp_bio'] ?? 0) + (m['mp_bio'] ?? 0)) >= 15;
-    },
-  },
-  {
-    id: 'milestone_sp_25_wins',
-    creditReward: 5000,
-    description: 'Win 25 Single Player games.',
-    check: (p) => {
-      const m = p.winsPerMode as Record<string, number>;
-      return ((m['sp_standard'] ?? 0) + (m['sp_social'] ?? 0) + (m['sp_bio'] ?? 0) + (m['sp_haunted'] ?? 0)) >= 25;
-    },
-  },
-  {
-    id: 'milestone_sp_50_wins',
+    id: 'milestone_competitive_25_wins',
     creditReward: 15000,
-    description: 'Win 50 Single Player games.',
+    description: 'Win 25 Competitive games.',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
-      return ((m['sp_standard'] ?? 0) + (m['sp_social'] ?? 0) + (m['sp_bio'] ?? 0) + (m['sp_haunted'] ?? 0)) >= 50;
+      return (m['comp'] ?? 0) >= 25;
     },
   },
   {
-    id: 'milestone_mp_50_wins',
-    creditReward: 25000,
-    description: 'Win 50 Multiplayer games.',
+    id: 'milestone_competitive_50_wins',
+    creditReward: 40000,
+    description: 'Win 50 Competitive games.',
     check: (p) => {
       const m = p.winsPerMode as Record<string, number>;
-      return ((m['mp_standard'] ?? 0) + (m['mp_social'] ?? 0) + (m['mp_bio'] ?? 0) + (m['mp_haunted'] ?? 0)) >= 50;
+      return (m['comp'] ?? 0) >= 50;
     },
   },
   {
@@ -1083,6 +1052,7 @@ export function convertGameToCurrency(
   variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED',
   isMultiplayer: boolean,
   momentFlagTypes?: string[],
+  isCompetitive?: boolean,
 ): {
   creditsEarned: number;
   milestoneUnlocked: string[];
@@ -1106,6 +1076,9 @@ export function convertGameToCurrency(
           ? 'haunted' : 'standard';
     const key = `${modePrefix}_${variantKey}`;
     winsPerMode[key] = (winsPerMode[key] ?? 0) + 1;
+    if (isCompetitive) {
+      winsPerMode['comp'] = (winsPerMode['comp'] ?? 0) + 1;
+    }
   }
 
   let updated: PlayerProfile = {

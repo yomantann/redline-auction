@@ -1078,6 +1078,7 @@ export default function Game() {
     gameVariant: string,
     isMP: boolean,
     momentFlagTypes?: string[],
+    isCompetitive?: boolean,
   ) => {
     try {
       const variantMap: Record<string, string> = {
@@ -1100,6 +1101,7 @@ export default function Game() {
           isWinner,
           variant: mappedVariant,
           isMultiplayer: isMP,
+          isCompetitive: isCompetitive ?? false,
         }),
       });
       const data = await res.json();
@@ -1671,6 +1673,7 @@ export default function Game() {
               state.settings?.variant || 'STANDARD',
               true,
               myFinalPlayer?.momentFlagsEarned || [],
+              state.settings?.difficulty === 'COMPETITIVE',
             );
           }
         }
@@ -5011,6 +5014,7 @@ export default function Game() {
                   variant,
                   false,
                   humanPlayerEarly.eventDatabasePopups || [],
+                  difficulty === 'COMPETITIVE',
                 );
               }
             }
@@ -5942,7 +5946,7 @@ export default function Game() {
               const humanTrophies = humanPlayer.tokens || 0;
               const humanFlags = humanPlayer.eventDatabasePopups?.length || 0;
               const humanFlagTypes = humanPlayer.eventDatabasePopups || [];
-              convertGameCredits(gameId, humanTrophies, humanFlags, isHumanWinner, variant, false, humanFlagTypes);
+              convertGameCredits(gameId, humanTrophies, humanFlags, isHumanWinner, variant, false, humanFlagTypes, difficulty === 'COMPETITIVE');
             }
           }
         }

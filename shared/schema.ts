@@ -188,6 +188,7 @@ export const convertGameSchema = z.object({
   isMultiplayer: z.boolean(),
   variant: z.enum(['STANDARD', 'SOCIAL_OVERDRIVE', 'BIO_FUEL', 'HAUNTED']),
   isWinner: z.boolean(),
+  isCompetitive: z.boolean().optional(),
 });
 
 export const purchaseCosmeticSchema = z.object({
