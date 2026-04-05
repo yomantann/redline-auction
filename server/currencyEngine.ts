@@ -775,6 +775,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     },
   },
   {
+    id: 'milestone_credits_5000',
     creditReward: 250000,
     description: 'Earn 5,000 total lifetime credits.',
     check: (p) => p.lifetimeEarned >= 5000,
