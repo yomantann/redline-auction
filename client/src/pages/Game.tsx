@@ -7199,16 +7199,36 @@ export default function Game() {
                       data-testid={`player-row-${idx}`}
                     >
                       <div className="flex items-center gap-3">
-                        {player.selectedDriver ? (
-                          <img 
-                            src={CHARACTERS.find(c => c.id === player.selectedDriver)?.image} 
-                            alt={player.selectedDriver}
-                            className="w-8 h-8 rounded-full object-cover border border-white/20"
+                        {/* Avatar: driver image or initial; logo overlays when equipped for current player */}
+                        <div className="relative w-8 h-8 flex-shrink-0">
+                          {player.selectedDriver ? (
+                            <img 
+                              src={CHARACTERS.find(c => c.id === player.selectedDriver)?.image} 
+                              alt={player.selectedDriver}
+                              className="w-8 h-8 rounded-full object-cover border border-white/20"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-bold">
+                              {player.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          {player.socketId === socket?.id && getLogoUrl(myCosmetics) && (
+                            <img
+                              src={getLogoUrl(myCosmetics)!}
+                              alt="Logo"
+                              className="absolute inset-0 w-full h-full object-contain rounded-full bg-black/40"
+                              title="Your equipped logo"
+                            />
+                          )}
+                        </div>
+                        {/* Show logo large next to name for current player */}
+                        {player.socketId === socket?.id && getLogoUrl(myCosmetics) && (
+                          <img
+                            src={getLogoUrl(myCosmetics)!}
+                            alt="Logo"
+                            className="w-10 h-10 object-contain rounded border border-primary/30 bg-black/30 flex-shrink-0"
+                            title="Your equipped logo"
                           />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-bold">
-                            {player.name.charAt(0).toUpperCase()}
-                          </div>
                         )}
                         <div>
                           <div className="flex items-center gap-2">
@@ -7218,15 +7238,6 @@ export default function Game() {
                             )}
                             {player.socketId === socket?.id && (
                               <span className="text-xs text-zinc-500">(You)</span>
-                            )}
-                            {/* Show equipped logo for current player in the lobby */}
-                            {player.socketId === socket?.id && getLogoUrl(myCosmetics) && (
-                              <img
-                                src={getLogoUrl(myCosmetics)!}
-                                alt="Logo"
-                                className="w-5 h-5 object-contain rounded-full border border-primary/40 bg-black/30"
-                                title="Your equipped logo"
-                              />
                             )}
                           </div>
                           {player.selectedDriver && (
@@ -8803,7 +8814,7 @@ export default function Game() {
 
           return (
           <div key={p.id} className={cn(
-            "p-4 rounded border bg-card/50 flex flex-col gap-2 relative",
+            "p-4 rounded border bg-card/50 flex flex-col gap-2 relative isolate",
             p.id === winner.id && "border-primary/50 bg-primary/10",
             p.id === loser.id && !p.isGhost ? "border-destructive/50 bg-destructive/10" : "border-white/10"
           )} style={cardStyle}>

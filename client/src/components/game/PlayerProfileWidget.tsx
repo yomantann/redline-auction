@@ -54,28 +54,29 @@ export function PlayerProfileWidget({ equippedLogoUrl = null, showNavLinks = fal
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded text-xs">
-        {/* Replit auth avatar */}
-        {user.profileImageUrl ? (
-          <img
-            src={user.profileImageUrl}
-            alt={displayName}
-            className="w-5 h-5 rounded-full object-cover border border-primary/30"
-          />
-        ) : (
-          <div className="w-5 h-5 rounded-full bg-primary/30 flex items-center justify-center">
-            <User size={10} className="text-primary" />
-          </div>
-        )}
+        {/* Replit auth avatar — logo overlays the avatar when equipped */}
+        <div className="relative w-5 h-5 flex-shrink-0">
+          {user.profileImageUrl ? (
+            <img
+              src={user.profileImageUrl}
+              alt={displayName}
+              className="w-5 h-5 rounded-full object-cover border border-primary/30"
+            />
+          ) : (
+            <div className="w-5 h-5 rounded-full bg-primary/30 flex items-center justify-center">
+              <User size={10} className="text-primary" />
+            </div>
+          )}
+          {equippedLogoUrl && (
+            <img
+              src={equippedLogoUrl}
+              alt="Logo"
+              className="absolute inset-0 w-full h-full object-contain rounded-full"
+              title="Equipped logo"
+            />
+          )}
+        </div>
         <span className="font-mono tracking-widest text-primary">{displayName.toUpperCase()}</span>
-        {/* Equipped cosmetic logo badge */}
-        {equippedLogoUrl && (
-          <img
-            src={equippedLogoUrl}
-            alt="Logo"
-            className="w-5 h-5 object-contain rounded-full border border-primary/40 bg-black/30"
-            title="Equipped logo"
-          />
-        )}
       </div>
       {showNavLinks && (
         <>
