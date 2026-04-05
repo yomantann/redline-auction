@@ -910,7 +910,7 @@ export async function registerRoutes(
 
   // GET /api/player/profile – fetch or auto-create the authenticated player's profile
   app.get("/api/player/profile", walletRateLimit, async (req: any, res) => {
-    if (!req.isAuthenticated?.()) return res.json(null);
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
     try {
       const userId: string = req.user.claims.sub;
       const [existing] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
