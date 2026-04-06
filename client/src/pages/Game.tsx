@@ -450,7 +450,7 @@ const CHARACTERS: Character[] = [
 type GameDifficulty = 'COMPETITIVE' | 'CASUAL';
 type GameVariant = 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
 
-// Haunted Mode: 16 placeholder items
+// Haunted Mode: 
 interface HauntedItem {
   id: string;
   number: string;
@@ -474,7 +474,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '👻',
     category: 'Cursed',
     target: 'Opponent',
-    description: 'Target one opponent. 20% chance they are immediately ghosted — removed from play and spectating. Ghost comeback criteria assigned at ghost time.',
+    description: 'Target one opponent. 20% chance they are ghosted',
     flavour: 'You pull the trigger. The curse decides if it fires.',
     ghostNote: 'Target spectates until comeback condition met. Not a permanent elimination.',
   },
@@ -485,8 +485,9 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🐑',
     category: 'Spooky',
     target: 'Everyone',
-    description: 'Randomly removes one trophy from one player. Could be anyone including you. Only available in the second half of the game.',
+    description: 'Randomly removes one trophy from one player.',
     flavour: 'The lamb is chosen. Not by you.',
+    ghostNote: 'Available in second half of the game.',
   },
   {
     id: 'wild_card',
@@ -495,7 +496,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🌀',
     category: 'Mystical',
     target: 'Everyone',
-    description: "All players' time banks are randomly redistributed between everyone before next round. No one gets their own bank back.",
+    description: "All players' time banks are randomly redistributed.",
     flavour: "Nobody knows what they're holding.",
   },
   {
@@ -505,7 +506,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '💀',
     category: 'Cursed',
     target: 'Self',
-    description: 'If you win next round gain +2 trophies instead of 1. If you lose, lose an extra 15s on top of your bid.',
+    description: 'If you win next round gain +2 tokens instead of 1. If you lose, lose an extra 15s.',
     flavour: 'The curse always takes something.',
   },
   {
@@ -515,7 +516,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🩸',
     category: 'Cursed',
     target: 'Everyone',
-    description: "Next round, all non-winning players lose the same time as the winner bid on top of their own bid. Affects you too.",
+    description: "Next round, all non-winning players lose the winners bid + their own bid.",
     flavour: 'If someone bids big, everyone bleeds.',
   },
   {
@@ -525,7 +526,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🎲',
     category: 'Cursed',
     target: 'Self',
-    description: 'After next round ends randomly gain +30s or lose −30s. 50/50.',
+    description: 'Randomly gain +30s or lose −30s after the next round.',
     flavour: 'The curse decides. Not you.',
   },
   {
@@ -536,9 +537,9 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     category: 'Mystical',
     target: 'Everyone',
     requiresGhosts: 2,
-    description: 'Requires at least 2 active ghosts. All current ghosts are revived immediately. Each ghost returns with 45s or their frozen time bank — whichever is higher. You receive +1 trophy.',
-    flavour: 'The veil thins. They answer.',
-    ghostNote: 'Revives all active ghosts. Caster gains +1 trophy.',
+    description: 'All ghosts are revived. Each ghost returns with 45s or their frozen time bank',
+    flavour: 'The veil thins.',
+    ghostNote: 'Requires at least 2 active ghosts. You receive +1 trophy.',
   },
   {
     id: 'protocol_forcer',
@@ -547,7 +548,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '⛓️',
     category: 'Spooky',
     target: 'Everyone',
-    description: 'Forces a random haunted protocol next round from a curated dark subset — overrides the normal protocol roll. Cannot be blocked.',
+    description: 'Force a random haunted protocol from a curated dark subset.',
     flavour: 'The house picks the rules.',
   },
   {
@@ -558,8 +559,9 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     category: 'Mystical',
     target: 'Opponent',
     voteType: 'vote',
-    description: "All players vote on one of two fates for your chosen target. A: Target loses 30s from their time bank immediately  |  B: Target's relic is consumed without effect. Majority wins. Ties go to A.",
+    description: "Players vote on targets fate. A: -30s | B: Their relic is consumed without effect.",
     flavour: 'The table decides your fate.',
+    ghostNote: "Ties go to A.",
   },
   {
     id: 'jackpot',
@@ -568,7 +570,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🎰',
     category: 'Chaotic',
     target: 'Self',
-    description: 'Randomly gain one of the following immediately: 🎯 25% — +40s to your time bank | 🏆 25% — +2 trophies | 💀 25% — lose 30s from your bank | 👻 25% — you are immediately ghosted.',
+    description: 'Random Effect: +40s | +2 trophies | lose 30s | immediately ghosted',
     flavour: "The wheel doesn't care who you are.",
   },
   {
@@ -578,8 +580,9 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '⚰️',
     category: 'Cursed',
     target: 'Opponent',
-    description: 'Activate before a round. If you are ghosted this round, a random opponent loses 1 trophy. If you survive the round, nothing happens — relic still consumed. Cannot be activated on the final round.',
+    description: 'If you are ghosted this round, a random opponent loses 1 trophy.',
     flavour: 'You will not go quietly.',
+    ghostNote: 'Cannot be activated on the final round. If you survive the round, nothing happens — relic still consumed.',
   },
   {
     id: 'echo',
@@ -588,7 +591,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🔁',
     category: 'Spooky',
     target: 'Opponent',
-    description: "Choose one opponent. Their bid from the previous round is immediately deducted from their time bank — the past repeats, and the cost is instant. No effect if they have no bid history yet.",
+    description: "Your chosen opponents previous round bid is deducted from their bank",
     flavour: 'The past has a way of repeating.',
   },
   {
@@ -598,8 +601,9 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '👁️',
     category: 'Cursed',
     target: 'Opponent',
-    description: "Choose one opponent. The next time they win a round, they are immediately ghosted after receiving their trophy. The mark persists until it fires. You also have a 50% chance of being ghosted when it triggers. Only available in the second half of the game.",
+    description: "Choose one opponent. The next time they win a round, they are ghosted.",
     flavour: 'Victory is their curse.',
+     ghostNote: 'Available in second half of the game.',
   },
   {
     id: 'corrupt',
@@ -609,7 +613,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     category: 'Cursed',
     target: 'Opponent',
     botOnly: true,
-    description: "Choose one bot player. Their personality is overridden to 'aggressive' for the next 3 rounds — they will overbid recklessly and drain their bank faster.",
+    description: "Choose one bot player. Their personality is overridden to 'aggressive' for 3 rounds",
     flavour: 'Pull the strings. Watch them burn.',
   },
   {
@@ -619,7 +623,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '✒️',
     category: 'Cursed',
     target: 'Self',
-    description: "The final round is automatically skipped. You are declared the winner of that round's trophy — regardless of any other effects or relics that were going to be played. Consumed immediately on activation.",
+    description: "The final round is automatically skipped with you as winner.",
     flavour: 'The last page was already written.',
   },
   {
@@ -630,8 +634,9 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     category: 'Chaotic',
     target: 'Everyone',
     voteType: 'vote',
-    description: 'All players vote on a global effect that hits everyone:\nA: Cut every time bank in half\nB: Skip the next round as a tie\nC: 100% protocols for the rest of the game\nD: Overclock — bottom 2 players by trophies each lose 1.',
+    description: 'Players vote on a global effect:\nA: Cut time bank\nB: Skip round\nC: 100% protocols\nD: Overclock',
     flavour: 'Democracy is just organized chaos.',
+     ghostNote: 'Overclock — bottom 2 players by trophies each lose 1.',
   },
 ];
 
@@ -2932,7 +2937,7 @@ export default function Game() {
               attempts++;
             } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
             alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
-            setTimeout(() => addOverlay('haunted_relic', '🌀 WILD CARD', "All time banks redistributed! Nobody gets their own.", 0), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🌀 WILD CARD', "All time banks redistributed!", 0), 200);
           }
           break;
         }
@@ -2985,7 +2990,7 @@ export default function Game() {
           }
           // Set a deferred flag — at end of round, if ghosted, a random opponent loses 1 trophy
           activator.pendingLastWill = { targetId: '', curseType: 'trophy' };
-          setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', 'If you are ghosted this round, a random opponent loses 1 trophy. Survive to prevent it.', 0), 200);
+          setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', 'If you are ghosted this round, a random opponent loses 1 trophy.', 0), 200);
           break;
         }
         case 'death_wish': {
@@ -3038,7 +3043,7 @@ export default function Game() {
           const darkPool = ['DATA_BLACKOUT', 'SYSTEM_FAILURE', 'PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
           const picked = darkPool[Math.floor(Math.random() * darkPool.length)] as any;
           (activator as any).forcedProtocolValue = picked;
-          setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `Next round will be forced to run protocol: ${picked}`, 0), 200);
+          setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `This round will be forced to run protocol: ${picked}`, 0), 200);
           break;
         }
         // tribunal and conclave are handled below (outside setPlayers) for SP
@@ -3839,7 +3844,7 @@ export default function Game() {
             }
             case 'death_wish': {
               bot.deathWishActive = true;
-              setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH', `${bot.name} activated Death Wish — win for +2 trophies, lose and forfeit extra 15s!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH', `${bot.name} activated Death Wish — If they win they are awarded +2 trophies, lose and they forfeit an extra 15s!`, 0), 200);
               break;
             }
             case 'blood_pact': {
@@ -3886,7 +3891,7 @@ export default function Game() {
               const picked = DARK_POOL[Math.floor(Math.random() * DARK_POOL.length)];
               (bot as any).forcedProtocolNextRound = true;
               (bot as any).forcedProtocolValue = picked;
-              setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `${bot.name} used Protocol Forcer — next round will run: ${picked}!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `${bot.name} used Protocol Forcer — this round will run: ${picked}!`, 0), 200);
               break;
             }
             case 'last_will': {
