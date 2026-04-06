@@ -809,8 +809,9 @@ export async function registerRoutes(
       
       const disconnectedPlayer = lobby.players.find(
         p => p.disconnected && (
-          (replitUserId && p.replitUserId && p.replitUserId === replitUserId) ||
-          p.name === playerName
+          replitUserId
+            ? p.replitUserId === replitUserId
+            : p.name === playerName
         )
       );
       
