@@ -1412,7 +1412,7 @@ export default function Game() {
       momentFlagsEarned?: string[];
       roundImpact?: { type: string; value: number; source: string };
     }>;
-    roundWinner: { id: string; name: string; bid: number } | null;
+    roundWinner: { id: string; name: string; bid: number; isFinalWrit?: boolean } | null;
     eliminatedThisRound: string[];
     settings: {
       difficulty: 'CASUAL' | 'COMPETITIVE';
@@ -1655,7 +1655,7 @@ export default function Game() {
         } else if (state.phase === 'round_end') {
           setPhase('round_end');
           if (state.roundWinner) {
-            setRoundWinner({ name: state.roundWinner.name, time: state.roundWinner.bid, isFinalWrit: (state.roundWinner as any).isFinalWrit });
+            setRoundWinner({ name: state.roundWinner.name, time: state.roundWinner.bid, isFinalWrit: state.roundWinner.isFinalWrit });
           }
         } else if (state.phase === 'game_over') {
           setPhase('game_end');
@@ -3416,23 +3416,23 @@ export default function Game() {
         // Schedule end-game processing (bonus trophies + credit conversion) that would normally
         // run via endRound(). We bypass endRound() here so we must do it ourselves.
         setTimeout(() => {
-          let finalPls = finalWritUpdatedPlayers;
+          let updatedPlayers = finalWritUpdatedPlayers;
           if (!isMultiplayer && protocolsEnabled && bonusTrophiesEnabled) {
-            const spBonusResults = calculateSpBonusTrophies(finalPls);
+            const spBonusResults = calculateSpBonusTrophies(updatedPlayers);
             if (spBonusResults.length > 0) {
-              finalPls = finalPls.map(p => {
+              updatedPlayers = updatedPlayers.map(p => {
                 const totalBonus = spBonusResults.reduce((sum, br) =>
                   br.winnerIds.includes(p.id) ? sum + br.trophiesPerWinner : sum, 0);
                 return totalBonus > 0 ? { ...p, tokens: p.tokens + totalBonus } : p;
               });
-              setPlayers(finalPls);
+              setPlayers(updatedPlayers);
               spBonusResults.forEach(bonusResult => {
                 const subMsg = `${bonusResult.winnerNames.join(' & ')} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
                 addOverlay('bonus_trophy', bonusResult.criterionName, subMsg, 0);
               });
             }
           }
-          const sorted = [...finalPls].sort((a, b) => {
+          const sorted = [...updatedPlayers].sort((a, b) => {
             if (b.tokens !== a.tokens) return b.tokens - a.tokens;
             return b.remainingTime - a.remainingTime;
           });
