@@ -6068,6 +6068,9 @@ export default function Game() {
   // Most paths call convertGameCredits themselves before transitioning; this covers any
   // missed paths (e.g. the overclock game-over, nextRound() fallback).
   // The server's convertedGameIds idempotency check makes duplicate calls a safe no-op.
+  // Intentional: [phase]-only dependency so the callback captures the game state
+  // (players, variant, difficulty) from the render that committed phase='game_end',
+  // which is exactly the final settled state we want for conversion.
   useEffect(() => {
     if (phase !== 'game_end' || isMultiplayer) return;
     const gameId = singleplayerGameIdRef.current;
