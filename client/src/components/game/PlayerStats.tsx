@@ -75,17 +75,18 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // Shared text-shadow applied to player name, token count, and time display when an image
   // background is equipped so all labels remain legible on bright backgrounds.
   const bgTextShadow: React.CSSProperties | undefined = hasImageBackground
-    ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' }
+    ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)', color: 'white' }
     : undefined;
   // Border image overlay style: the border PNGs have transparent backgrounds (white areas
-  // are alpha=0), so we simply stretch the image over the card with a small outset so the
-  // decorative ring sits right on the card edge.
+  // are alpha=0), so we stretch the image to cover the card exactly.
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
-    top: '-8px', right: '-8px', bottom: '-8px', left: '-8px',
-    width: 'calc(100% + 16px)', height: 'calc(100% + 16px)',
+    inset: 0,
+    width: '100%',
+    height: '100%',
     objectFit: 'fill',
     pointerEvents: 'none',
+    borderRadius: 'inherit',
   };
 
   return (
@@ -235,7 +236,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
         <div className="flex flex-col">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider"
             style={bgTextShadow}
-          >Tokens</span>
+          >Trophies</span>
           <div className="flex items-center gap-1.5 text-primary">
             <Trophy size={14} />
             <span className="font-mono text-xl font-bold"

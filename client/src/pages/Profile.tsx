@@ -1372,11 +1372,11 @@ export default function Profile() {
           const mpCasualWins = mpWins - mpCompWins;
 
           // Per variant — helpers for comp and casual breakdown by mode type
-          const variantRows: Array<{ label: string; short: string; key: string; color: string }> = [
-            { label: 'Standard', short: 'STD', key: 'standard', color: 'text-zinc-300' },
-            { label: 'Social', short: 'SOC', key: 'social', color: 'text-sky-300' },
-            { label: 'Bio', short: 'BIO', key: 'bio', color: 'text-green-300' },
-            { label: 'Haunted', short: 'HNT', key: 'haunted', color: 'text-purple-300' },
+          const variantRows: Array<{ label: string; short: string; key: string; color: string; cellBg: string; rowBg: string }> = [
+            { label: 'Standard', short: 'STD', key: 'standard', color: 'text-zinc-300', cellBg: 'bg-zinc-800/50 border-zinc-600/25', rowBg: 'border-zinc-700/30 bg-zinc-900/30' },
+            { label: 'Social', short: 'SOC', key: 'social', color: 'text-purple-400', cellBg: 'bg-purple-950/50 border-purple-700/30', rowBg: 'border-purple-800/30 bg-purple-950/30' },
+            { label: 'Bio', short: 'BIO', key: 'bio', color: 'text-orange-400', cellBg: 'bg-orange-950/40 border-orange-700/25', rowBg: 'border-orange-800/25 bg-orange-950/25' },
+            { label: 'Haunted', short: 'HNT', key: 'haunted', color: 'text-teal-400', cellBg: 'bg-teal-950/40 border-teal-700/25', rowBg: 'border-teal-800/25 bg-teal-950/25' },
           ];
 
           // Competitive games/wins by variant (tracked server-side from new games forward)
@@ -1430,6 +1430,15 @@ export default function Profile() {
               </CardHeader>
               <CardContent className="space-y-5">
 
+                {/* Total trophy tally */}
+                {(profile.convertedTrophies ?? 0) > 0 && (
+                  <div className="flex items-center gap-2 rounded-lg border border-yellow-700/25 bg-yellow-950/20 px-3 py-2">
+                    <Trophy size={14} className="text-yellow-400 shrink-0" />
+                    <span className="text-xl font-display font-bold text-white">{(profile.convertedTrophies ?? 0).toLocaleString()}</span>
+                    <span className="text-xs text-zinc-400 uppercase tracking-widest">Total Trophies</span>
+                  </div>
+                )}
+
                 {/* SP vs MP */}
                 {(spGames + mpGames > 0) && (
                   <div>
@@ -1462,11 +1471,11 @@ export default function Profile() {
                       </div>
                       {/* Mode type sub-columns */}
                       <div className="grid grid-cols-4 gap-1.5">
-                        {variantRows.map(({ short, key, color }) => {
+                        {variantRows.map(({ short, key, color, cellBg }) => {
                           const g = compVariantGames(key);
                           const w = compVariantWins(key);
                           return (
-                            <div key={key} className="rounded border border-red-700/15 bg-red-950/30 px-1.5 py-1.5 text-center">
+                            <div key={key} className={`rounded border px-1.5 py-1.5 text-center ${cellBg}`}>
                               <div className={`text-[10px] font-bold uppercase tracking-widest mb-0.5 ${color}`}>{short}</div>
                               <div className="text-base font-bold text-white leading-none">{g}</div>
                               <div className="text-[10px] text-zinc-400">{w}W</div>
@@ -1498,11 +1507,11 @@ export default function Profile() {
                       </div>
                       {/* Mode type sub-columns */}
                       <div className="grid grid-cols-4 gap-1.5">
-                        {variantRows.map(({ short, key, color }) => {
+                        {variantRows.map(({ short, key, color, cellBg }) => {
                           const g = casualVariantGames(key);
                           const w = casualVariantWins(key);
                           return (
-                            <div key={key} className="rounded border border-zinc-700/15 bg-zinc-800/40 px-1.5 py-1.5 text-center">
+                            <div key={key} className={`rounded border px-1.5 py-1.5 text-center ${cellBg}`}>
                               <div className={`text-[10px] font-bold uppercase tracking-widest mb-0.5 ${color}`}>{short}</div>
                               <div className="text-base font-bold text-white leading-none">{g}</div>
                               <div className="text-[10px] text-zinc-400">{w}W</div>
@@ -1533,14 +1542,14 @@ export default function Profile() {
                   <div>
                     <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Games by Mode Type</div>
                     <div className="space-y-2">
-                      {variantRows.map(({ label, key, color }) => {
+                      {variantRows.map(({ label, key, color, rowBg }) => {
                         const spG = games[`sp_${key}`] ?? 0;
                         const mpG = games[`mp_${key}`] ?? 0;
                         const spW = wins[`sp_${key}`] ?? 0;
                         const mpW = wins[`mp_${key}`] ?? 0;
                         if (spG + mpG === 0) return null;
                         return (
-                          <div key={key} className="rounded-lg border border-purple-800/20 bg-purple-950/20 px-3 py-2">
+                          <div key={key} className={`rounded-lg border px-3 py-2 ${rowBg}`}>
                             <div className={`text-xs font-bold uppercase tracking-wide mb-1.5 ${color}`}>{label}</div>
                             <div className="grid grid-cols-2 gap-2">
                               {spG > 0 && (
