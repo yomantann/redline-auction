@@ -227,6 +227,9 @@ export interface GameSettings {
   variant: GameVariant;
   gameDuration: GameDuration;
   allowedProtocols?: ProtocolType[];
+  // WAGER Competitive fields
+  competitiveBidTier?: 'CHUMP_CHANGE' | 'MID_LANE' | 'HIGH_ROLLER' | 'REDLINE' | null;
+  competitiveBidAmount?: number | null;
 }
 
 export interface PendingRelicVote {
@@ -573,30 +576,33 @@ export function createGame(
     protocolWinsEarned: [],
   }));
   
-  // Auto-fill with bots if less than MIN_PLAYERS
+  // Auto-fill with bots if less than MIN_PLAYERS (disabled for Competitive Wager)
   let botIndex = 0;
   const shuffledPersonalities = [...BOT_PERSONALITIES].sort(() => Math.random() - 0.5);
-  while (gamePlayers.length < MIN_PLAYERS) {
-    const personality = shuffledPersonalities[botIndex % shuffledPersonalities.length];
-    gamePlayers.push({
-      id: `bot_${botIndex}_${Date.now()}`,
-      socketId: null,
-      name: `${BOT_NAMES[botIndex]} (Bot)`,
-      isBot: true,
-      personality,
-      tokens: 0,
-      remainingTime: initialTime,
-      isEliminated: false,
-      currentBid: null,
-      isHolding: false,
-      totalTimeBid: 0,
-      roundImpacts: [],
-      netImpact: 0,
-      abilityUsed: false,
-      momentFlagsEarned: [],
-      protocolWinsEarned: [],
-    });
-    botIndex++;
+  const isCompetitiveWager = !!lobbySettings?.competitiveBidTier;
+  if (!isCompetitiveWager) {
+    while (gamePlayers.length < MIN_PLAYERS) {
+      const personality = shuffledPersonalities[botIndex % shuffledPersonalities.length];
+      gamePlayers.push({
+        id: `bot_${botIndex}_${Date.now()}`,
+        socketId: null,
+        name: `${BOT_NAMES[botIndex]} (Bot)`,
+        isBot: true,
+        personality,
+        tokens: 0,
+        remainingTime: initialTime,
+        isEliminated: false,
+        currentBid: null,
+        isHolding: false,
+        totalTimeBid: 0,
+        roundImpacts: [],
+        netImpact: 0,
+        abilityUsed: false,
+        momentFlagsEarned: [],
+        protocolWinsEarned: [],
+      });
+      botIndex++;
+    }
   }
   
   // Bots will get drivers assigned AFTER all human players have confirmed
@@ -621,6 +627,8 @@ export function createGame(
     variant: lobbySettings?.variant || 'STANDARD',
     gameDuration: mappedDuration,
     allowedProtocols: lobbySettings?.allowedProtocols,
+    competitiveBidTier: lobbySettings?.competitiveBidTier ?? null,
+    competitiveBidAmount: lobbySettings?.competitiveBidAmount ?? null,
   };
   
   const gameState: GameState = {
@@ -4609,6 +4617,38 @@ function endGame(lobbyCode: string) {
   });
   
   log(`Game over for lobby ${lobbyCode}. Winner: ${game.players[0]?.name}`, "game");
+
+  // WAGER Competitive: calculate and emit credit payouts
+  if (game.settings.competitiveBidTier && game.settings.competitiveBidAmount && emitToLobby) {
+    const bidAmount = game.settings.competitiveBidAmount;
+    const realPlayers = game.players.filter(p => !p.isBot);
+    const pool = realPlayers.length * bidAmount;
+
+    // 3rd gets bid back, 2nd gets max(25% of pool, bid), 1st gets remainder
+    const thirdPayout = bidAmount;
+    const secondPayout = Math.max(Math.floor(pool * 0.25), bidAmount);
+    const firstPayout = pool - thirdPayout - secondPayout;
+
+    const payouts: { playerId: string; playerName: string; rank: number; payout: number }[] = [];
+    game.players.forEach((p, idx) => {
+      if (p.isBot) return;
+      const rank = idx + 1;
+      let payout = 0;
+      if (rank === 1) payout = firstPayout;
+      else if (rank === 2) payout = secondPayout;
+      else if (rank === 3) payout = thirdPayout;
+      // 4th+ lose their bid (payout = 0)
+      payouts.push({ playerId: p.id, playerName: p.name, rank, payout });
+    });
+
+    emitToLobby(lobbyCode, 'competitive_wager_payout', {
+      bidTier: game.settings.competitiveBidTier,
+      bidAmount,
+      pool,
+      payouts,
+    });
+    log(`WAGER Competitive payout emitted for ${lobbyCode}: pool=${pool}, tier=${game.settings.competitiveBidTier}`, "game");
+  }
   
   broadcastGameState(lobbyCode);
   

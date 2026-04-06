@@ -53,8 +53,11 @@ interface GameSettings {
   protocolsEnabled: boolean;
   bonusTrophiesEnabled: boolean;
   abilitiesEnabled: boolean;
-  variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
+  variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED' | 'WAGER';
   gameDuration: GameDuration; // 'short' | 'standard' | 'long'
+  // WAGER Competitive fields
+  competitiveBidTier?: 'CHUMP_CHANGE' | 'MID_LANE' | 'HIGH_ROLLER' | 'REDLINE' | null;
+  competitiveBidAmount?: number | null;
 }
 
 // Map client duration names to server duration names
@@ -539,6 +542,14 @@ export async function registerRoutes(
         if (callback) callback({ success: false, error: "Need at least 1 ready player" });
         return;
       }
+
+      // WAGER Competitive: require at least 4 real players, no bots
+      if (lobby.settings.competitiveBidTier) {
+        if (readyPlayers.length < 4) {
+          if (callback) callback({ success: false, error: "WAGER Competitive requires at least 4 real players. Invite more friends!" });
+          return;
+        }
+      }
       
       // Driver selection now happens after game starts, no validation needed here
       
@@ -560,6 +571,8 @@ export async function registerRoutes(
         bonusTrophiesEnabled: lobby.settings.bonusTrophiesEnabled,
         abilitiesEnabled: lobby.settings.abilitiesEnabled,
         variant: lobby.settings.variant,
+        competitiveBidTier: lobby.settings.competitiveBidTier ?? null,
+        competitiveBidAmount: lobby.settings.competitiveBidAmount ?? null,
       });
       
       // Emit game started event
