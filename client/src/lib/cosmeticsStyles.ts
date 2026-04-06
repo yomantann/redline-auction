@@ -71,8 +71,9 @@ export function getBorderStyle(
 
 /**
  * Returns the PNG image URL for image-based border cosmetics, or null.
- * Used to render the border as an absolutely-positioned overlay with mix-blend-mode
- * so the white outer padding of the PNG becomes invisible on the dark card background.
+ * Used to render the border as an absolutely-positioned overlay img.
+ * The border PNGs have transparent backgrounds (white areas are alpha=0),
+ * so only the decorative ring is visible when rendered over a card.
  */
 export function getBorderImageUrl(
   equipped: EquippedCosmetics | undefined,

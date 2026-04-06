@@ -77,27 +77,15 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   const bgTextShadow: React.CSSProperties | undefined = hasImageBackground
     ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' }
     : undefined;
-  // Border image overlay: a CSS mask punch-out creates a hollow frame so only the
-  // decorative ring is visible and the white interior of the PNG never covers card content.
-  // mask-composite:exclude = full rect MINUS inner rect = frame ring only.
-  const borderOverlayMask: React.CSSProperties = {
-    maskImage: 'linear-gradient(white, white), linear-gradient(white, white)',
-    maskSize: '100% 100%, calc(100% - 40px) calc(100% - 40px)',
-    maskPosition: '0 0, 20px 20px',
-    maskRepeat: 'no-repeat',
-    maskComposite: 'exclude',
-    // Safari
-    WebkitMaskImage: 'linear-gradient(white, white), linear-gradient(white, white)',
-    WebkitMaskSize: '100% 100%, calc(100% - 40px) calc(100% - 40px)',
-    WebkitMaskPosition: '0 0, 20px 20px',
-    WebkitMaskRepeat: 'no-repeat',
-    WebkitMaskComposite: 'xor',
-  };
+  // Border image overlay style: the border PNGs have transparent backgrounds (white areas
+  // are alpha=0), so we simply stretch the image over the card with a small outset so the
+  // decorative ring sits right on the card edge.
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
-    top: '-12px', right: '-12px', bottom: '-12px', left: '-12px',
-    width: 'calc(100% + 24px)', height: 'calc(100% + 24px)',
+    top: '-8px', right: '-8px', bottom: '-8px', left: '-8px',
+    width: 'calc(100% + 16px)', height: 'calc(100% + 16px)',
     objectFit: 'fill',
+    pointerEvents: 'none',
   };
 
   return (
@@ -115,20 +103,18 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     style={{ ...backgroundStyle, ...borderStyle }}
     data-testid={`player-card-${player.id}`}
     >
-      {/* Border overlay: CSS mask creates a hollow frame so the white PNG interior
-          never covers the card background or driver image. Only the decorative ring shows. */}
+      {/* Border overlay: PNG has transparent background (white areas are alpha=0),
+          so just stretch the image over the card — only the decorative ring is visible. */}
       {borderImageUrl && (
-        <div className="absolute inset-0 rounded-lg overflow-hidden z-20 pointer-events-none" style={borderOverlayMask}>
-          <img
-            src={borderImageUrl}
-            alt=""
-            aria-hidden="true"
-            className="pointer-events-none"
-            style={borderImgStyle}
-            loading="eager"
-            decoding="async"
-          />
-        </div>
+        <img
+          src={borderImageUrl}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none z-20 rounded-lg"
+          style={borderImgStyle}
+          loading="eager"
+          decoding="async"
+        />
       )}
       {/* Animation Container */}
       {children}

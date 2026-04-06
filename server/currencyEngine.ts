@@ -1242,18 +1242,24 @@ export function convertGameToCurrency(
   gamesPerMode[modeKey] = (gamesPerMode[modeKey] ?? 0) + 1;
   if (isCompetitive) {
     gamesPerMode['comp'] = (gamesPerMode['comp'] ?? 0) + 1;
-    // Also track sp_comp / mp_comp for SP/MP split within competitive
+    // Track sp_comp / mp_comp for SP/MP split within competitive
     const compKey = `${modePrefix}_comp`;
     gamesPerMode[compKey] = (gamesPerMode[compKey] ?? 0) + 1;
+    // Track competitive by variant (e.g. sp_comp_haunted, mp_comp_standard)
+    const compVariantKey = `${modePrefix}_comp_${variantKey}`;
+    gamesPerMode[compVariantKey] = (gamesPerMode[compVariantKey] ?? 0) + 1;
   }
 
   if (isWinner) {
     winsPerMode[modeKey] = (winsPerMode[modeKey] ?? 0) + 1;
     if (isCompetitive) {
       winsPerMode['comp'] = (winsPerMode['comp'] ?? 0) + 1;
-      // Also track sp_comp / mp_comp wins for SP/MP split within competitive
+      // Track sp_comp / mp_comp wins for SP/MP split within competitive
       const compKey = `${modePrefix}_comp`;
       winsPerMode[compKey] = (winsPerMode[compKey] ?? 0) + 1;
+      // Track competitive wins by variant
+      const compVariantKey = `${modePrefix}_comp_${variantKey}`;
+      winsPerMode[compVariantKey] = (winsPerMode[compVariantKey] ?? 0) + 1;
     }
   }
 

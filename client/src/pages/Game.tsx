@@ -8809,16 +8809,16 @@ export default function Game() {
             p.id === winner.id && "border-primary/50 bg-primary/10",
             p.id === loser.id && !p.isGhost ? "border-destructive/50 bg-destructive/10" : "border-white/10"
           )} style={cardStyle}>
-            {/* Image-based border overlay for cosmetic borders */}
+            {/* Image-based border overlay: PNG has transparent background so only the decorative ring shows */}
             {cardBorderImgUrl && (
               <img
                 src={cardBorderImgUrl}
                 alt=""
                 aria-hidden="true"
                 className="absolute pointer-events-none z-20 rounded"
-                style={{ top: '-6px', right: '-6px', bottom: '-6px', left: '-6px',
-                         width: 'calc(100% + 12px)', height: 'calc(100% + 12px)',
-                         mixBlendMode: 'multiply' }}
+                style={{ top: '-8px', right: '-8px', bottom: '-8px', left: '-8px',
+                         width: 'calc(100% + 16px)', height: 'calc(100% + 16px)',
+                         objectFit: 'fill' }}
                 loading="eager"
                 decoding="async"
               />
