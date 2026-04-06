@@ -1240,6 +1240,12 @@ export default function Game() {
   // Animation State
   const [animations, setAnimations] = useState<{ id: string; playerId: string; type: AnimationType; value?: string }[]>([]);
 
+  // ─── WAGER MODE GATE ─────────────────────────────────────────────────────────
+  // Set WAGER_MODE_ENABLED = true to unlock the WAGER variant for play.
+  // While false the mode is blurred and unclickable on the home screen and in MP.
+  const WAGER_MODE_ENABLED = false;
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // WAGER Competitive state
   const BID_TIERS = [
     { id: 'CHUMP_CHANGE', label: 'Chump Change', amount: 2000, color: 'text-zinc-300', borderColor: 'border-zinc-500', bg: 'bg-zinc-800/40' },
@@ -1895,6 +1901,14 @@ export default function Game() {
       setCreditBalance(data.balance);
     });
 
+    socket.on('wager_player_forfeited', (data: { playerId: string; playerName: string }) => {
+      toast({
+        title: '⚠️ Player Forfeited',
+        description: `${data.playerName} disconnected and forfeited their wager bid.`,
+        duration: 4000,
+      });
+    });
+
     return () => {
       socket.off('lobby_update', handleLobbyUpdate);
       socket.off('game_started', handleGameStarted);
@@ -1907,6 +1921,7 @@ export default function Game() {
       socket.off('rtt_your_dice');
       socket.off('competitive_wager_payout');
       socket.off('wager_balance_update');
+      socket.off('wager_player_forfeited');
     };
   }, [socket]);
 
@@ -8705,19 +8720,25 @@ export default function Game() {
                       HAUNTED
                     </button>
                     <button
-                      onClick={() => setVariant('WAGER')}
-                      disabled={!!currentLobby}
+                      onClick={() => WAGER_MODE_ENABLED && setVariant('WAGER')}
+                      disabled={!!currentLobby || !WAGER_MODE_ENABLED}
                       className={cn(
-                        'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border',
+                        'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border relative',
                         variant === 'WAGER'
                           ? 'bg-yellow-500/20 border-yellow-500 text-yellow-300'
                           : 'bg-black/20 border-white/10 text-zinc-500 hover:text-zinc-300',
-                        currentLobby && 'cursor-not-allowed'
+                        currentLobby && 'cursor-not-allowed',
+                        !WAGER_MODE_ENABLED && 'blur-[2px] opacity-50 cursor-not-allowed select-none pointer-events-none'
                       )}
-                      title={currentLobby ? 'Settings locked - set by lobby host' : "WAGER: Bet your time on players before each round. Risk it all or play it safe."}
+                      title={!WAGER_MODE_ENABLED ? 'Coming Soon' : currentLobby ? 'Settings locked - set by lobby host' : "WAGER: Bet your time on players before each round. Risk it all or play it safe."}
                       data-testid="button-intro-variant-wager"
                     >
                       WAGER
+                      {!WAGER_MODE_ENABLED && (
+                        <span className="absolute -top-2 -right-2 text-[8px] font-bold bg-zinc-700 text-zinc-300 px-1 py-0.5 rounded-full leading-none">
+                          SOON
+                        </span>
+                      )}
                     </button>
                  </div>
               </div>
@@ -9194,7 +9215,13 @@ export default function Game() {
 
                    {/* WAGER Competitive — only shows when variant is WAGER */}
                    {variant === 'WAGER' && (
-                     <div className="bg-yellow-950/20 border border-yellow-500/30 rounded-xl p-4 space-y-3 text-left">
+                     <div className={cn("bg-yellow-950/20 border border-yellow-500/30 rounded-xl p-4 space-y-3 text-left relative", !WAGER_MODE_ENABLED && "select-none pointer-events-none")}>
+                       {!WAGER_MODE_ENABLED && (
+                         <div className="absolute inset-0 rounded-xl z-10 flex flex-col items-center justify-center gap-1 backdrop-blur-[3px] bg-black/40">
+                           <span className="text-xs font-bold text-zinc-300 bg-zinc-900/80 px-3 py-1 rounded-full border border-zinc-700">🔒 Coming Soon</span>
+                           <span className="text-[10px] text-zinc-500">Credit wager is not yet live</span>
+                         </div>
+                       )}
                        <div className="flex items-center justify-between">
                          <div className="font-bold text-yellow-300 text-sm">&#x1F3C6; WAGER Competitive</div>
                          <div className="text-[10px] text-zinc-400">Balance: <span className="text-yellow-300 font-bold">{formatCredits(creditBalance)} CR</span></div>
@@ -9271,7 +9298,13 @@ export default function Game() {
                      </Button>
                    </div>
                    {/* WAGER Competitive join section */}
-                   <div className="bg-yellow-950/20 border border-yellow-500/20 rounded-xl p-3 space-y-2 text-left">
+                   <div className={cn("bg-yellow-950/20 border border-yellow-500/20 rounded-xl p-3 space-y-2 text-left relative", !WAGER_MODE_ENABLED && "select-none pointer-events-none")}>
+                     {!WAGER_MODE_ENABLED && (
+                       <div className="absolute inset-0 rounded-xl z-10 flex flex-col items-center justify-center gap-1 backdrop-blur-[3px] bg-black/40">
+                         <span className="text-xs font-bold text-zinc-300 bg-zinc-900/80 px-3 py-1 rounded-full border border-zinc-700">🔒 Coming Soon</span>
+                         <span className="text-[10px] text-zinc-500">Credit wager is not yet live</span>
+                       </div>
+                     )}
                      <div className="flex items-center justify-between">
                        <div className="font-bold text-yellow-300 text-xs">&#x1F3C6; WAGER Competitive Join</div>
                        <div className="text-[10px] text-zinc-400">{formatCredits(creditBalance)} CR</div>

@@ -54,7 +54,7 @@ export async function recordContactMessage(data: InsertContact): Promise<void> {
 
 // ─── Wager Credits ────────────────────────────────────────────────────────────
 
-const DEFAULT_WAGER_BALANCE = 50000;
+const DEFAULT_WAGER_BALANCE = 0;
 
 /** Return a player's wager balance. Creates a new profile with the default balance if the userId is new. */
 export async function getWagerBalance(userId: string): Promise<number> {

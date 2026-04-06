@@ -122,7 +122,7 @@ export type InsertContact = z.infer<typeof insertContactSchema>;
 // Wager Credits – one row per anonymous device-level user (UUID stored in browser localStorage)
 export const wagerProfiles = pgTable("wager_profiles", {
   userId: varchar("user_id").primaryKey(), // UUID generated client-side, stored in localStorage
-  balance: integer("balance").notNull().default(50000),
+  balance: integer("balance").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

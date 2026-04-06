@@ -4946,13 +4946,29 @@ export function disconnectPlayerFromGame(lobbyCode: string, socketId: string) {
   
   player.isHolding = false;
   player.socketId = null;
-  log(`${player.name} disconnected from game ${lobbyCode} (preserving state)`, "game");
+
+  // WAGER Competitive anti-cheat: dropping mid-game counts as a last-place finish.
+  // Mark the disconnected player as eliminated so the payout math treats them as a loser.
+  if (game.settings.competitiveBidTier && !player.isBot && !player.isEliminated) {
+    player.isEliminated = true;
+    log(`WAGER anti-cheat: ${player.name} disconnected from competitive lobby ${lobbyCode} — marked eliminated (bid forfeited)`, "game");
+    if (emitToLobby) {
+      emitToLobby(lobbyCode, 'wager_player_forfeited', { playerId: player.id, playerName: player.name });
+    }
+  } else {
+    log(`${player.name} disconnected from game ${lobbyCode} (preserving state)`, "game");
+  }
+
   broadcastGameState(lobbyCode);
   
   const connectedHumans = game.players.filter((p: GamePlayer) => !p.isEliminated && !p.isBot && p.socketId !== null);
   if (connectedHumans.length === 0) {
-    log(`All human players disconnected from game ${lobbyCode}, ending game`, "game");
+    log(`All human players disconnected/eliminated from game ${lobbyCode}, ending game`, "game");
     endGame(lobbyCode);
+  } else if (game.settings.competitiveBidTier && connectedHumans.length === 1) {
+    // Only 1 human left in a competitive wager — end game so winner gets paid out
+    log(`Only 1 human player remaining in WAGER competitive game ${lobbyCode}, ending game`, "game");
+    setTimeout(() => endGame(lobbyCode), 2000);
   }
 }
 
