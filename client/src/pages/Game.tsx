@@ -474,7 +474,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '👻',
     category: 'Cursed',
     target: 'Opponent',
-    description: 'Target one opponent. 20% chance they are immediately ghosted',
+    description: 'Target one opponent. 20% chance they are ghosted',
     flavour: 'You pull the trigger. The curse decides if it fires.',
     ghostNote: 'Target spectates until comeback condition met. Not a permanent elimination.',
   },
@@ -538,7 +538,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     target: 'Everyone',
     requiresGhosts: 2,
     description: 'All ghosts are revived. Each ghost returns with 45s or their frozen time bank',
-    flavour: 'The veil thins. They answer.',
+    flavour: 'The veil thins.',
     ghostNote: 'Requires at least 2 active ghosts. You receive +1 trophy.',
   },
   {
@@ -559,8 +559,9 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     category: 'Mystical',
     target: 'Opponent',
     voteType: 'vote',
-    description: "All players vote on one of two fates for your chosen target. A: Target loses 30s from their time bank immediately  |  B: Target's relic is consumed without effect. Ties go to A.",
+    description: "Players vote on targets fate. A: -30s | B: Their relic is consumed without effect.",
     flavour: 'The table decides your fate.',
+    ghostNote: "Ties go to A.",
   },
   {
     id: 'jackpot',
@@ -569,7 +570,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '🎰',
     category: 'Chaotic',
     target: 'Self',
-    description: 'Randomly gain: +40s | +2 trophies | lose 30s | immediately ghosted',
+    description: 'Random Effect: +40s | +2 trophies | lose 30s | immediately ghosted',
     flavour: "The wheel doesn't care who you are.",
   },
   {
@@ -633,8 +634,9 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     category: 'Chaotic',
     target: 'Everyone',
     voteType: 'vote',
-    description: 'All players vote on a global effect that hits everyone:\nA: Cut time bank\nB: Skip round\nC: 100% protocols\nD: Overclock — bottom 2 players by trophies each lose 1.',
+    description: 'Players vote on a global effect:\nA: Cut time bank\nB: Skip round\nC: 100% protocols\nD: Overclock',
     flavour: 'Democracy is just organized chaos.',
+     ghostNote: 'Overclock — bottom 2 players by trophies each lose 1.',
   },
 ];
 
