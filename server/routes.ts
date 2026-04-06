@@ -31,7 +31,7 @@ import {
   vaultBank,
   type GameDuration
 } from "./gameEngine";
-import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage } from "./snapshotDb";
+import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage, getWagerBalance, batchDeductWager } from "./snapshotDb";
 import { insertGameSnapshotSchema, insertGameSummarySchema } from "@shared/schema";
 
 // Socket.IO instance - exported for later expansion
@@ -46,6 +46,7 @@ interface LobbyPlayer {
   isReady: boolean;
   selectedDriver?: string;
   disconnected?: boolean;
+  wagerUserId?: string; // device-level credit account ID for WAGER Competitive
 }
 
 interface GameSettings {
@@ -84,6 +85,12 @@ interface Lobby {
 // In-memory lobby storage
 const lobbies = new Map<string, Lobby>();
 const playerToLobby = new Map<string, string>(); // socketId -> lobbyCode
+
+const WAGER_USER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function sanitiseWagerUserId(raw?: string): string | undefined {
+  if (!raw || !WAGER_USER_ID_RE.test(raw)) return undefined;
+  return raw;
+}
 
 // Generate a random 4-character lobby code
 function generateLobbyCode(): string {
@@ -207,8 +214,9 @@ export async function registerRoutes(
       playerName: string; 
       settings?: Partial<GameSettings>;
       isPublic?: boolean;
+      wagerUserId?: string;
     }, callback) => {
-      const { playerName, settings: hostSettings, isPublic } = data;
+      const { playerName, settings: hostSettings, isPublic, wagerUserId } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -221,7 +229,8 @@ export async function registerRoutes(
         socketId: socket.id,
         name: playerName || "Player 1",
         isHost: true,
-        isReady: false
+        isReady: false,
+        wagerUserId: sanitiseWagerUserId(wagerUserId),
       };
       
       // Default settings merged with host's settings
@@ -270,8 +279,8 @@ export async function registerRoutes(
     });
 
     // JOIN LOBBY
-    socket.on("join_lobby", (data: { code: string; playerName: string }, callback) => {
-      const { code, playerName } = data;
+    socket.on("join_lobby", (data: { code: string; playerName: string; wagerUserId?: string }, callback) => {
+      const { code, playerName, wagerUserId } = data;
       const upperCode = code.toUpperCase();
       
       if (playerToLobby.has(socket.id)) {
@@ -300,7 +309,8 @@ export async function registerRoutes(
         socketId: socket.id,
         name: playerName || `Player ${lobby.players.length + 1}`,
         isHost: false,
-        isReady: false
+        isReady: false,
+        wagerUserId: sanitiseWagerUserId(wagerUserId),
       };
       
       lobby.players.push(player);
@@ -323,8 +333,8 @@ export async function registerRoutes(
     });
 
     // JOIN RANDOM PUBLIC LOBBY
-    socket.on("join_random_lobby", (data: { playerName: string }, callback) => {
-      const { playerName } = data;
+    socket.on("join_random_lobby", (data: { playerName: string; wagerUserId?: string }, callback) => {
+      const { playerName, wagerUserId } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -347,7 +357,8 @@ export async function registerRoutes(
         socketId: socket.id,
         name: playerName || `Player ${lobby.players.length + 1}`,
         isHost: false,
-        isReady: false
+        isReady: false,
+        wagerUserId: sanitiseWagerUserId(wagerUserId),
       };
       
       lobby.players.push(player);
@@ -553,17 +564,72 @@ export async function registerRoutes(
       
       // Driver selection now happens after game starts, no validation needed here
       
-      // All validations passed - now update lobby status
-      lobby.status = 'in_game';
-      broadcastLobbyUpdate(lobbyCode);
-      
-      // Create game with ready players only (include driver selection)
+      // Create game with ready players only (include driver selection + wagerUserId)
       const gamePlayers = readyPlayers.map(p => ({
         id: p.id,
         socketId: p.socketId,
         name: p.name,
-        selectedDriver: p.selectedDriver
+        selectedDriver: p.selectedDriver,
+        wagerUserId: p.wagerUserId,
       }));
+
+      // WAGER Competitive: server-side deduct from ALL ready players before starting
+      if (lobby.settings.competitiveBidTier && lobby.settings.competitiveBidAmount) {
+        const bidAmount = lobby.settings.competitiveBidAmount;
+        const playerIdsWithWager = gamePlayers.filter(p => p.wagerUserId).map(p => p.wagerUserId as string);
+
+        if (playerIdsWithWager.length < readyPlayers.length) {
+          if (callback) callback({ success: false, error: "Not all players have a wager account. Each player must have credits set up." });
+          return;
+        }
+
+        // Async deduct – reject game start if any player can't afford it
+        batchDeductWager(playerIdsWithWager, bidAmount).then(result => {
+          if (!result.success) {
+            if (callback) callback({ success: false, error: `Insufficient credits: ${result.insufficientPlayers.join(', ')} cannot afford this wager tier.` });
+            return;
+          }
+
+          // Deduction succeeded – start the game
+          lobby.status = 'in_game';
+          broadcastLobbyUpdate(lobbyCode);
+
+          // Notify each player of their new balance
+          gamePlayers.forEach(gp => {
+            if (gp.wagerUserId && result.balances[gp.wagerUserId] !== undefined) {
+              io.to(gp.socketId).emit('wager_balance_update', { balance: result.balances[gp.wagerUserId] });
+            }
+          });
+
+          const gameState = createGame(lobbyCode, gamePlayers, lobby.settings.gameDuration, {
+            difficulty: lobby.settings.difficulty,
+            protocolsEnabled: lobby.settings.protocolsEnabled,
+            bonusTrophiesEnabled: lobby.settings.bonusTrophiesEnabled,
+            abilitiesEnabled: lobby.settings.abilitiesEnabled,
+            variant: lobby.settings.variant,
+            competitiveBidTier: lobby.settings.competitiveBidTier ?? null,
+            competitiveBidAmount: lobby.settings.competitiveBidAmount ?? null,
+          });
+
+          io.to(lobbyCode).emit('game_started', {
+            lobbyCode,
+            players: gameState.players,
+            totalRounds: gameState.totalRounds,
+            initialTime: gameState.initialTime,
+            settings: gameState.settings,
+          });
+
+          log(`WAGER Competitive game started in ${lobbyCode}: deducted ${bidAmount} from ${playerIdsWithWager.length} players`, "game");
+
+          setTimeout(() => { startGame(lobbyCode); }, 1000);
+          if (callback) callback({ success: true });
+        });
+        return; // Return here; actual callback is called inside the async block
+      }
+
+      // Non-competitive start (synchronous)
+      lobby.status = 'in_game';
+      broadcastLobbyUpdate(lobbyCode);
       
       const gameState = createGame(lobbyCode, gamePlayers, lobby.settings.gameDuration, {
         difficulty: lobby.settings.difficulty,
@@ -978,6 +1044,30 @@ export async function registerRoutes(
       log(`Contact form failed: ${error}`, "api");
       res.status(400).json({ success: false, error: String(error) });
     }
+  });
+
+  // ─── Wager Credit REST Endpoints ───────────────────────────────────────────
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  // GET /api/wager/balance/:userId  – returns current balance (creates profile if new)
+  app.get("/api/wager/balance/:userId", async (req, res) => {
+    const { userId } = req.params;
+    if (!userId || !UUID_RE.test(userId)) {
+      return res.status(400).json({ success: false, error: "Invalid userId format" });
+    }
+    const balance = await getWagerBalance(userId);
+    res.json({ success: true, balance });
+  });
+
+  // POST /api/wager/balance  – body: { userId }  – ensure profile exists, returns balance
+  app.post("/api/wager/balance", async (req, res) => {
+    const { userId } = req.body as { userId?: string };
+    if (!userId || !UUID_RE.test(userId)) {
+      return res.status(400).json({ success: false, error: "Invalid userId format" });
+    }
+    const balance = await getWagerBalance(userId);
+    res.json({ success: true, balance });
   });
 
   return httpServer;

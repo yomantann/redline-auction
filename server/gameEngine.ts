@@ -1,5 +1,5 @@
 import { log } from "./index";
-import { recordGameSnapshot, recordGameSummary, createGameId } from "./snapshotDb";
+import { recordGameSnapshot, recordGameSummary, createGameId, batchPayoutWager } from "./snapshotDb";
 
 // Game Constants
 const STANDARD_INITIAL_TIME = 300.0;
@@ -183,6 +183,7 @@ export interface GamePlayer {
   wagerPercent?: number;           // WAGER: percentage of time bank wagered (0-75)
   wagerAmount?: number;            // WAGER: calculated wager amount in seconds
   isDoubleDown?: boolean;          // WAGER: double-or-nothing toggle
+  wagerUserId?: string;            // WAGER Competitive: device-level credit account ID
   wagerResolved?: boolean;         // WAGER: has this round's wager been resolved?
   wagerWon?: boolean;              // WAGER: outcome of last wager (true=won, false=lost)
   wagerReward?: number;            // WAGER: actual time delta from wager (positive=gain, negative=loss)
@@ -549,7 +550,7 @@ function getTotalRounds(duration: GameDuration): number {
 
 export function createGame(
   lobbyCode: string,
-  lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string }>,
+  lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string; wagerUserId?: string }>,
   duration: GameDuration = 'standard',
   lobbySettings?: Partial<GameSettings>
 ): GameState {
@@ -574,6 +575,7 @@ export function createGame(
     abilityUsed: false,
     momentFlagsEarned: [],
     protocolWinsEarned: [],
+    wagerUserId: p.wagerUserId,
   }));
   
   // Auto-fill with bots if less than MIN_PLAYERS (disabled for Competitive Wager)
@@ -4618,7 +4620,7 @@ function endGame(lobbyCode: string) {
   
   log(`Game over for lobby ${lobbyCode}. Winner: ${game.players[0]?.name}`, "game");
 
-  // WAGER Competitive: calculate and emit credit payouts
+  // WAGER Competitive: calculate payouts, persist to DB, then broadcast results
   if (game.settings.competitiveBidTier && game.settings.competitiveBidAmount && emitToLobby) {
     const bidAmount = game.settings.competitiveBidAmount;
     const realPlayers = game.players.filter(p => !p.isBot);
@@ -4630,6 +4632,8 @@ function endGame(lobbyCode: string) {
     const firstPayout = pool - thirdPayout - secondPayout;
 
     const payouts: { playerId: string; playerName: string; rank: number; payout: number }[] = [];
+    const dbPayouts: { userId: string; amount: number }[] = [];
+
     game.players.forEach((p, idx) => {
       if (p.isBot) return;
       const rank = idx + 1;
@@ -4637,17 +4641,30 @@ function endGame(lobbyCode: string) {
       if (rank === 1) payout = firstPayout;
       else if (rank === 2) payout = secondPayout;
       else if (rank === 3) payout = thirdPayout;
-      // 4th+ lose their bid (payout = 0)
+      // 4th+ lose their bid (payout = 0, already deducted before game start)
       payouts.push({ playerId: p.id, playerName: p.name, rank, payout });
+      if (p.wagerUserId && payout > 0) {
+        dbPayouts.push({ userId: p.wagerUserId, amount: payout });
+      }
     });
 
-    emitToLobby(lobbyCode, 'competitive_wager_payout', {
-      bidTier: game.settings.competitiveBidTier,
-      bidAmount,
-      pool,
-      payouts,
+    // Persist payouts to DB asynchronously, then emit results
+    batchPayoutWager(dbPayouts).then(newBalances => {
+      const payoutsWithBalance = payouts.map(pay => {
+        const player = game.players.find(gp => gp.id === pay.playerId);
+        const newBalance = player?.wagerUserId ? (newBalances[player.wagerUserId] ?? null) : null;
+        return { ...pay, newBalance };
+      });
+      if (emitToLobby) {
+        emitToLobby(lobbyCode, 'competitive_wager_payout', {
+          bidTier: game.settings.competitiveBidTier,
+          bidAmount,
+          pool,
+          payouts: payoutsWithBalance,
+        });
+      }
+      log(`WAGER Competitive payout persisted for ${lobbyCode}: pool=${pool}`, "game");
     });
-    log(`WAGER Competitive payout emitted for ${lobbyCode}: pool=${pool}, tier=${game.settings.competitiveBidTier}`, "game");
   }
   
   broadcastGameState(lobbyCode);

@@ -1249,13 +1249,20 @@ export default function Game() {
   ] as const;
   type BidTierId = typeof BID_TIERS[number]['id'];
   const [competitiveBidTier, setCompetitiveBidTier] = useState<BidTierId | null>(null);
-  const [creditBalance, setCreditBalance] = useState<number>(() => {
-    const stored = localStorage.getItem('redline_credits');
-    return stored ? parseInt(stored, 10) : 50000;
+  // wagerUserId: a stable UUID per device stored in localStorage (identity only, NOT balance)
+  const [wagerUserId] = useState<string>(() => {
+    let uid = localStorage.getItem('redline_wager_uid');
+    if (!uid) {
+      uid = crypto.randomUUID();
+      localStorage.setItem('redline_wager_uid', uid);
+    }
+    return uid;
   });
+  const [creditBalance, setCreditBalance] = useState<number>(50000);
+  const [creditBalanceLoading, setCreditBalanceLoading] = useState(false);
   const [competitiveWagerPayout, setCompetitiveWagerPayout] = useState<{
     bidTier: string; bidAmount: number; pool: number;
-    payouts: { playerId: string; playerName: string; rank: number; payout: number }[];
+    payouts: { playerId: string; playerName: string; rank: number; payout: number; newBalance?: number | null }[];
     myPayout: number; netChange: number;
   } | null>(null);
 
@@ -1265,9 +1272,18 @@ export default function Game() {
     return n.toString();
   };
 
-  const saveCreditBalance = (balance: number) => {
-    localStorage.setItem('redline_credits', balance.toString());
-    setCreditBalance(balance);
+  // Fetch balance from server (creates profile if new)
+  const fetchCreditBalance = async () => {
+    if (!wagerUserId) return;
+    setCreditBalanceLoading(true);
+    try {
+      const res = await fetch(`/api/wager/balance/${wagerUserId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setCreditBalance(data.balance);
+      }
+    } catch { /* ignore network errors – fall back to local state */ }
+    finally { setCreditBalanceLoading(false); }
   };
 
   const triggerAnimation = (playerId: string, type: AnimationType, value?: string) => {
@@ -1858,24 +1874,25 @@ export default function Game() {
     socket.on('rtt_your_dice', (data: { dice: number[] }) => { setMyRttDice(data.dice); });
     socket.on('competitive_wager_payout', (data: {
       bidTier: string; bidAmount: number; pool: number;
-      payouts: { playerId: string; playerName: string; rank: number; payout: number }[];
+      payouts: { playerId: string; playerName: string; rank: number; payout: number; newBalance?: number | null }[];
     }) => {
-      // Find my player in the payout
+      // Find my player in the payout list using lobby player ID
       const mySocketId = socket.id;
-      const myPayout = data.payouts.find(p => {
-        // Match by socketId stored in current lobby players
-        const lobbyPlayer = currentLobby?.players.find(lp => lp.socketId === mySocketId);
-        return lobbyPlayer && p.playerId === lobbyPlayer.id;
-      });
+      const myLobbyPlayer = currentLobby?.players.find(lp => lp.socketId === mySocketId);
+      const myPayout = data.payouts.find(p => myLobbyPlayer && p.playerId === myLobbyPlayer.id);
       const myPayoutAmount = myPayout?.payout ?? 0;
       const netChange = myPayoutAmount - data.bidAmount;
-      // Apply credit change
-      setCreditBalance(prev => {
-        const newBalance = prev + netChange;
-        localStorage.setItem('redline_credits', newBalance.toString());
-        return newBalance;
-      });
+      // Update balance from server-provided value if available, otherwise adjust locally
+      if (myPayout?.newBalance != null) {
+        setCreditBalance(myPayout.newBalance);
+      } else {
+        setCreditBalance(prev => Math.max(0, prev + netChange));
+      }
       setCompetitiveWagerPayout({ ...data, myPayout: myPayoutAmount, netChange });
+    });
+
+    socket.on('wager_balance_update', (data: { balance: number }) => {
+      setCreditBalance(data.balance);
     });
 
     return () => {
@@ -1889,8 +1906,16 @@ export default function Game() {
       socket.off('vote_relic_resolved', handleVoteRelicResolved);
       socket.off('rtt_your_dice');
       socket.off('competitive_wager_payout');
+      socket.off('wager_balance_update');
     };
   }, [socket]);
+
+  // Fetch credit balance from server when entering multiplayer lobby
+  useEffect(() => {
+    if (phase === 'multiplayer_lobby' && wagerUserId) {
+      fetchCreditBalance();
+    }
+  }, [phase, wagerUserId]);
 
   // Handle Music Playback based on Phase
   useEffect(() => {
@@ -7217,7 +7242,7 @@ export default function Game() {
       competitiveBidAmount: tierInfo ? tierInfo.amount : null,
     };
     
-    socket.emit("create_lobby", { playerName, settings, isPublic: isPublicLobby }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("create_lobby", { playerName, settings, isPublic: isPublicLobby, wagerUserId }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Created:', response.code);
         setCurrentLobby(response.lobby);
@@ -7229,7 +7254,7 @@ export default function Game() {
         setLobbyError(response.error || "Failed to create lobby");
       }
     });
-  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration, isPublicLobby, competitiveBidTier, creditBalance]);
+  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration, isPublicLobby, competitiveBidTier, creditBalance, wagerUserId]);
   
   const handleJoinRoom = useCallback(() => {
     if (!socket || !isConnected) {
@@ -7243,7 +7268,7 @@ export default function Game() {
     }
     
     setLobbyError(null);
-    socket.emit("join_lobby", { code: lobbyCode, playerName }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("join_lobby", { code: lobbyCode, playerName, wagerUserId }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Joined:', response.lobby.code);
         setCurrentLobby(response.lobby);
@@ -7263,7 +7288,7 @@ export default function Game() {
         setLobbyError(response.error || "Failed to join lobby");
       }
     });
-  }, [socket, isConnected, lobbyCode, playerName]);
+  }, [socket, isConnected, lobbyCode, playerName, wagerUserId]);
 
   const handleJoinRandomRoom = useCallback(() => {
     if (!socket || !isConnected) {
@@ -7272,7 +7297,7 @@ export default function Game() {
     }
     
     setLobbyError(null);
-    socket.emit("join_random_lobby", { playerName }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("join_random_lobby", { playerName, wagerUserId }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Joined random:', response.lobby.code);
         setCurrentLobby(response.lobby);
@@ -7282,7 +7307,7 @@ export default function Game() {
         setLobbyError(response.error || "No public lobbies available");
       }
     });
-  }, [socket, isConnected, playerName]);
+  }, [socket, isConnected, playerName, wagerUserId]);
 
   const handleLeaveLobby = useCallback(() => {
     if (!socket) return;
@@ -7345,30 +7370,17 @@ export default function Game() {
 
   const handleStartMultiplayerGame = useCallback(() => {
     if (!socket) return;
-    
-    // WAGER Competitive: deduct credits before starting
-    const lobbyBidTier = currentLobby?.settings?.competitiveBidTier;
-    const lobbyBidAmount = currentLobby?.settings?.competitiveBidAmount;
-    if (lobbyBidTier && lobbyBidAmount) {
-      if (creditBalance < lobbyBidAmount) {
-        setLobbyError(`Not enough credits to start! Need ${formatCredits(lobbyBidAmount)}.`);
-        return;
-      }
-      saveCreditBalance(creditBalance - lobbyBidAmount);
-    }
 
+    // Server handles all credit deduction for WAGER Competitive.
+    // Just emit start_game; server will validate and deduct from all players.
     socket.emit("start_game", { duration: gameDuration }, (response: { success: boolean; error?: string }) => {
       if (!response.success) {
-        // Refund credits if game failed to start
-        if (lobbyBidTier && lobbyBidAmount) {
-          saveCreditBalance(creditBalance);
-        }
         setLobbyError(response.error || "Failed to start game");
       } else {
         console.log('[Game] Starting multiplayer game...');
       }
     });
-  }, [socket, gameDuration, currentLobby, creditBalance]);
+  }, [socket, gameDuration]);
 
   const handleMultiplayerBidRelease = useCallback(() => {
     if (!socket || !isMultiplayer) return;
@@ -8854,11 +8866,13 @@ export default function Game() {
                         ? "bg-orange-500/10 border-orange-500/30 text-orange-400" 
                         : "bg-green-500/10 border-green-500/30 text-green-400"
                     )}>
-                      {currentLobby.settings.difficulty}
+                      {currentLobby.settings.difficulty === 'COMPETITIVE' ? '⚔ COMPETITIVE' : '☕ CASUAL'}
                     </span>
                     <span className={cn(
                       "px-2 py-1 rounded border",
-                      currentLobby.settings.variant === 'SOCIAL_OVERDRIVE' 
+                      currentLobby.settings.variant === 'WAGER'
+                        ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
+                        : currentLobby.settings.variant === 'SOCIAL_OVERDRIVE' 
                         ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
                         : currentLobby.settings.variant === 'BIO_FUEL'
                           ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
@@ -8869,35 +8883,70 @@ export default function Game() {
                     <span className="px-2 py-1 rounded border bg-zinc-500/10 border-zinc-500/30 text-zinc-400">
                       {currentLobby.settings.gameDuration === 'short' || currentLobby.settings.gameDuration === 'sprint' ? '2.5m' : currentLobby.settings.gameDuration === 'long' ? '10m' : '5m'}
                     </span>
-                    {currentLobby.settings.protocolsEnabled && (
-                      <span className="px-2 py-1 rounded border bg-red-500/10 border-red-500/30 text-red-400">
-                        Protocols
-                      </span>
-                    )}
+                    <span className={cn(
+                      "px-2 py-1 rounded border",
+                      currentLobby.settings.protocolsEnabled
+                        ? "bg-red-500/10 border-red-500/30 text-red-400"
+                        : "bg-zinc-800/40 border-zinc-700/30 text-zinc-600 line-through"
+                    )}>
+                      Protocols {currentLobby.settings.protocolsEnabled ? 'ON' : 'OFF'}
+                    </span>
+                    <span className={cn(
+                      "px-2 py-1 rounded border",
+                      currentLobby.settings.abilitiesEnabled
+                        ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                        : "bg-zinc-800/40 border-zinc-700/30 text-zinc-600 line-through"
+                    )}>
+                      Limit Breaks {currentLobby.settings.abilitiesEnabled ? 'ON' : 'OFF'}
+                    </span>
                     {currentLobby.settings.protocolsEnabled && currentLobby.settings.bonusTrophiesEnabled && (
                       <span className="px-2 py-1 rounded border bg-yellow-500/10 border-yellow-500/30 text-yellow-400">
                         Bonus Trophies
                       </span>
                     )}
-                    {currentLobby.settings.abilitiesEnabled && (
-                      <span className="px-2 py-1 rounded border bg-blue-500/10 border-blue-500/30 text-blue-400">
-                        Limit Breaks
-                      </span>
-                    )}
                   </div>
                   {/* WAGER Competitive info badge */}
                   {currentLobby.settings?.competitiveBidTier && (
-                    <div className="mt-3 p-2.5 rounded-lg bg-yellow-950/30 border border-yellow-500/30 flex items-center justify-between">
-                      <div>
-                        <div className="text-[10px] text-yellow-400 font-bold">&#x1F3C6; WAGER COMPETITIVE</div>
-                        <div className="text-[11px] text-yellow-300 font-bold mt-0.5">
-                          {BID_TIERS.find(t => t.id === currentLobby.settings?.competitiveBidTier)?.label} &middot; {formatCredits(currentLobby.settings?.competitiveBidAmount ?? 0)} CR/player
+                    <div className="mt-3 p-3 rounded-lg bg-yellow-950/30 border border-yellow-500/30 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] text-yellow-400 font-bold tracking-widest">&#x1F3C6; WAGER COMPETITIVE</div>
+                          <div className="text-[12px] text-yellow-300 font-bold mt-0.5">
+                            {BID_TIERS.find(t => t.id === currentLobby.settings?.competitiveBidTier)?.label} &middot; {formatCredits(currentLobby.settings?.competitiveBidAmount ?? 0)} CR/player
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-zinc-400 text-right leading-relaxed">
+                          <div>&#x1F947; 1st wins pool</div>
+                          <div>&#x1F948; 2nd &ge; 25% pool</div>
+                          <div>&#x1F949; 3rd recoups bid</div>
+                          <div className="text-red-400">4th+ lose bid</div>
                         </div>
                       </div>
-                      <div className="text-[10px] text-zinc-400 text-right leading-relaxed">
-                        <div>1st wins pool</div>
-                        <div>2nd &ge; 25% pool</div>
-                        <div>3rd recoups bid</div>
+                      <div className="flex flex-wrap gap-1.5 pt-1 border-t border-yellow-500/10">
+                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded",
+                          currentLobby.settings.difficulty === 'COMPETITIVE'
+                            ? "bg-orange-900/40 text-orange-300 border border-orange-500/30"
+                            : "bg-green-900/40 text-green-300 border border-green-500/30"
+                        )}>
+                          {currentLobby.settings.difficulty === 'COMPETITIVE' ? '⚔ COMPETITIVE' : '☕ CASUAL'}
+                        </span>
+                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded border",
+                          currentLobby.settings.protocolsEnabled
+                            ? "bg-red-900/40 text-red-300 border-red-500/30"
+                            : "bg-zinc-800/40 text-zinc-500 border-zinc-700/30 line-through"
+                        )}>
+                          Protocols {currentLobby.settings.protocolsEnabled ? 'ON' : 'OFF'}
+                        </span>
+                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded border",
+                          currentLobby.settings.abilitiesEnabled
+                            ? "bg-blue-900/40 text-blue-300 border-blue-500/30"
+                            : "bg-zinc-800/40 text-zinc-500 border-zinc-700/30 line-through"
+                        )}>
+                          Limit Breaks {currentLobby.settings.abilitiesEnabled ? 'ON' : 'OFF'}
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded border bg-zinc-800/40 text-zinc-400 border-zinc-700/30">
+                          Min 4 real players · No bots
+                        </span>
                       </div>
                     </div>
                   )}
