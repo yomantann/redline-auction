@@ -1342,15 +1342,24 @@ export default function Profile() {
           const spGames = (games.sp_standard ?? 0) + (games.sp_social ?? 0) + (games.sp_bio ?? 0) + (games.sp_haunted ?? 0);
           const mpGames = (games.mp_standard ?? 0) + (games.mp_social ?? 0) + (games.mp_bio ?? 0) + (games.mp_haunted ?? 0);
 
-          // Competitive vs Casual
+          // Competitive vs Casual — split by SP/MP
           const compWins = wins.comp ?? 0;
           const compGames = games.comp ?? 0;
+          const spCompWins = wins.sp_comp ?? 0;
+          const mpCompWins = wins.mp_comp ?? 0;
+          const spCompGames = games.sp_comp ?? 0;
+          const mpCompGames = games.mp_comp ?? 0;
           const totalW = profile.totalWins ?? 0;
           const totalG = profile.totalGames ?? 0;
           const casualWins = totalW - compWins;
           const casualGames = totalG - compGames;
+          // SP/MP casual = (sp/mp totals) minus their respective comp games
+          const spCasualGames = spGames - spCompGames;
+          const mpCasualGames = mpGames - mpCompGames;
+          const spCasualWins = spWins - spCompWins;
+          const mpCasualWins = mpWins - mpCompWins;
 
-          // Per variant (SP + MP combined)
+          // Per variant
           const variantRows: Array<{ label: string; key: string }> = [
             { label: 'Standard', key: 'standard' },
             { label: 'Social Overdrive', key: 'social' },
@@ -1361,8 +1370,17 @@ export default function Profile() {
           const winRate = (w: number, g: number) =>
             g > 0 ? `${Math.round((w / g) * 100)}%` : '—';
 
-          // Moment flag categories
+          // Moment flag categories with per-type labels
           const flags = (profile.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
+          const FLAG_LABELS: Record<string, string> = {
+            CLUTCH_PLAY: 'Clutch Play', PRECISION_STRIKE: 'Precision Strike', OVERKILL: 'Overkill',
+            GENIUS_MOVE: 'Genius Move', FAKE_CALM: 'Fake Calm', SMUG_CONFIDENCE: 'Smug Confidence', EASY_W: 'Easy W',
+            COMEBACK_HOPE: 'Comeback Hope', LAST_ONE_STANDING: 'Last Standing', LATE_PANIC: 'Late Panic',
+            ELIMINATED: 'Eliminated', AFK: 'AFK',
+            DEADLOCK_SYNC: 'Deadlock Sync', MIRROR_MATCH: 'Mirror Match',
+            HIDDEN_67: '???', HIDDEN_DEJA_BID: '???', HIDDEN_REDEMPTION: '???',
+            HIDDEN_NAIL_IN_THE_COFFIN: '???', HIDDEN_REDLINE_REVERSAL: '???', PATCH_NOTES_PENDING: '???',
+          };
           const flagCategories: Array<{ label: string; icon: React.ReactNode; keys: string[] }> = [
             {
               label: 'Skill',
@@ -1390,9 +1408,9 @@ export default function Profile() {
           if (!hasAnyStats) return null;
 
           return (
-            <Card className="bg-zinc-900/60 border-zinc-700/40">
+            <Card className="bg-purple-950/50 border-purple-700/50">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-zinc-400">
+                <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-white">
                   <BarChart2 size={16} className="text-primary" /> PERFORMANCE STATS
                 </CardTitle>
               </CardHeader>
@@ -1401,7 +1419,7 @@ export default function Profile() {
                 {/* SP vs MP */}
                 {(spGames + mpGames > 0) && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Single Player vs Multiplayer</div>
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Single Player vs Multiplayer</div>
                     <div className="grid grid-cols-2 gap-3">
                       {[
                         { label: 'SP', games: spGames, wins: spWins, color: 'text-sky-400', bg: 'bg-sky-950/40 border-sky-700/30' },
@@ -1409,47 +1427,87 @@ export default function Profile() {
                       ].map(({ label, games: g, wins: w, color, bg }) => (
                         <div key={label} className={`rounded-lg border px-4 py-3 ${bg}`}>
                           <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${color}`}>{label}</div>
-                          <div className="text-lg font-display font-bold text-white">{g} <span className="text-xs text-zinc-500 font-normal">games</span></div>
-                          <div className="text-sm text-zinc-300">{w} wins <span className="text-zinc-500 text-xs">({winRate(w, g)})</span></div>
+                          <div className="text-lg font-display font-bold text-white">{g} <span className="text-xs text-zinc-400 font-normal">games</span></div>
+                          <div className="text-sm text-zinc-200">{w} wins <span className="text-zinc-400 text-xs">({winRate(w, g)})</span></div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Competitive vs Casual */}
+                {/* Competitive vs Casual — split by SP/MP */}
                 {totalG > 0 && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Competitive vs Casual</div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { label: 'Competitive', games: compGames, wins: compWins, color: 'text-red-400', bg: 'bg-red-950/40 border-red-700/30' },
-                        { label: 'Casual', games: casualGames, wins: casualWins, color: 'text-zinc-300', bg: 'bg-zinc-800/60 border-zinc-700/30' },
-                      ].map(({ label, games: g, wins: w, color, bg }) => (
-                        <div key={label} className={`rounded-lg border px-4 py-3 ${bg}`}>
-                          <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${color}`}>{label}</div>
-                          <div className="text-lg font-display font-bold text-white">{g} <span className="text-xs text-zinc-500 font-normal">games</span></div>
-                          <div className="text-sm text-zinc-300">{w} wins <span className="text-zinc-500 text-xs">({winRate(w, g)})</span></div>
-                        </div>
-                      ))}
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Competitive vs Casual</div>
+                    {/* Column headers */}
+                    <div className="grid grid-cols-3 gap-2 mb-1">
+                      <div />
+                      <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest text-center">Competitive</div>
+                      <div className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest text-center">Casual</div>
+                    </div>
+                    {/* SP row */}
+                    <div className="grid grid-cols-3 gap-2 mb-1 items-center">
+                      <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest">SP</div>
+                      <div className="rounded-lg border bg-red-950/30 border-red-700/20 px-2 py-1.5 text-center">
+                        <div className="text-sm font-bold text-white">{spCompGames} <span className="text-[10px] text-zinc-400 font-normal">g</span></div>
+                        <div className="text-[10px] text-zinc-300">{spCompWins}W <span className="text-zinc-500">· {winRate(spCompWins, spCompGames)}</span></div>
+                      </div>
+                      <div className="rounded-lg border bg-zinc-800/50 border-zinc-700/20 px-2 py-1.5 text-center">
+                        <div className="text-sm font-bold text-white">{spCasualGames} <span className="text-[10px] text-zinc-400 font-normal">g</span></div>
+                        <div className="text-[10px] text-zinc-300">{spCasualWins}W <span className="text-zinc-500">· {winRate(spCasualWins, spCasualGames)}</span></div>
+                      </div>
+                    </div>
+                    {/* MP row */}
+                    <div className="grid grid-cols-3 gap-2 items-center">
+                      <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">MP</div>
+                      <div className="rounded-lg border bg-red-950/30 border-red-700/20 px-2 py-1.5 text-center">
+                        <div className="text-sm font-bold text-white">{mpCompGames} <span className="text-[10px] text-zinc-400 font-normal">g</span></div>
+                        <div className="text-[10px] text-zinc-300">{mpCompWins}W <span className="text-zinc-500">· {winRate(mpCompWins, mpCompGames)}</span></div>
+                      </div>
+                      <div className="rounded-lg border bg-zinc-800/50 border-zinc-700/20 px-2 py-1.5 text-center">
+                        <div className="text-sm font-bold text-white">{mpCasualGames} <span className="text-[10px] text-zinc-400 font-normal">g</span></div>
+                        <div className="text-[10px] text-zinc-300">{mpCasualWins}W <span className="text-zinc-500">· {winRate(mpCasualWins, mpCasualGames)}</span></div>
+                      </div>
+                    </div>
+                    {/* Totals row */}
+                    <div className="grid grid-cols-3 gap-2 mt-1 items-center border-t border-white/5 pt-1">
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Total</div>
+                      <div className="text-center text-[10px] text-zinc-400">{compGames}g · {compWins}W</div>
+                      <div className="text-center text-[10px] text-zinc-400">{casualGames}g · {casualWins}W</div>
                     </div>
                   </div>
                 )}
 
-                {/* Per game pace / variant */}
+                {/* Per game pace / variant — split by SP/MP */}
                 {variantRows.some(({ key }) => (games[`sp_${key}`] ?? 0) + (games[`mp_${key}`] ?? 0) > 0) && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Games by Pace / Variant</div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Games by Pace / Variant</div>
+                    <div className="space-y-2">
                       {variantRows.map(({ label, key }) => {
-                        const g = (games[`sp_${key}`] ?? 0) + (games[`mp_${key}`] ?? 0);
-                        const w = (wins[`sp_${key}`] ?? 0) + (wins[`mp_${key}`] ?? 0);
-                        if (g === 0) return null;
+                        const spG = games[`sp_${key}`] ?? 0;
+                        const mpG = games[`mp_${key}`] ?? 0;
+                        const spW = wins[`sp_${key}`] ?? 0;
+                        const mpW = wins[`mp_${key}`] ?? 0;
+                        if (spG + mpG === 0) return null;
                         return (
-                          <div key={key} className="rounded-lg border border-zinc-700/30 bg-zinc-800/40 px-3 py-2 text-center">
-                            <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1">{label}</div>
-                            <div className="text-base font-bold text-white">{g} <span className="text-[10px] text-zinc-500 font-normal">games</span></div>
-                            <div className="text-xs text-zinc-400">{w}W <span className="text-zinc-600">· {winRate(w, g)}</span></div>
+                          <div key={key} className="rounded-lg border border-purple-800/20 bg-purple-950/20 px-3 py-2">
+                            <div className="text-[10px] font-semibold text-zinc-200 uppercase tracking-wide mb-1.5">{label}</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {spG > 0 && (
+                                <div className="rounded border border-sky-700/20 bg-sky-950/30 px-2 py-1">
+                                  <div className="text-[9px] font-bold text-sky-400 uppercase tracking-widest mb-0.5">SP</div>
+                                  <div className="text-sm font-bold text-white">{spG} <span className="text-[10px] text-zinc-400 font-normal">games</span></div>
+                                  <div className="text-[10px] text-zinc-300">{spW}W <span className="text-zinc-500">· {winRate(spW, spG)}</span></div>
+                                </div>
+                              )}
+                              {mpG > 0 && (
+                                <div className="rounded border border-emerald-700/20 bg-emerald-950/30 px-2 py-1">
+                                  <div className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mb-0.5">MP</div>
+                                  <div className="text-sm font-bold text-white">{mpG} <span className="text-[10px] text-zinc-400 font-normal">games</span></div>
+                                  <div className="text-[10px] text-zinc-300">{mpW}W <span className="text-zinc-500">· {winRate(mpW, mpG)}</span></div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -1457,22 +1515,32 @@ export default function Profile() {
                   </div>
                 )}
 
-                {/* Moment flag category counts */}
+                {/* Moment flag tallies by category */}
                 {Object.keys(flags).length > 0 && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Moment Flag Achievements</div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Moment Flag Tallies</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {flagCategories.map(({ label, icon, keys }) => {
                         const total = keys.reduce((s, k) => s + (flags[k] ?? 0), 0);
-                        const earned = keys.filter((k) => (flags[k] ?? 0) > 0).length;
+                        const activeKeys = keys.filter((k) => (flags[k] ?? 0) > 0);
+                        if (total === 0) return null;
                         return (
-                          <div key={label} className="rounded-lg border border-zinc-700/30 bg-zinc-800/40 px-3 py-2">
-                            <div className="flex items-center gap-1 mb-1">
-                              {icon}
-                              <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide leading-tight">{label}</span>
+                          <div key={label} className="rounded-lg border border-purple-800/20 bg-purple-950/20 px-3 py-2">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-1">
+                                {icon}
+                                <span className="text-[10px] font-semibold text-zinc-200 uppercase tracking-wide leading-tight">{label}</span>
+                              </div>
+                              <span className="text-sm font-bold text-white">{total} <span className="text-[10px] text-zinc-400 font-normal">total</span></span>
                             </div>
-                            <div className="text-lg font-bold text-white">{total}</div>
-                            <div className="text-[10px] text-zinc-500">{earned}/{keys.length} types earned</div>
+                            <div className="space-y-0.5">
+                              {activeKeys.map((k) => (
+                                <div key={k} className="flex items-center justify-between">
+                                  <span className="text-[10px] text-zinc-400">{FLAG_LABELS[k] ?? k}</span>
+                                  <span className="text-[10px] font-mono font-bold text-zinc-200">×{flags[k]}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         );
                       })}
@@ -1565,12 +1633,12 @@ export default function Profile() {
           ).length;
 
           return (
-            <Card className="bg-purple-950/20 border-purple-800/30">
+            <Card className="bg-purple-950/50 border-purple-700/50">
               <CardHeader
                 className="cursor-pointer select-none"
                 onClick={() => setMilestonesExpanded((v) => !v)}
               >
-                <CardTitle className="flex items-center justify-between text-sm tracking-widest text-zinc-400">
+                <CardTitle className="flex items-center justify-between text-sm tracking-widest text-white">
                   <span className="flex items-center gap-2">
                     <Target size={16} className="text-yellow-500" /> MILESTONES
                     <span className="text-[10px] text-zinc-600 font-normal normal-case tracking-normal">
@@ -1597,7 +1665,7 @@ export default function Profile() {
                             setMilestoneCategories((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }))
                           }
                         >
-                          <span className="flex items-center gap-2 text-xs font-bold tracking-widest text-zinc-300">
+                          <span className="flex items-center gap-2 text-xs font-bold tracking-widest text-white">
                             {cat.icon} {cat.label}
                             <span className="text-[10px] text-zinc-600 font-normal normal-case tracking-normal">
                               ({catCompleted}/{catMilestones.length})

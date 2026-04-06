@@ -77,14 +77,27 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   const bgTextShadow: React.CSSProperties | undefined = hasImageBackground
     ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' }
     : undefined;
-  // Border image is shifted -12 px within a clipping wrapper (absolute inset-0 overflow-hidden)
-  // so the visible border design sits flush with the card edge while the outer white
-  // padding of the PNG is clipped away instead of bleeding outside the card.
+  // Border image overlay: a CSS mask punch-out creates a hollow frame so only the
+  // decorative ring is visible and the white interior of the PNG never covers card content.
+  // mask-composite:exclude = full rect MINUS inner rect = frame ring only.
+  const borderOverlayMask: React.CSSProperties = {
+    maskImage: 'linear-gradient(white, white), linear-gradient(white, white)',
+    maskSize: '100% 100%, calc(100% - 40px) calc(100% - 40px)',
+    maskPosition: '0 0, 20px 20px',
+    maskRepeat: 'no-repeat',
+    maskComposite: 'exclude',
+    // Safari
+    WebkitMaskImage: 'linear-gradient(white, white), linear-gradient(white, white)',
+    WebkitMaskSize: '100% 100%, calc(100% - 40px) calc(100% - 40px)',
+    WebkitMaskPosition: '0 0, 20px 20px',
+    WebkitMaskRepeat: 'no-repeat',
+    WebkitMaskComposite: 'xor',
+  };
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
     top: '-12px', right: '-12px', bottom: '-12px', left: '-12px',
     width: 'calc(100% + 24px)', height: 'calc(100% + 24px)',
-    objectFit: 'fill', mixBlendMode: 'multiply',
+    objectFit: 'fill',
   };
 
   return (
@@ -102,12 +115,10 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     style={{ ...backgroundStyle, ...borderStyle }}
     data-testid={`player-card-${player.id}`}
     >
-      {/* Image-based border overlay — a clipping wrapper (overflow-hidden, inset-0) prevents
-          the white PNG padding from bleeding outside the card. The img inside is shifted -12 px
-          so the actual frame design aligns with the card's outer edge. mix-blend-mode:multiply
-          composites the frame against the card's dark background (isolation:isolate on the card). */}
+      {/* Border overlay: CSS mask creates a hollow frame so the white PNG interior
+          never covers the card background or driver image. Only the decorative ring shows. */}
       {borderImageUrl && (
-        <div className="absolute inset-0 rounded-lg overflow-hidden z-20 pointer-events-none">
+        <div className="absolute inset-0 rounded-lg overflow-hidden z-20 pointer-events-none" style={borderOverlayMask}>
           <img
             src={borderImageUrl}
             alt=""
