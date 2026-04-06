@@ -1334,9 +1334,10 @@ export default function Game() {
 
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
 
-  const [roundWinner, setRoundWinner] = useState<{ name: string; time: number } | null>(null);
+  const [roundWinner, setRoundWinner] = useState<{ name: string; time: number; isFinalWrit?: boolean } | null>(null);
   const [roundLog, setRoundLog] = useState<string[]>([]);
   const [showAllLogs, setShowAllLogs] = useState(false); // For game log filtering
+  const [isPlayerStatsExpanded, setIsPlayerStatsExpanded] = useState(false);
 
   // Refs for loop management
   const requestRef = useRef<number | null>(null);
@@ -1654,7 +1655,7 @@ export default function Game() {
         } else if (state.phase === 'round_end') {
           setPhase('round_end');
           if (state.roundWinner) {
-            setRoundWinner({ name: state.roundWinner.name, time: state.roundWinner.bid });
+            setRoundWinner({ name: state.roundWinner.name, time: state.roundWinner.bid, isFinalWrit: (state.roundWinner as any).isFinalWrit });
           }
         } else if (state.phase === 'game_over') {
           setPhase('game_end');
@@ -3400,15 +3401,59 @@ export default function Game() {
   const startCountdown = () => {
     // SP: FINAL WRIT — if player has it active and this IS the final round, skip it
     if (variant === 'HAUNTED' && round >= totalRounds) {
-      const p1 = players.find(p => p.id === 'p1');
       const finalWritHolder = players.find(p => p.finalWritActive && !p.isEliminated && !p.isGhost);
       if (finalWritHolder) {
-        setPlayers(prev => prev.map(p =>
+        // Compute updated players synchronously so we can use them in the end-game processing
+        const finalWritUpdatedPlayers = players.map(p =>
           p.id === finalWritHolder.id ? { ...p, tokens: p.tokens + 1, finalWritActive: false, relicConsumed: true } : p
-        ));
+        );
+        setPlayers(finalWritUpdatedPlayers);
         setTimeout(() => addOverlay('haunted_relic', '✒️ FINAL WRIT ACTIVATED', `${finalWritHolder.name} skips the final round and claims the trophy!`, 5000), 200);
+        setRoundWinner({ name: finalWritHolder.name, time: 0, isFinalWrit: true });
         // Go straight to round_end via endRound with no bids
         setPhase('round_end');
+
+        // Schedule end-game processing (bonus trophies + credit conversion) that would normally
+        // run via endRound(). We bypass endRound() here so we must do it ourselves.
+        setTimeout(() => {
+          let finalPls = finalWritUpdatedPlayers;
+          if (!isMultiplayer && protocolsEnabled && bonusTrophiesEnabled) {
+            const spBonusResults = calculateSpBonusTrophies(finalPls);
+            if (spBonusResults.length > 0) {
+              finalPls = finalPls.map(p => {
+                const totalBonus = spBonusResults.reduce((sum, br) =>
+                  br.winnerIds.includes(p.id) ? sum + br.trophiesPerWinner : sum, 0);
+                return totalBonus > 0 ? { ...p, tokens: p.tokens + totalBonus } : p;
+              });
+              setPlayers(finalPls);
+              spBonusResults.forEach(bonusResult => {
+                const subMsg = `${bonusResult.winnerNames.join(' & ')} +${bonusResult.trophiesPerWinner} 🏆\n${bonusResult.criterionDesc}`;
+                addOverlay('bonus_trophy', bonusResult.criterionName, subMsg, 0);
+              });
+            }
+          }
+          const sorted = [...finalPls].sort((a, b) => {
+            if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+            return b.remainingTime - a.remainingTime;
+          });
+          const gameId = singleplayerGameIdRef.current;
+          if (gameId && !isMultiplayer) {
+            const humanPlayer = sorted.find(p => p.id === 'p1');
+            if (humanPlayer) {
+              const isHumanWinner = sorted[0]?.id === 'p1';
+              convertGameCredits(
+                gameId,
+                humanPlayer.tokens || 0,
+                humanPlayer.eventDatabasePopups?.length || 0,
+                isHumanWinner,
+                variant,
+                false,
+                humanPlayer.eventDatabasePopups || [],
+                difficulty === 'COMPETITIVE',
+              );
+            }
+          }
+        }, 500);
         return;
       }
     }
@@ -8554,8 +8599,17 @@ export default function Game() {
                         </div>
                      )}
                      <div className="text-left">
-                        <h1 className="text-4xl font-bold text-white mb-1 leading-none">{roundWinner.name} WINS ROUND</h1>
-                        <p className="text-xl font-mono text-primary">{formatTime(roundWinner.time)}</p>
+                        {roundWinner.isFinalWrit ? (
+                          <>
+                            <h1 className="text-4xl font-bold text-white mb-1 leading-none">{roundWinner.name}</h1>
+                            <p className="text-xl font-mono text-amber-400">✒️ FINAL WRIT</p>
+                          </>
+                        ) : (
+                          <>
+                            <h1 className="text-4xl font-bold text-white mb-1 leading-none">{roundWinner.name} WINS ROUND</h1>
+                            <p className="text-xl font-mono text-primary">{formatTime(roundWinner.time)}</p>
+                          </>
+                        )}
                      </div>
                    </div>
                 </div>
@@ -9929,9 +9983,16 @@ export default function Game() {
 
         {/* Sidebar / Stats */}
         <div className="lg:col-span-1 space-y-4">
-          <h3 className="font-display text-muted-foreground text-sm tracking-widest mb-4">
-            PLAYERS {isMultiplayer && <span className="text-primary text-xs">(LIVE)</span>}
-          </h3>
+          <button
+            className="flex items-center gap-2 w-full text-left focus:outline-none group"
+            onClick={() => setIsPlayerStatsExpanded(prev => !prev)}
+          >
+            <h3 className="font-display text-muted-foreground text-sm tracking-widest">
+              PLAYERS {isMultiplayer && <span className="text-primary text-xs">(LIVE)</span>}
+            </h3>
+            <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-300 ml-auto", isPlayerStatsExpanded && "rotate-180")} />
+          </button>
+          {isPlayerStatsExpanded && (
           <div className="space-y-3">
             {displayPlayers.map((p, idx) => {
               const myPlayerId = isMultiplayer ? multiplayerGameState?.players.find(mp => mp.socketId === socket?.id)?.id : 'p1';
@@ -9995,6 +10056,7 @@ export default function Game() {
               );
             })}
           </div>
+          )}
 
           <Separator className="bg-white/10 my-6" />
 

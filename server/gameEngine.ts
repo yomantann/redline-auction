@@ -220,7 +220,7 @@ export interface GameState {
   countdownRemaining: number;
   gameDuration: GameDuration;
   initialTime: number;
-  roundWinner: { id: string; name: string; bid: number } | null;
+  roundWinner: { id: string; name: string; bid: number; isFinalWrit?: boolean } | null;
   eliminatedThisRound: string[];
   settings: GameSettings;
   activeProtocol: ProtocolType;
@@ -2878,7 +2878,7 @@ function startWaitingForReady(lobbyCode: string) {
         basic: true,
       });
       log(`FINAL WRIT: ${finalWritPlayer.name} skips final round and wins trophy in lobby ${lobbyCode}`, "game");
-      game.roundWinner = { id: finalWritPlayer.id, name: finalWritPlayer.name, bid: 0 };
+      game.roundWinner = { id: finalWritPlayer.id, name: finalWritPlayer.name, bid: 0, isFinalWrit: true };
       game.phase = 'round_end';
       broadcastGameState(lobbyCode);
       setTimeout(() => endGame(lobbyCode), 3000);
