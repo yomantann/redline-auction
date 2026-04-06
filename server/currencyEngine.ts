@@ -543,6 +543,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
 
   // ── Low Flame Skins ─────────────────────────────────────────────────────────
   {
+    id: 'skin_lowflame_bounty',
+    name: 'The Bounty Can Wait',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_lowflame_bounty',
+    driverIds: ['low_flame'],
+  },
+  {
     id: 'skin_lowflame_high_noon',
     name: 'High Noon Nothing',
     type: 'driverSkin',
@@ -567,15 +576,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 125000,
     rarity: 'legendary',
     asset: 'skin_lowflame_orbital_rest',
-    driverIds: ['low_flame'],
-  },
-  {
-    id: 'skin_lowflame_bounty',
-    name: 'The Bounty Can Wait',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_lowflame_bounty',
     driverIds: ['low_flame'],
   },
 
@@ -611,6 +611,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   },
 
   // ── The Rind Skins ──────────────────────────────────────────────────────────
+  {
+    id: 'skin_rind_valhalla_vermin',
+    name: 'Valhalla Vermin',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_rind_valhalla_vermin',
+    driverIds: ['the_rind'],
+  },
   {
     id: 'skin_rind_gutter_gladiator',
     name: 'Gutter Gladiator',
@@ -652,26 +661,8 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   },
 
   // ── Additional Named Skins ──────────────────────────────────────────────────
-  {
-    id: 'skin_rind_valhalla_vermin',
-    name: 'Valhalla Vermin',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_rind_valhalla_vermin',
-    driverIds: ['the_rind'],
-  },
 
   // ── Wandering Eye Skins ─────────────────────────────────────────────────────
-  {
-    id: 'skin_wandering_dohyun',
-    name: "Dohyun's Last Run",
-    type: 'driverSkin',
-    cost: 40000,
-    rarity: 'rare',
-    asset: 'skin_wandering_dohyun',
-    driverIds: ['wandering_eye'],
-  },
   {
     id: 'skin_wandering_nunbit',
     name: 'Nunbit Monster',
@@ -681,7 +672,16 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_wandering_nunbit',
     driverIds: ['wandering_eye'],
   },
-
+  {
+    id: 'skin_wandering_dohyun',
+    name: "Dohyun's Last Run",
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_wandering_dohyun',
+    driverIds: ['wandering_eye'],
+  },
+ 
   // ── Limited-Time Items ──────────────────────────────────────────────────────
   // (Placeholder items removed — real limited-time items will be added here)
 ];
