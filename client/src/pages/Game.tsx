@@ -342,7 +342,7 @@ const CHARACTERS: Character[] = [
   },
   { 
     id: 'click_click', name: 'Click-Click', title: 'The Glitch', image: charClick, imageSocial: socialClick, imageBio: bioClick, imageHaunted: hntClick, description: 'Hyperactive timing precision.', color: 'text-pink-400',
-    ability: { name: 'HYPER CLICK', description: 'Gain +1 token if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
+    ability: { name: 'HYPER CLICK', description: 'Gain +1 trophy if you win within 1.1s of 2nd place.', effect: 'TOKEN_BOOST' },
     socialAbility: { name: 'MISCLICK', description: 'Chance 1 player must hold bid without using hands.' },
     bioAbility: { name: 'MOUTH POP', description: '1 round: Everyone sips when Click-Click opens and closes mouth IRL.' }
   },
@@ -505,7 +505,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '💀',
     category: 'Cursed',
     target: 'Self',
-    description: 'If you win next round gain +2 tokens instead of 1. If you lose, lose an extra 15s on top of your bid.',
+    description: 'If you win next round gain +2 trophies instead of 1. If you lose, lose an extra 15s on top of your bid.',
     flavour: 'The curse always takes something.',
   },
   {
@@ -2172,11 +2172,11 @@ export default function Game() {
       
       switch(mpProtocol) {
         case 'DATA_BLACKOUT': msg = "DATA BLACKOUT"; sub = "Timers Hidden"; break;
-        case 'DOUBLE_STAKES': msg = "HIGH STAKES"; sub = "Double Tokens for Winner"; break;
+        case 'DOUBLE_STAKES': msg = "HIGH STAKES"; sub = "Double Trophies for Winner"; break;
         case 'SYSTEM_FAILURE': msg = "SYSTEM FAILURE"; sub = "HUD Glitches & Timer Scramble"; break;
         case 'MUTE_PROTOCOL': msg = "MUTE PROTOCOL"; sub = "All players must remain silent!"; break;
         case 'NO_LOOK': msg = "BLIND BIDDING"; sub = "Do not look at screens until drop!"; break;
-        case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
+        case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Trophies"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break;
         case 'TIME_TAX': showPopup = false; break;
         case 'PRIVATE_CHANNEL': showPopup = false; break;
@@ -3497,7 +3497,7 @@ export default function Game() {
 
         // ... STANDARD PROTOCOLS ...
         case 'DATA_BLACKOUT': msg = "DATA BLACKOUT"; sub = "Timers Hidden"; break;
-        case 'DOUBLE_STAKES': msg = "HIGH STAKES"; sub = "Double Tokens for Winner"; break;
+        case 'DOUBLE_STAKES': msg = "HIGH STAKES"; sub = "Double Trophies for Winner"; break;
         case 'SYSTEM_FAILURE': msg = "SYSTEM FAILURE"; sub = "HUD Glitches & Timer Scramble"; break;
         case 'OPEN_HAND': msg = "OPEN HAND"; sub = `${getRandomPlayer()} must state they won't bid!`; break;
         case 'MUTE_PROTOCOL': msg = "MUTE PROTOCOL"; sub = "All players must remain silent!"; break;
@@ -3515,7 +3515,7 @@ export default function Game() {
             : "";
           if (target !== 'YOU') showPopup = false; // Bot is mole; SECRET PROTOCOL fallback shown by later logic
           break;
-        case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Tokens"; break;
+        case 'PANIC_ROOM': msg = "PANIC ROOM"; sub = "Time 2x Speed | Double Win Trophies"; break;
         case 'UNDERDOG_VICTORY': showPopup = false; break; // Secret
         case 'TIME_TAX': showPopup = false; break; // Secret
         case 'PRIVATE_CHANNEL': {
@@ -4508,8 +4508,8 @@ export default function Game() {
             const moleIdx = playersState.findIndex(p => p.id === rawWinner.id);
             if (moleIdx >= 0) {
                 playersState[moleIdx].tokens -= 1;
-                playersState[moleIdx].roundImpact = (playersState[moleIdx].roundImpact || "") + " -1 Token (Mole Suicide)";
-                playersState[moleIdx].impactLogs!.push({ value: "-1 Token", reason: "Mole Suicide", type: 'trophy' });
+                playersState[moleIdx].roundImpact = (playersState[moleIdx].roundImpact || "") + " -1 Trophy (Mole Suicide)";
+                playersState[moleIdx].impactLogs!.push({ value: "-1 Trophy", reason: "Mole Suicide", type: 'trophy' });
                 setRoundLog(prev => [`>> MOLE FAILURE: ${rawWinner.name} held too long and LOST a trophy!`, ...prev]);
                 setTimeout(() => addOverlay("protocol_alert", "MOLE REVEALED", `${rawWinner.name} was the Mole and got eliminated! -1 trophy.`), 1500);
             }
@@ -4582,22 +4582,22 @@ export default function Game() {
                              const secondPlace = sortedBids.length > 1 ? sortedBids[1] : 0;
                              if ((p.currentBid || 0) - secondPlace <= 1.1) {
                                  newTokens += 1;
-                                 impact += " +1 Token (Hyper Click)";
-                                 impactLogs.push({ value: "+1 Token", reason: "Hyper Click", type: 'trophy' });
-                                 newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
+                                 impact += " +1 Trophy (Hyper Click)";
+                                 impactLogs.push({ value: "+1 Trophy", reason: "Hyper Click", type: 'trophy' });
+                                 newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Trophy" });
                              }
                          }
                          if (ab.name === 'TO THE MOON' && (p.currentBid || 0) > 30) {
                              newTokens += 1;
-                             impact += " +1 Token (Moon)";
-                             impactLogs.push({ value: "+1 Token", reason: "To The Moon", type: 'trophy' });
-                             newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
+                             impact += " +1 Trophy (Moon)";
+                             impactLogs.push({ value: "+1 Trophy", reason: "To The Moon", type: 'trophy' });
+                             newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Trophy" });
                          }
                          if (ab.name === 'DIVIDEND' && round % 3 === 0) {
                              newTokens += 1;
-                             impact += " +1 Token (Dividend)";
-                             impactLogs.push({ value: "+1 Token", reason: "Dividend", type: 'trophy' });
-                             newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Token" });
+                             impact += " +1 Trophy (Dividend)";
+                             impactLogs.push({ value: "+1 Trophy", reason: "Dividend", type: 'trophy' });
+                             newAbilities.push({ playerId: p.id, ability: ab.name, effect: 'TOKEN_BOOST', impactValue: "+1 Trophy" });
                          }
                     }
                 }
@@ -4617,8 +4617,8 @@ export default function Game() {
              // Only lose a trophy if you win by MORE THAN 7 seconds.
              if (margin > 7) {
                newTokens -= 2;
-               impact += " -2 Tokens (Mole Win > 7s)";
-               impactLogs.push({ value: "-2 Tokens", reason: "Mole Win > 7s", type: 'trophy' });
+               impact += " -2 Trophies (Mole Win > 7s)";
+               impactLogs.push({ value: "-2 Trophies", reason: "Mole Win > 7s", type: 'trophy' });
              } else {
                impact += " +0 (Mole Win Safe)";
                impactLogs.push({ value: "+0", reason: "Mole Win (<=7s)", type: 'neutral' });
@@ -5406,8 +5406,8 @@ export default function Game() {
             const idx = finalPlayers.findIndex(p => p.id === underdog.id);
             if (idx !== -1) {
                 finalPlayers[idx].tokens += 1;
-                finalPlayers[idx].roundImpact = (finalPlayers[idx].roundImpact || "") + " +1 Token (Underdog)";
-                if (finalPlayers[idx].impactLogs) finalPlayers[idx].impactLogs!.push({ value: "+1 Token", reason: "Underdog Victory", type: 'gain' });
+                finalPlayers[idx].roundImpact = (finalPlayers[idx].roundImpact || "") + " +1 Trophy (Underdog)";
+                if (finalPlayers[idx].impactLogs) finalPlayers[idx].impactLogs!.push({ value: "+1 Trophy", reason: "Underdog Victory", type: 'gain' });
                 
                 // Protocol win goes to the underdog player
                 const underdogId = underdog.id;
@@ -5422,7 +5422,7 @@ export default function Game() {
                 
                 // Show Overlay
                 setTimeout(() => {
-                    addOverlay("protocol_alert", "SECRET REVEALED", `UNDERDOG VICTORY: ${underdog.name} (+1 Token)`);
+                    addOverlay("protocol_alert", "SECRET REVEALED", `UNDERDOG VICTORY: ${underdog.name} (+1 Trophy)`);
                 }, 1500); // Delay slightly so main winner shows first
             }
         } else {
@@ -5752,7 +5752,7 @@ export default function Game() {
                         desc += " (+TIME)";
                         className += " bg-emerald-950 border-emerald-500 text-emerald-100";
                    } else if (ability.effect === 'TOKEN_BOOST') {
-                        desc += " (+TOKENS)";
+                        desc += " (+TROPHIES)";
                         className += " bg-yellow-950 border-yellow-500 text-yellow-100";
                    } else {
                         className += " bg-blue-950 border-blue-500 text-blue-100";
@@ -5777,7 +5777,7 @@ export default function Game() {
                else if (ability.ability === 'HYPER CLICK' && ability.effect === 'TOKEN_BOOST' && newAbilities.some(a => a.playerId === 'p1')) {
                    show = true;
                    title = `${ability.player} BONUS!`;
-                   desc = "HYPER CLICK AWARDED +1 TOKEN!";
+                   desc = "HYPER CLICK AWARDED +1 TROPHY!";
                    className += " bg-purple-950 border-purple-500 text-purple-100";
                }
 
@@ -6598,8 +6598,8 @@ export default function Game() {
                                 title: 'STAKES & PAYOUTS',
                                 subtitle: 'Economy modifiers',
                                 items: [
-                                  { id: 'DOUBLE_STAKES', label: 'HIGH STAKES', desc: 'Double tokens for winner' },
-                                  { id: 'PANIC_ROOM', label: 'PANIC ROOM', desc: '2x Speed (also doubles win tokens)' },
+                                  { id: 'DOUBLE_STAKES', label: 'HIGH STAKES', desc: 'Double trophies for winner' },
+                                  { id: 'PANIC_ROOM', label: 'PANIC ROOM', desc: '2x Speed (also doubles win trophies)' },
                                 ]
                               },
                               {
@@ -6618,7 +6618,7 @@ export default function Game() {
                                 subtitle: 'Secret for some players',
                                 items: [
                                   { id: 'THE_MOLE', label: 'THE MOLE', desc: 'Secret traitor assignment' },
-                                  { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins token (secret until end)' },
+                                  { id: 'UNDERDOG_VICTORY', label: 'UNDERDOG VICTORY', desc: 'Lowest valid bid wins trophy (secret until end)' },
                                   { id: 'TIME_TAX', label: 'TIME TAX', desc: '-10s to everyone (can be secret until end)' },
                                   { id: 'PRIVATE_CHANNEL', label: 'PRIVATE CHANNEL', desc: '2 players secretly linked (revealed at end)' },
                                 ]
@@ -9331,7 +9331,7 @@ export default function Game() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 pt-3">
                   {[ 
                     { title: "SMUG CONFIDENCE", desc: "Win Round 1.", color: "text-purple-400 border-purple-500/20" },
-                    { title: "COMEBACK HOPE", desc: "Win while having the least tokens.", color: "text-teal-600 border-teal-600/20" },
+                    { title: "COMEBACK HOPE", desc: "Win while having the least trophies.", color: "text-teal-600 border-teal-600/20" },
                     { title: "PLAYER ELIMINATED", desc: "Player runs out of time.", color: "text-red-800 border-red-800/20" },
                     { title: "AFK", desc: "No one bids or everyone abandons.", color: "text-amber-600 border-amber-600/20" },
                   ].map((p, i) => (
@@ -9614,7 +9614,7 @@ export default function Game() {
                     items: [
                       { name: "DATA BLACKOUT", desc: "All timers and clocks are hidden from the HUD.", type: "Visual" },
                       { name: "SYSTEM FAILURE", desc: "HUD glitches and timers display random scrambled numbers.", type: "Visual" },
-                      { name: "OVERCLOCK", desc: "After prepare to bid: click the button as many times as you can in 15 seconds. Most clicks wins the round token. Least clicks loses 35s.", type: "Interactive" },
+                      { name: "OVERCLOCK", desc: "After prepare to bid: click the button as many times as you can in 15 seconds. Most clicks wins the round trophy. Least clicks loses 35s.", type: "Interactive" },
                       { name: "CALIBRATION", desc: "A random target hold time (15-40s) is assigned. Players hold as close to the target as possible.", type: "Precision" },
                     ]
                   },
@@ -9623,8 +9623,8 @@ export default function Game() {
                     title: 'STAKES & PAYOUTS',
                     subtitle: 'Economy modifiers',
                     items: [
-                      { name: "HIGH STAKES", desc: "Winner receives DOUBLE tokens for this round.", type: "Economy" },
-                      { name: "PANIC ROOM", desc: "Game speed 2x (also doubles win tokens).", type: "Game State" },
+                      { name: "HIGH STAKES", desc: "Winner receives DOUBLE trophies for this round.", type: "Economy" },
+                      { name: "PANIC ROOM", desc: "Game speed 2x (also doubles win trophies).", type: "Game State" },
                     ]
                   },
                   {
@@ -9644,7 +9644,7 @@ export default function Game() {
                     items: [
                       { name: "THE MOLE", desc: "A hidden role is assigned. The Mole's bid does not impact their time bank. If the Mole wins by MORE than 7.0s, they LOSE an additional trophy.", type: "Hidden Role" },
                       { name: "PRIVATE CHANNEL", desc: "Two players are selected to privately coordinate strategy.", type: "Team" },
-                      { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins token (kept secret until reveal).", type: "Secret" },
+                      { name: "UNDERDOG VICTORY", desc: "Lowest valid bid wins trophy (kept secret until reveal).", type: "Secret" },
                       { name: "TIME TAX", desc: "-10s for everyone.", type: "Secret" },
                     ]
                   }
