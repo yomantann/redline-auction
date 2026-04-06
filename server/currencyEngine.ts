@@ -71,6 +71,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     earnableOnly: false,
   },
   {
+    id: 'logo_typography',
+    name: 'Typography',
+    type: 'logo',
+    cost: 0,
+    rarity: 'common',
+    asset: 'logo_typography',
+    earnableOnly: false,
+  },
+  {
     id: 'logo_neon_red',
     name: 'Neon Red',
     type: 'logo',
@@ -86,15 +95,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 10000,
     rarity: 'rare',
     asset: 'logo_abstract',
-    earnableOnly: false,
-  },
-  {
-    id: 'logo_typography',
-    name: 'Typography',
-    type: 'logo',
-    cost: 0,
-    rarity: 'common',
-    asset: 'logo_typography',
     earnableOnly: false,
   },
   {
@@ -125,15 +125,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     earnableOnly: false,
   },
   {
-    id: 'logo_golden_skull',
-    name: 'Golden Skull',
-    type: 'logo',
-    cost: 20000,
-    rarity: 'legendary',
-    asset: 'logo_golden_skull',
-    earnableOnly: false,
-  },
-  {
     id: 'logo_velocity',
     name: 'Velocity',
     type: 'logo',
@@ -143,10 +134,19 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     earnableOnly: false,
   },
   {
+    id: 'logo_golden_skull',
+    name: 'Golden Skull',
+    type: 'logo',
+    cost: 25000,
+    rarity: 'legendary',
+    asset: 'logo_golden_skull',
+    earnableOnly: false,
+  },
+  {
     id: 'logo_warlord',
     name: 'Warlord',
     type: 'logo',
-    cost: 20000,
+    cost: 25000,
     rarity: 'legendary',
     asset: 'logo_warlord',
     earnableOnly: false,
@@ -248,15 +248,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   // ── Backgrounds ─────────────────────────────────────────────────────────────
   // ── Generated Card Backgrounds ──────────────────────────────────────────────
   {
-    id: 'molten_b',
-    name: 'Molten',
-    type: 'background',
-    cost: 10000,
-    rarity: 'rare',
-    asset: 'molten_b',
-    earnableOnly: false,
-  },
-  {
     id: 'dual_b',
     name: 'Dual',
     type: 'background',
@@ -272,6 +263,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 0,
     rarity: 'common',
     asset: 'organic_b',
+    earnableOnly: false,
+  },
+  {
+    id: 'molten_b',
+    name: 'Molten',
+    type: 'background',
+    cost: 10000,
+    rarity: 'rare',
+    asset: 'molten_b',
     earnableOnly: false,
   },
   {
@@ -326,15 +326,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 30000,
     rarity: 'legendary',
     asset: 'static_overload_b',
-    earnableOnly: false,
-  },
-  {
-    id: 'galactic_b',
-    name: 'Galactic',
-    type: 'background',
-    cost: 30000,
-    rarity: 'legendary',
-    asset: 'galactic_b',
     earnableOnly: false,
   },
 
@@ -394,21 +385,21 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
 
   // ── The Anointed Skins ──────────────────────────────────────────────────────
   {
-    id: 'skin_anointed_masquerade',
-    name: 'Masquerade Sovereign',
-    type: 'driverSkin',
-    cost: 40000,
-    rarity: 'rare',
-    asset: 'skin_anointed_masquerade',
-    driverIds: ['anointed'],
-  },
-  {
     id: 'skin_anointed_divine_sentinel',
     name: 'Divine Sentinel',
     type: 'driverSkin',
     cost: 25000,
     rarity: 'common',
     asset: 'skin_anointed_divine_sentinel',
+    driverIds: ['anointed'],
+  },
+  {
+    id: 'skin_anointed_masquerade',
+    name: 'Masquerade Sovereign',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_anointed_masquerade',
     driverIds: ['anointed'],
   },
   {
@@ -429,6 +420,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 25000,
     rarity: 'common',
     asset: 'skin_click_roarcat',
+    driverIds: ['click_click'],
+  },
+  {
+    id: 'skin_click_sir_whiskers_wrong',
+    name: 'Sir Whiskers Wrong',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_click_sir_whiskers_wrong',
     driverIds: ['click_click'],
   },
 
@@ -520,6 +520,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_guardian_ironknuckle',
     driverIds: ['guardian_h'],
   },
+  {
+    id: 'skin_guardian_unmoved_marshal',
+    name: 'Unmoved Marshal',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_guardian_unmoved_marshal',
+    driverIds: ['guardian_h'],
+  },
 
   // ── Hotwired Skins ──────────────────────────────────────────────────────────
   {
@@ -534,6 +543,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
 
   // ── Low Flame Skins ─────────────────────────────────────────────────────────
   {
+    id: 'skin_lowflame_high_noon',
+    name: 'High Noon Nothing',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_lowflame_high_noon',
+    driverIds: ['low_flame'],
+  },
+  {
     id: 'skin_lowflame_wolfman',
     name: 'Wolfman',
     type: 'driverSkin',
@@ -543,12 +561,12 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['low_flame'],
   },
   {
-    id: 'skin_lowflame_high_noon',
-    name: 'High Noon Nothing',
+    id: 'skin_lowflame_orbital_rest',
+    name: 'Orbital Rest',
     type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_lowflame_high_noon',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_lowflame_orbital_rest',
     driverIds: ['low_flame'],
   },
   {
@@ -571,6 +589,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_pain_highborn',
     driverIds: ['pain_hider'],
   },
+  {
+    id: 'skin_pain_walking_wound',
+    name: 'The Walking Wound',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_pain_walking_wound',
+    driverIds: ['pain_hider'],
+  },
 
   // ── Panic Bot Skins ─────────────────────────────────────────────────────────
   {
@@ -585,6 +612,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
 
   // ── The Rind Skins ──────────────────────────────────────────────────────────
   {
+    id: 'skin_rind_gutter_gladiator',
+    name: 'Gutter Gladiator',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_rind_gutter_gladiator',
+    driverIds: ['the_rind'],
+  },
+  {
     id: 'skin_rind_sewer',
     name: 'Sewer Sharpshooter',
     type: 'driverSkin',
@@ -593,6 +629,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_rind_sewer',
     driverIds: ['the_rind'],
   },
+
 
   // ── Roll Safe Skins ─────────────────────────────────────────────────────────
   {
@@ -608,22 +645,13 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     id: 'skin_roll_intel_officer',
     name: 'Intel Officer',
     type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
+    cost: 40000,
+    rarity: 'rare',
     asset: 'skin_roll_intel_officer',
     driverIds: ['roll_safe'],
   },
 
   // ── Additional Named Skins ──────────────────────────────────────────────────
-  {
-    id: 'skin_rind_gutter_gladiator',
-    name: 'Gutter Gladiator',
-    type: 'driverSkin',
-    cost: 40000,
-    rarity: 'rare',
-    asset: 'skin_rind_gutter_gladiator',
-    driverIds: ['the_rind'],
-  },
   {
     id: 'skin_rind_valhalla_vermin',
     name: 'Valhalla Vermin',
@@ -632,42 +660,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     rarity: 'common',
     asset: 'skin_rind_valhalla_vermin',
     driverIds: ['the_rind'],
-  },
-  {
-    id: 'skin_click_sir_whiskers_wrong',
-    name: 'Sir Whiskers Wrong',
-    type: 'driverSkin',
-    cost: 40000,
-    rarity: 'rare',
-    asset: 'skin_click_sir_whiskers_wrong',
-    driverIds: ['click_click'],
-  },
-  {
-    id: 'skin_guardian_unmoved_marshal',
-    name: 'Unmoved Marshal',
-    type: 'driverSkin',
-    cost: 40000,
-    rarity: 'rare',
-    asset: 'skin_guardian_unmoved_marshal',
-    driverIds: ['guardian_h'],
-  },
-  {
-    id: 'skin_hotwired_high_score_hazard',
-    name: 'High Score Hazard',
-    type: 'driverSkin',
-    cost: 40000,
-    rarity: 'rare',
-    asset: 'skin_hotwired_high_score_hazard',
-    driverIds: ['hotwired'],
-  },
-  {
-    id: 'skin_pain_walking_wound',
-    name: 'The Walking Wound',
-    type: 'driverSkin',
-    cost: 40000,
-    rarity: 'rare',
-    asset: 'skin_pain_walking_wound',
-    driverIds: ['pain_hider'],
   },
 
   // ── Wandering Eye Skins ─────────────────────────────────────────────────────
