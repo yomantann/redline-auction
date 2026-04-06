@@ -548,7 +548,7 @@ const HAUNTED_ITEMS: HauntedItem[] = [
     icon: '⛓️',
     category: 'Spooky',
     target: 'Everyone',
-    description: 'Force a random haunted protocol next round from a curated dark subset.',
+    description: 'Force a random haunted protocol from a curated dark subset.',
     flavour: 'The house picks the rules.',
   },
   {
@@ -2936,7 +2936,7 @@ export default function Game() {
               attempts++;
             } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
             alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
-            setTimeout(() => addOverlay('haunted_relic', '🌀 WILD CARD', "All time banks redistributed! Nobody gets their own.", 0), 200);
+            setTimeout(() => addOverlay('haunted_relic', '🌀 WILD CARD', "All time banks redistributed!", 0), 200);
           }
           break;
         }
@@ -2989,7 +2989,7 @@ export default function Game() {
           }
           // Set a deferred flag — at end of round, if ghosted, a random opponent loses 1 trophy
           activator.pendingLastWill = { targetId: '', curseType: 'trophy' };
-          setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', 'If you are ghosted this round, a random opponent loses 1 trophy. Survive to prevent it.', 0), 200);
+          setTimeout(() => addOverlay('haunted_relic', '⚰️ LAST WILL SET', 'If you are ghosted this round, a random opponent loses 1 trophy.', 0), 200);
           break;
         }
         case 'death_wish': {
@@ -3042,7 +3042,7 @@ export default function Game() {
           const darkPool = ['DATA_BLACKOUT', 'SYSTEM_FAILURE', 'PANIC_ROOM', 'TIME_TAX', 'THE_MOLE', 'UNDERDOG_VICTORY'];
           const picked = darkPool[Math.floor(Math.random() * darkPool.length)] as any;
           (activator as any).forcedProtocolValue = picked;
-          setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `Next round will be forced to run protocol: ${picked}`, 0), 200);
+          setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `This round will be forced to run protocol: ${picked}`, 0), 200);
           break;
         }
         // tribunal and conclave are handled below (outside setPlayers) for SP
@@ -3799,7 +3799,7 @@ export default function Game() {
             }
             case 'death_wish': {
               bot.deathWishActive = true;
-              setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH', `${bot.name} activated Death Wish — win for +2 trophies, lose and forfeit extra 15s!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH', `${bot.name} activated Death Wish — If they win they are awarded +2 trophies, lose and they forfeit an extra 15s!`, 0), 200);
               break;
             }
             case 'blood_pact': {
@@ -3846,7 +3846,7 @@ export default function Game() {
               const picked = DARK_POOL[Math.floor(Math.random() * DARK_POOL.length)];
               (bot as any).forcedProtocolNextRound = true;
               (bot as any).forcedProtocolValue = picked;
-              setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `${bot.name} used Protocol Forcer — next round will run: ${picked}!`, 0), 200);
+              setTimeout(() => addOverlay('haunted_relic', '⛓️ PROTOCOL FORCER', `${bot.name} used Protocol Forcer — this round will run: ${picked}!`, 0), 200);
               break;
             }
             case 'last_will': {
