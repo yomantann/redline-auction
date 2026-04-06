@@ -6064,6 +6064,33 @@ export default function Game() {
     return () => clearTimeout(timer);
   }, [phase, players, isMultiplayer, variant]);
 
+  // Catch-all SP credit conversion: fires whenever the SP game reaches game_end.
+  // Most paths call convertGameCredits themselves before transitioning; this covers any
+  // missed paths (e.g. the overclock game-over, nextRound() fallback).
+  // The server's convertedGameIds idempotency check makes duplicate calls a safe no-op.
+  useEffect(() => {
+    if (phase !== 'game_end' || isMultiplayer) return;
+    const gameId = singleplayerGameIdRef.current;
+    if (!gameId) return;
+    const humanPlayer = players.find(p => p.id === 'p1');
+    if (!humanPlayer) return;
+    const sorted = [...players].sort((a, b) =>
+      b.tokens !== a.tokens ? b.tokens - a.tokens : b.remainingTime - a.remainingTime
+    );
+    const isHumanWinner = sorted[0]?.id === 'p1';
+    convertGameCredits(
+      gameId,
+      humanPlayer.tokens || 0,
+      humanPlayer.eventDatabasePopups?.length || 0,
+      isHumanWinner,
+      variant,
+      false,
+      humanPlayer.eventDatabasePopups || [],
+      difficulty === 'COMPETITIVE',
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   const selectRandomCharacter = () => {
       // Pool based on variant
       let pool = [...CHARACTERS];
