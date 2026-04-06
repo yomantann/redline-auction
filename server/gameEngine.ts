@@ -1918,9 +1918,9 @@ function endRound(lobbyCode: string) {
       }
     });
 
-    // Process ghost abilities for BOT ghosts (human ghost abilities are handled client-side)
+    // Process ghost abilities for all ghosts (bots and humans) server-side at round end
     game.players.forEach(ghost => {
-      if (!ghost.isGhost || ghost.ghostAbilityUsed || !ghost.ghostAbility || !ghost.isBot) return;
+      if (!ghost.isGhost || ghost.ghostAbilityUsed || !ghost.ghostAbility) return;
 
       const aliveTargets = game.players.filter(p => !p.isGhost && !p.isEliminated && p.id !== ghost.id);
 

@@ -81,6 +81,7 @@ interface LobbyPlayer {
   isReady: boolean;
   selectedDriver?: string;
   disconnected?: boolean;
+  replitUserId?: string;
 }
 
 interface GameSettings {
@@ -239,8 +240,9 @@ export async function registerRoutes(
       playerName: string; 
       settings?: Partial<GameSettings>;
       isPublic?: boolean;
+      replitUserId?: string;
     }, callback) => {
-      const { playerName, settings: hostSettings, isPublic } = data;
+      const { playerName, settings: hostSettings, isPublic, replitUserId } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -253,7 +255,8 @@ export async function registerRoutes(
         socketId: socket.id,
         name: playerName || "Player 1",
         isHost: true,
-        isReady: false
+        isReady: false,
+        ...(replitUserId ? { replitUserId } : {})
       };
       
       // Default settings merged with host's settings
@@ -302,8 +305,8 @@ export async function registerRoutes(
     });
 
     // JOIN LOBBY
-    socket.on("join_lobby", (data: { code: string; playerName: string }, callback) => {
-      const { code, playerName } = data;
+    socket.on("join_lobby", (data: { code: string; playerName: string; replitUserId?: string }, callback) => {
+      const { code, playerName, replitUserId } = data;
       const upperCode = code.toUpperCase();
       
       if (playerToLobby.has(socket.id)) {
@@ -332,7 +335,8 @@ export async function registerRoutes(
         socketId: socket.id,
         name: playerName || `Player ${lobby.players.length + 1}`,
         isHost: false,
-        isReady: false
+        isReady: false,
+        ...(replitUserId ? { replitUserId } : {})
       };
       
       lobby.players.push(player);
@@ -355,8 +359,8 @@ export async function registerRoutes(
     });
 
     // JOIN RANDOM PUBLIC LOBBY
-    socket.on("join_random_lobby", (data: { playerName: string }, callback) => {
-      const { playerName } = data;
+    socket.on("join_random_lobby", (data: { playerName: string; replitUserId?: string }, callback) => {
+      const { playerName, replitUserId } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -379,7 +383,8 @@ export async function registerRoutes(
         socketId: socket.id,
         name: playerName || `Player ${lobby.players.length + 1}`,
         isHost: false,
-        isReady: false
+        isReady: false,
+        ...(replitUserId ? { replitUserId } : {})
       };
       
       lobby.players.push(player);
@@ -742,8 +747,8 @@ export async function registerRoutes(
           target.ghostAbility = Math.random() < 0.25 ? 'reaper' : 'purgatory';
           target.ghostAbilityUsed = false;
         }
-        // After reaper fires, ghost enters purgatory-style countdown
-        player.possessionRoundsLeft = 2;
+        // After reaper fires, ghost enters countdown (3 rounds, matching endRound logic)
+        player.possessionRoundsLeft = 3;
         player.ghostAbilityUsed = true;
       }
 
@@ -782,8 +787,8 @@ export async function registerRoutes(
     });
 
     // Handle disconnection
-    socket.on("rejoin_game", (data: { code: string; playerName: string }, callback) => {
-      const { code, playerName } = data;
+    socket.on("rejoin_game", (data: { code: string; playerName: string; replitUserId?: string }, callback) => {
+      const { code, playerName, replitUserId } = data;
       const upperCode = code.toUpperCase();
       
       if (playerToLobby.has(socket.id)) {
@@ -803,7 +808,10 @@ export async function registerRoutes(
       }
       
       const disconnectedPlayer = lobby.players.find(
-        p => p.disconnected && p.name === playerName
+        p => p.disconnected && (
+          (replitUserId && p.replitUserId && p.replitUserId === replitUserId) ||
+          p.name === playerName
+        )
       );
       
       if (!disconnectedPlayer) {

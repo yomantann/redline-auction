@@ -160,7 +160,7 @@ const GHOST_ABILITY_NAMES: Record<NonNullable<GhostAbilityType>, string> = {
 };
 
 const GHOST_ABILITY_DESCS: Record<NonNullable<GhostAbilityType>, string> = {
-  reaper:     'Another alive player is immediately ghosted. You will return in 2 rounds.',
+  reaper:     'Another alive player is immediately ghosted. You will return in 3 rounds.',
   purgatory:  'After 2 rounds, you return with at least 45s or the lowest alive player\'s time bank.',
 };
 
@@ -1510,7 +1510,7 @@ export default function Game() {
         
         console.log('[Socket.IO] Attempting auto-rejoin after reconnect:', lobbyCode, storedName);
         
-        socket.emit("rejoin_game", { code: lobbyCode, playerName: storedName }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+        socket.emit("rejoin_game", { code: lobbyCode, playerName: storedName, ...(authUser?.id ? { replitUserId: authUser.id } : {}) }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
           if (response.success && response.lobby) {
             console.log('[Socket.IO] Auto-rejoin successful');
             setCurrentLobby(response.lobby);
@@ -1529,7 +1529,7 @@ export default function Game() {
     
     window.addEventListener('socket_reconnected', handleReconnect);
     return () => window.removeEventListener('socket_reconnected', handleReconnect);
-  }, [socket, lobbyCode]);
+  }, [socket, lobbyCode, authUser]);
   
   // Socket event listeners for lobby and game
   useEffect(() => {
@@ -6244,7 +6244,7 @@ export default function Game() {
       allowedProtocols
     };
     
-    socket.emit("create_lobby", { playerName, settings, isPublic: isPublicLobby }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("create_lobby", { playerName, settings, isPublic: isPublicLobby, ...(authUser?.id ? { replitUserId: authUser.id } : {}) }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Created:', response.code);
         setCurrentLobby(response.lobby);
@@ -6256,7 +6256,7 @@ export default function Game() {
         setLobbyError(response.error || "Failed to create lobby");
       }
     });
-  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration, isPublicLobby]);
+  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration, isPublicLobby, authUser]);
   
   const handleJoinRoom = useCallback(() => {
     if (!socket || !isConnected) {
@@ -6270,13 +6270,13 @@ export default function Game() {
     }
     
     setLobbyError(null);
-    socket.emit("join_lobby", { code: lobbyCode, playerName }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("join_lobby", { code: lobbyCode, playerName, ...(authUser?.id ? { replitUserId: authUser.id } : {}) }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Joined:', response.lobby.code);
         setCurrentLobby(response.lobby);
         localStorage.setItem(`redline_player_${lobbyCode.toUpperCase()}`, JSON.stringify({ playerName }));
       } else if (response.error === "Game already in progress") {
-        socket.emit("rejoin_game", { code: lobbyCode, playerName }, (rejoinResponse: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+        socket.emit("rejoin_game", { code: lobbyCode, playerName, ...(authUser?.id ? { replitUserId: authUser.id } : {}) }, (rejoinResponse: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
           if (rejoinResponse.success && rejoinResponse.lobby) {
             console.log('[Lobby] Rejoined active game:', rejoinResponse.lobby.code);
             setCurrentLobby(rejoinResponse.lobby);
@@ -6290,7 +6290,7 @@ export default function Game() {
         setLobbyError(response.error || "Failed to join lobby");
       }
     });
-  }, [socket, isConnected, lobbyCode, playerName]);
+  }, [socket, isConnected, lobbyCode, playerName, authUser]);
 
   const handleJoinRandomRoom = useCallback(() => {
     if (!socket || !isConnected) {
@@ -6299,7 +6299,7 @@ export default function Game() {
     }
     
     setLobbyError(null);
-    socket.emit("join_random_lobby", { playerName }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("join_random_lobby", { playerName, ...(authUser?.id ? { replitUserId: authUser.id } : {}) }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Joined random:', response.lobby.code);
         setCurrentLobby(response.lobby);
@@ -6309,7 +6309,7 @@ export default function Game() {
         setLobbyError(response.error || "No public lobbies available");
       }
     });
-  }, [socket, isConnected, playerName]);
+  }, [socket, isConnected, playerName, authUser]);
 
   const handleLeaveLobby = useCallback(() => {
     if (!socket) return;
@@ -7134,7 +7134,7 @@ export default function Game() {
                   <div className="flex gap-2">
                     <Input 
                       placeholder="Enter your name" 
-                      className="bg-black/50 border-white/20"
+                      className={`transition-colors ${(!playerName.trim() || playerName === 'Player') ? 'bg-black/50 border-yellow-400/70 animate-pulse focus:animate-none' : 'bg-black/50 border-white/20'}`}
                       value={playerName}
                       onChange={(e) => setPlayerName(e.target.value)}
                       maxLength={20}
@@ -7309,7 +7309,7 @@ export default function Game() {
                <Label className="text-xs text-zinc-500">Your Name</Label>
                <Input 
                  placeholder="Enter your name" 
-                 className="bg-black/50 border-white/20 text-center"
+                 className={`bg-black/50 text-center transition-colors ${(!playerName.trim() || playerName === 'Player') ? 'border-yellow-400/70 animate-pulse focus:animate-none' : 'border-white/20'}`}
                  value={playerName}
                  onChange={(e) => setPlayerName(e.target.value)}
                  maxLength={20}
