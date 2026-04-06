@@ -1384,11 +1384,11 @@ export default function Profile() {
             (games[`sp_comp_${key}`] ?? 0) + (games[`mp_comp_${key}`] ?? 0);
           const compVariantWins = (key: string) =>
             (wins[`sp_comp_${key}`] ?? 0) + (wins[`mp_comp_${key}`] ?? 0);
-          // Casual = total variant - competitive variant
+          // Casual = total variant - competitive variant (clamped to 0 for historical data)
           const casualVariantGames = (key: string) =>
-            (games[`sp_${key}`] ?? 0) + (games[`mp_${key}`] ?? 0) - compVariantGames(key);
+            Math.max(0, (games[`sp_${key}`] ?? 0) + (games[`mp_${key}`] ?? 0) - compVariantGames(key));
           const casualVariantWins = (key: string) =>
-            (wins[`sp_${key}`] ?? 0) + (wins[`mp_${key}`] ?? 0) - compVariantWins(key);
+            Math.max(0, (wins[`sp_${key}`] ?? 0) + (wins[`mp_${key}`] ?? 0) - compVariantWins(key));
 
           const winRate = (w: number, g: number) =>
             g > 0 ? `${Math.round((w / g) * 100)}%` : '—';
