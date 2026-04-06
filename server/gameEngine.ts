@@ -4926,12 +4926,25 @@ export function removePlayerFromGame(socketId: string) {
       player.isEliminated = true;
       player.isHolding = false;
       log(`${player.name} left game ${lobbyCode}`, "game");
+
+      // WAGER Competitive anti-cheat: intentional leave = forfeit, same as disconnect
+      if (game.settings.competitiveBidTier && !player.isBot) {
+        log(`WAGER anti-cheat: ${player.name} left competitive lobby ${lobbyCode} intentionally — bid forfeited`, "game");
+        if (emitToLobby) {
+          emitToLobby(lobbyCode, 'wager_player_forfeited', { playerId: player.id, playerName: player.name });
+        }
+      }
+
       broadcastGameState(lobbyCode);
       
       const activePlayers = game.players.filter((p: GamePlayer) => !p.isEliminated && !p.isBot);
       if (activePlayers.length === 0) {
         log(`All human players left game ${lobbyCode}, ending game`, "game");
         endGame(lobbyCode);
+      } else if (game.settings.competitiveBidTier && activePlayers.length === 1) {
+        // Only 1 human left in a competitive wager — end so winner gets paid
+        log(`Only 1 human player remaining in WAGER competitive game ${lobbyCode} after intentional leave, ending game`, "game");
+        setTimeout(() => endGame(lobbyCode), 2000);
       }
     }
   });
