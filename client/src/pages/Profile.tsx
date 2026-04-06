@@ -1371,13 +1371,24 @@ export default function Profile() {
           const spCasualWins = spWins - spCompWins;
           const mpCasualWins = mpWins - mpCompWins;
 
-          // Per variant
-          const variantRows: Array<{ label: string; key: string }> = [
-            { label: 'Standard', key: 'standard' },
-            { label: 'Social Overdrive', key: 'social' },
-            { label: 'Bio Fuel', key: 'bio' },
-            { label: 'Haunted', key: 'haunted' },
+          // Per variant — helpers for comp and casual breakdown by mode type
+          const variantRows: Array<{ label: string; short: string; key: string; color: string }> = [
+            { label: 'Standard', short: 'STD', key: 'standard', color: 'text-zinc-300' },
+            { label: 'Social', short: 'SOC', key: 'social', color: 'text-sky-300' },
+            { label: 'Bio', short: 'BIO', key: 'bio', color: 'text-green-300' },
+            { label: 'Haunted', short: 'HNT', key: 'haunted', color: 'text-purple-300' },
           ];
+
+          // Competitive games/wins by variant (tracked server-side from new games forward)
+          const compVariantGames = (key: string) =>
+            (games[`sp_comp_${key}`] ?? 0) + (games[`mp_comp_${key}`] ?? 0);
+          const compVariantWins = (key: string) =>
+            (wins[`sp_comp_${key}`] ?? 0) + (wins[`mp_comp_${key}`] ?? 0);
+          // Casual = total variant - competitive variant
+          const casualVariantGames = (key: string) =>
+            (games[`sp_${key}`] ?? 0) + (games[`mp_${key}`] ?? 0) - compVariantGames(key);
+          const casualVariantWins = (key: string) =>
+            (wins[`sp_${key}`] ?? 0) + (wins[`mp_${key}`] ?? 0) - compVariantWins(key);
 
           const winRate = (w: number, g: number) =>
             g > 0 ? `${Math.round((w / g) * 100)}%` : '—';
@@ -1430,53 +1441,89 @@ export default function Profile() {
                       ].map(({ label, games: g, wins: w, color, bg }) => (
                         <div key={label} className={`rounded-lg border px-4 py-3 ${bg}`}>
                           <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${color}`}>{label}</div>
-                          <div className="text-lg font-display font-bold text-white">{g} <span className="text-xs text-zinc-400 font-normal">games</span></div>
-                          <div className="text-sm text-zinc-200">{w} wins <span className="text-zinc-400 text-xs">({winRate(w, g)})</span></div>
+                          <div className="text-2xl font-display font-bold text-white">{g} <span className="text-sm text-zinc-400 font-normal">games</span></div>
+                          <div className="text-lg font-bold text-zinc-200">{w} <span className="text-sm text-zinc-400 font-normal">wins</span> <span className="text-sm text-zinc-500">({winRate(w, g)})</span></div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Competitive vs Casual — split by SP/MP */}
+                {/* Competitive vs Casual — with mode type sub-columns */}
                 {totalG > 0 && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Competitive vs Casual</div>
-                    {/* Column headers */}
-                    <div className="grid grid-cols-3 gap-2 mb-1">
-                      <div />
-                      <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest text-center">Competitive</div>
-                      <div className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest text-center">Casual</div>
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-3">Competitive vs Casual</div>
+
+                    {/* COMPETITIVE block */}
+                    <div className="rounded-lg border bg-red-950/20 border-red-700/20 px-3 py-2 mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-bold text-red-400 uppercase tracking-widest">Competitive</div>
+                        <div className="text-base font-bold text-white">{compGames}g <span className="text-zinc-400 text-sm font-normal">· {compWins}W · {winRate(compWins, compGames)}</span></div>
+                      </div>
+                      {/* Mode type sub-columns */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {variantRows.map(({ short, key, color }) => {
+                          const g = compVariantGames(key);
+                          const w = compVariantWins(key);
+                          return (
+                            <div key={key} className="rounded border border-red-700/15 bg-red-950/30 px-1.5 py-1.5 text-center">
+                              <div className={`text-[10px] font-bold uppercase tracking-widest mb-0.5 ${color}`}>{short}</div>
+                              <div className="text-base font-bold text-white leading-none">{g}</div>
+                              <div className="text-[10px] text-zinc-400">{w}W</div>
+                              <div className="text-[10px] text-zinc-500">{winRate(w, g)}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* SP/MP split */}
+                      <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                        <div className="rounded border border-sky-700/15 bg-sky-950/20 px-2 py-1 text-center">
+                          <div className="text-[10px] font-bold text-sky-400 uppercase">SP</div>
+                          <div className="text-sm font-bold text-white">{spCompGames}g</div>
+                          <div className="text-[10px] text-zinc-400">{spCompWins}W · {winRate(spCompWins, spCompGames)}</div>
+                        </div>
+                        <div className="rounded border border-emerald-700/15 bg-emerald-950/20 px-2 py-1 text-center">
+                          <div className="text-[10px] font-bold text-emerald-400 uppercase">MP</div>
+                          <div className="text-sm font-bold text-white">{mpCompGames}g</div>
+                          <div className="text-[10px] text-zinc-400">{mpCompWins}W · {winRate(mpCompWins, mpCompGames)}</div>
+                        </div>
+                      </div>
                     </div>
-                    {/* SP row */}
-                    <div className="grid grid-cols-3 gap-2 mb-1 items-center">
-                      <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest">SP</div>
-                      <div className="rounded-lg border bg-red-950/30 border-red-700/20 px-2 py-1.5 text-center">
-                        <div className="text-sm font-bold text-white">{spCompGames} <span className="text-[10px] text-zinc-400 font-normal">g</span></div>
-                        <div className="text-[10px] text-zinc-300">{spCompWins}W <span className="text-zinc-500">· {winRate(spCompWins, spCompGames)}</span></div>
+
+                    {/* CASUAL block */}
+                    <div className="rounded-lg border bg-zinc-800/30 border-zinc-700/20 px-3 py-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-bold text-zinc-300 uppercase tracking-widest">Casual</div>
+                        <div className="text-base font-bold text-white">{casualGames}g <span className="text-zinc-400 text-sm font-normal">· {casualWins}W · {winRate(casualWins, casualGames)}</span></div>
                       </div>
-                      <div className="rounded-lg border bg-zinc-800/50 border-zinc-700/20 px-2 py-1.5 text-center">
-                        <div className="text-sm font-bold text-white">{spCasualGames} <span className="text-[10px] text-zinc-400 font-normal">g</span></div>
-                        <div className="text-[10px] text-zinc-300">{spCasualWins}W <span className="text-zinc-500">· {winRate(spCasualWins, spCasualGames)}</span></div>
+                      {/* Mode type sub-columns */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {variantRows.map(({ short, key, color }) => {
+                          const g = casualVariantGames(key);
+                          const w = casualVariantWins(key);
+                          return (
+                            <div key={key} className="rounded border border-zinc-700/15 bg-zinc-800/40 px-1.5 py-1.5 text-center">
+                              <div className={`text-[10px] font-bold uppercase tracking-widest mb-0.5 ${color}`}>{short}</div>
+                              <div className="text-base font-bold text-white leading-none">{g}</div>
+                              <div className="text-[10px] text-zinc-400">{w}W</div>
+                              <div className="text-[10px] text-zinc-500">{winRate(w, g)}</div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                    {/* MP row */}
-                    <div className="grid grid-cols-3 gap-2 items-center">
-                      <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">MP</div>
-                      <div className="rounded-lg border bg-red-950/30 border-red-700/20 px-2 py-1.5 text-center">
-                        <div className="text-sm font-bold text-white">{mpCompGames} <span className="text-[10px] text-zinc-400 font-normal">g</span></div>
-                        <div className="text-[10px] text-zinc-300">{mpCompWins}W <span className="text-zinc-500">· {winRate(mpCompWins, mpCompGames)}</span></div>
+                      {/* SP/MP split */}
+                      <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                        <div className="rounded border border-sky-700/15 bg-sky-950/20 px-2 py-1 text-center">
+                          <div className="text-[10px] font-bold text-sky-400 uppercase">SP</div>
+                          <div className="text-sm font-bold text-white">{spCasualGames}g</div>
+                          <div className="text-[10px] text-zinc-400">{spCasualWins}W · {winRate(spCasualWins, spCasualGames)}</div>
+                        </div>
+                        <div className="rounded border border-emerald-700/15 bg-emerald-950/20 px-2 py-1 text-center">
+                          <div className="text-[10px] font-bold text-emerald-400 uppercase">MP</div>
+                          <div className="text-sm font-bold text-white">{mpCasualGames}g</div>
+                          <div className="text-[10px] text-zinc-400">{mpCasualWins}W · {winRate(mpCasualWins, mpCasualGames)}</div>
+                        </div>
                       </div>
-                      <div className="rounded-lg border bg-zinc-800/50 border-zinc-700/20 px-2 py-1.5 text-center">
-                        <div className="text-sm font-bold text-white">{mpCasualGames} <span className="text-[10px] text-zinc-400 font-normal">g</span></div>
-                        <div className="text-[10px] text-zinc-300">{mpCasualWins}W <span className="text-zinc-500">· {winRate(mpCasualWins, mpCasualGames)}</span></div>
-                      </div>
-                    </div>
-                    {/* Totals row */}
-                    <div className="grid grid-cols-3 gap-2 mt-1 items-center border-t border-white/5 pt-1">
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Total</div>
-                      <div className="text-center text-[10px] text-zinc-400">{compGames}g · {compWins}W</div>
-                      <div className="text-center text-[10px] text-zinc-400">{casualGames}g · {casualWins}W</div>
                     </div>
                   </div>
                 )}
@@ -1484,9 +1531,9 @@ export default function Profile() {
                 {/* Per game pace / variant — split by SP/MP */}
                 {variantRows.some(({ key }) => (games[`sp_${key}`] ?? 0) + (games[`mp_${key}`] ?? 0) > 0) && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Games by Pace / Variant</div>
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Games by Mode Type</div>
                     <div className="space-y-2">
-                      {variantRows.map(({ label, key }) => {
+                      {variantRows.map(({ label, key, color }) => {
                         const spG = games[`sp_${key}`] ?? 0;
                         const mpG = games[`mp_${key}`] ?? 0;
                         const spW = wins[`sp_${key}`] ?? 0;
@@ -1494,20 +1541,20 @@ export default function Profile() {
                         if (spG + mpG === 0) return null;
                         return (
                           <div key={key} className="rounded-lg border border-purple-800/20 bg-purple-950/20 px-3 py-2">
-                            <div className="text-[10px] font-semibold text-zinc-200 uppercase tracking-wide mb-1.5">{label}</div>
+                            <div className={`text-xs font-bold uppercase tracking-wide mb-1.5 ${color}`}>{label}</div>
                             <div className="grid grid-cols-2 gap-2">
                               {spG > 0 && (
-                                <div className="rounded border border-sky-700/20 bg-sky-950/30 px-2 py-1">
+                                <div className="rounded border border-sky-700/20 bg-sky-950/30 px-2 py-1.5">
                                   <div className="text-[9px] font-bold text-sky-400 uppercase tracking-widest mb-0.5">SP</div>
-                                  <div className="text-sm font-bold text-white">{spG} <span className="text-[10px] text-zinc-400 font-normal">games</span></div>
-                                  <div className="text-[10px] text-zinc-300">{spW}W <span className="text-zinc-500">· {winRate(spW, spG)}</span></div>
+                                  <div className="text-base font-bold text-white">{spG} <span className="text-xs text-zinc-400 font-normal">games</span></div>
+                                  <div className="text-sm font-bold text-zinc-200">{spW}W <span className="text-zinc-500 text-xs">· {winRate(spW, spG)}</span></div>
                                 </div>
                               )}
                               {mpG > 0 && (
-                                <div className="rounded border border-emerald-700/20 bg-emerald-950/30 px-2 py-1">
+                                <div className="rounded border border-emerald-700/20 bg-emerald-950/30 px-2 py-1.5">
                                   <div className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mb-0.5">MP</div>
-                                  <div className="text-sm font-bold text-white">{mpG} <span className="text-[10px] text-zinc-400 font-normal">games</span></div>
-                                  <div className="text-[10px] text-zinc-300">{mpW}W <span className="text-zinc-500">· {winRate(mpW, mpG)}</span></div>
+                                  <div className="text-base font-bold text-white">{mpG} <span className="text-xs text-zinc-400 font-normal">games</span></div>
+                                  <div className="text-sm font-bold text-zinc-200">{mpW}W <span className="text-zinc-500 text-xs">· {winRate(mpW, mpG)}</span></div>
                                 </div>
                               )}
                             </div>
@@ -1532,15 +1579,15 @@ export default function Profile() {
                             <div className="flex items-center justify-between mb-1.5">
                               <div className="flex items-center gap-1">
                                 {icon}
-                                <span className="text-[10px] font-semibold text-zinc-200 uppercase tracking-wide leading-tight">{label}</span>
+                                <span className="text-xs font-semibold text-zinc-200 uppercase tracking-wide leading-tight">{label}</span>
                               </div>
-                              <span className="text-sm font-bold text-white">{total} <span className="text-[10px] text-zinc-400 font-normal">total</span></span>
+                              <span className="text-base font-bold text-white">{total} <span className="text-xs text-zinc-400 font-normal">total</span></span>
                             </div>
                             <div className="space-y-0.5">
                               {activeKeys.map((k) => (
                                 <div key={k} className="flex items-center justify-between">
-                                  <span className="text-[10px] text-zinc-400">{FLAG_LABELS[k] ?? k}</span>
-                                  <span className="text-[10px] font-mono font-bold text-zinc-200">×{flags[k]}</span>
+                                  <span className="text-xs text-zinc-400">{FLAG_LABELS[k] ?? k}</span>
+                                  <span className="text-sm font-mono font-bold text-zinc-200">×{flags[k]}</span>
                                 </div>
                               ))}
                             </div>
