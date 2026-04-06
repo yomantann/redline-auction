@@ -77,11 +77,13 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   const bgTextShadow: React.CSSProperties | undefined = hasImageBackground
     ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)' }
     : undefined;
-  // Border image extends 5 px beyond each card edge so the visible border design sits
-  // flush with (rather than inset from) the card boundary.
+  // Border image is shifted -12 px within a clipping wrapper (absolute inset-0 overflow-hidden)
+  // so the visible border design sits flush with the card edge while the outer white
+  // padding of the PNG is clipped away instead of bleeding outside the card.
   const borderImgStyle: React.CSSProperties = {
-    top: '-5px', right: '-5px', bottom: '-5px', left: '-5px',
-    width: 'calc(100% + 10px)', height: 'calc(100% + 10px)',
+    position: 'absolute',
+    top: '-12px', right: '-12px', bottom: '-12px', left: '-12px',
+    width: 'calc(100% + 24px)', height: 'calc(100% + 24px)',
     objectFit: 'fill', mixBlendMode: 'multiply',
   };
 
@@ -100,19 +102,22 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     style={{ ...backgroundStyle, ...borderStyle }}
     data-testid={`player-card-${player.id}`}
     >
-      {/* Image-based border overlay — rendered as an absolutely-positioned img filling the
-          card. isolation:isolate on the card ensures mix-blend-mode:multiply composites
-          against the card's own dark background, making the white PNG padding invisible. */}
+      {/* Image-based border overlay — a clipping wrapper (overflow-hidden, inset-0) prevents
+          the white PNG padding from bleeding outside the card. The img inside is shifted -12 px
+          so the actual frame design aligns with the card's outer edge. mix-blend-mode:multiply
+          composites the frame against the card's dark background (isolation:isolate on the card). */}
       {borderImageUrl && (
-        <img
-          src={borderImageUrl}
-          alt=""
-          aria-hidden="true"
-          className="absolute pointer-events-none z-20 rounded-lg"
-          style={borderImgStyle}
-          loading="eager"
-          decoding="async"
-        />
+        <div className="absolute inset-0 rounded-lg overflow-hidden z-20 pointer-events-none">
+          <img
+            src={borderImageUrl}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none"
+            style={borderImgStyle}
+            loading="eager"
+            decoding="async"
+          />
+        </div>
       )}
       {/* Animation Container */}
       {children}

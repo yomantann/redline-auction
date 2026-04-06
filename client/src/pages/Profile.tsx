@@ -21,6 +21,10 @@ import {
   Target,
   X,
   Clock,
+  BarChart2,
+  Swords,
+  Zap,
+  Eye,
 } from "lucide-react";
 import type {
   PlayerProfile,
@@ -1309,18 +1313,6 @@ export default function Profile() {
                 Lifetime earned: {profile.lifetimeEarned.toLocaleString()} &nbsp;·&nbsp;
                 Spent: {profile.lifetimeSpent.toLocaleString()}
               </div>
-              {/* Wins per mode summary */}
-              {profile.winsPerMode && Object.keys(profile.winsPerMode).length > 0 && (
-                <div className="text-xs text-zinc-500 mt-1 flex flex-wrap gap-2">
-                  {Object.entries(profile.winsPerMode).map(([k, v]) => (
-                    v > 0 ? (
-                      <span key={k} className="bg-zinc-800 border border-zinc-700 rounded px-2 py-0.5 text-zinc-300 capitalize">
-                        {k.replace('_', ' ').replace('sp', 'SP').replace('mp', 'MP')}: {v}W
-                      </span>
-                    ) : null
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Conversion info */}
@@ -1338,6 +1330,160 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+
+        {/* ── Performance Stats ── */}
+        {(() => {
+          const wins = profile.winsPerMode as Record<string, number> ?? {};
+          const games = profile.gamesPerMode as Record<string, number> ?? {};
+
+          // SP vs MP
+          const spWins = (wins.sp_standard ?? 0) + (wins.sp_social ?? 0) + (wins.sp_bio ?? 0) + (wins.sp_haunted ?? 0);
+          const mpWins = (wins.mp_standard ?? 0) + (wins.mp_social ?? 0) + (wins.mp_bio ?? 0) + (wins.mp_haunted ?? 0);
+          const spGames = (games.sp_standard ?? 0) + (games.sp_social ?? 0) + (games.sp_bio ?? 0) + (games.sp_haunted ?? 0);
+          const mpGames = (games.mp_standard ?? 0) + (games.mp_social ?? 0) + (games.mp_bio ?? 0) + (games.mp_haunted ?? 0);
+
+          // Competitive vs Casual
+          const compWins = wins.comp ?? 0;
+          const compGames = games.comp ?? 0;
+          const totalW = profile.totalWins ?? 0;
+          const totalG = profile.totalGames ?? 0;
+          const casualWins = totalW - compWins;
+          const casualGames = totalG - compGames;
+
+          // Per variant (SP + MP combined)
+          const variantRows: Array<{ label: string; key: string }> = [
+            { label: 'Standard', key: 'standard' },
+            { label: 'Social Overdrive', key: 'social' },
+            { label: 'Bio Fuel', key: 'bio' },
+            { label: 'Haunted', key: 'haunted' },
+          ];
+
+          const winRate = (w: number, g: number) =>
+            g > 0 ? `${Math.round((w / g) * 100)}%` : '—';
+
+          // Moment flag categories
+          const flags = (profile.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
+          const flagCategories: Array<{ label: string; icon: React.ReactNode; keys: string[] }> = [
+            {
+              label: 'Skill',
+              icon: <Zap size={13} className="text-yellow-400" />,
+              keys: ['CLUTCH_PLAY','PRECISION_STRIKE','OVERKILL','GENIUS_MOVE','FAKE_CALM','SMUG_CONFIDENCE','EASY_W'],
+            },
+            {
+              label: 'Comeback & Events',
+              icon: <Swords size={13} className="text-orange-400" />,
+              keys: ['COMEBACK_HOPE','LAST_ONE_STANDING','LATE_PANIC','ELIMINATED','AFK'],
+            },
+            {
+              label: 'Sync & Pattern',
+              icon: <Target size={13} className="text-blue-400" />,
+              keys: ['DEADLOCK_SYNC','MIRROR_MATCH'],
+            },
+            {
+              label: 'Hidden / Easter Egg',
+              icon: <Eye size={13} className="text-purple-400" />,
+              keys: ['HIDDEN_67','HIDDEN_DEJA_BID','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN','HIDDEN_REDLINE_REVERSAL','PATCH_NOTES_PENDING'],
+            },
+          ];
+
+          const hasAnyStats = totalG > 0 || Object.keys(flags).length > 0;
+          if (!hasAnyStats) return null;
+
+          return (
+            <Card className="bg-zinc-900/60 border-zinc-700/40">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-zinc-400">
+                  <BarChart2 size={16} className="text-primary" /> PERFORMANCE STATS
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+
+                {/* SP vs MP */}
+                {(spGames + mpGames > 0) && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Single Player vs Multiplayer</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: 'SP', games: spGames, wins: spWins, color: 'text-sky-400', bg: 'bg-sky-950/40 border-sky-700/30' },
+                        { label: 'MP', games: mpGames, wins: mpWins, color: 'text-emerald-400', bg: 'bg-emerald-950/40 border-emerald-700/30' },
+                      ].map(({ label, games: g, wins: w, color, bg }) => (
+                        <div key={label} className={`rounded-lg border px-4 py-3 ${bg}`}>
+                          <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${color}`}>{label}</div>
+                          <div className="text-lg font-display font-bold text-white">{g} <span className="text-xs text-zinc-500 font-normal">games</span></div>
+                          <div className="text-sm text-zinc-300">{w} wins <span className="text-zinc-500 text-xs">({winRate(w, g)})</span></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Competitive vs Casual */}
+                {totalG > 0 && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Competitive vs Casual</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: 'Competitive', games: compGames, wins: compWins, color: 'text-red-400', bg: 'bg-red-950/40 border-red-700/30' },
+                        { label: 'Casual', games: casualGames, wins: casualWins, color: 'text-zinc-300', bg: 'bg-zinc-800/60 border-zinc-700/30' },
+                      ].map(({ label, games: g, wins: w, color, bg }) => (
+                        <div key={label} className={`rounded-lg border px-4 py-3 ${bg}`}>
+                          <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${color}`}>{label}</div>
+                          <div className="text-lg font-display font-bold text-white">{g} <span className="text-xs text-zinc-500 font-normal">games</span></div>
+                          <div className="text-sm text-zinc-300">{w} wins <span className="text-zinc-500 text-xs">({winRate(w, g)})</span></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Per game pace / variant */}
+                {variantRows.some(({ key }) => (games[`sp_${key}`] ?? 0) + (games[`mp_${key}`] ?? 0) > 0) && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Games by Pace / Variant</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {variantRows.map(({ label, key }) => {
+                        const g = (games[`sp_${key}`] ?? 0) + (games[`mp_${key}`] ?? 0);
+                        const w = (wins[`sp_${key}`] ?? 0) + (wins[`mp_${key}`] ?? 0);
+                        if (g === 0) return null;
+                        return (
+                          <div key={key} className="rounded-lg border border-zinc-700/30 bg-zinc-800/40 px-3 py-2 text-center">
+                            <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1">{label}</div>
+                            <div className="text-base font-bold text-white">{g} <span className="text-[10px] text-zinc-500 font-normal">games</span></div>
+                            <div className="text-xs text-zinc-400">{w}W <span className="text-zinc-600">· {winRate(w, g)}</span></div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Moment flag category counts */}
+                {Object.keys(flags).length > 0 && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Moment Flag Achievements</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {flagCategories.map(({ label, icon, keys }) => {
+                        const total = keys.reduce((s, k) => s + (flags[k] ?? 0), 0);
+                        const earned = keys.filter((k) => (flags[k] ?? 0) > 0).length;
+                        return (
+                          <div key={label} className="rounded-lg border border-zinc-700/30 bg-zinc-800/40 px-3 py-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              {icon}
+                              <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide leading-tight">{label}</span>
+                            </div>
+                            <div className="text-lg font-bold text-white">{total}</div>
+                            <div className="text-[10px] text-zinc-500">{earned}/{keys.length} types earned</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* ── Equipped Cosmetics Preview ── */}
         <Card className="bg-gradient-to-r from-yellow-950/40 to-primary/10 border-primary/30">

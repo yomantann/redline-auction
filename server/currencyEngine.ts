@@ -365,6 +365,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['alpha_prime'],
   },
   {
+    id: 'skin_alpha_graviton',
+    name: 'Graviton',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_alpha_graviton',
+    driverIds: ['alpha_prime'],
+  },
+  {
     id: 'skin_alpha_hewn_knight',
     name: 'The Hewn Knight',
     type: 'driverSkin',
@@ -391,6 +400,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 40000,
     rarity: 'rare',
     asset: 'skin_anointed_masquerade',
+    driverIds: ['anointed'],
+  },
+  {
+    id: 'skin_anointed_clean_cut',
+    name: 'Clean Cut',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_anointed_clean_cut',
     driverIds: ['anointed'],
   },
 
@@ -433,6 +451,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_dash_colosseum_sprint',
     driverIds: ['rainbow_dash'],
   },
+  {
+    id: 'skin_dash_yatai_yang',
+    name: 'Yatai Yang',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_dash_yatai_yang',
+    driverIds: ['rainbow_dash'],
+  },
 
   // ── Frostbyte Skins ─────────────────────────────────────────────────────────
   {
@@ -451,6 +478,24 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 40000,
     rarity: 'rare',
     asset: 'skin_frost_skaldi',
+    driverIds: ['frostbyte'],
+  },
+  {
+    id: 'skin_frost_cold_conjurer',
+    name: 'Cold Conjurer',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_frost_cold_conjurer',
+    driverIds: ['frostbyte'],
+  },
+  {
+    id: 'skin_frost_frozen_front',
+    name: 'Frozen Front',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_frost_frozen_front',
     driverIds: ['frostbyte'],
   },
 
@@ -522,6 +567,15 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     cost: 125000,
     rarity: 'legendary',
     asset: 'skin_lowflame_orbital_rest',
+    driverIds: ['low_flame'],
+  },
+  {
+    id: 'skin_lowflame_bounty',
+    name: 'The Bounty Can Wait',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_lowflame_bounty',
     driverIds: ['low_flame'],
   },
 
@@ -598,7 +652,35 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   },
 
   // ── Additional Named Skins ──────────────────────────────────────────────────
- 
+  {
+    id: 'skin_rind_valhalla_vermin',
+    name: 'Valhalla Vermin',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_rind_valhalla_vermin',
+    driverIds: ['the_rind'],
+  },
+
+  // ── Wandering Eye Skins ─────────────────────────────────────────────────────
+  {
+    id: 'skin_wandering_dohyun',
+    name: "Dohyun's Last Run",
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_wandering_dohyun',
+    driverIds: ['wandering_eye'],
+  },
+  {
+    id: 'skin_wandering_nunbit',
+    name: 'Nunbit Monster',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_wandering_nunbit',
+    driverIds: ['wandering_eye'],
+  },
 
   // ── Limited-Time Items ──────────────────────────────────────────────────────
   // (Placeholder items removed — real limited-time items will be added here)
@@ -1077,6 +1159,7 @@ export function createDefaultProfile(
     momentFlagsPerType: {},
     convertedGameIds: [],
     winsPerMode: {},
+    gamesPerMode: {},
     milestoneUnlocks: [],
     createdAt: now,
     updatedAt: now,
@@ -1144,16 +1227,25 @@ export function convertGameToCurrency(
   const creditsEarned = trophies * CREDITS_PER_TROPHY + momentFlags * CREDITS_PER_MOMENT_FLAG;
   const now = new Date();
 
-  // Build updated winsPerMode
+  // Build updated winsPerMode and gamesPerMode
   const winsPerMode: Record<string, number> = { ...(profile.winsPerMode as Record<string, number>) };
+  const gamesPerMode: Record<string, number> = { ...(profile.gamesPerMode as Record<string, number> ?? {}) };
+
+  const modePrefix = isMultiplayer ? 'mp' : 'sp';
+  const variantKey = variant === 'SOCIAL_OVERDRIVE'
+    ? 'social' : variant === 'BIO_FUEL'
+      ? 'bio' : variant === 'HAUNTED'
+        ? 'haunted' : 'standard';
+  const modeKey = `${modePrefix}_${variantKey}`;
+
+  // Track games played per mode (always, win or loss)
+  gamesPerMode[modeKey] = (gamesPerMode[modeKey] ?? 0) + 1;
+  if (isCompetitive) {
+    gamesPerMode['comp'] = (gamesPerMode['comp'] ?? 0) + 1;
+  }
+
   if (isWinner) {
-    const modePrefix = isMultiplayer ? 'mp' : 'sp';
-    const variantKey = variant === 'SOCIAL_OVERDRIVE'
-      ? 'social' : variant === 'BIO_FUEL'
-        ? 'bio' : variant === 'HAUNTED'
-          ? 'haunted' : 'standard';
-    const key = `${modePrefix}_${variantKey}`;
-    winsPerMode[key] = (winsPerMode[key] ?? 0) + 1;
+    winsPerMode[modeKey] = (winsPerMode[modeKey] ?? 0) + 1;
     if (isCompetitive) {
       winsPerMode['comp'] = (winsPerMode['comp'] ?? 0) + 1;
     }
@@ -1177,6 +1269,7 @@ export function convertGameToCurrency(
     })(),
     convertedGameIds: [...(profile.convertedGameIds as string[]), gameId],
     winsPerMode,
+    gamesPerMode,
     updatedAt: now,
   };
 

@@ -7221,15 +7221,6 @@ export default function Game() {
                             />
                           )}
                         </div>
-                        {/* Show logo large next to name for current player */}
-                        {player.socketId === socket?.id && getLogoUrl(myCosmetics) && (
-                          <img
-                            src={getLogoUrl(myCosmetics)!}
-                            alt="Logo"
-                            className="w-10 h-10 object-contain rounded border border-primary/30 bg-black/30 flex-shrink-0"
-                            title="Your equipped logo"
-                          />
-                        )}
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{player.name}</span>
