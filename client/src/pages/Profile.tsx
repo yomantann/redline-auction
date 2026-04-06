@@ -652,6 +652,18 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
 ];
 
+// ─── Moment flag display labels ────────────────────────────────────────────────
+
+const FLAG_LABELS: Record<string, string> = {
+  CLUTCH_PLAY: 'Clutch Play', PRECISION_STRIKE: 'Precision Strike', OVERKILL: 'Overkill',
+  GENIUS_MOVE: 'Genius Move', FAKE_CALM: 'Fake Calm', SMUG_CONFIDENCE: 'Smug Confidence', EASY_W: 'Easy W',
+  COMEBACK_HOPE: 'Comeback Hope', LAST_ONE_STANDING: 'Last Standing', LATE_PANIC: 'Late Panic',
+  ELIMINATED: 'Eliminated', AFK: 'AFK',
+  DEADLOCK_SYNC: 'Deadlock Sync', MIRROR_MATCH: 'Mirror Match',
+  HIDDEN_67: '???', HIDDEN_DEJA_BID: '???', HIDDEN_REDEMPTION: '???',
+  HIDDEN_NAIL_IN_THE_COFFIN: '???', HIDDEN_REDLINE_REVERSAL: '???', PATCH_NOTES_PENDING: '???',
+};
+
 // ─── API helpers ───────────────────────────────────────────────────────────────
 
 async function fetchProfile(): Promise<PlayerProfile | null> {
@@ -1372,15 +1384,6 @@ export default function Profile() {
 
           // Moment flag categories with per-type labels
           const flags = (profile.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
-          const FLAG_LABELS: Record<string, string> = {
-            CLUTCH_PLAY: 'Clutch Play', PRECISION_STRIKE: 'Precision Strike', OVERKILL: 'Overkill',
-            GENIUS_MOVE: 'Genius Move', FAKE_CALM: 'Fake Calm', SMUG_CONFIDENCE: 'Smug Confidence', EASY_W: 'Easy W',
-            COMEBACK_HOPE: 'Comeback Hope', LAST_ONE_STANDING: 'Last Standing', LATE_PANIC: 'Late Panic',
-            ELIMINATED: 'Eliminated', AFK: 'AFK',
-            DEADLOCK_SYNC: 'Deadlock Sync', MIRROR_MATCH: 'Mirror Match',
-            HIDDEN_67: '???', HIDDEN_DEJA_BID: '???', HIDDEN_REDEMPTION: '???',
-            HIDDEN_NAIL_IN_THE_COFFIN: '???', HIDDEN_REDLINE_REVERSAL: '???', PATCH_NOTES_PENDING: '???',
-          };
           const flagCategories: Array<{ label: string; icon: React.ReactNode; keys: string[] }> = [
             {
               label: 'Skill',
