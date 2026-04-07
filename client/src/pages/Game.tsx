@@ -10136,9 +10136,25 @@ export default function Game() {
             </div>
           </div>
           ) : (
-          <div className="bg-card/30 rounded p-4 border border-white/5 h-[300px] flex flex-col items-center justify-center">
-            <h3 className="font-display text-muted-foreground text-xs tracking-widest mb-2">GAME LOG</h3>
+          <div className="bg-card/30 rounded p-4 border border-white/5 h-[300px] flex flex-col items-center justify-center gap-3">
+            <h3 className="font-display text-muted-foreground text-xs tracking-widest">GAME LOG</h3>
             <p className="text-zinc-600 text-xs italic">Hidden in Competitive Mode</p>
+            <div className="flex items-center gap-1.5 text-xs text-zinc-400 border border-white/10 rounded-full px-3 py-1">
+              <Clock size={11} className="text-zinc-500" />
+              <span>
+                Game Pace:{' '}
+                <span className="text-zinc-200 font-semibold">
+                  {(() => {
+                    const d = isMultiplayer
+                      ? (multiplayerGameState?.settings?.gameDuration ?? gameDuration)
+                      : gameDuration;
+                    if (d === 'short' || d === 'sprint') return '2.5 min';
+                    if (d === 'long') return '10 min';
+                    return '5 min';
+                  })()}
+                </span>
+              </span>
+            </div>
           </div>
           )}
         </div>

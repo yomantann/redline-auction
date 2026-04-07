@@ -1,5 +1,5 @@
 import { log } from "./index";
-import { recordGameSnapshot, recordGameSummary, createGameId } from "./snapshotDb";
+import { recordGameSnapshot, recordGameSummary, createGameId, recordDriverSelectionStat } from "./snapshotDb";
 
 // Game Constants
 const STANDARD_INITIAL_TIME = 300.0;
@@ -3585,6 +3585,14 @@ function endGame(lobbyCode: string) {
     winnerId: game.players[0]?.id || null,
     winnerName: game.players[0]?.name || null,
   });
+
+  // Record driver selection stats for each non-bot player with a known driver
+  for (const p of game.players) {
+    if (!p.isBot && p.selectedDriver) {
+      const isWinner = p.id === game.players[0]?.id;
+      recordDriverSelectionStat(p.id, p.selectedDriver, isWinner);
+    }
+  }
   
   // Cleanup
   clearGameIntervals(lobbyCode);

@@ -1,6 +1,7 @@
 # Database Review — Redline Auction
 
-> Generated from `shared/schema.ts`, `shared/models/auth.ts`, and `migrations/0001_prod_sync.sql`.
+> Generated from `shared/schema.ts`, `shared/models/auth.ts`, and `migrations/0001_prod_sync.sql`.  
+> Updated: `migrations/0002_tracking_tables.sql` added `bid_events`, `driver_selection_stats`, and `last_seen_at`/`login_count` on `player_profiles`.
 
 ---
 
@@ -10,9 +11,11 @@
 |---|---|---|
 | `users` | Each Replit sign-in | Auth identity store |
 | `sessions` | Each browser session | Auth session persistence |
-| `player_profiles` | Each unique authenticated player | Wallet, cosmetics, milestone state |
+| `player_profiles` | Each unique authenticated player | Wallet, cosmetics, milestone state, activity tracking |
 | `game_snapshots` | Each round event in every game | Granular replay / analytics data |
 | `game_summaries` | Each completed game | Final scoreboard per game |
+| `bid_events` | Each round end (winning bid) | Raw bid-event log for analytics and cheat detection |
+| `driver_selection_stats` | Each completed game (upserted) | Aggregated per-player, per-driver pick + win counts |
 | `stripe_transactions` | Each credit-pack or cosmetic purchase | Payment audit ledger |
 | `contact_messages` | Each contact form submission | Support inbox |
 

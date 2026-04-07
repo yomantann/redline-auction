@@ -24,7 +24,7 @@ import {
   castVoteRelic,
   type GameDuration
 } from "./gameEngine";
-import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage, recordStripeTransaction } from "./snapshotDb";
+import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage, recordStripeTransaction, recordBidEvent, recordDriverSelectionStat } from "./snapshotDb";
 import {
   insertGameSnapshotSchema,
   insertGameSummarySchema,
@@ -864,6 +864,24 @@ export async function registerRoutes(
         isMultiplayer: 0, // Force singleplayer flag
       });
       await recordGameSnapshot(snapshot);
+
+      // Record bid event for the round winner when this is a round_end snapshot
+      if (snapshot.snapshotType === 'round_end' && snapshot.winnerPlayerId && snapshot.winningHoldTime != null) {
+        const winnerPos = (snapshot.playerPositions ?? []).find(
+          (p: { playerId: string }) => p.playerId === snapshot.winnerPlayerId,
+        );
+        await recordBidEvent({
+          gameId: snapshot.gameId,
+          playerId: snapshot.winnerPlayerId,
+          playerName: snapshot.winnerPlayerId, // name not available in snapshot; use ID as fallback
+          roundNumber: snapshot.roundNumber,
+          holdSeconds: snapshot.winningHoldTime,
+          isWinner: 1,
+          isMultiplayer: 0,
+          lobbyCode: snapshot.lobbyCode ?? null,
+        });
+      }
+
       res.json({ success: true });
     } catch (error) {
       log(`Snapshot recording failed: ${error}`, "api");
@@ -878,6 +896,24 @@ export async function registerRoutes(
         isMultiplayer: 0,
       });
       await recordGameSummary(summary);
+
+      // Record driver selection stats for each non-bot real player
+      const playerResults = (summary.playerResults ?? []) as Array<{
+        playerId: string;
+        driverId: string | null;
+        isBot: boolean;
+        finalRank: number;
+      }>;
+      for (const result of playerResults) {
+        if (!result.isBot && result.driverId) {
+          await recordDriverSelectionStat(
+            result.playerId,
+            result.driverId,
+            result.finalRank === 1,
+          );
+        }
+      }
+
       res.json({ success: true });
     } catch (error) {
       log(`Game summary recording failed: ${error}`, "api");
@@ -922,6 +958,7 @@ export async function registerRoutes(
     if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
     try {
       const userId: string = req.user.claims.sub;
+      const now = new Date();
       const [existing] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
       if (existing) {
         // Check if any milestones have become newly eligible since last conversion
@@ -929,8 +966,16 @@ export async function registerRoutes(
         const newlyUnlocked = ((withMilestones.milestoneUnlocks ?? []) as string[]).filter(
           (m) => !((existing.milestoneUnlocks ?? []) as string[]).includes(m),
         );
+
+        // Always bump last_seen_at and login_count on every profile load
+        const activityUpdate = {
+          lastSeenAt: now,
+          loginCount: (existing.loginCount ?? 0) + 1,
+          updatedAt: now,
+        };
+
         if (newlyUnlocked.length > 0) {
-          // Persist the updated profile (new cosmetics / credits awarded)
+          // Persist the updated profile (new cosmetics / credits awarded) + activity
           await db
             .update(playerProfiles)
             .set({
@@ -938,12 +983,17 @@ export async function registerRoutes(
               milestoneUnlocks: withMilestones.milestoneUnlocks as any,
               currencyBalance: withMilestones.currencyBalance,
               lifetimeEarned: withMilestones.lifetimeEarned,
-              updatedAt: new Date(),
+              ...activityUpdate,
             })
             .where(eq(playerProfiles.id, userId));
-          return res.json({ success: true, profile: withMilestones });
+          return res.json({ success: true, profile: { ...withMilestones, ...activityUpdate } });
         }
-        return res.json({ success: true, profile: existing });
+
+        await db
+          .update(playerProfiles)
+          .set(activityUpdate)
+          .where(eq(playerProfiles.id, userId));
+        return res.json({ success: true, profile: { ...existing, ...activityUpdate } });
       }
 
       // First login — auto-create profile from Replit Auth claims
@@ -952,7 +1002,11 @@ export async function registerRoutes(
         req.user.claims.first_name || req.user.claims.email?.split('@')[0] || 'Driver',
         req.user.claims.profile_image_url ?? null,
       );
-      const [created] = await db.insert(playerProfiles).values(newProfile as any).returning();
+      const [created] = await db.insert(playerProfiles).values({
+        ...newProfile,
+        lastSeenAt: now,
+        loginCount: 1,
+      } as any).returning();
       if (!created) {
         log(`Profile creation returned empty for user ${userId}`, "api");
         return res.status(500).json({ success: false, error: 'Profile creation failed – please retry' });

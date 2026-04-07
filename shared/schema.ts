@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, jsonb, timestamp, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -31,6 +31,9 @@ export const playerProfiles = pgTable("player_profiles", {
   convertedGameIds: jsonb("converted_game_ids").$type<string[]>().default([]).notNull(),
   // ── Milestones ────────────────────────────────────────────────────────────
   milestoneUnlocks: jsonb("milestone_unlocks").$type<string[]>().default([]).notNull(),
+  // ── Activity tracking ─────────────────────────────────────────────────────
+  lastSeenAt: timestamp("last_seen_at"),
+  loginCount: integer("login_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -130,6 +133,54 @@ export const insertGameSummarySchema = createInsertSchema(gameSummaries).omit({
 
 export type InsertGameSummary = z.infer<typeof insertGameSummarySchema>;
 export type GameSummary = typeof gameSummaries.$inferSelect;
+
+// ─── Bid Events ───────────────────────────────────────────────────────────────
+// One row per player per round — records the winning bid for each round_end snapshot.
+// Populated server-side from game snapshots for analytics and cheat detection.
+
+export const bidEvents = pgTable("bid_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  gameId: varchar("game_id").notNull(),
+  playerId: varchar("player_id").notNull(),   // 'p1' for SP human, socket-based ID for MP
+  playerName: text("player_name").notNull(),
+  roundNumber: integer("round_number").notNull(),
+  holdSeconds: real("hold_seconds").notNull(), // seconds the player held the button
+  isWinner: integer("is_winner").notNull().default(0), // 1 = won the round
+  isMultiplayer: integer("is_multiplayer").notNull().default(0),
+  lobbyCode: varchar("lobby_code"),            // null for singleplayer
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBidEventSchema = createInsertSchema(bidEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBidEvent = z.infer<typeof insertBidEventSchema>;
+export type BidEvent = typeof bidEvents.$inferSelect;
+
+// ─── Driver Selection Stats ──────────────────────────────────────────────────
+// Aggregated per-player, per-driver selection and win counts.
+// Upserted whenever a game summary is recorded for an authenticated player.
+
+export const driverSelectionStats = pgTable("driver_selection_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),   // Replit user ID (or 'p1' for SP guest)
+  driverId: varchar("driver_id").notNull(),
+  gamesSelected: integer("games_selected").notNull().default(1),
+  wins: integer("wins").notNull().default(0),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+}, (table) => [
+  unique("uq_driver_selection_player_driver").on(table.playerId, table.driverId),
+]);
+
+export const insertDriverSelectionStatSchema = createInsertSchema(driverSelectionStats).omit({
+  id: true,
+  lastUpdated: true,
+});
+
+export type InsertDriverSelectionStat = z.infer<typeof insertDriverSelectionStatSchema>;
+export type DriverSelectionStat = typeof driverSelectionStats.$inferSelect;
 
 // ─── Player Profile & Cosmetics System ───────────────────────────────────────
 
