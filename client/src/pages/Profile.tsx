@@ -25,6 +25,7 @@ import {
   Swords,
   Zap,
   Eye,
+  ChevronDown,
 } from "lucide-react";
 import type {
   PlayerProfile,
@@ -40,6 +41,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { SKIN_ASSET_URLS, CARD_BACKGROUND_URLS, CARD_BORDER_URLS, LOGO_ASSET_URLS } from "@/lib/skinAssets";
+import { cn } from "@/lib/utils";
 import bgStandard1 from "@/assets/generated_images/BG/bg_standard_redline.png";
 
 let _stripePublishableKey: string | null = null;
@@ -376,9 +378,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_credits_5000',
-    creditReward: 250000,
+    creditReward: 10000,
     label: 'Earn 5,000 lifetime credits',
-    reward: '250,000 credits',
+    reward: '10,000 credits',
     goal: 5000,
     getProgress: (p) => p.lifetimeEarned,
   },
@@ -436,9 +438,9 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   // Easter Egg (Hidden Flag) Milestones — descriptions intentionally vague
   {
     id: 'milestone_easter_egg_first',
-    creditReward: 10000,
+    creditReward: 5000,
     label: 'Uncover your first hidden secret',
-    reward: '10,000 credits',
+    reward: '5,000 credits',
     goal: 1,
     getProgress: (p) => {
       const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
@@ -1124,6 +1126,7 @@ export default function Profile() {
   const [paymentModal, setPaymentModal] = useState<null | { packKey: string; packLabel: string; packPrice: string }>(null);
   const [expandedSkin, setExpandedSkin] = useState<{ url: string; name: string } | null>(null);
   const [milestonesExpanded, setMilestonesExpanded] = useState(false);
+  const [perfStatsExpanded, setPerfStatsExpanded] = useState(false);
   const [milestoneCategories, setMilestoneCategories] = useState<Record<string, boolean>>({
     progression: false,
     victories: false,
@@ -1422,12 +1425,19 @@ export default function Profile() {
           if (!hasAnyStats) return null;
 
           return (
-            <Card className="bg-purple-950/50 border-purple-700/50">
+            <Card className="bg-yellow-950/50 border-yellow-700/50">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-white">
-                  <BarChart2 size={16} className="text-primary" /> PERFORMANCE STATS
-                </CardTitle>
+                <button
+                  className="flex items-center gap-2 w-full text-left focus:outline-none"
+                  onClick={() => setPerfStatsExpanded(prev => !prev)}
+                >
+                  <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-white">
+                    <BarChart2 size={16} className="text-primary" /> PERFORMANCE STATS
+                  </CardTitle>
+                  <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-300 ml-auto", perfStatsExpanded && "rotate-180")} />
+                </button>
               </CardHeader>
+              {perfStatsExpanded && (
               <CardContent className="space-y-5">
 
                 {/* Total trophy tally */}
@@ -1608,6 +1618,7 @@ export default function Profile() {
                 )}
 
               </CardContent>
+              )}
             </Card>
           );
         })()}

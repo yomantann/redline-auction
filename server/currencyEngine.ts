@@ -911,7 +911,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_credits_5000',
-    creditReward: 250000,
+    creditReward: 10000,
     description: 'Earn 5,000 total lifetime credits.',
     check: (p) => p.lifetimeEarned >= 5000,
   },
@@ -958,7 +958,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   // Easter Egg (Hidden Flag) Milestones — descriptions intentionally vague
   {
     id: 'milestone_easter_egg_first',
-    creditReward: 10000,
+    creditReward: 5000,
     description: 'Uncover your first hidden secret.',
     check: (p) => distinctFlagsEarned(p, [
       'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
@@ -1173,22 +1173,29 @@ export function createDefaultProfile(
  */
 export function applyMilestones(profile: PlayerProfile): PlayerProfile {
   let updated = { ...profile };
-  for (const milestone of MILESTONE_DEFINITIONS) {
-    const owned = (updated.ownedCosmetics ?? []) as string[];
-    const unlocked = (updated.milestoneUnlocks ?? []) as string[];
-    const alreadyDone = unlocked.includes(milestone.id) ||
-      (milestone.cosmeticId ? owned.includes(milestone.cosmeticId) : false);
-    if (!alreadyDone && milestone.check(updated)) {
-      const newOwned = milestone.cosmeticId ? [...owned, milestone.cosmeticId] : owned;
-      const creditBonus = milestone.creditReward ?? 0;
-      updated = {
-        ...updated,
-        ownedCosmetics: newOwned,
-        milestoneUnlocks: [...unlocked, milestone.id],
-        currencyBalance: updated.currencyBalance + creditBonus,
-        lifetimeEarned: updated.lifetimeEarned + creditBonus,
-      };
-      console.log(`[Milestone] User ${updated.id} completed '${milestone.id}'${milestone.cosmeticId ? ` (cosmetic: ${milestone.cosmeticId})` : ''}${creditBonus ? ` (+${creditBonus} credits)` : ''}`);
+  // Iterate until no new milestones can be granted – handles cascading grants
+  // (e.g. winning cosmetic A bumps ownedCosmetics count, which triggers cosmetic B).
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const milestone of MILESTONE_DEFINITIONS) {
+      const owned = (updated.ownedCosmetics ?? []) as string[];
+      const unlocked = (updated.milestoneUnlocks ?? []) as string[];
+      const alreadyDone = unlocked.includes(milestone.id) ||
+        (milestone.cosmeticId ? owned.includes(milestone.cosmeticId) : false);
+      if (!alreadyDone && milestone.check(updated)) {
+        changed = true;
+        const newOwned = milestone.cosmeticId ? [...owned, milestone.cosmeticId] : owned;
+        const creditBonus = milestone.creditReward ?? 0;
+        updated = {
+          ...updated,
+          ownedCosmetics: newOwned,
+          milestoneUnlocks: [...unlocked, milestone.id],
+          currencyBalance: updated.currencyBalance + creditBonus,
+          lifetimeEarned: updated.lifetimeEarned + creditBonus,
+        };
+        console.log(`[Milestone] User ${updated.id} completed '${milestone.id}'${milestone.cosmeticId ? ` (cosmetic: ${milestone.cosmeticId})` : ''}${creditBonus ? ` (+${creditBonus} credits)` : ''}`);
+      }
     }
   }
   return updated;
