@@ -71,13 +71,12 @@
 ## What You Could Be Gathering
 
 ### Player Behaviour & Retention
-- **Last-active timestamp** on `player_profiles` — currently there is no `last_seen_at` field; adding one enables churn analysis and "days since last login" metrics.
-- **Login / session count** — tracking how many times a player has signed in helps distinguish casual vs. committed players.
+- **`last_seen_at` and `login_count`** — ✅ Now present on `player_profiles` (added in migration 0002). Updated on every authenticated profile fetch.
 - **Platform / device** — a `user_agent` or `device_type` tag on sessions or profiles would enable device-split analysis.
 
 ### Game Quality & Balance
-- **Per-round bid times per player** — `game_snapshots.player_positions` stores tokens/time but not the raw bid events; a separate `bid_events` table (`game_id`, `player_id`, `round`, `hold_seconds`, `timestamp`) would enable bid-pattern analysis and cheat detection.
-- **Driver selection frequency** — recording which driver each player picks (already in `game_summaries.player_results.driverId`) but no aggregated `driver_stats` table exists to query top picks, win rates by driver, etc.
+- **Per-round bid times per player** — ✅ Now captured in the `bid_events` table (added in migration 0002). Records the winning bid per round from `round_end` snapshots.
+- **Driver selection frequency** — ✅ Now aggregated in `driver_selection_stats` (added in migration 0002). Tracks per-player, per-driver pick and win counts, upserted at each game end.
 - **Protocol / ability usage rates** — `protocols_triggered` and `limit_breaks_triggered` are arrays of names stored in snapshots but are never aggregated into a summary table.
 - **Social dare / drink counts per variant** — `totalDrinks` and `socialDares` are in `game_summaries.player_results` but are not rolled up anywhere.
 

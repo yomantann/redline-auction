@@ -80,6 +80,10 @@ CREATE TABLE IF NOT EXISTS "player_profiles" (
   -- ── Milestones ──────────────────────────────────────────────────────────
   "milestone_unlocks"      jsonb          NOT NULL DEFAULT '[]',   -- string[] of milestone IDs
 
+  -- ── Activity tracking (added in migration 0002) ─────────────────────────
+  "last_seen_at"           timestamp,                              -- updated on every profile fetch
+  "login_count"            integer        NOT NULL DEFAULT 0,      -- incremented on every profile fetch
+
   -- ── Timestamps ──────────────────────────────────────────────────────────
   "created_at"             timestamp      NOT NULL DEFAULT now(),
   "updated_at"             timestamp      NOT NULL DEFAULT now(),
@@ -165,7 +169,49 @@ CREATE INDEX IF NOT EXISTS "idx_game_summaries_created_at"
   ON "game_summaries" ("created_at");
 
 -- ---------------------------------------------------------------------------
--- 6. stripe_transactions
+-- 6. bid_events  (added in migration 0002)
+--    One row per round winner per round — raw bid-event log.
+--    Populated from game_snapshots round_end events and MP game end.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "bid_events" (
+  "id"             varchar        PRIMARY KEY DEFAULT gen_random_uuid(),
+  "game_id"        varchar        NOT NULL,
+  "player_id"      varchar        NOT NULL,
+  "player_name"    text           NOT NULL,
+  "round_number"   integer        NOT NULL,
+  "hold_seconds"   real           NOT NULL,
+  "is_winner"      integer        NOT NULL DEFAULT 0,  -- 1 = won the round
+  "is_multiplayer" integer        NOT NULL DEFAULT 0,
+  "lobby_code"     varchar,
+  "created_at"     timestamp      NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "idx_bid_events_game_id"
+  ON "bid_events" ("game_id");
+
+CREATE INDEX IF NOT EXISTS "idx_bid_events_player_id"
+  ON "bid_events" ("player_id");
+
+-- ---------------------------------------------------------------------------
+-- 7. driver_selection_stats  (added in migration 0002)
+--    Aggregated per-player, per-driver pick + win counts.
+--    Upserted (not inserted) once per game for each non-bot real player.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "driver_selection_stats" (
+  "id"             varchar        PRIMARY KEY DEFAULT gen_random_uuid(),
+  "player_id"      varchar        NOT NULL,
+  "driver_id"      varchar        NOT NULL,
+  "games_selected" integer        NOT NULL DEFAULT 1,
+  "wins"           integer        NOT NULL DEFAULT 0,
+  "last_updated"   timestamp      NOT NULL DEFAULT now(),
+  CONSTRAINT "uq_driver_selection_player_driver" UNIQUE ("player_id", "driver_id")
+);
+
+CREATE INDEX IF NOT EXISTS "idx_driver_selection_player_id"
+  ON "driver_selection_stats" ("player_id");
+
+-- ---------------------------------------------------------------------------
+-- 8. stripe_transactions
 --    Audit ledger for every credit-pack or cosmetic purchase.
 --    Every row represents one payment attempt.
 --
@@ -198,7 +244,7 @@ CREATE INDEX IF NOT EXISTS "idx_stripe_transactions_status"
   ON "stripe_transactions" ("status");
 
 -- ---------------------------------------------------------------------------
--- 7. contact_messages
+-- 9. contact_messages
 --    One row per contact-form submission. Standalone — no FK relationships.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "contact_messages" (
