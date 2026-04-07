@@ -242,6 +242,7 @@ export interface GameState {
   skipNextRound?: boolean;                        // Conclave B: skip next round as tie
   overclockClickCounts: Record<string, number>; // Click counts per player during OVERCLOCK protocol
   calibrationTargetSeconds: number | null; // Target hold time for CALIBRATION protocol (11-40s)
+  ghostCountdownProcessedForCurrentRound?: boolean; // Prevents double-decrement when both endRound and all-ghost startBidding run
 }
 
 // Active games storage
@@ -732,7 +733,7 @@ function startBidding(lobbyCode: string) {
       // Decrement purgatory countdown and revive any ghosts whose timer reaches 0.
       // Only run if endRound (Block A) has not already processed countdowns for this
       // round transition — prevents double-decrement when all players go ghost mid-round.
-      if (!(game as any).ghostCountdownProcessedForCurrentRound) {
+      if (!game.ghostCountdownProcessedForCurrentRound) {
         const isFinalRound = game.round >= game.totalRounds;
         const reviveTime = calcReviveTime(game);
         game.players.forEach(ghost => {
@@ -758,7 +759,7 @@ function startBidding(lobbyCode: string) {
             ghost.possessionRoundsLeft = roundsLeft;
           }
         });
-        (game as any).ghostCountdownProcessedForCurrentRound = true;
+        game.ghostCountdownProcessedForCurrentRound = true;
       }
       broadcastGameState(lobbyCode);
       game.players.forEach(p => {
@@ -2020,7 +2021,7 @@ function endRound(lobbyCode: string) {
     });
     // Mark that Block A processed ghost countdowns for this round so the
     // all-ghost startBidding path (Block B) does not double-decrement.
-    (game as any).ghostCountdownProcessedForCurrentRound = true;
+    game.ghostCountdownProcessedForCurrentRound = true;
   }
 
   // HIDDEN_NAIL_IN_THE_COFFIN: award to player whose DISRUPT ability caused an opponent's elimination
@@ -2944,7 +2945,7 @@ function startWaitingForReady(lobbyCode: string) {
   game.isDoubleTokensRound = false;
   // Reset ghost countdown flag for the new round so Block B (all-ghost startBidding)
   // can correctly decrement on rounds where Block A (endRound) did not run.
-  (game as any).ghostCountdownProcessedForCurrentRound = false;
+  game.ghostCountdownProcessedForCurrentRound = false;
   game.overclockClickCounts = {};
   
   // --- MP: BOT RELIC ACTIVATION ---
