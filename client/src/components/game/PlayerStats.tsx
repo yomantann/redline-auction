@@ -81,9 +81,9 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // are alpha=0), so we stretch the image to cover the card exactly.
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
-    inset: 0,
-    width: '100%',
-    height: '100%',
+    inset: '-3px',
+    width: 'calc(100% + 6px)',
+    height: 'calc(100% + 6px)',
     objectFit: 'fill',
     pointerEvents: 'none',
     borderRadius: 'inherit',

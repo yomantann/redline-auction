@@ -242,6 +242,7 @@ export interface GameState {
   skipNextRound?: boolean;                        // Conclave B: skip next round as tie
   overclockClickCounts: Record<string, number>; // Click counts per player during OVERCLOCK protocol
   calibrationTargetSeconds: number | null; // Target hold time for CALIBRATION protocol (11-40s)
+  ghostCountdownProcessedForCurrentRound?: boolean; // Prevents double-decrement when both endRound and all-ghost startBidding run
 }
 
 // Active games storage
@@ -729,32 +730,37 @@ function startBidding(lobbyCode: string) {
         message: `Round ${game.round} — all players are ghosts, no bids (tie).`,
         basic: true,
       });
-      // Decrement purgatory countdown and revive any ghosts whose timer reaches 0
-      const isFinalRound = game.round >= game.totalRounds;
-      const reviveTime = calcReviveTime(game);
-      game.players.forEach(ghost => {
-        if (!ghost.isGhost) return;
-        if (ghost.possessionRoundsLeft === undefined) {
-          ghost.possessionRoundsLeft = ghost.ghostAbility === 'reaper' ? 3 : 2; // safety: give a countdown if missing
-          return;
-        }
-        const roundsLeft = ghost.possessionRoundsLeft - 1;
-        if (roundsLeft <= 0) {
-          if (!isFinalRound) {
-            ghost.isGhost = false;
-            ghost.remainingTime = reviveTime;
-            ghost.ghostImage = undefined;
-            ghost.ghostAbility = null;
-            ghost.ghostAbilityUsed = true;
-            ghost.possessionRoundsLeft = undefined;
-            addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived with ${reviveTime.toFixed(1)}s!`, basic: true });
-          } else {
-            ghost.possessionRoundsLeft = undefined;
+      // Decrement purgatory countdown and revive any ghosts whose timer reaches 0.
+      // Only run if endRound (Block A) has not already processed countdowns for this
+      // round transition — prevents double-decrement when all players go ghost mid-round.
+      if (!game.ghostCountdownProcessedForCurrentRound) {
+        const isFinalRound = game.round >= game.totalRounds;
+        const reviveTime = calcReviveTime(game);
+        game.players.forEach(ghost => {
+          if (!ghost.isGhost) return;
+          if (ghost.possessionRoundsLeft === undefined) {
+            ghost.possessionRoundsLeft = ghost.ghostAbility === 'reaper' ? 3 : 2; // safety: give a countdown if missing
+            return;
           }
-        } else {
-          ghost.possessionRoundsLeft = roundsLeft;
-        }
-      });
+          const roundsLeft = ghost.possessionRoundsLeft - 1;
+          if (roundsLeft <= 0) {
+            if (!isFinalRound) {
+              ghost.isGhost = false;
+              ghost.remainingTime = reviveTime;
+              ghost.ghostImage = undefined;
+              ghost.ghostAbility = null;
+              ghost.ghostAbilityUsed = true;
+              ghost.possessionRoundsLeft = undefined;
+              addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived with ${reviveTime.toFixed(1)}s!`, basic: true });
+            } else {
+              ghost.possessionRoundsLeft = undefined;
+            }
+          } else {
+            ghost.possessionRoundsLeft = roundsLeft;
+          }
+        });
+        game.ghostCountdownProcessedForCurrentRound = true;
+      }
       broadcastGameState(lobbyCode);
       game.players.forEach(p => {
         (p as any).roundEndAcknowledged = true; // auto-acknowledge for all-ghost rounds
@@ -783,6 +789,34 @@ function startBidding(lobbyCode: string) {
       message: `Round ${game.round} SKIPPED (Conclave vote) — no winner, no bids.`,
       basic: true,
     });
+    // Advance ghost countdowns for the skipped round so ghosts still progress toward revival.
+    if (game.settings.variant === 'HAUNTED') {
+      const isFinalRound = game.round >= game.totalRounds;
+      const reviveTime = calcReviveTime(game);
+      game.players.forEach(ghost => {
+        if (!ghost.isGhost) return;
+        if (ghost.possessionRoundsLeft === undefined) {
+          ghost.possessionRoundsLeft = ghost.ghostAbility === 'reaper' ? 3 : 2;
+          return;
+        }
+        const roundsLeft = ghost.possessionRoundsLeft - 1;
+        if (roundsLeft <= 0) {
+          if (!isFinalRound) {
+            ghost.isGhost = false;
+            ghost.remainingTime = reviveTime;
+            ghost.ghostImage = undefined;
+            ghost.ghostAbility = null;
+            ghost.ghostAbilityUsed = true;
+            ghost.possessionRoundsLeft = undefined;
+            addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived with ${reviveTime.toFixed(1)}s!`, basic: true });
+          } else {
+            ghost.possessionRoundsLeft = undefined;
+          }
+        } else {
+          ghost.possessionRoundsLeft = roundsLeft;
+        }
+      });
+    }
     broadcastGameState(lobbyCode);
     // Use same post-round logic as endRound but minimal — just advance
     game.players.forEach(p => {
@@ -1918,7 +1952,10 @@ function endRound(lobbyCode: string) {
       }
     });
 
-    // Process ghost abilities for all ghosts (bots and humans) server-side at round end
+    // Process ghost abilities for all ghosts (bots and humans) server-side at round end.
+    // Track ghosts whose countdown is initialized THIS pass so we don't immediately
+    // decrement them (they should wait the full designated number of rounds).
+    const justInitialized = new Set<string>();
     game.players.forEach(ghost => {
       if (!ghost.isGhost || ghost.ghostAbilityUsed || !ghost.ghostAbility) return;
 
@@ -1936,12 +1973,13 @@ function endRound(lobbyCode: string) {
         target.ghostTimeAtDeath = savedTime;
         addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} REAPER: ${target.name} becomes a ghost!`, basic: true });
       }
-      // After reaper fires (or if no targets), ghost enters countdown
-      // Reaper gets 3 rounds (1 more than purgatory's 2) before reviving
+      // After reaper fires (or if no targets), ghost enters countdown.
+      // Reaper waits 3 full rounds before reviving; purgatory waits 2 full rounds.
       ghost.ghostAbilityUsed = true;
       if (ghost.possessionRoundsLeft === undefined) {
         const reaperRounds = ghost.ghostAbility === 'reaper' ? 3 : 2;
         ghost.possessionRoundsLeft = reaperRounds;
+        justInitialized.add(ghost.id);
         if (ghost.ghostAbility === 'purgatory') {
           addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} PURGATORY: counting down 2 rounds...`, basic: true });
         } else if (ghost.ghostAbility === 'reaper') {
@@ -1950,14 +1988,18 @@ function endRound(lobbyCode: string) {
       }
     });
 
-    // Check purgatory countdown revive conditions for all ghosts
+    // Check purgatory countdown revive conditions for all ghosts.
+    // Skip ghosts whose countdown was just initialized above — they get their
+    // first decrement on the NEXT round end to honour the full wait period.
     const isFinalRound = game.round >= game.totalRounds;
     const reviveTime = calcReviveTime(game);
     game.players.forEach(ghost => {
       if (!ghost.isGhost) return;
+      if (justInitialized.has(ghost.id)) return; // initialized this pass — don't decrement yet
       if (ghost.possessionRoundsLeft === undefined) {
         // Safety: ensure every ghost has a countdown (reaper gets 3, purgatory gets 2)
         ghost.possessionRoundsLeft = ghost.ghostAbility === 'reaper' ? 3 : 2;
+        justInitialized.add(ghost.id); // treat safety-init as "just initialized"
         return;
       }
       const roundsLeft = ghost.possessionRoundsLeft - 1;
@@ -1977,6 +2019,9 @@ function endRound(lobbyCode: string) {
         ghost.possessionRoundsLeft = roundsLeft;
       }
     });
+    // Mark that Block A processed ghost countdowns for this round so the
+    // all-ghost startBidding path (Block B) does not double-decrement.
+    game.ghostCountdownProcessedForCurrentRound = true;
   }
 
   // HIDDEN_NAIL_IN_THE_COFFIN: award to player whose DISRUPT ability caused an opponent's elimination
@@ -2863,10 +2908,18 @@ function startWaitingForReady(lobbyCode: string) {
   if (!game) return;
 
   // --- FINAL WRIT CHECK ---
-  // If any player activated Final Writ and this is the final round, skip bidding entirely
+  // If any player activated Final Writ and this is the final round, skip bidding entirely.
+  // Ghosted players are also eligible — Final Writ revives them and claims the trophy.
   if (game.settings.variant === 'HAUNTED' && game.round >= game.totalRounds) {
-    const finalWritPlayer = game.players.find(p => p.finalWritActive && !p.isEliminated && !p.isGhost);
+    const finalWritPlayer = game.players.find(p => p.finalWritActive && !p.isEliminated);
     if (finalWritPlayer) {
+      // Revive ghost if needed so they can claim the trophy
+      if (finalWritPlayer.isGhost) {
+        finalWritPlayer.isGhost = false;
+        finalWritPlayer.ghostImage = undefined;
+        finalWritPlayer.ghostAbility = null;
+        finalWritPlayer.possessionRoundsLeft = undefined;
+      }
       finalWritPlayer.tokens += 1;
       finalWritPlayer.finalWritActive = false;
       addGameLogEntry(game, {
@@ -2890,7 +2943,9 @@ function startWaitingForReady(lobbyCode: string) {
   game.roundWinner = null;
   game.eliminatedThisRound = [];
   game.isDoubleTokensRound = false;
-
+  // Reset ghost countdown flag for the new round so Block B (all-ghost startBidding)
+  // can correctly decrement on rounds where Block A (endRound) did not run.
+  game.ghostCountdownProcessedForCurrentRound = false;
   game.overclockClickCounts = {};
   
   // --- MP: BOT RELIC ACTIVATION ---

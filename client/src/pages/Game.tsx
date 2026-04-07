@@ -1342,7 +1342,7 @@ export default function Game() {
   const [roundWinner, setRoundWinner] = useState<{ name: string; time: number; isFinalWrit?: boolean } | null>(null);
   const [roundLog, setRoundLog] = useState<string[]>([]);
   const [showAllLogs, setShowAllLogs] = useState(false); // For game log filtering
-  const [isPlayerStatsExpanded, setIsPlayerStatsExpanded] = useState(false);
+  const [isPlayerStatsExpanded, setIsPlayerStatsExpanded] = useState(true);
 
   // Refs for loop management
   const requestRef = useRef<number | null>(null);
