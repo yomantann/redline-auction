@@ -216,7 +216,7 @@ export default function Stats() {
             <Card className="bg-zinc-900/50 border-yellow-500/20 col-span-1 md:col-span-3">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-zinc-400">
-                  <DollarSign size={16} className="text-yellow-500" /> COMPETITIVE WAGER RECORD
+                  <DollarSign size={16} className="text-yellow-500" /> CREDIT WAGER RECORD
                 </CardTitle>
               </CardHeader>
               <CardContent>

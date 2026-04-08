@@ -557,7 +557,7 @@ export async function registerRoutes(
       // WAGER Competitive: require at least 4 real players, no bots
       if (lobby.settings.competitiveBidTier) {
         if (readyPlayers.length < 4) {
-          if (callback) callback({ success: false, error: "WAGER Competitive requires at least 4 real players. Invite more friends!" });
+          if (callback) callback({ success: false, error: "Credit Wager requires at least 4 real players. Invite more friends!" });
           return;
         }
       }

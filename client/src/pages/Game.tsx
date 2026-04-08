@@ -8740,6 +8740,34 @@ export default function Game() {
                         </span>
                       )}
                     </button>
+                    <button
+                      onClick={() => {
+                        if (WAGER_MODE_ENABLED && !currentLobby) {
+                          setVariant('WAGER');
+                          setPhase('multiplayer_lobby');
+                        }
+                      }}
+                      disabled={!!currentLobby || !WAGER_MODE_ENABLED}
+                      className={cn(
+                        'px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border relative',
+                        'bg-black/20 border-yellow-600/40 text-yellow-600/70 hover:text-yellow-400 hover:border-yellow-500',
+                        currentLobby && 'cursor-not-allowed',
+                        !WAGER_MODE_ENABLED && 'blur-[2px] opacity-50 cursor-not-allowed select-none pointer-events-none'
+                      )}
+                      title={!WAGER_MODE_ENABLED ? 'Coming Soon' : currentLobby ? 'Settings locked - set by lobby host' : "CREDIT WAGER: Multiplayer only. Bid credits from your profile balance. Top finishers win the pool."}
+                      data-testid="button-intro-variant-credit-wager"
+                    >
+                      CREDIT WAGER
+                      {!WAGER_MODE_ENABLED ? (
+                        <span className="absolute -top-2 -right-2 text-[8px] font-bold bg-zinc-700 text-zinc-300 px-1 py-0.5 rounded-full leading-none">
+                          SOON
+                        </span>
+                      ) : (
+                        <span className="absolute -top-2 -right-2 text-[8px] font-bold bg-yellow-700/80 text-yellow-200 px-1 py-0.5 rounded-full leading-none">
+                          MP
+                        </span>
+                      )}
+                    </button>
                  </div>
               </div>
 
@@ -8926,12 +8954,12 @@ export default function Game() {
                       </span>
                     )}
                   </div>
-                  {/* WAGER Competitive info badge */}
+                  {/* Credit Wager info badge */}
                   {currentLobby.settings?.competitiveBidTier && (
                     <div className="mt-3 p-3 rounded-lg bg-yellow-950/30 border border-yellow-500/30 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-[10px] text-yellow-400 font-bold tracking-widest">&#x1F3C6; WAGER COMPETITIVE</div>
+                          <div className="text-[10px] text-yellow-400 font-bold tracking-widest">&#x1F3C6; CREDIT WAGER</div>
                           <div className="text-[12px] text-yellow-300 font-bold mt-0.5">
                             {BID_TIERS.find(t => t.id === currentLobby.settings?.competitiveBidTier)?.label} &middot; {formatCredits(currentLobby.settings?.competitiveBidAmount ?? 0)} CR/player
                           </div>
@@ -9110,7 +9138,7 @@ export default function Game() {
                     <>
                       {needsMoreForCompetitive && (
                         <div className="text-[11px] text-yellow-400 bg-yellow-950/20 border border-yellow-500/20 rounded px-3 py-2 text-center">
-                          &#x1F3C6; Competitive requires 4+ real players ({readyCount}/4 ready)
+                          &#x1F3C6; Credit Wager requires 4+ real players ({readyCount}/4 ready)
                         </div>
                       )}
                       <Button 
@@ -9119,7 +9147,7 @@ export default function Game() {
                         className="w-full bg-green-600 hover:bg-green-700"
                         data-testid="button-start-game"
                       >
-                        {canStart ? (isCompetitive ? 'Start Competitive Game' : 'Start Game') : 
+                        {canStart ? (isCompetitive ? 'Start Credit Wager Game' : 'Start Game') : 
                           needsMoreForCompetitive ? `Need ${4 - readyCount} more players` :
                           `Waiting for players (${readyCount}/${currentLobby.players.length})`}
                       </Button>
@@ -9213,7 +9241,7 @@ export default function Game() {
                        : "Only players with the room code can join."}
                    </p>
 
-                   {/* WAGER Competitive — only shows when variant is WAGER */}
+                   {/* Credit Wager section — only shows when variant is WAGER */}
                    {variant === 'WAGER' && (
                      <div className={cn("bg-yellow-950/20 border border-yellow-500/30 rounded-xl p-4 space-y-3 text-left relative", !WAGER_MODE_ENABLED && "select-none pointer-events-none")}>
                        {!WAGER_MODE_ENABLED && (
@@ -9223,7 +9251,7 @@ export default function Game() {
                          </div>
                        )}
                        <div className="flex items-center justify-between">
-                         <div className="font-bold text-yellow-300 text-sm">&#x1F3C6; WAGER Competitive</div>
+                         <div className="font-bold text-yellow-300 text-sm">&#x1F3C6; CREDIT WAGER</div>
                          <div className="text-[10px] text-zinc-400">Balance: <span className="text-yellow-300 font-bold">{formatCredits(creditBalance)} CR</span></div>
                        </div>
                        <p className="text-[10px] text-zinc-400">Optional credit bid. Requires 4+ real players. No bots.</p>
@@ -9263,7 +9291,7 @@ export default function Game() {
                      disabled={!isConnected || !playerName.trim()}
                      data-testid="button-create-lobby"
                    >
-                     {variant === 'WAGER' && competitiveBidTier ? 'Create Competitive Lobby &#x1F3C6;' : `Create ${isPublicLobby ? 'Public' : 'Private'} Lobby`}
+                     {variant === 'WAGER' && competitiveBidTier ? 'Create Credit Wager Lobby &#x1F3C6;' : `Create ${isPublicLobby ? 'Public' : 'Private'} Lobby`}
                    </Button>
                 </div>
 
@@ -9297,7 +9325,7 @@ export default function Game() {
                        Join
                      </Button>
                    </div>
-                   {/* WAGER Competitive join section */}
+                   {/* Credit Wager join section */}
                    <div className={cn("bg-yellow-950/20 border border-yellow-500/20 rounded-xl p-3 space-y-2 text-left relative", !WAGER_MODE_ENABLED && "select-none pointer-events-none")}>
                      {!WAGER_MODE_ENABLED && (
                        <div className="absolute inset-0 rounded-xl z-10 flex flex-col items-center justify-center gap-1 backdrop-blur-[3px] bg-black/40">
@@ -9306,10 +9334,10 @@ export default function Game() {
                        </div>
                      )}
                      <div className="flex items-center justify-between">
-                       <div className="font-bold text-yellow-300 text-xs">&#x1F3C6; WAGER Competitive Join</div>
+                       <div className="font-bold text-yellow-300 text-xs">&#x1F3C6; CREDIT WAGER JOIN</div>
                        <div className="text-[10px] text-zinc-400">{formatCredits(creditBalance)} CR</div>
                      </div>
-                     <p className="text-[10px] text-zinc-400">Optionally select a bid tier before joining a competitive lobby.</p>
+                     <p className="text-[10px] text-zinc-400">Optionally select a bid tier before joining a Credit Wager lobby.</p>
                      <div className="grid grid-cols-2 gap-1.5">
                        {BID_TIERS.map(tier => {
                          const canAfford = creditBalance >= tier.amount;
@@ -11271,10 +11299,10 @@ export default function Game() {
                 </div>
 
                 {/* Play Again Button */}
-                {/* WAGER Competitive payout display */}
+                {/* Credit Wager payout display */}
                 {competitiveWagerPayout && isMultiplayer && (
                   <div className="w-full max-w-md mx-auto mb-2 p-4 rounded-xl bg-yellow-950/30 border border-yellow-500/30 space-y-2">
-                    <div className="text-center font-bold text-yellow-300 text-sm">&#x1F3C6; WAGER Competitive Results</div>
+                    <div className="text-center font-bold text-yellow-300 text-sm">&#x1F3C6; CREDIT WAGER RESULTS</div>
                     <div className="text-center text-[10px] text-zinc-400">
                       {BID_TIERS.find(t=>t.id===competitiveWagerPayout.bidTier)?.label} · Pool: {formatCredits(competitiveWagerPayout.pool)} CR
                     </div>
