@@ -2867,6 +2867,14 @@ export default function Game() {
           } else if (roll < 0.75) {
             activator.remainingTime = Math.max(0, activator.remainingTime - 30);
             setTimeout(() => addOverlay('haunted_relic', '🎰 JACKPOT: 💀 CURSED!', '-30s removed from your time bank!', 0), 200);
+            if (activator.remainingTime <= 0 && !activator.isGhost && !activator.isEliminated) {
+              const ghostData = assignGhostImage();
+              activator.isGhost = true; activator.ghostReason = 'natural'; activator.remainingTime = 0;
+              activator.ghostAbility = ghostData.ghostAbility; activator.ghostImage = ghostData.ghostImage;
+              activator.characterIcon = ghostData.characterIcon; activator.ghostAbilityUsed = false;
+              const gMsg = buildGhostAbilityMsg('The jackpot cursed you into the spirit world.', ghostData.ghostAbility);
+              setTimeout(() => addOverlay('time_out', '👻 GHOSTED', gMsg, 0), 600);
+            }
           } else {
             const ghostData = assignGhostImage();
             const savedTime = activator.remainingTime;
@@ -2948,6 +2956,12 @@ export default function Game() {
             if (lastBid != null) {
               target.remainingTime = Math.max(0, target.remainingTime - lastBid);
               setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO', `${target.name} lost ${lastBid.toFixed(1)}s from their time bank!`, 0), 200);
+              if (target.remainingTime <= 0 && !target.isGhost && !target.isEliminated) {
+                const ghostData = assignGhostImage();
+                target.isGhost = true; target.ghostReason = 'natural'; target.remainingTime = 0;
+                target.ghostAbility = ghostData.ghostAbility; target.ghostImage = ghostData.ghostImage;
+                target.characterIcon = ghostData.characterIcon; target.ghostAbilityUsed = false;
+              }
             } else {
               setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO: NO HISTORY', `${target.name} has no bid history yet. Echo had no effect.`, 0), 200);
             }
@@ -3129,14 +3143,33 @@ export default function Game() {
     if (vs.relicId === 'tribunal') {
       setPlayers(prev => prev.map(p => {
         if (p.id !== vs.targetId) return p;
-        if (winner.id === 'A') return { ...p, remainingTime: Math.max(0, p.remainingTime - 30) };
+        if (winner.id === 'A') {
+          const newTime = Math.max(0, p.remainingTime - 30);
+          if (newTime <= 0 && variant === 'HAUNTED' && !p.isGhost && !p.isEliminated) {
+            const ghostData = assignGhostImage();
+            return { ...p, remainingTime: 0, isGhost: true, ghostReason: 'natural' as const,
+              ghostAbility: ghostData.ghostAbility, ghostImage: ghostData.ghostImage,
+              characterIcon: ghostData.characterIcon, ghostAbilityUsed: false };
+          }
+          return { ...p, remainingTime: newTime };
+        }
         if (winner.id === 'B') return { ...p, relicConsumed: true };
         return p;
       }));
       setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', winner.id === 'A' ? `${vs.targetName} loses 30s from their time bank immediately!` : `${vs.targetName}'s relic has been consumed without effect!`, 0), 200);
     } else if (vs.relicId === 'conclave') {
       if (winner.id === 'A') {
-        setPlayers(prev => prev.map(p => (!p.isEliminated && !p.isGhost) ? { ...p, remainingTime: Math.floor(p.remainingTime / 2 * 10) / 10 } : p));
+        setPlayers(prev => prev.map(p => {
+          if (p.isEliminated || p.isGhost) return p;
+          const newTime = Math.floor(p.remainingTime / 2 * 10) / 10;
+          if (newTime <= 0 && variant === 'HAUNTED') {
+            const ghostData = assignGhostImage();
+            return { ...p, remainingTime: 0, isGhost: true, ghostReason: 'natural' as const,
+              ghostAbility: ghostData.ghostAbility, ghostImage: ghostData.ghostImage,
+              characterIcon: ghostData.characterIcon, ghostAbilityUsed: false };
+          }
+          return { ...p, remainingTime: newTime };
+        }));
         setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE A', 'All time banks halved!', 0), 200);
       } else if (winner.id === 'B') {
         // Mark skip-next-round on local state; handled in startCountdown
@@ -3404,14 +3437,28 @@ export default function Game() {
 
   // Start Round Logic
   const startCountdown = () => {
-    // SP: FINAL WRIT — if player has it active and this IS the final round, skip it
+    // SP: FINAL WRIT — if player has it active and this IS the final round, skip it.
+    // Ghost holders are revived before claiming the trophy (mirrors server processFinalWrit).
     if (variant === 'HAUNTED' && round >= totalRounds) {
-      const finalWritHolder = players.find(p => p.finalWritActive && !p.isEliminated && !p.isGhost);
+      const finalWritHolder = players.find(p => p.finalWritActive && !p.isEliminated);
       if (finalWritHolder) {
-        // Compute updated players synchronously so we can use them in the end-game processing
-        const finalWritUpdatedPlayers = players.map(p =>
-          p.id === finalWritHolder.id ? { ...p, tokens: p.tokens + 1, finalWritActive: false, relicConsumed: true } : p
-        );
+        // Compute updated players synchronously so we can use them in the end-game processing.
+        // If the holder was a ghost, revive them first, then award the trophy.
+        const finalWritUpdatedPlayers = players.map(p => {
+          if (p.id !== finalWritHolder.id) return p;
+          return {
+            ...p,
+            tokens: p.tokens + 1,
+            finalWritActive: false,
+            relicConsumed: true,
+            // Revive if they were a ghost
+            isGhost: false,
+            ghostImage: undefined,
+            ghostAbility: null,
+            ghostAbilityUsed: false,
+            possessionRoundsLeft: undefined,
+          };
+        });
         setPlayers(finalWritUpdatedPlayers);
         setTimeout(() => addOverlay('haunted_relic', '✒️ FINAL WRIT ACTIVATED', `${finalWritHolder.name} skips the final round and claims the trophy!`, 5000), 200);
         setRoundWinner({ name: finalWritHolder.name, time: 0, isFinalWrit: true });
@@ -3774,6 +3821,12 @@ export default function Game() {
                 bot.tokens += 2;
               } else if (roll < 0.75) {
                 bot.remainingTime = Math.max(0, bot.remainingTime - 30);
+                if (bot.remainingTime <= 0 && !bot.isGhost && !bot.isEliminated) {
+                  const ghostData = assignGhostImage();
+                  bot.isGhost = true; bot.ghostReason = 'natural'; bot.remainingTime = 0;
+                  bot.ghostAbility = ghostData.ghostAbility; bot.ghostImage = ghostData.ghostImage;
+                  bot.characterIcon = ghostData.characterIcon; bot.ghostAbilityUsed = false;
+                }
               } else {
                 const ghostData = assignGhostImage();
                 const saved = bot.remainingTime;
@@ -3913,6 +3966,12 @@ export default function Game() {
                 if (target.id === 'p1') {
                   setTimeout(() => addOverlay('haunted_relic', '🔁 ECHO: TIME DEDUCTED', `${bot.name} used Echo — you lost ${lastBid.toFixed(1)}s from your time bank!`, 0), 400);
                 }
+                if (target.remainingTime <= 0 && !target.isGhost && !target.isEliminated) {
+                  const ghostData = assignGhostImage();
+                  target.isGhost = true; target.ghostReason = 'natural'; target.remainingTime = 0;
+                  target.ghostAbility = ghostData.ghostAbility; target.ghostImage = ghostData.ghostImage;
+                  target.characterIcon = ghostData.characterIcon; target.ghostAbilityUsed = false;
+                }
               }
               break;
             }
@@ -3957,6 +4016,12 @@ export default function Game() {
                 if (choice === 'A') {
                   target.remainingTime = Math.max(0, target.remainingTime - 30);
                   setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', `${bot.name} sentenced ${target.name} — ${target.name} loses 30s immediately!`, 0), 200);
+                  if (target.remainingTime <= 0 && !target.isGhost && !target.isEliminated) {
+                    const ghostData = assignGhostImage();
+                    target.isGhost = true; target.ghostReason = 'natural'; target.remainingTime = 0;
+                    target.ghostAbility = ghostData.ghostAbility; target.ghostImage = ghostData.ghostImage;
+                    target.characterIcon = ghostData.characterIcon; target.ghostAbilityUsed = false;
+                  }
                 } else {
                   target.relicConsumed = true;
                   setTimeout(() => addOverlay('haunted_relic', '⚖️ TRIBUNAL', `${bot.name} sentenced ${target.name} — ${target.name}'s relic was consumed!`, 0), 200);
@@ -3970,7 +4035,17 @@ export default function Game() {
               // Bots apply immediate random effect — no vote triggered
               const conclaveChoice = ['A', 'B', 'C', 'D'][Math.floor(Math.random() * 4)];
               if (conclaveChoice === 'A') {
-                next.forEach((p: any) => { if (!p.isEliminated && !p.isGhost) p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10; });
+                next.forEach((p: any) => {
+                  if (!p.isEliminated && !p.isGhost) {
+                    p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10;
+                    if (p.remainingTime <= 0) {
+                      const ghostData = assignGhostImage();
+                      p.isGhost = true; p.ghostReason = 'natural'; p.remainingTime = 0;
+                      p.ghostAbility = ghostData.ghostAbility; p.ghostImage = ghostData.ghostImage;
+                      p.characterIcon = ghostData.characterIcon; p.ghostAbilityUsed = false;
+                    }
+                  }
+                });
                 setTimeout(() => addOverlay('haunted_relic', '🗳️ CONCLAVE', `${bot.name} invoked the Conclave — all time banks halved!`, 0), 200);
               } else if (conclaveChoice === 'B') {
                 (window as any).__conclaveSkipNextRound = true;
@@ -4015,7 +4090,8 @@ export default function Game() {
   const endOverclockRound = (counts: Record<string, number>) => {
     setPhase('round_end');
 
-    const activePlayers = players.filter(p => !p.isEliminated);
+    // In Haunted mode ghosts are excluded from participating in OVERCLOCK
+    const activePlayers = players.filter(p => !p.isEliminated && !p.isGhost);
     if (activePlayers.length === 0) return;
 
     const maxClicks = Math.max(...activePlayers.map(p => counts[p.id] || 0));
@@ -4043,8 +4119,15 @@ export default function Game() {
       setPlayers(prev => prev.map(p => {
         if (p.id === loser.id) {
           const newTime = Math.max(0, p.remainingTime - 35);
-          const isElim = newTime <= 0;
-          return { ...p, remainingTime: newTime, isEliminated: isElim || p.isEliminated };
+          const depleted = newTime <= 0;
+          if (variant === 'HAUNTED' && depleted && !p.isGhost) {
+            // Haunted: become a ghost instead of being eliminated
+            const ghostData = assignGhostImage();
+            return { ...p, remainingTime: 0, isGhost: true, ghostReason: 'natural' as const,
+              ghostAbility: ghostData.ghostAbility, ghostImage: ghostData.ghostImage,
+              characterIcon: ghostData.characterIcon, ghostAbilityUsed: false };
+          }
+          return { ...p, remainingTime: newTime, isEliminated: depleted || p.isEliminated };
         }
         return p;
       }));
@@ -4097,7 +4180,7 @@ export default function Game() {
 
       // Pre-compute PANIC MASH random outcomes so state update and animation use the same value
       const panicMashOutcomes: Record<string, number> = {};
-      players.filter(p => !p.isEliminated).forEach(p => {
+      players.filter(p => !p.isEliminated && !p.isGhost).forEach(p => {
         const char = p.isBot ? allChars.find(c => p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name) : selectedCharacter;
         if (char?.ability?.name === 'PANIC MASH') {
           panicMashOutcomes[p.id] = Math.random() > 0.5 ? 3.0 : -3.0;
@@ -4106,7 +4189,7 @@ export default function Game() {
 
       // Apply all ability effects
       setPlayers(prev => prev.map(p => {
-        if (p.isEliminated) return p;
+        if (p.isEliminated || p.isGhost) return p;
         const char = p.isBot
           ? allChars.find(c =>
               p.selectedDriver ? c.id === p.selectedDriver : c.name === p.name)
@@ -4135,8 +4218,14 @@ export default function Game() {
         // Apply Cheese Tax damage received by the winner
         if (isClickWinner) newTime -= cheeseTaxCount * 2.0;
 
-        const isElim = newTime <= 0 || p.isEliminated;
-        return { ...p, remainingTime: Math.max(0, newTime), isEliminated: isElim };
+        const depleted = newTime <= 0;
+        if (variant === 'HAUNTED' && depleted && !p.isGhost) {
+          const ghostData = assignGhostImage();
+          return { ...p, remainingTime: 0, isGhost: true, ghostReason: 'natural' as const,
+            ghostAbility: ghostData.ghostAbility, ghostImage: ghostData.ghostImage,
+            characterIcon: ghostData.characterIcon, ghostAbilityUsed: false };
+        }
+        return { ...p, remainingTime: Math.max(0, newTime), isEliminated: depleted || p.isEliminated };
       }));
 
       // Trigger ability animations
@@ -4174,9 +4263,10 @@ export default function Game() {
     recordSingleplayerSnapshot('round_end', players, round, winnerId, maxClicks, [], 'OVERCLOCK');
 
     // Check if game over
-    const activePls = players.filter(p => !p.isEliminated);
+    // In Haunted mode, ghosts can revive so we only end on round limit or total wipeout
+    const activePls = players.filter(p => !p.isEliminated && !p.isGhost);
     const overclockGameOver = variant === 'HAUNTED'
-      ? (activePls.length === 0 || round >= totalRounds)
+      ? (players.filter(p => !p.isEliminated).length === 0 || round >= totalRounds)
       : (activePls.length <= 1 || round >= totalRounds);
     if (overclockGameOver) {
       setTimeout(() => setPhase('game_end'), 3000);
@@ -4730,8 +4820,16 @@ export default function Game() {
                          if (w.impactLogs) w.impactLogs.push({ value: `-${curseDmg.toFixed(1)}s`, reason: `Cheese Tax`, type: 'loss' });
                          
                          if (w.remainingTime <= 0) {
-                             w.isEliminated = true;
-                             extraLogs.push(`>> ${w.name} eliminated by Cheese Tax!`);
+                             if (variant === 'HAUNTED' && !w.isGhost) {
+                               const ghostData = assignGhostImage();
+                               w.isGhost = true; w.ghostReason = 'natural'; w.remainingTime = 0;
+                               w.ghostAbility = ghostData.ghostAbility; w.ghostImage = ghostData.ghostImage;
+                               w.characterIcon = ghostData.characterIcon; w.ghostAbilityUsed = false;
+                               extraLogs.push(`>> ${w.name} ghosted by Cheese Tax!`);
+                             } else {
+                               w.isEliminated = true;
+                               extraLogs.push(`>> ${w.name} eliminated by Cheese Tax!`);
+                             }
                          }
                      }
                  }
@@ -4874,6 +4972,12 @@ export default function Game() {
           } else if (!p.isGhost && !p.isEliminated) {
             p.remainingTime = Math.max(0, p.remainingTime - 15);
             if (p.id === 'p1') setTimeout(() => addOverlay('haunted_relic', '💀 DEATH WISH: CURSED', '-15s extra penalty for not winning.', 0), 800);
+            if (p.remainingTime <= 0) {
+              const ghostData = assignGhostImage();
+              p.isGhost = true; p.ghostReason = 'natural'; p.remainingTime = 0;
+              p.ghostAbility = ghostData.ghostAbility; p.ghostImage = ghostData.ghostImage;
+              p.characterIcon = ghostData.characterIcon; p.ghostAbilityUsed = false;
+            }
           }
           p.deathWishActive = false;
         }
@@ -4883,22 +4987,33 @@ export default function Game() {
           finalPlayers.forEach(fp => {
             if (fp.id !== winnerId && !fp.isGhost && !fp.isEliminated) {
               fp.remainingTime = Math.max(0, fp.remainingTime - winnerTime);
+              if (fp.remainingTime <= 0) {
+                const ghostData = assignGhostImage();
+                fp.isGhost = true; fp.ghostReason = 'natural'; fp.remainingTime = 0;
+                fp.ghostAbility = ghostData.ghostAbility; fp.ghostImage = ghostData.ghostImage;
+                fp.characterIcon = ghostData.characterIcon; fp.ghostAbilityUsed = false;
+              }
             }
           });
           setTimeout(() => addOverlay('haunted_relic', '🩸 BLOOD PACT TRIGGERED', `Everyone who didn't win loses an extra ${winnerTime.toFixed(1)}s!`, 0), 800);
           p.bloodPactActive = false;
         }
 
-        // Cursed Dice: ±20s random
+        // Cursed Dice: ±30s random
         if (p.cursedDiceActive) {
           const gain = Math.random() > 0.5;
           if (gain) {
-
             p.remainingTime += 30;
             if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: LUCKY!', '+30s added to your bank!', 0), 800);
           } else {
             p.remainingTime = Math.max(0, p.remainingTime - 30);
             if (p.id === 'p1') setTimeout(() => addOverlay('ability_trigger', '🎲 CURSED DICE: CURSED!', '-30s removed from your bank!', 0), 800);
+            if (p.remainingTime <= 0 && !p.isGhost && !p.isEliminated) {
+              const ghostData = assignGhostImage();
+              p.isGhost = true; p.ghostReason = 'natural'; p.remainingTime = 0;
+              p.ghostAbility = ghostData.ghostAbility; p.ghostImage = ghostData.ghostImage;
+              p.characterIcon = ghostData.characterIcon; p.ghostAbilityUsed = false;
+            }
           }
           p.cursedDiceActive = false;
         }
