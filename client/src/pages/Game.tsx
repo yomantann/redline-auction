@@ -8905,9 +8905,9 @@ export default function Game() {
                 alt=""
                 aria-hidden="true"
                 className="absolute pointer-events-none z-20 rounded"
-                style={{ top: '-8px', right: '-8px', bottom: '-8px', left: '-8px',
-                         width: 'calc(100% + 16px)', height: 'calc(100% + 16px)',
-                         objectFit: 'fill' }}
+                style={{ top: '-14px', left: '-18px',
+                         width: 'calc(100% + 132px)', height: 'calc(100% + 28px)',
+                         objectFit: 'fill', borderRadius: 'inherit' }}
                 loading="eager"
                 decoding="async"
               />

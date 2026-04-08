@@ -911,6 +911,26 @@ function startBidding(lobbyCode: string) {
             p.ghostAbility = assignGhostAbility();
             p.ghostAbilityUsed = false;
             log(`${p.name} became a ghost (ran out of time) in lobby ${lobbyCode}`, "game");
+            // REAPER: fire immediately so the target is ghosted on the same broadcast tick
+            if (p.ghostAbility === 'reaper') {
+              const aliveTargets = g.players.filter(q => !q.isGhost && !q.isEliminated && q.id !== p.id);
+              if (aliveTargets.length > 0) {
+                const reaperTarget = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+                const savedTime = reaperTarget.remainingTime;
+                reaperTarget.isGhost = true;
+                reaperTarget.isHolding = false;
+                reaperTarget.remainingTime = 0;
+                reaperTarget.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+                reaperTarget.ghostAbility = assignGhostAbility();
+                reaperTarget.ghostAbilityUsed = false;
+                reaperTarget.ghostReason = 'forced';
+                reaperTarget.ghostTimeAtDeath = savedTime;
+                addGameLogEntry(g, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} REAPER: ${reaperTarget.name} becomes a ghost!`, basic: true });
+                if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 REAPER', message: `${p.name}'s REAPER ability ghosted ${reaperTarget.name}!` });
+                log(`${p.name} REAPER fired during bidding, ghosted ${reaperTarget.name} in lobby ${lobbyCode}`, "game");
+              }
+              p.ghostAbilityUsed = true;
+            }
           } else {
             p.isEliminated = true;
             g.eliminatedThisRound.push(p.id);

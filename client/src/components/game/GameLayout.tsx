@@ -22,7 +22,7 @@ export function GameLayout({ children, className, variant = "STANDARD" }: GameLa
     bgStandard;
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground no-callout">
+    <div className="relative min-h-screen w-full bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground no-callout">
       {/* Background Image with Overlay */}
       <div
         className={cn(
