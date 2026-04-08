@@ -660,11 +660,13 @@ function assignGhostAbility(): 'reaper' | 'purgatory' {
 }
 
 // Helper: ghost or eliminate a player whose time has dropped to ≤ 0.
+// Callers must have already applied the time deduction; this function checks
+// remainingTime and takes action only when it has reached zero.
 // In HAUNTED mode the player becomes a ghost; in all other modes they are eliminated.
 // Returns true if the player was ghosted/eliminated, false if no action was taken.
 function ghostOrEliminate(game: GameState, player: GamePlayer, reason: string): boolean {
   if (player.isEliminated || player.isGhost) return false;
-  if (player.remainingTime > 0) return false;
+  if (player.remainingTime > 0) return false; // time still remaining — caller should have depleted it
   if (game.settings.variant === 'HAUNTED') {
     player.isGhost = true;
     player.ghostReason = 'natural';
