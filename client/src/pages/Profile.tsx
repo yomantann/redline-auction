@@ -1043,7 +1043,7 @@ function CheckoutForm({ packLabel, packPrice, onSuccess, onClose }: CheckoutForm
         onSuccess();
         onClose();
       } catch (err) {
-        setErrorMsg(String(err));
+        setErrorMsg(err instanceof Error ? err.message : String(err));
         setSubmitting(false);
       }
     }

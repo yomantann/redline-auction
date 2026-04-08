@@ -1125,7 +1125,7 @@ export async function registerRoutes(
       }
 
       const creditsToAdd = parseInt(intent.metadata.credits, 10);
-      if (!creditsToAdd || creditsToAdd <= 0) {
+      if (isNaN(creditsToAdd) || creditsToAdd <= 0) {
         return res.status(400).json({ success: false, error: 'Invalid credits metadata on intent.' });
       }
 
@@ -1142,13 +1142,14 @@ export async function registerRoutes(
 
       // Apply credits to player profile
       const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
-      if (profile) {
-        const updated = addCurrencyFromStripe(profile, creditsToAdd);
-        await db.update(playerProfiles)
-          .set({ currencyBalance: updated.currencyBalance, lifetimeEarned: updated.lifetimeEarned, updatedAt: new Date() })
-          .where(eq(playerProfiles.id, userId));
-        log(`Confirm: credited ${creditsToAdd} to user ${userId}`, 'stripe');
+      if (!profile) {
+        return res.status(404).json({ success: false, error: 'Player profile not found.' });
       }
+      const updated = addCurrencyFromStripe(profile, creditsToAdd);
+      await db.update(playerProfiles)
+        .set({ currencyBalance: updated.currencyBalance, lifetimeEarned: updated.lifetimeEarned, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, userId));
+      log(`Confirm: credited ${creditsToAdd} to user ${userId}`, 'stripe');
 
       // Record / update transaction
       if (existing) {
