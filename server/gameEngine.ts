@@ -659,6 +659,32 @@ function assignGhostAbility(): 'reaper' | 'purgatory' {
   return Math.random() < 0.25 ? 'reaper' : 'purgatory';
 }
 
+// Helper: ghost or eliminate a player whose time has dropped to ≤ 0.
+// Callers must have already applied the time deduction; this function checks
+// remainingTime and takes action only when it has reached zero.
+// In HAUNTED mode the player becomes a ghost; in all other modes they are eliminated.
+// Returns true if the player was ghosted/eliminated, false if no action was taken.
+function ghostOrEliminate(game: GameState, player: GamePlayer, reason: string): boolean {
+  if (player.isEliminated || player.isGhost) return false;
+  if (player.remainingTime > 0) return false; // time still remaining — caller should have depleted it
+  if (game.settings.variant === 'HAUNTED') {
+    player.isGhost = true;
+    player.ghostReason = 'natural';
+    if (!player.ghostImage) player.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+    if (!player.ghostAbility) player.ghostAbility = assignGhostAbility();
+    player.ghostAbilityUsed = false;
+    addGameLogEntry(game, { type: 'elimination', playerId: player.id, playerName: player.name, message: `${player.name} became a ghost (${reason})`, basic: true });
+    return true;
+  } else {
+    player.isEliminated = true;
+    if (!game.eliminatedThisRound.includes(player.id)) {
+      game.eliminatedThisRound.push(player.id);
+      addGameLogEntry(game, { type: 'elimination', playerId: player.id, playerName: player.name, message: `${player.name} was eliminated (${reason})`, basic: true });
+    }
+    return true;
+  }
+}
+
 // Helper: calculate revive time as max(45s, lowest alive non-ghost player's time bank)
 function calcReviveTime(game: GameState): number {
   const alivePlayers = game.players.filter(p => !p.isGhost && !p.isEliminated);
@@ -911,6 +937,26 @@ function startBidding(lobbyCode: string) {
             p.ghostAbility = assignGhostAbility();
             p.ghostAbilityUsed = false;
             log(`${p.name} became a ghost (ran out of time) in lobby ${lobbyCode}`, "game");
+            // REAPER: fire immediately so the target is ghosted on the same broadcast tick
+            if (p.ghostAbility === 'reaper') {
+              const aliveTargets = g.players.filter(q => !q.isGhost && !q.isEliminated && q.id !== p.id);
+              if (aliveTargets.length > 0) {
+                const reaperTarget = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+                const savedTime = reaperTarget.remainingTime;
+                reaperTarget.isGhost = true;
+                reaperTarget.isHolding = false;
+                reaperTarget.remainingTime = 0;
+                reaperTarget.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+                reaperTarget.ghostAbility = assignGhostAbility();
+                reaperTarget.ghostAbilityUsed = false;
+                reaperTarget.ghostReason = 'forced';
+                reaperTarget.ghostTimeAtDeath = savedTime;
+                addGameLogEntry(g, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} REAPER: ${reaperTarget.name} becomes a ghost!`, basic: true });
+                if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 REAPER', message: `${p.name}'s REAPER ability ghosted ${reaperTarget.name}!` });
+                log(`${p.name} REAPER fired during bidding, ghosted ${reaperTarget.name} in lobby ${lobbyCode}`, "game");
+              }
+              p.ghostAbilityUsed = true;
+            }
           } else {
             p.isEliminated = true;
             g.eliminatedThisRound.push(p.id);
@@ -2374,6 +2420,7 @@ function endRound(lobbyCode: string) {
           p.remainingTime = Math.max(0, p.remainingTime - 15);
           addGameLogEntry(game, { type: 'impact', playerId: p.id, playerName: p.name, message: `${p.name} DEATH WISH LOSS: -15s extra penalty`, value: -15, basic: true });
           if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 DEATH WISH: CURSED', message: `${p.name} activated Death Wish and LOST — -15s extra penalty this round!` });
+          ghostOrEliminate(game, p, 'Death Wish penalty');
         }
         p.deathWishActive = false;
       }
@@ -2388,24 +2435,7 @@ function endRound(lobbyCode: string) {
           });
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} BLOOD PACT: all non-winners lost extra ${winnerTimeBid.toFixed(1)}s`, value: -winnerTimeBid, basic: true });
           // Ghost/eliminate any player whose time reached zero from the Blood Pact
-          game.players.forEach(fp => {
-            if (fp.remainingTime === 0 && !fp.isGhost && !fp.isEliminated) {
-              if (game.settings.variant === 'HAUNTED') {
-                fp.isGhost = true;
-                fp.ghostReason = 'natural';
-                if (!fp.ghostImage) fp.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
-                if (!fp.ghostAbility) fp.ghostAbility = assignGhostAbility();
-                fp.ghostAbilityUsed = false;
-                addGameLogEntry(game, { type: 'elimination', playerId: fp.id, playerName: fp.name, message: `${fp.name} became a ghost (Blood Pact)`, basic: true });
-              } else {
-                fp.isEliminated = true;
-                if (!game.eliminatedThisRound.includes(fp.id)) {
-                  game.eliminatedThisRound.push(fp.id);
-                  addGameLogEntry(game, { type: 'elimination', playerId: fp.id, playerName: fp.name, message: `${fp.name} was eliminated (Blood Pact)`, basic: true });
-                }
-              }
-            }
-          });
+          game.players.forEach(fp => { ghostOrEliminate(game, fp, 'Blood Pact'); });
         }
         p.bloodPactActive = false;
       }
@@ -2419,6 +2449,7 @@ function endRound(lobbyCode: string) {
         } else {
           p.remainingTime = Math.max(0, p.remainingTime - 30);
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: -30s`, value: -30, basic: true });
+          ghostOrEliminate(game, p, 'Cursed Dice');
         }
         p.cursedDiceActive = false;
       }
@@ -3998,6 +4029,7 @@ export function activateRelicMP(
         activator.remainingTime = Math.max(0, activator.remainingTime - 30);
         addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} JACKPOT: -30s`, value: -30, basic: true });
         if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 💀 CURSED!', message: `${activator.name} hit Jackpot — −30s removed!` });
+        ghostOrEliminate(game, activator, 'Jackpot');
       } else {
         const savedTime = activator.remainingTime;
         activator.isGhost = true;
@@ -4081,6 +4113,7 @@ export function activateRelicMP(
           target.remainingTime = Math.max(0, target.remainingTime - lastBid);
           addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} -${lastBid.toFixed(1)}s from time bank`, basic: true });
           if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO', message: `${activator.name} used Echo — ${target.name} lost ${lastBid.toFixed(1)}s from their time bank!`, victimId: target.id });
+          ghostOrEliminate(game, target, 'Echo');
         } else {
           addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} has no bid history — no effect`, basic: true });
           if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO: NO HISTORY', message: `${activator.name} used Echo on ${target.name} — no bid history, no effect.` });
@@ -4329,6 +4362,7 @@ function resolveVoteRelic(lobbyCode: string) {
         target.remainingTime = Math.max(0, target.remainingTime - 30);
         addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL A: -30s from time bank immediately`, value: -30, basic: true });
         if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL: TIME DEDUCTED', message: `${target.name} loses 30s from their time bank!`, victimId: target.id });
+        ghostOrEliminate(game, target, 'Tribunal penalty');
       } else {
         target.relicConsumed = true;
         addGameLogEntry(game, { type: 'impact', playerId: target.id, playerName: target.name, message: `${target.name} TRIBUNAL B: relic consumed without effect`, basic: true });
@@ -4341,6 +4375,7 @@ function resolveVoteRelic(lobbyCode: string) {
         game.players.forEach(p => {
           if (!p.isEliminated && !p.isGhost) {
             p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10;
+            ghostOrEliminate(game, p, 'Conclave A');
           }
         });
         addGameLogEntry(game, { type: 'ability', message: 'CONCLAVE A: All time banks halved!', basic: true });

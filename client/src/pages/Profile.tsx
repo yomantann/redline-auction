@@ -1037,7 +1037,7 @@ function CheckoutForm({ packLabel, packPrice, onSuccess, onClose }: CheckoutForm
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+      <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh]">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10">
           <div>
             <div className="text-lg font-bold text-white">Buy {packLabel}</div>
