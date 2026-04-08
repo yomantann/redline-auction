@@ -1230,6 +1230,7 @@ export async function registerRoutes(
       const intent = event.data.object as Stripe.PaymentIntent;
       const { userId, credits } = intent.metadata;
       const intentId = intent.id;
+      log(`Webhook received succeeded intentId=${intentId} user=${userId} credits=${credits}`, 'stripe');
 
       if (!userId || !credits) {
         log(`Webhook missing metadata: intentId=${intentId}`, 'stripe');
@@ -1258,6 +1259,8 @@ export async function registerRoutes(
             .set({ currencyBalance: updated.currencyBalance, lifetimeEarned: updated.lifetimeEarned, updatedAt: new Date() })
             .where(eq(playerProfiles.id, userId));
           log(`Webhook: credited ${creditsToAdd} to user ${userId}`, 'stripe');
+        } else {
+          log(`Webhook: no profile found for user ${userId}`, 'stripe');
         }
 
         // Mark transaction completed (upsert by intentId)
