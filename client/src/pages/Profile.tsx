@@ -1019,19 +1019,33 @@ function CheckoutForm({ packLabel, packPrice, onSuccess, onClose }: CheckoutForm
     setSubmitting(true);
     setErrorMsg(null);
 
-    const { error } = await stripe.confirmPayment({
+    const result = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: window.location.href },
       redirect: 'if_required',
     });
 
-    if (error) {
-      setErrorMsg(error.message ?? 'Payment failed. Please try again.');
+    if (result.error) {
+      setErrorMsg(result.error.message ?? 'Payment failed. Please try again.');
       setSubmitting(false);
     } else {
-      toast({ title: 'Payment successful!', description: `${packLabel} added to your wallet.` });
-      onSuccess();
-      onClose();
+      // Verify server-side and credit the user immediately (no webhook required)
+      try {
+        const confirmRes = await fetch('/api/payments/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ paymentIntentId: result.paymentIntent?.id }),
+        });
+        const confirmData = await confirmRes.json();
+        if (!confirmData.success) throw new Error(confirmData.error ?? 'Failed to apply credits.');
+        toast({ title: 'Payment successful!', description: `${packLabel} added to your wallet.` });
+        onSuccess();
+        onClose();
+      } catch (err) {
+        setErrorMsg(String(err));
+        setSubmitting(false);
+      }
     }
   };
 

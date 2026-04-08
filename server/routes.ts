@@ -1099,6 +1099,81 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/payments/confirm – verify a completed PaymentIntent server-side and credit the user.
+  // Called by the client immediately after stripe.confirmPayment() succeeds.
+  // Safe alternative to webhooks: validates the intent directly with Stripe before crediting.
+  app.post("/api/payments/confirm", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.status(401).json({ success: false, error: 'Login required.' });
+    try {
+      const userId: string = req.user.claims.sub;
+      const { paymentIntentId } = req.body as { paymentIntentId: string };
+      if (!paymentIntentId) {
+        return res.status(400).json({ success: false, error: 'paymentIntentId is required.' });
+      }
+
+      // Verify the intent with Stripe directly (never trust client-supplied status)
+      const stripe = getStripe();
+      const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      // Ensure the intent belongs to the authenticated user
+      if (intent.metadata.userId !== userId) {
+        return res.status(403).json({ success: false, error: 'Unauthorized.' });
+      }
+
+      if (intent.status !== 'succeeded') {
+        return res.status(400).json({ success: false, error: `Payment not completed (status: ${intent.status}).` });
+      }
+
+      const creditsToAdd = parseInt(intent.metadata.credits, 10);
+      if (!creditsToAdd || creditsToAdd <= 0) {
+        return res.status(400).json({ success: false, error: 'Invalid credits metadata on intent.' });
+      }
+
+      // Idempotency: skip if already processed
+      const [existing] = await db
+        .select()
+        .from(stripeTransactions)
+        .where(eq(stripeTransactions.stripePaymentIntentId, paymentIntentId));
+
+      if (existing?.status === 'completed') {
+        log(`Confirm: already processed intentId=${paymentIntentId}`, 'stripe');
+        return res.json({ success: true, alreadyProcessed: true });
+      }
+
+      // Apply credits to player profile
+      const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      if (profile) {
+        const updated = addCurrencyFromStripe(profile, creditsToAdd);
+        await db.update(playerProfiles)
+          .set({ currencyBalance: updated.currencyBalance, lifetimeEarned: updated.lifetimeEarned, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, userId));
+        log(`Confirm: credited ${creditsToAdd} to user ${userId}`, 'stripe');
+      }
+
+      // Record / update transaction
+      if (existing) {
+        await db.update(stripeTransactions)
+          .set({ status: 'completed' })
+          .where(eq(stripeTransactions.stripePaymentIntentId, paymentIntentId));
+      } else {
+        await recordStripeTransaction({
+          userId,
+          stripePaymentIntentId: paymentIntentId,
+          creditsAmount: creditsToAdd,
+          purchasedItemType: 'credits_pack',
+          purchasedItemId: intent.metadata.packKey ?? null,
+          purchasedItemLabel: intent.metadata.label ?? null,
+          status: 'completed',
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      log(`Confirm payment failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
   // POST /api/player/purchase-currency – legacy stub (kept for backward compat)
   app.post("/api/player/purchase-currency", walletRateLimit, async (req: any, res) => {
     if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
