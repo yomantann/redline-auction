@@ -123,7 +123,27 @@ export type InsertContact = z.infer<typeof insertContactSchema>;
 export const wagerProfiles = pgTable("wager_profiles", {
   userId: varchar("user_id").primaryKey(), // UUID generated client-side, stored in localStorage
   balance: integer("balance").notNull().default(0),
+  // Lifetime competitive wager stats
+  totalBid: integer("total_bid").notNull().default(0),   // sum of all credits staked
+  totalLost: integer("total_lost").notNull().default(0), // sum of net losses (bid - payout when bid > payout)
+  totalWon: integer("total_won").notNull().default(0),   // sum of net wins (payout - bid when payout > bid)
+  gamesPlayed: integer("games_played").notNull().default(0),
+  winsPerTier: jsonb("wins_per_tier").$type<Record<string, number>>().default({}),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type WagerProfile = typeof wagerProfiles.$inferSelect;
+
+// Per-game competitive wager result ledger (one row per player per game)
+export const wagerLedger = pgTable("wager_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  gameId: varchar("game_id").notNull(),
+  bidTier: varchar("bid_tier").notNull(), // 'CHUMP_CHANGE' | 'MID_LANE' | 'HIGH_ROLLER' | 'REDLINE'
+  bidAmount: integer("bid_amount").notNull(),
+  payout: integer("payout").notNull().default(0),
+  rank: integer("rank").notNull(), // final placement (1 = winner)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type WagerLedgerEntry = typeof wagerLedger.$inferSelect;

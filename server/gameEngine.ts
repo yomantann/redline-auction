@@ -1,5 +1,5 @@
 import { log } from "./index";
-import { recordGameSnapshot, recordGameSummary, createGameId, batchPayoutWager } from "./snapshotDb";
+import { recordGameSnapshot, recordGameSummary, createGameId, batchPayoutWager, recordWagerGameResult } from "./snapshotDb";
 
 // Game Constants
 const STANDARD_INITIAL_TIME = 300.0;
@@ -4664,6 +4664,27 @@ function endGame(lobbyCode: string) {
         });
       }
       log(`WAGER Competitive payout persisted for ${lobbyCode}: pool=${pool}`, "game");
+
+      // Record per-player ledger entries and update lifetime stats
+      const ledgerEntries = payouts
+        .map(pay => {
+          const player = game.players.find(gp => gp.id === pay.playerId);
+          if (!player?.wagerUserId) return null;
+          return {
+            userId: player.wagerUserId,
+            gameId: game.gameId,
+            bidTier: game.settings.competitiveBidTier!,
+            bidAmount,
+            payout: pay.payout,
+            rank: pay.rank,
+          };
+        })
+        .filter((e): e is NonNullable<typeof e> => e !== null);
+      if (ledgerEntries.length > 0) {
+        recordWagerGameResult(ledgerEntries).catch(err =>
+          log(`WAGER ledger record failed for ${lobbyCode}: ${err}`, "game")
+        );
+      }
     });
   }
   

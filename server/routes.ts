@@ -31,7 +31,7 @@ import {
   vaultBank,
   type GameDuration
 } from "./gameEngine";
-import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage, getWagerBalance, batchDeductWager } from "./snapshotDb";
+import { recordGameSnapshot, recordGameSummary, createGameId, recordContactMessage, getWagerBalance, batchDeductWager, getWagerStats } from "./snapshotDb";
 import { insertGameSnapshotSchema, insertGameSummarySchema } from "@shared/schema";
 
 // Socket.IO instance - exported for later expansion
@@ -1068,6 +1068,16 @@ export async function registerRoutes(
     }
     const balance = await getWagerBalance(userId);
     res.json({ success: true, balance });
+  });
+
+  // GET /api/wager/stats/:userId  – returns lifetime competitive wager stats
+  app.get("/api/wager/stats/:userId", async (req, res) => {
+    const { userId } = req.params;
+    if (!userId || !UUID_RE.test(userId)) {
+      return res.status(400).json({ success: false, error: "Invalid userId format" });
+    }
+    const stats = await getWagerStats(userId);
+    res.json({ success: true, ...stats });
   });
 
   return httpServer;

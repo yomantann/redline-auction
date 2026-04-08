@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import { eq } from "drizzle-orm";
-import { gameSnapshots, gameSummaries, contactMessages, wagerProfiles, type InsertGameSnapshot, type InsertGameSummary, type InsertContact } from "@shared/schema";
+import { eq, sql as drizzleSql } from "drizzle-orm";
+import { gameSnapshots, gameSummaries, contactMessages, wagerProfiles, wagerLedger, type InsertGameSnapshot, type InsertGameSummary, type InsertContact } from "@shared/schema";
 
 const { Pool } = pg;
 
@@ -154,4 +154,108 @@ export async function batchPayoutWager(
     console.error(`[Wager] batchPayoutWager failed:`, error);
   }
   return newBalances;
+}
+
+// ─── Wager Ledger & Stats ──────────────────────────────────────────────────────
+
+export interface WagerGameEntry {
+  userId: string;
+  gameId: string;
+  bidTier: string;
+  bidAmount: number;
+  payout: number;
+  rank: number;
+}
+
+/**
+ * Record per-player results for a completed competitive wager game.
+ * Inserts one row into `wager_ledger` per player and updates lifetime stats
+ * in `wager_profiles`.
+ */
+export async function recordWagerGameResult(entries: WagerGameEntry[]): Promise<void> {
+  if (entries.length === 0) return;
+  try {
+    const database = getDb();
+    for (const entry of entries) {
+      // Insert ledger row
+      await database.insert(wagerLedger).values({
+        userId: entry.userId,
+        gameId: entry.gameId,
+        bidTier: entry.bidTier,
+        bidAmount: entry.bidAmount,
+        payout: entry.payout,
+        rank: entry.rank,
+      });
+
+      // Compute stat deltas
+      const netGain = entry.payout - entry.bidAmount; // positive = win, negative = loss
+      const won = netGain > 0 ? netGain : 0;
+      const lost = netGain < 0 ? -netGain : 0;
+      const isWinner = entry.rank === 1 ? 1 : 0;
+
+      // Upsert profile stats
+      const rows = await database.select().from(wagerProfiles).where(eq(wagerProfiles.userId, entry.userId));
+      if (rows.length === 0) {
+        const winsPerTier: Record<string, number> = {};
+        if (isWinner) winsPerTier[entry.bidTier] = 1;
+        await database.insert(wagerProfiles).values({
+          userId: entry.userId,
+          balance: DEFAULT_WAGER_BALANCE,
+          totalBid: entry.bidAmount,
+          totalLost: lost,
+          totalWon: won,
+          gamesPlayed: 1,
+          winsPerTier,
+        });
+      } else {
+        const profile = rows[0];
+        const currentWinsPerTier: Record<string, number> = (profile.winsPerTier as Record<string, number>) ?? {};
+        if (isWinner) {
+          currentWinsPerTier[entry.bidTier] = (currentWinsPerTier[entry.bidTier] ?? 0) + 1;
+        }
+        await database.update(wagerProfiles)
+          .set({
+            totalBid: (profile.totalBid ?? 0) + entry.bidAmount,
+            totalLost: (profile.totalLost ?? 0) + lost,
+            totalWon: (profile.totalWon ?? 0) + won,
+            gamesPlayed: (profile.gamesPlayed ?? 0) + 1,
+            winsPerTier: currentWinsPerTier,
+            updatedAt: new Date(),
+          })
+          .where(eq(wagerProfiles.userId, entry.userId));
+      }
+    }
+    console.log(`[Wager] Ledger recorded for ${entries.length} players (gameId=${entries[0]?.gameId})`);
+  } catch (error) {
+    console.error(`[Wager] recordWagerGameResult failed:`, error);
+  }
+}
+
+/** Return full lifetime wager stats for a given userId. */
+export async function getWagerStats(userId: string): Promise<{
+  balance: number;
+  totalBid: number;
+  totalLost: number;
+  totalWon: number;
+  gamesPlayed: number;
+  winsPerTier: Record<string, number>;
+}> {
+  const defaults = { balance: 0, totalBid: 0, totalLost: 0, totalWon: 0, gamesPlayed: 0, winsPerTier: {} };
+  try {
+    const database = getDb();
+    const rows = await database.select().from(wagerProfiles).where(eq(wagerProfiles.userId, userId));
+    if (rows.length === 0) return defaults;
+    const p = rows[0];
+    return {
+      balance: p.balance,
+      totalBid: p.totalBid ?? 0,
+      totalLost: p.totalLost ?? 0,
+      totalWon: p.totalWon ?? 0,
+      gamesPlayed: p.gamesPlayed ?? 0,
+      winsPerTier: (p.winsPerTier as Record<string, number>) ?? {},
+    };
+  } catch (error) {
+    console.error(`[Wager] getWagerStats failed:`, error);
+    return defaults;
+  }
 }

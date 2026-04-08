@@ -1,11 +1,48 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, Clock, Zap, Target, Skull, Crown, History, ArrowLeft, TrendingUp } from "lucide-react";
+import { Trophy, Clock, Zap, Target, Skull, Crown, History, ArrowLeft, TrendingUp, DollarSign } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
+const TIER_LABELS: Record<string, string> = {
+  CHUMP_CHANGE: "Chump Change",
+  MID_LANE: "Mid Lane",
+  HIGH_ROLLER: "High Roller",
+  REDLINE: "Redline",
+};
+
+interface WagerStats {
+  balance: number;
+  totalBid: number;
+  totalLost: number;
+  totalWon: number;
+  gamesPlayed: number;
+  winsPerTier: Record<string, number>;
+}
+
 export default function Stats() {
+  const [wagerStats, setWagerStats] = useState<WagerStats | null>(null);
+
+  useEffect(() => {
+    const uid = localStorage.getItem("redline_wager_uid");
+    if (!uid) return;
+    fetch(`/api/wager/stats/${uid}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          setWagerStats({
+            balance: data.balance,
+            totalBid: data.totalBid,
+            totalLost: data.totalLost,
+            totalWon: data.totalWon,
+            gamesPlayed: data.gamesPlayed,
+            winsPerTier: data.winsPerTier ?? {},
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
   // Mock Data for Prototype
   const stats = {
     gamesPlayed: 142,
@@ -173,6 +210,54 @@ export default function Stats() {
                         <Button className="mt-4 w-full" variant="secondary">PLAY NOW</Button>
                     </Link>
                  </div>
+            </Card>
+
+            {/* Competitive Wager Stats */}
+            <Card className="bg-zinc-900/50 border-yellow-500/20 col-span-1 md:col-span-3">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-zinc-400">
+                  <DollarSign size={16} className="text-yellow-500" /> COMPETITIVE WAGER RECORD
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!wagerStats || wagerStats.gamesPlayed === 0 ? (
+                  <p className="text-sm text-zinc-500 italic">No competitive wager games played yet.</p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                    <div className="space-y-1">
+                      <div className="text-2xl font-bold text-white">{wagerStats.gamesPlayed}</div>
+                      <div className="text-xs text-zinc-500 uppercase">Games Played</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-2xl font-bold text-zinc-300">{wagerStats.totalBid.toLocaleString()}</div>
+                      <div className="text-xs text-zinc-500 uppercase">Total Bid</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-2xl font-bold text-green-400">+{wagerStats.totalWon.toLocaleString()}</div>
+                      <div className="text-xs text-zinc-500 uppercase">Total Won</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-2xl font-bold text-red-400">-{wagerStats.totalLost.toLocaleString()}</div>
+                      <div className="text-xs text-zinc-500 uppercase">Total Lost</div>
+                    </div>
+                  </div>
+                )}
+                {wagerStats && Object.keys(wagerStats.winsPerTier).length > 0 && (
+                  <>
+                    <Separator className="bg-white/5 my-4" />
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {(["CHUMP_CHANGE", "MID_LANE", "HIGH_ROLLER", "REDLINE"] as const).map(tier => (
+                        <div key={tier} className="flex justify-between items-center bg-zinc-800/50 rounded-lg px-3 py-2">
+                          <span className="text-xs text-zinc-400 uppercase tracking-wide">{TIER_LABELS[tier]}</span>
+                          <span className="font-mono font-bold text-yellow-400">
+                            {wagerStats.winsPerTier[tier] ?? 0} W
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </CardContent>
             </Card>
 
         </div>
