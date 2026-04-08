@@ -1515,7 +1515,7 @@ export default function Profile() {
                     </div>
 
                     {/* CASUAL block */}
-                    <div className="rounded-lg border bg-zinc-800/30 border-zinc-700/20 px-3 py-2">
+                    <div className="rounded-lg border bg-green-950/20 border-green-700/20 px-3 py-2">
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-xs font-bold text-zinc-300 uppercase tracking-widest">Casual</div>
                         <div className="text-base font-bold text-white">{casualGames}g <span className="text-zinc-400 text-sm font-normal">· {casualWins}W · {winRate(casualWins, casualGames)}</span></div>
