@@ -105,9 +105,9 @@ export async function setupAuth(app: Express) {
   app.get("/api/login", (req, res, next) => {
     ensureStrategy(req.hostname);
     // Support returnTo query param so mid-game or mid-page logins redirect back correctly.
-    // Only allow relative paths to prevent open redirect attacks.
+    // Only allow relative paths (must start with '/' but not '//') to prevent open redirect attacks.
     const returnTo = req.query.returnTo;
-    if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+    if (typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
       (req.session as any).returnTo = returnTo;
     }
     passport.authenticate(`replitauth:${req.hostname}`, {
