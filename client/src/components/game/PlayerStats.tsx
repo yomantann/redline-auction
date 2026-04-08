@@ -82,7 +82,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
     top: '-14px',
-    left: '-32px',
+    left: '-16px',
     width: 'calc(100% + 128px)',
     height: 'calc(100% + 28px)',
     objectFit: 'fill',
