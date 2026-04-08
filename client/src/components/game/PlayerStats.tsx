@@ -81,10 +81,10 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // are alpha=0), so we stretch the image to cover the card exactly.
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
-    top: '-14px',
-    left: '-18px',
-    width: 'calc(100% + 132px)',
-    height: 'calc(100% + 28px)',
+    top: '-18px',
+    left: '-22px',
+    width: 'calc(100% + 200px)',
+    height: 'calc(100% + 36px)',
     objectFit: 'fill',
     pointerEvents: 'none',
     borderRadius: 'inherit',
@@ -102,7 +102,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       !player.isGhost && player.isEliminated && !hideEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
-    style={{ ...backgroundStyle, ...borderStyle }}
+    style={{ ...backgroundStyle, ...borderStyle, overflow: 'visible' }}
     data-testid={`player-card-${player.id}`}
     >
       {/* Border overlay: PNG has transparent background (white areas are alpha=0),

@@ -32,6 +32,7 @@ import type {
   CosmeticItem,
   CosmeticType,
   CosmeticRarity,
+  EquippedCosmetics,
 } from "@shared/schema";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -41,6 +42,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { SKIN_ASSET_URLS, CARD_BACKGROUND_URLS, CARD_BORDER_URLS, LOGO_ASSET_URLS } from "@/lib/skinAssets";
+import { getLogoUrl } from "@/lib/cosmeticsStyles";
 import { cn } from "@/lib/utils";
 import bgStandard1 from "@/assets/generated_images/BG/bg_standard_redline.png";
 
@@ -1241,7 +1243,7 @@ export default function Profile() {
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-4">
         <div className="text-zinc-400 text-sm">Log in to view your profile, wallet, and cosmetics.</div>
         <a
-          href="/api/login"
+          href="/api/login?returnTo=/profile"
           className="px-4 py-2 bg-primary text-black font-semibold rounded text-sm hover:bg-primary/80 transition-colors"
         >
           Log in with Replit
@@ -1288,18 +1290,33 @@ export default function Profile() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            {/* Profile avatar from Replit Auth */}
-            {(profile.profileImageUrl ?? authUser?.profileImageUrl) ? (
-              <img
-                src={profile.profileImageUrl ?? authUser?.profileImageUrl ?? ''}
-                alt="Profile"
-                className="w-12 h-12 rounded-full object-cover border-2 border-primary/40 shadow-lg shadow-primary/20"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary/30 flex items-center justify-center">
-                <User size={20} className="text-primary/70" />
-              </div>
-            )}
+            {/* Profile avatar from Replit Auth — with equipped logo overlay */}
+            {(() => {
+              const equippedLogoUrl = getLogoUrl(profile.equippedCosmetics as EquippedCosmetics);
+              return (
+                <div className="relative w-12 h-12 shrink-0">
+                  {(profile.profileImageUrl ?? authUser?.profileImageUrl) ? (
+                    <img
+                      src={profile.profileImageUrl ?? authUser?.profileImageUrl ?? ''}
+                      alt="Profile"
+                      className="w-12 h-12 rounded-full object-cover border-2 border-primary/40 shadow-lg shadow-primary/20"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary/30 flex items-center justify-center">
+                      <User size={20} className="text-primary/70" />
+                    </div>
+                  )}
+                  {equippedLogoUrl && (
+                    <img
+                      src={equippedLogoUrl}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 w-full h-full rounded-full object-cover pointer-events-none"
+                    />
+                  )}
+                </div>
+              );
+            })()}
             <div>
               <h1 className="text-3xl sm:text-4xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500">
                 DRIVER PROFILE
