@@ -1029,8 +1029,8 @@ function CheckoutForm({ packLabel, packPrice, onSuccess, onClose }: CheckoutForm
       setErrorMsg(error.message ?? 'Payment failed. Please try again.');
       setSubmitting(false);
     } else {
+      await onSuccess();
       toast({ title: 'Payment successful!', description: `${packLabel} added to your wallet.` });
-      onSuccess();
       onClose();
     }
   };
@@ -1072,7 +1072,7 @@ interface PaymentModalProps {
   packKey: string;
   packLabel: string;
   packPrice: string;
-  onSuccess: () => void;
+  onSuccess: () => Promise<void>;
   onClose: () => void;
 }
 
