@@ -1202,6 +1202,11 @@ export default function Profile() {
     setPaymentModal({ packKey: String(pack.amount), packLabel: pack.label, packPrice: pack.price });
   };
 
+  const refreshWallet = useCallback(async () => {
+    const updated = await fetchProfile();
+    if (updated) setProfile(updated);
+  }, []);
+
   const handleExpandSkin = (url: string, name: string) => {
     setExpandedSkin({ url, name });
   };
