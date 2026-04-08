@@ -2387,6 +2387,25 @@ function endRound(lobbyCode: string) {
             }
           });
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} BLOOD PACT: all non-winners lost extra ${winnerTimeBid.toFixed(1)}s`, value: -winnerTimeBid, basic: true });
+          // Ghost/eliminate any player whose time reached zero from the Blood Pact
+          game.players.forEach(fp => {
+            if (fp.remainingTime === 0 && !fp.isGhost && !fp.isEliminated) {
+              if (game.settings.variant === 'HAUNTED') {
+                fp.isGhost = true;
+                fp.ghostReason = 'natural';
+                if (!fp.ghostImage) fp.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+                if (!fp.ghostAbility) fp.ghostAbility = assignGhostAbility();
+                fp.ghostAbilityUsed = false;
+                addGameLogEntry(game, { type: 'elimination', playerId: fp.id, playerName: fp.name, message: `${fp.name} became a ghost (Blood Pact)`, basic: true });
+              } else {
+                fp.isEliminated = true;
+                if (!game.eliminatedThisRound.includes(fp.id)) {
+                  game.eliminatedThisRound.push(fp.id);
+                  addGameLogEntry(game, { type: 'elimination', playerId: fp.id, playerName: fp.name, message: `${fp.name} was eliminated (Blood Pact)`, basic: true });
+                }
+              }
+            }
+          });
         }
         p.bloodPactActive = false;
       }
@@ -2521,7 +2540,34 @@ function endRound(lobbyCode: string) {
     game.round = game.totalRounds;
     setTimeout(() => endGame(lobbyCode), 3000);
   } else if (game.round >= game.totalRounds) {
-    // Round limit reached — game over
+    // Round limit reached — check Final Writ before ending the game.
+    // A player who was ghosted during the final round is still eligible for Final Writ.
+    if (game.settings.variant === 'HAUNTED') {
+      const finalWritPlayer = game.players.find(p => p.finalWritActive && !p.isEliminated);
+      if (finalWritPlayer) {
+        if (finalWritPlayer.isGhost) {
+          finalWritPlayer.isGhost = false;
+          finalWritPlayer.ghostImage = undefined;
+          finalWritPlayer.ghostAbility = null;
+          finalWritPlayer.possessionRoundsLeft = undefined;
+        }
+        finalWritPlayer.tokens += 1;
+        finalWritPlayer.finalWritActive = false;
+        addGameLogEntry(game, {
+          type: 'win',
+          playerId: finalWritPlayer.id,
+          playerName: finalWritPlayer.name,
+          message: `${finalWritPlayer.name} FINAL WRIT: Final round skipped — trophy claimed automatically!`,
+          value: 1,
+          basic: true,
+        });
+        log(`FINAL WRIT (endRound): ${finalWritPlayer.name} skips final round and wins trophy in lobby ${lobbyCode}`, "game");
+        game.roundWinner = { id: finalWritPlayer.id, name: finalWritPlayer.name, bid: 0, isFinalWrit: true };
+        broadcastGameState(lobbyCode);
+        setTimeout(() => endGame(lobbyCode), 3000);
+        return;
+      }
+    }
     setTimeout(() => endGame(lobbyCode), 3000);
   } else if (!isHauntedMode && (activePlayers.length === 0 || activePlayers.length <= 1)) {
     // Non-Haunted mode: not enough active players → game over
@@ -2549,6 +2595,31 @@ function endRound(lobbyCode: string) {
         const g = activeGames.get(lobbyCode);
         if (!g || g.phase === 'game_over') return;
         if (g.round >= g.totalRounds) {
+          // Final Writ safety check: a ghost with Final Writ should still claim the trophy
+          if (g.settings.variant === 'HAUNTED') {
+            const fwPlayer = g.players.find(p => p.finalWritActive && !p.isEliminated);
+            if (fwPlayer) {
+              if (fwPlayer.isGhost) {
+                fwPlayer.isGhost = false;
+                fwPlayer.ghostImage = undefined;
+                fwPlayer.ghostAbility = null;
+                fwPlayer.possessionRoundsLeft = undefined;
+              }
+              fwPlayer.tokens += 1;
+              fwPlayer.finalWritActive = false;
+              addGameLogEntry(g, {
+                type: 'win',
+                playerId: fwPlayer.id,
+                playerName: fwPlayer.name,
+                message: `${fwPlayer.name} FINAL WRIT: Final round skipped — trophy claimed automatically!`,
+                value: 1,
+                basic: true,
+              });
+              log(`FINAL WRIT (auto-advance): ${fwPlayer.name} wins trophy in lobby ${lobbyCode}`, "game");
+              g.roundWinner = { id: fwPlayer.id, name: fwPlayer.name, bid: 0, isFinalWrit: true };
+              broadcastGameState(lobbyCode);
+            }
+          }
           endGame(lobbyCode);
         } else {
           g.round++;
