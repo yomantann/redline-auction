@@ -943,9 +943,9 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
   },
   {
     id: 'milestone_flags_100',
-    creditReward: 750,
-    description: 'Earn 100 lifetime moment flags.',
-    check: (p) => (p.convertedMomentFlags ?? 0) >= 100,
+    creditReward: 20000,
+    description: 'Earn 1,000 lifetime moment flags.',
+    check: (p) => (p.convertedMomentFlags ?? 0) >= 1000,
   },
   {
     id: 'milestone_flags_250',
@@ -1161,6 +1161,8 @@ export function createDefaultProfile(
     winsPerMode: {},
     gamesPerMode: {},
     milestoneUnlocks: [],
+    lastSeenAt: now,
+    loginCount: 1,
     createdAt: now,
     updatedAt: now,
   };

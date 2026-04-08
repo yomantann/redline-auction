@@ -419,10 +419,10 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
   },
   {
     id: 'milestone_flags_100',
-    creditReward: 750,
-    label: 'Earn 100 lifetime moment flags',
-    reward: '750 credits',
-    goal: 100,
+    creditReward: 20000,
+    label: 'Earn 1,000 lifetime moment flags',
+    reward: '20,000 credits',
+    goal: 1000,
     getProgress: (p) => (p.convertedMomentFlags ?? 0),
   },
   {
@@ -1425,7 +1425,7 @@ export default function Profile() {
           if (!hasAnyStats) return null;
 
           return (
-            <Card className="bg-yellow-950/50 border-yellow-700/50">
+            <Card className={cn("border-yellow-700/50", perfStatsExpanded ? "bg-zinc-900/80" : "bg-yellow-950/50")}>
               <CardHeader className="pb-3">
                 <button
                   className="flex items-center gap-2 w-full text-left focus:outline-none"
