@@ -84,7 +84,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     position: 'absolute',
     top: '-18px',
     left: '-22px',
-    width: 'calc(100% + 200px)',
+    width: 'calc(100% + 296px)', // extends ~22px left + ~274px right (~1 extra inch on right vs left)
     height: 'calc(100% + 36px)',
     objectFit: 'fill',
     pointerEvents: 'none',

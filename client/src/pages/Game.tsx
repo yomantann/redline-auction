@@ -1364,6 +1364,7 @@ export default function Game() {
       isHost: boolean;
       isReady: boolean;
       selectedDriver?: string;
+      equippedCosmetics?: Record<string, string>;
     }>;
     hostSocketId: string;
     status: 'waiting' | 'starting' | 'in_game';
@@ -1643,13 +1644,12 @@ export default function Game() {
         } else if (state.phase === 'waiting_for_ready') {
           // In Haunted mode, check if player's item was already selected; if not, go to item select
           const myMpPlayer = socket ? state.players.find((p: any) => p.socketId === socket.id) : null;
-          if (variant === 'HAUNTED' && myMpPlayer && !(myMpPlayer as any).selectedItem) {
-            // Only show item select if we haven't done it yet
-            if (phase !== 'haunted_item_select' && phase !== 'ready') {
-              setPhase('ready'); // Just go to ready for now; item select was done after driver confirm
-            } else {
-              setPhase('ready');
+          if (state.settings?.variant === 'HAUNTED' && myMpPlayer && !(myMpPlayer as any).selectedItem) {
+            // Player still needs to pick a relic — route to item select (or stay there on re-broadcast)
+            if (phase !== 'haunted_item_select') {
+              setPhase('haunted_item_select');
             }
+            // else: already on haunted_item_select, don't interrupt the selection
           } else {
             setPhase('ready');
           }
@@ -7398,7 +7398,7 @@ export default function Game() {
                       data-testid={`player-row-${idx}`}
                     >
                       <div className="flex items-center gap-3">
-                        {/* Avatar: driver image or initial; logo overlays when equipped for current player */}
+                        {/* Avatar: driver image or initial; logo overlays for all players who have one equipped */}
                         <div className="relative w-8 h-8 flex-shrink-0">
                           {player.selectedDriver ? (
                             <img 
@@ -7411,14 +7411,18 @@ export default function Game() {
                               {player.name.charAt(0).toUpperCase()}
                             </div>
                           )}
-                          {player.socketId === socket?.id && getLogoUrl(myCosmetics) && (
-                            <img
-                              src={getLogoUrl(myCosmetics)!}
-                              alt="Logo"
-                              className="absolute inset-0 w-full h-full object-contain rounded-full bg-black/40"
-                              title="Your equipped logo"
-                            />
-                          )}
+                          {(() => {
+                              const lobbyPlayerCosmetics = player.socketId === socket?.id ? myCosmetics : (player.equippedCosmetics as typeof myCosmetics);
+                              const lobbyLogoUrl = getLogoUrl(lobbyPlayerCosmetics);
+                              return lobbyLogoUrl ? (
+                                <img
+                                  src={lobbyLogoUrl}
+                                  alt="Logo"
+                                  className="absolute inset-0 w-full h-full object-contain rounded-full bg-black/40"
+                                  title={player.socketId === socket?.id ? "Your equipped logo" : `${player.name}'s logo`}
+                                />
+                              ) : null;
+                            })()}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
