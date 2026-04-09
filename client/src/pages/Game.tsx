@@ -306,6 +306,8 @@ interface Player {
   bloodPactActive?: boolean;             // Blood Pact: active player (all losers also pay winner's bid)
   cursedDiceActive?: boolean;            // Cursed Dice: active (±30s after round end)
   finalWritActive?: boolean;             // Final Writ: this player auto-wins the final round
+  // Cosmetics (MP: received from server broadcast; SP: not set)
+  equippedCosmetics?: Record<string, string>;
 }
 
 interface Character {
@@ -1370,7 +1372,7 @@ export default function Game() {
       protocolsEnabled: boolean;
       bonusTrophiesEnabled: boolean;
       abilitiesEnabled: boolean;
-      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
       gameDuration: 'sprint' | 'standard' | 'long' | 'short';
     };
     maxPlayers: number;
@@ -1416,6 +1418,7 @@ export default function Game() {
       abilityUsed: boolean;
       momentFlagsEarned?: string[];
       roundImpact?: { type: string; value: number; source: string };
+      equippedCosmetics?: Record<string, string> | null;
     }>;
     roundWinner: { id: string; name: string; bid: number; isFinalWrit?: boolean } | null;
     eliminatedThisRound: string[];
@@ -1424,7 +1427,7 @@ export default function Game() {
       protocolsEnabled: boolean;
       bonusTrophiesEnabled: boolean;
       abilitiesEnabled: boolean;
-      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL';
+      variant: 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
       gameDuration?: 'sprint' | 'standard' | 'long' | 'short';
     };
     activeProtocol: string | null;
@@ -6275,6 +6278,7 @@ export default function Game() {
         ghostAbility: (mp as any).ghostAbility || null,
         ghostAbilityUsed: (mp as any).ghostAbilityUsed || false,
         possessionRoundsLeft: (mp as any).possessionRoundsLeft ?? undefined,
+        equippedCosmetics: (mp as any).equippedCosmetics || undefined,
       currentBid: mp.currentBid,
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,
@@ -6439,7 +6443,7 @@ export default function Game() {
       allowedProtocols
     };
     
-    socket.emit("create_lobby", { playerName, settings, isPublic: isPublicLobby, ...(authUser?.id ? { replitUserId: authUser.id } : {}) }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("create_lobby", { playerName, settings, isPublic: isPublicLobby, ...(authUser?.id ? { replitUserId: authUser.id } : {}), ...(myCosmetics ? { equippedCosmetics: myCosmetics as Record<string, string> } : {}) }, (response: { success: boolean; code?: string; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Created:', response.code);
         setCurrentLobby(response.lobby);
@@ -6451,7 +6455,7 @@ export default function Game() {
         setLobbyError(response.error || "Failed to create lobby");
       }
     });
-  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration, isPublicLobby, authUser]);
+  }, [socket, isConnected, playerName, difficulty, protocolsEnabled, bonusTrophiesEnabled, abilitiesEnabled, variant, gameDuration, isPublicLobby, authUser, myCosmetics]);
   
   const handleJoinRoom = useCallback(() => {
     if (!socket || !isConnected) {
@@ -6465,7 +6469,7 @@ export default function Game() {
     }
     
     setLobbyError(null);
-    socket.emit("join_lobby", { code: lobbyCode, playerName, ...(authUser?.id ? { replitUserId: authUser.id } : {}) }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("join_lobby", { code: lobbyCode, playerName, ...(authUser?.id ? { replitUserId: authUser.id } : {}), ...(myCosmetics ? { equippedCosmetics: myCosmetics as Record<string, string> } : {}) }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Joined:', response.lobby.code);
         setCurrentLobby(response.lobby);
@@ -6485,7 +6489,7 @@ export default function Game() {
         setLobbyError(response.error || "Failed to join lobby");
       }
     });
-  }, [socket, isConnected, lobbyCode, playerName, authUser]);
+  }, [socket, isConnected, lobbyCode, playerName, authUser, myCosmetics]);
 
   const handleJoinRandomRoom = useCallback(() => {
     if (!socket || !isConnected) {
@@ -6494,7 +6498,7 @@ export default function Game() {
     }
     
     setLobbyError(null);
-    socket.emit("join_random_lobby", { playerName, ...(authUser?.id ? { replitUserId: authUser.id } : {}) }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
+    socket.emit("join_random_lobby", { playerName, ...(authUser?.id ? { replitUserId: authUser.id } : {}), ...(myCosmetics ? { equippedCosmetics: myCosmetics as Record<string, string> } : {}) }, (response: { success: boolean; lobby?: typeof currentLobby; error?: string }) => {
       if (response.success && response.lobby) {
         console.log('[Lobby] Joined random:', response.lobby.code);
         setCurrentLobby(response.lobby);
@@ -6504,7 +6508,7 @@ export default function Game() {
         setLobbyError(response.error || "No public lobbies available");
       }
     });
-  }, [socket, isConnected, playerName, authUser]);
+  }, [socket, isConnected, playerName, authUser, myCosmetics]);
 
   const handleLeaveLobby = useCallback(() => {
     if (!socket) return;
@@ -7988,16 +7992,30 @@ export default function Game() {
           return char.ability;
         };
         
-        // Handle random driver selection
+        // Handle random driver selection — selects and immediately confirms
         const handleRandomDriver = () => {
-          if (myDriverConfirmed) return;
+          if (myDriverConfirmed || !socket) return;
           const takenDrivers = mpPlayers
             .filter(p => p.socketId !== socket?.id && p.selectedDriver)
             .map(p => p.selectedDriver);
           const availableDrivers = mpAllDrivers.filter(c => !takenDrivers.includes(c.id));
           if (availableDrivers.length > 0) {
             const randomDriver = availableDrivers[Math.floor(Math.random() * availableDrivers.length)];
-            handleMpSelectDriver(randomDriver.id);
+            socket.emit('select_driver_in_game', { driverId: randomDriver.id }, (response: { success: boolean; error?: string }) => {
+              if (response.success) {
+                socket.emit('confirm_driver', (confirmResponse: { success: boolean; error?: string }) => {
+                  if (!confirmResponse.success) {
+                    console.log('[Game] Random driver confirm failed:', confirmResponse.error);
+                    return;
+                  }
+                  if (variant === 'HAUNTED') {
+                    setPhase('haunted_item_select');
+                  }
+                });
+              } else {
+                console.log('[Game] Random driver selection failed:', response.error);
+              }
+            });
           }
         };
         
@@ -8999,13 +9017,19 @@ export default function Game() {
 
         // Helper to render full player stat card
         const renderPlayerCard = (p: any, i: number) => {
-          // Show logo on winner card only (human player's equipped logo)
+          // Show logo on winner card for any human player (including others in MP)
           const isWinnerCard = p.id === winner.id;
           const isHumanCard = !isMultiplayer ? p.id === 'p1' : p.socketId === socket?.id;
-          const cardLogoUrl = isWinnerCard && isHumanCard ? getLogoUrl(myCosmetics) : null;
-          // Apply cosmetics (border + background) to the human player's card
-          const cardStyle = isHumanCard ? getCardStyles(myCosmetics) : {};
-          const cardBorderImgUrl = isHumanCard ? getBorderImageUrl(myCosmetics) : null;
+          // In MP, use each player's own cosmetics from the broadcast; fall back to myCosmetics for current player
+          const playerCosmetics = isMultiplayer
+            ? (p.equippedCosmetics && Object.keys(p.equippedCosmetics).length > 0
+                ? p.equippedCosmetics as typeof myCosmetics
+                : (isHumanCard ? myCosmetics : undefined))
+            : (isHumanCard ? myCosmetics : undefined);
+          const cardLogoUrl = isWinnerCard ? getLogoUrl(playerCosmetics) : null;
+          // Apply cosmetics (border + background) to the player's card
+          const cardStyle = playerCosmetics ? getCardStyles(playerCosmetics) : {};
+          const cardBorderImgUrl = playerCosmetics ? getBorderImageUrl(playerCosmetics) : null;
 
           return (
           <div key={p.id} className={cn(
@@ -10162,12 +10186,16 @@ export default function Game() {
                   : activeAbilities.some(a => a.playerId === p.id && a.ability === 'HYPER CLICK' && a.effect === 'TOKEN_BOOST')
               );
               // Determine current driver ID for skin gating:
-              // SP: use selectedCharacter.id; MP: use the player's selectedDriver field
-              const myCurrentDriverId = isCurrentPlayerCard
-                ? (isMultiplayer
-                    ? ((multiplayerGameState?.players.find(mp => mp.socketId === socket?.id) as any)?.selectedDriver ?? selectedCharacter?.id)
-                    : selectedCharacter?.id)
-                : undefined;
+              // SP: use selectedCharacter.id for current player; MP: use the player's selectedDriver field for all
+              const cardDriverId = isMultiplayer
+                ? ((p as any).selectedDriver as string | undefined)
+                : (isCurrentPlayerCard ? selectedCharacter?.id : undefined);
+              // Cosmetics: MP players carry their cosmetics from the server broadcast; SP current player uses myCosmetics
+              const cardCosmetics = isMultiplayer
+                ? ((p.equippedCosmetics && Object.keys(p.equippedCosmetics).length > 0
+                    ? p.equippedCosmetics as typeof myCosmetics
+                    : (isCurrentPlayerCard ? myCosmetics : undefined)))
+                : (isCurrentPlayerCard ? myCosmetics : undefined);
               return (
               <PlayerStats 
                 key={p.id} 
@@ -10183,8 +10211,8 @@ export default function Game() {
                 isHyperClickActive={isHyperClickActive}
                 hideEliminated={variant === 'HAUNTED'}
                 isScrambled={(((isMultiplayer ? (p.id !== myPlayerId) : (p.id !== 'p1')) && selectedCharacter?.id === 'wandering_eye' && p.id !== peekTargetId) || scrambledPlayers.includes(p.id)) && abilitiesEnabled}
-                equippedCosmetics={isCurrentPlayerCard ? myCosmetics : undefined}
-                currentDriverId={myCurrentDriverId}
+                equippedCosmetics={cardCosmetics}
+                currentDriverId={cardDriverId}
                 // Hide details if competitive mode (ALWAYS, unless game end)
                 onClick={() => {
                     if (difficulty === 'COMPETITIVE' && phase !== 'game_end') {

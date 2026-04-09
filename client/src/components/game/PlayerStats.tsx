@@ -20,6 +20,7 @@ interface Player {
   impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[]; // Structured logs
   netImpact?: number; // Net of all positive and negative impacts
   selectedItem?: string; // Haunted mode: selected item name
+  relicConsumed?: boolean; // Haunted mode: relic already consumed
   isGhost?: boolean; // Haunted mode: player converted to ghost on elimination
 }
 
@@ -81,10 +82,10 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // are alpha=0), so we stretch the image to cover the card exactly.
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
-    top: '-14px',
-    left: '-18px',
-    width: 'calc(100% + 132px)',
-    height: 'calc(100% + 28px)',
+    top: '-18px',
+    left: '-22px',
+    width: 'calc(100% + 200px)',
+    height: 'calc(100% + 36px)',
     objectFit: 'fill',
     pointerEvents: 'none',
     borderRadius: 'inherit',
@@ -102,7 +103,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       !player.isGhost && player.isEliminated && !hideEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
-    style={{ ...backgroundStyle, ...borderStyle }}
+    style={{ ...backgroundStyle, ...borderStyle, overflow: 'visible' }}
     data-testid={`player-card-${player.id}`}
     >
       {/* Border overlay: PNG has transparent background (white areas are alpha=0),
@@ -194,8 +195,8 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
               </span>
             )}
             {player.selectedItem && (
-              <span className="text-[10px] text-teal-400/70 leading-tight cursor-default" title="Haunted Item">
-                🔮 {player.selectedItem}
+              <span className={cn("text-[10px] leading-tight cursor-default", player.relicConsumed ? "text-zinc-600 line-through" : "text-teal-400/70")} title={player.relicConsumed ? "Relic consumed" : "Haunted Item"}>
+                🔮 {player.selectedItem}{player.relicConsumed ? ' (used)' : ''}
               </span>
             )}
           </div>

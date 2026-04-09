@@ -161,6 +161,7 @@ export interface GamePlayer {
   bloodPactActive?: boolean;
   cursedDiceActive?: boolean;
   finalWritActive?: boolean;      // Final Writ relic: this player auto-wins the final round
+  equippedCosmetics?: Record<string, string>; // Player's equipped cosmetics for in-game display
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -327,7 +328,7 @@ const usedOnceAbilities = new Map<string, Set<string>>();
 
 function processRealityModeAbilities(game: GameState, winnerId: string | null, timing: 'start' | 'end') {
   const variant = game.settings.variant;
-  if (variant === 'STANDARD') return;
+  if (variant === 'STANDARD' || variant === 'HAUNTED') return;
   
   const config = variant === 'SOCIAL_OVERDRIVE' ? SOCIAL_ABILITY_CONFIG : BIO_ABILITY_CONFIG;
   const abilityType = variant === 'SOCIAL_OVERDRIVE' ? 'social' : 'bio';
@@ -440,7 +441,7 @@ function getTotalRounds(duration: GameDuration): number {
 
 export function createGame(
   lobbyCode: string,
-  lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string }>,
+  lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string; equippedCosmetics?: Record<string, string> }>,
   duration: GameDuration = 'standard',
   lobbySettings?: Partial<GameSettings>
 ): GameState {
@@ -465,6 +466,7 @@ export function createGame(
     abilityUsed: false,
     momentFlagsEarned: [],
     protocolWinsEarned: [],
+    equippedCosmetics: p.equippedCosmetics,
   }));
   
   // Auto-fill with bots if less than MIN_PLAYERS
@@ -3964,6 +3966,7 @@ export function broadcastGameState(lobbyCode: string) {
       corruptRoundsLeft: p.corruptRoundsLeft ?? null,
       pendingLastWill: p.pendingLastWill || null,
       finalWritActive: p.finalWritActive || false,
+      equippedCosmetics: p.equippedCosmetics || null,
     })),
     roundWinner: game.roundWinner,
     eliminatedThisRound: game.eliminatedThisRound,
