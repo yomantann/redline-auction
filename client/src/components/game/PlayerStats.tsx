@@ -78,17 +78,20 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   const bgTextShadow: React.CSSProperties | undefined = hasImageBackground
     ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)', color: 'white' }
     : undefined;
-  // Border image overlay style: stretch the border PNG to exactly match the card bounds
-  // so the decorative ring aligns with the card's edges.
-  // borderRadius: inherit ensures the image corners match the card's rounded-lg.
-  // The parent clips to rounded corners.
+  // Border image overlay style: use background-image + background-size:100% 100% to fill the
+  // overlay div completely, avoiding the intrinsic-dimension behaviour of <img> that caused the
+  // ring to stop short of the right edge.
+  // inset: -12px extends the overlay 12px beyond all four card edges so the decorative ring
+  // visually bleeds outward — the parent uses overflow:visible to allow this bleed.
+  const BORDER_BLEED = 12; // px of bleed on each side
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
-    inset: 0,
-    width: '100%',
-    height: '100%',
+    inset: `-${BORDER_BLEED}px`,
+    backgroundImage: borderImageUrl ? `url(${borderImageUrl})` : undefined,
+    backgroundSize: '100% 100%',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center',
     pointerEvents: 'none',
-    borderRadius: 'inherit',
   };
 
   return (
@@ -103,20 +106,17 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       !player.isGhost && player.isEliminated && !hideEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
-    style={{ ...backgroundStyle, ...borderStyle, overflow: borderImageUrl ? 'hidden' : 'visible' }}
+    style={{ ...backgroundStyle, ...borderStyle, overflow: 'visible' }}
     data-testid={`player-card-${player.id}`}
     >
-      {/* Border overlay: PNG has transparent background (white areas are alpha=0),
-          so just stretch the image over the card — only the decorative ring is visible. */}
+      {/* Border overlay: background-image fills the enlarged div (inset -12px on all sides), so
+          the decorative ring bleeds 12px past each card edge. overflow:visible on the parent allows
+          the bleed to show. */}
       {borderImageUrl && (
-        <img
-          src={borderImageUrl}
-          alt=""
+        <div
           aria-hidden="true"
           className="pointer-events-none z-20 rounded-lg"
           style={borderImgStyle}
-          loading="eager"
-          decoding="async"
         />
       )}
       {/* Animation Container */}
