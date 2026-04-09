@@ -3077,8 +3077,8 @@ function startWaitingForReady(lobbyCode: string) {
           } else if (roll < 0.75) {
             bot.remainingTime = Math.max(0, bot.remainingTime - 30);
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): -30s`, value: -30, basic: true });
-            ghostOrEliminate(game, bot, 'Jackpot');
             if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 💀 CURSED!', message: `${bot.name} hit Jackpot — −30s removed from time bank!` });
+            ghostOrEliminate(game, bot, 'Jackpot');
           } else {
             const saved = bot.remainingTime;
             bot.isGhost = true;
@@ -3213,8 +3213,8 @@ function startWaitingForReady(lobbyCode: string) {
             const lastBid = echoTarget.bidHistory[echoTarget.bidHistory.length - 1];
             echoTarget.remainingTime = Math.max(0, echoTarget.remainingTime - lastBid);
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} ECHO (bot): ${echoTarget.name} -${lastBid.toFixed(1)}s from time bank`, basic: true });
-            ghostOrEliminate(game, echoTarget, 'Echo');
             if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO', message: `${bot.name} used Echo — ${echoTarget.name} lost ${lastBid.toFixed(1)}s from their time bank!`, victimId: echoTarget.id });
+            ghostOrEliminate(game, echoTarget, 'Echo');
           } else {
             bot.relicConsumed = false; // no valid history target
           }
@@ -3265,8 +3265,8 @@ function startWaitingForReady(lobbyCode: string) {
             if (choice === 'A') {
               target.remainingTime = Math.max(0, target.remainingTime - 30);
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): ${target.name} loses 30s immediately`, value: -30, basic: true });
-              ghostOrEliminate(game, target, 'Tribunal');
               if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL', message: `${bot.name} sentenced ${target.name} — ${target.name} loses 30s!`, victimId: target.id });
+              ghostOrEliminate(game, target, 'Tribunal');
             } else {
               target.relicConsumed = true;
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): ${target.name}'s relic consumed without effect`, basic: true });
