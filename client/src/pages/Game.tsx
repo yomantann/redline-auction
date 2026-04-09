@@ -8004,7 +8004,11 @@ export default function Game() {
             socket.emit('select_driver_in_game', { driverId: randomDriver.id }, (response: { success: boolean; error?: string }) => {
               if (response.success) {
                 socket.emit('confirm_driver', (confirmResponse: { success: boolean; error?: string }) => {
-                  if (confirmResponse.success && variant === 'HAUNTED') {
+                  if (!confirmResponse.success) {
+                    console.log('[Game] Random driver confirm failed:', confirmResponse.error);
+                    return;
+                  }
+                  if (variant === 'HAUNTED') {
                     setPhase('haunted_item_select');
                   }
                 });
@@ -9018,7 +9022,9 @@ export default function Game() {
           const isHumanCard = !isMultiplayer ? p.id === 'p1' : p.socketId === socket?.id;
           // In MP, use each player's own cosmetics from the broadcast; fall back to myCosmetics for current player
           const playerCosmetics = isMultiplayer
-            ? (p.equippedCosmetics as typeof myCosmetics ?? (isHumanCard ? myCosmetics : undefined))
+            ? (p.equippedCosmetics && Object.keys(p.equippedCosmetics).length > 0
+                ? p.equippedCosmetics as typeof myCosmetics
+                : (isHumanCard ? myCosmetics : undefined))
             : (isHumanCard ? myCosmetics : undefined);
           const cardLogoUrl = isWinnerCard ? getLogoUrl(playerCosmetics) : null;
           // Apply cosmetics (border + background) to the player's card
@@ -10186,7 +10192,9 @@ export default function Game() {
                 : (isCurrentPlayerCard ? selectedCharacter?.id : undefined);
               // Cosmetics: MP players carry their cosmetics from the server broadcast; SP current player uses myCosmetics
               const cardCosmetics = isMultiplayer
-                ? ((p.equippedCosmetics ?? (isCurrentPlayerCard ? myCosmetics : undefined)) as typeof myCosmetics)
+                ? ((p.equippedCosmetics && Object.keys(p.equippedCosmetics).length > 0
+                    ? p.equippedCosmetics as typeof myCosmetics
+                    : (isCurrentPlayerCard ? myCosmetics : undefined)))
                 : (isCurrentPlayerCard ? myCosmetics : undefined);
               return (
               <PlayerStats 
