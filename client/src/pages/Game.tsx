@@ -915,21 +915,6 @@ export default function Game() {
   // Shortcut to the equipped cosmetics for the local player
   const myCosmetics: EquippedCosmetics | undefined = playerProfile?.equippedCosmetics;
 
-  // When cosmetics load after the player has already joined a lobby/game, push the update to the server
-  // so other players (including guests) can see the equipped cosmetics in the live game state.
-  const prevMyCosmeticsRef = useRef<EquippedCosmetics | undefined>(undefined);
-  useEffect(() => {
-    if (!socket || !myCosmetics) return;
-    // Shallow comparison on the known cosmetic slots
-    const prev = prevMyCosmeticsRef.current;
-    const slots = ['border', 'background', 'logo', 'driverSkin'] as const;
-    const hasChanged = !prev || slots.some(k => (prev as Record<string, string>)[k] !== (myCosmetics as Record<string, string>)[k]);
-    prevMyCosmeticsRef.current = myCosmetics;
-    if (hasChanged) {
-      socket.emit('update_player_cosmetics', { equippedCosmetics: myCosmetics as Record<string, string> });
-    }
-  }, [socket, myCosmetics]);
-
   // ── Game State ──
   const [phase, setPhase] = useState<GamePhase>('intro');
   const [difficulty, setDifficulty] = useState<GameDifficulty>('CASUAL');
