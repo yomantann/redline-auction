@@ -718,8 +718,8 @@ export async function registerRoutes(
       const player = game.players.find(p => p.socketId === socket.id);
       if (player) {
         player.selectedItem = data.itemName;
-        // Broadcast updated state to all players in lobby
-        io.to(lobbyCode).emit("game_state_update", { players: game.players.map(p => ({ id: p.id, selectedItem: p.selectedItem })) });
+        // Broadcast full state so all players see the updated relic selection
+        broadcastGameState(lobbyCode);
       }
       if (callback) callback?.({ success: true });
     });
