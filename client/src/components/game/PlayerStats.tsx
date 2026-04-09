@@ -78,14 +78,13 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   const bgTextShadow: React.CSSProperties | undefined = hasImageBackground
     ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)', color: 'white' }
     : undefined;
-  // Border image overlay style: the border PNGs have transparent backgrounds (white areas
-  // are alpha=0), so we stretch the image symmetrically across all edges of the card.
+  // Border image overlay style: stretch the border PNG to exactly match the card bounds
+  // so the decorative ring aligns with the card's edges. The parent clips to rounded corners.
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
-    top: '-12px',
-    left: '-12px',
-    width: 'calc(100% + 24px)',
-    height: 'calc(100% + 24px)',
+    inset: 0,
+    width: '100%',
+    height: '100%',
     pointerEvents: 'none',
     borderRadius: 'inherit',
   };
@@ -102,7 +101,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       !player.isGhost && player.isEliminated && !hideEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
-    style={{ ...backgroundStyle, ...borderStyle, overflow: 'visible' }}
+    style={{ ...backgroundStyle, ...borderStyle, overflow: borderImageUrl ? 'hidden' : 'visible' }}
     data-testid={`player-card-${player.id}`}
     >
       {/* Border overlay: PNG has transparent background (white areas are alpha=0),
