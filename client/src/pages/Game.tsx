@@ -6627,12 +6627,89 @@ export default function Game() {
     // BUT skip this early return if the client is currently showing the haunted item select screen,
     // so players in Haunted mode MP can pick their relic before the ready phase.
     if (effectivePhase === 'waiting_for_ready' && isMultiplayer && phase !== 'haunted_item_select') {
+      // Ghost spectator view (Haunted MP) — mirrors SP case 'ready' ghost view
+      if (variant === 'HAUNTED' && currentPlayerIsGhost) {
+        const ghostPlayer = displayPlayers.find(p => p.id === myMultiplayerPlayer?.id);
+        const ghostImg = ghostPlayer?.ghostImage
+          ? GHOST_IMAGES[parseInt(ghostPlayer.ghostImage.replace('hnt_ghost_', ''), 10) - 1]
+          : null;
+        const abilityName = ghostPlayer?.ghostAbility ? GHOST_ABILITY_NAMES[ghostPlayer.ghostAbility as 'reaper' | 'purgatory'] : null;
+        const abilityDesc = ghostPlayer?.ghostAbility ? GHOST_ABILITY_DESCS[ghostPlayer.ghostAbility as 'reaper' | 'purgatory'] : null;
+        const purgatoryLeft = (ghostPlayer as any)?.possessionRoundsLeft;
+        return (
+          <div className="flex flex-col items-center justify-center h-[450px] gap-4">
+            <div className="text-center">
+              <div className="text-4xl mb-2">👻</div>
+              <h2 className="text-2xl font-display text-teal-300">YOU ARE A GHOST</h2>
+              <p className="text-zinc-500 text-sm mt-1">Spectating Round {multiplayerGameState?.round || 1} / {multiplayerGameState?.totalRounds || totalRounds}</p>
+            </div>
+            {ghostImg && (
+              <img src={ghostImg} alt="ghost" className="w-20 h-20 object-contain rounded-full border-2 border-teal-500/40 bg-zinc-900" />
+            )}
+            {abilityName && (
+              <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs">
+                <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
+                <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
+                {purgatoryLeft !== undefined && (
+                  <div className="text-zinc-500 text-xs mt-1">
+                    ⌛ Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="text-zinc-600 text-xs mt-4">Watch the auction unfold below ↓</div>
+          </div>
+        );
+      }
+
       const activeHumanPlayers = displayPlayers.filter(p => !p.isBot && !p.isEliminated);
       const readyPlayers = activeHumanPlayers.filter(p => p.isHolding);
       const allHumansReady = activeHumanPlayers.length > 0 && readyPlayers.length === activeHumanPlayers.length;
       const currentPlayerEliminated = myMultiplayerPlayer?.isEliminated;
-      
-      return (
+
+      // USE RELIC button (mirrors SP case 'ready' logic)
+      const mpRelicButton = variant === 'HAUNTED' && !currentPlayerIsGhost ? (() => {
+        const myPl = displayPlayers.find(p => p.id === myMultiplayerPlayer?.id);
+        const relicId = myPl?.selectedItem;
+        if (!relicId || myPl?.relicConsumed) return null;
+        const relicDef = HAUNTED_ITEMS.find(r => r.id === relicId);
+        if (!relicDef) return null;
+        const activeGhosts = displayPlayers.filter(p => p.isGhost && !p.isEliminated);
+        const seanceBlocked = relicDef.requiresGhosts !== undefined && activeGhosts.length < relicDef.requiresGhosts;
+        const currentRound = multiplayerGameState?.round ?? round;
+        const currentTotalRounds = multiplayerGameState?.totalRounds ?? totalRounds;
+        const secondHalfBlocked = (relicDef.id === 'sacrificial_lamb' || relicDef.id === 'marked') && currentRound <= Math.floor(currentTotalRounds / 2);
+        const lastWillBlocked = relicDef.id === 'last_will' && currentRound >= currentTotalRounds;
+        const isBlocked = seanceBlocked || secondHalfBlocked || lastWillBlocked;
+        return (
+          <div className="mt-3 flex flex-col items-center">
+            <button
+              onClick={() => !isBlocked && setRelicModalOpen(true)}
+              disabled={isBlocked}
+              className={cn(
+                "px-5 py-2 rounded-lg border text-sm font-bold transition-all active:scale-95",
+                isBlocked
+                  ? "border-zinc-700/40 bg-zinc-900/30 text-zinc-600 cursor-not-allowed"
+                  : "border-teal-500/40 bg-teal-950/30 text-teal-300 hover:bg-teal-900/50 hover:border-teal-400/60"
+              )}
+            >
+              {relicDef.icon} USE RELIC — {relicDef.name}
+            </button>
+            {seanceBlocked && (
+              <p className="text-zinc-600 text-[10px] mt-1">Requires {relicDef.requiresGhosts}+ active ghosts ({activeGhosts.length} present)</p>
+            )}
+            {secondHalfBlocked && (
+              <p className="text-zinc-600 text-[10px] mt-1">Only available in the second half (after round {Math.floor(currentTotalRounds / 2)})</p>
+            )}
+            {lastWillBlocked && (
+              <p className="text-zinc-600 text-[10px] mt-1">Cannot be used on the final round</p>
+            )}
+            {!isBlocked && <p className="text-zinc-600 text-[10px] mt-1">{relicDef.category} · → {relicDef.target}</p>}
+          </div>
+        );
+      })() : null;
+
+      return (<>
         <div className="flex flex-col items-center justify-center h-[450px]">
           <div className="h-[100px] flex flex-col items-center justify-center space-y-2">
             <h2 className="text-3xl font-display">ROUND {multiplayerGameState?.round || 1} / {multiplayerGameState?.totalRounds || totalRounds}</h2>
@@ -6659,12 +6736,6 @@ export default function Game() {
           <div className="h-[280px] flex items-center justify-center">
             {currentPlayerEliminated ? (
               <div className="text-zinc-600 text-lg uppercase tracking-widest">ELIMINATED</div>
-            ) : currentPlayerIsGhost && variant === 'HAUNTED' ? (
-              <div className="text-center space-y-2">
-                <div className="text-3xl">👻</div>
-                <p className="text-teal-300 text-sm font-bold">YOU ARE A GHOST</p>
-                <p className="text-zinc-500 text-xs">Waiting for the round to begin…</p>
-              </div>
             ) : (
               <AuctionButton 
                 onPress={handlePress} 
@@ -6692,8 +6763,176 @@ export default function Game() {
               {readyPlayers.length} / {activeHumanPlayers.length} READY
             </p>
           </div>
+
+          {mpRelicButton}
         </div>
-      );
+
+        {/* Relic activation modal (MP waiting_for_ready) */}
+        {relicModalOpen && (() => {
+          const myPl = displayPlayers.find(p => p.id === myMultiplayerPlayer?.id);
+          const relicId = myPl?.selectedItem;
+          const relicDef = relicId ? HAUNTED_ITEMS.find(r => r.id === relicId) : null;
+          if (!relicDef) return null;
+
+          const myId = myMultiplayerPlayer?.id ?? 'p1';
+          const opponents = displayPlayers.filter(p =>
+            !p.isGhost && !p.isEliminated && p.id !== myId
+          );
+          const botOpponents = opponents.filter((p: any) => p.isBot);
+
+          const fireRelic = (targetId?: string, curseType?: 'time' | 'trophy') => {
+            if (socket) {
+              socket.emit('activate_relic', { relicId: relicDef.id, targetId, curseType }, (res: any) => {
+                if (!res?.success) {
+                  toast({ title: 'RELIC FAILED', description: res?.error ?? 'Unknown error', variant: 'destructive', duration: 3000 });
+                }
+              });
+            }
+            setRelicModalOpen(false);
+          };
+
+          if (relicDef.voteType === 'vote') {
+            if (relicDef.id === 'tribunal') {
+              return (
+                <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+                  <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
+                    <h3 className="text-lg font-bold text-teal-300 text-center">{relicDef.icon} {relicDef.name}</h3>
+                    <p className="text-zinc-400 text-sm text-center leading-snug">{relicDef.description}</p>
+                    <p className="text-zinc-500 text-xs text-center">Choose who to put on trial:</p>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {opponents.length === 0 && <p className="text-zinc-600 text-xs text-center">No valid targets.</p>}
+                      {opponents.map((opp: any) => (
+                        <button key={opp.id}
+                          onClick={() => fireRelic(opp.id)}
+                          className="w-full py-2 px-3 rounded bg-zinc-800 text-zinc-200 text-sm hover:bg-zinc-700 transition-colors flex items-center justify-between">
+                          <span>{opp.name}{opp.isBot ? ' 🤖' : ''}</span>
+                          <span className="text-zinc-500 text-xs">{opp.remainingTime?.toFixed(1)}s · {opp.tokens}🏆</span>
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => setRelicModalOpen(false)} className="w-full py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+                <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
+                  <h3 className="text-lg font-bold text-teal-300 text-center">{relicDef.icon} {relicDef.name}</h3>
+                  <p className="text-zinc-400 text-sm text-center leading-snug">{relicDef.description}</p>
+                  <p className="text-zinc-500 text-xs text-center">All players will vote on one of these effects:</p>
+                  <div className="space-y-1 text-xs text-zinc-400 bg-zinc-800/50 rounded p-3">
+                    <p>🔪 <span className="text-zinc-300">A</span> — Cut everyone's time bank in half</p>
+                    <p>⏭️ <span className="text-zinc-300">B</span> — Skip next round as a tie</p>
+                    <p>🔁 <span className="text-zinc-300">C</span> — 100% protocols rest of game</p>
+                    <p>💥 <span className="text-zinc-300">D</span> — Bottom 2 players lose a trophy</p>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => fireRelic()} className="flex-1 py-2 rounded bg-teal-900 text-teal-100 text-sm font-bold hover:bg-teal-800 transition-colors">Start Vote</button>
+                    <button onClick={() => setRelicModalOpen(false)} className="flex-1 py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          const isLastWill = relicDef.id === 'last_will';
+          const needsOpponentTarget = relicDef.target === 'Opponent' && !isLastWill;
+          const targetList = relicDef.botOnly ? botOpponents : opponents;
+
+          return (
+            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+              <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
+                <h3 className="text-lg font-bold text-teal-300 text-center">{relicDef.icon} {relicDef.name}</h3>
+                <p className="text-zinc-400 text-sm text-center leading-snug">{relicDef.description}</p>
+                <p className="text-zinc-600 text-xs text-center italic">{relicDef.flavour}</p>
+                {(relicDef.target === 'Self' || relicDef.target === 'Everyone' || isLastWill) && (
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => fireRelic()} className="flex-1 py-2 rounded bg-teal-900 text-teal-100 text-sm font-bold hover:bg-teal-800 transition-colors">✓ Activate</button>
+                    <button onClick={() => setRelicModalOpen(false)} className="flex-1 py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
+                  </div>
+                )}
+                {needsOpponentTarget && (
+                  <>
+                    <p className="text-zinc-500 text-xs text-center">Choose target:</p>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {targetList.length === 0 && (
+                        <p className="text-zinc-600 text-xs text-center">No valid targets available.</p>
+                      )}
+                      {targetList.map((opp: any) => (
+                        <button
+                          key={opp.id}
+                          onClick={() => fireRelic(opp.id)}
+                          className="w-full py-2 px-3 rounded bg-zinc-800 text-zinc-200 text-sm hover:bg-zinc-700 transition-colors flex items-center justify-between"
+                        >
+                          <span>{opp.name}{opp.isBot ? ' 🤖' : ''}</span>
+                          <span className="text-zinc-500 text-xs">{opp.remainingTime.toFixed(1)}s · {opp.tokens}🏆</span>
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => setRelicModalOpen(false)} className="w-full py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Vote Relic overlay (MP waiting_for_ready) */}
+        {voteRelicState && !voteRelicState.resolved && (
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+            <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
+              <h3 className="text-lg font-bold text-teal-300 text-center">
+                {voteRelicState.relicId === 'tribunal' ? '⚖️ TRIBUNAL' : '🗳️ THE CONCLAVE'}
+              </h3>
+              <p className="text-zinc-400 text-sm text-center">
+                {voteRelicState.activatorName} called a vote{voteRelicState.targetName ? ` targeting ${voteRelicState.targetName}` : ''}!
+              </p>
+              <div className="text-center text-teal-300 font-bold tabular-nums">{voteRelicState.timeLeft}s</div>
+              <div className="space-y-2">
+                {voteRelicState.options.map(opt => {
+                  const count = Object.values(voteRelicState.votes).filter(v => v === opt.id).length;
+                  const hasVoted = voteRelicState.myVote === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        if (voteRelicState.myVote) return;
+                        if (socket) {
+                          socket.emit('cast_relic_vote', { optionId: opt.id });
+                          setVoteRelicState(prev => prev ? { ...prev, myVote: opt.id } : prev);
+                        }
+                      }}
+                      className={cn(
+                        "w-full py-2 px-3 rounded text-sm text-left flex justify-between transition-colors",
+                        hasVoted ? "bg-teal-900 border border-teal-500/50 text-teal-200" : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
+                        voteRelicState.myVote && !hasVoted ? "opacity-50 cursor-not-allowed" : ""
+                      )}
+                    >
+                      <span><span className="font-bold text-teal-400">{opt.id}.</span> {opt.label}</span>
+                      <span className="text-zinc-500 text-xs ml-2">{count} vote{count !== 1 ? 's' : ''}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {!voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote before time runs out!</p>}
+              {voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote cast! Waiting for others…</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Vote Relic result overlay (MP waiting_for_ready) */}
+        {voteRelicState?.resolved && voteRelicState.winnerLabel && (
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+            <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full text-center space-y-3">
+              <h3 className="text-lg font-bold text-teal-300">VOTE RESULT</h3>
+              <p className="text-zinc-200 text-sm font-semibold">{voteRelicState.winnerLabel}</p>
+              <p className="text-zinc-500 text-xs">Effect applied!</p>
+              <button onClick={() => setVoteRelicState(null)} className="mt-2 px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition-colors">Dismiss</button>
+            </div>
+          </div>
+        )}
+      </>);
     }
     
     // Map multiplayer phases to local phases for rendering
