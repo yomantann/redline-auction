@@ -34,6 +34,7 @@ import {
   equipCosmeticSchema,
   purchaseCurrencySchema,
   playerProfiles,
+  driverSelectionStats,
   stripeTransactions,
 } from "@shared/schema";
 import {
@@ -54,7 +55,7 @@ import {
 import Stripe from "stripe";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
 
 // Rate limiter for wallet/profile mutation endpoints — protects against abuse
@@ -1088,14 +1089,41 @@ export async function registerRoutes(
         parsed.isCompetitive,
       );
 
+      // Accumulate lifetime protocol wins from this game (not idempotent-gated — intentional;
+      // the convert-game idempotency guard only prevents double-crediting, not stat accumulation)
+      const protocolWinsThisGame = parsed.protocolWins ?? 0;
+      const baseUpdate: any = { ...(updatedProfile as any), updatedAt: new Date() };
+      if (!alreadyConverted && protocolWinsThisGame > 0) {
+        baseUpdate.lifetimeProtocolWins = (profile.lifetimeProtocolWins ?? 0) + protocolWinsThisGame;
+      }
+
       await db.update(playerProfiles)
-        .set({ ...(updatedProfile as any), updatedAt: new Date() })
+        .set(baseUpdate)
         .where(eq(playerProfiles.id, userId));
 
-      res.json({ success: true, creditsEarned, milestoneUnlocked, alreadyConverted, profile: updatedProfile });
+      const finalProfile = { ...updatedProfile, lifetimeProtocolWins: baseUpdate.lifetimeProtocolWins ?? updatedProfile.lifetimeProtocolWins };
+      res.json({ success: true, creditsEarned, milestoneUnlocked, alreadyConverted, profile: finalProfile });
     } catch (error) {
       log(`Convert-game failed: ${error}`, "api");
       res.status(400).json({ success: false, error: String(error) });
+    }
+  });
+
+  // GET /api/player/driver-stats – top drivers for the authenticated player
+  app.get("/api/player/driver-stats", walletRateLimit, async (req: any, res) => {
+    if (!req.isAuthenticated?.()) return res.json({ success: true, skipped: true });
+    try {
+      const userId: string = req.user.claims.sub;
+      const stats = await db
+        .select()
+        .from(driverSelectionStats)
+        .where(eq(driverSelectionStats.playerId, userId))
+        .orderBy(desc(driverSelectionStats.gamesSelected))
+        .limit(10);
+      return res.json({ success: true, stats });
+    } catch (error) {
+      log(`Driver stats fetch failed: ${error}`, "api");
+      res.status(500).json({ success: false, error: String(error) });
     }
   });
 

@@ -963,6 +963,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     check: (p) => distinctFlagsEarned(p, [
       'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
       'PATCH_NOTES_PENDING', 'HIDDEN_REDEMPTION', 'HIDDEN_NAIL_IN_THE_COFFIN',
+      'HIDDEN_ADD_IT_UP',
     ]) >= 1,
   },
   {
@@ -972,6 +973,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     check: (p) => distinctFlagsEarned(p, [
       'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
       'PATCH_NOTES_PENDING', 'HIDDEN_REDEMPTION', 'HIDDEN_NAIL_IN_THE_COFFIN',
+      'HIDDEN_ADD_IT_UP',
     ]) >= 4,
   },
   {
@@ -981,7 +983,8 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     check: (p) => distinctFlagsEarned(p, [
       'HIDDEN_67', 'HIDDEN_REDLINE_REVERSAL', 'HIDDEN_DEJA_BID',
       'PATCH_NOTES_PENDING', 'HIDDEN_REDEMPTION', 'HIDDEN_NAIL_IN_THE_COFFIN',
-    ]) >= 6,
+      'HIDDEN_ADD_IT_UP',
+    ]) >= 7,
   },
   {
     id: 'milestone_hidden_67_3x',
@@ -1006,6 +1009,31 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     creditReward: 10000,
     description: 'Trigger a hidden repeating pattern 3 times.',
     check: (p) => flagCount(p, 'HIDDEN_DEJA_BID') >= 3,
+  },
+  {
+    id: 'milestone_add_it_up_first',
+    creditReward: 5000,
+    description: 'Unlock a hidden ascending pattern for the first time.',
+    check: (p) => flagCount(p, 'HIDDEN_ADD_IT_UP') >= 1,
+  },
+  {
+    id: 'milestone_add_it_up_5x',
+    creditReward: 20000,
+    description: 'Trigger the hidden ascending bid pattern 5 times.',
+    check: (p) => flagCount(p, 'HIDDEN_ADD_IT_UP') >= 5,
+  },
+  // Odd One Out Milestones
+  {
+    id: 'milestone_odd_one_out_first',
+    creditReward: 2000,
+    description: 'Be the Odd One Out for the first time.',
+    check: (p) => flagCount(p, 'ODD_ONE_OUT') >= 1,
+  },
+  {
+    id: 'milestone_odd_one_out_5x',
+    creditReward: 10000,
+    description: 'Be the Odd One Out 5 times.',
+    check: (p) => flagCount(p, 'ODD_ONE_OUT') >= 5,
   },
   // Clutch / Skill Milestones
   {
@@ -1160,6 +1188,7 @@ export function createDefaultProfile(
     convertedGameIds: [],
     winsPerMode: {},
     gamesPerMode: {},
+    lifetimeProtocolWins: 0,
     milestoneUnlocks: [],
     lastSeenAt: now,
     loginCount: 1,

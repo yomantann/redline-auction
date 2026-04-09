@@ -1101,6 +1101,7 @@ export default function Game() {
     isMP: boolean,
     momentFlagTypes?: string[],
     isCompetitive?: boolean,
+    protocolWins?: number,
   ) => {
     try {
       const variantMap: Record<string, string> = {
@@ -1124,6 +1125,7 @@ export default function Game() {
           variant: mappedVariant,
           isMultiplayer: isMP,
           isCompetitive: isCompetitive ?? false,
+          protocolWins: protocolWins ?? 0,
         }),
       });
       const data = await res.json();
@@ -1572,6 +1574,7 @@ export default function Game() {
       lastRoundEndProcessedRef.current = 0; // Reset round processing for new games
       redemptionShownCountRef.current = 0; // Reset redemption counter for new games
       nailInCoffinShownCountRef.current = 0; // Reset nail in coffin counter for new games
+      oddOneOutShownCountRef.current = 0; // Reset odd one out counter for new games
       bonusTrophiesAwardedRef.current = false; // Reset bonus trophy tracking for new games
       // Don't set phase here - let the server game_state dictate the phase
       // The server starts in 'waiting_for_ready' phase
@@ -1691,6 +1694,10 @@ export default function Game() {
               b.tokens !== a.tokens ? b.tokens - a.tokens : b.remainingTime - a.remainingTime
             )[0];
             const isWinner = winner?.socketId === mySocketId;
+            // HIDDEN_ADD_IT_UP overlay: awarded at game end on server
+            if ((myFinalPlayer?.momentFlagsEarned || []).includes('HIDDEN_ADD_IT_UP')) {
+              setTimeout(() => addOverlay('hidden_add_it_up', 'ADD IT UP', 'Every bid was bigger than the last!', 0), 1000);
+            }
             convertGameCredits(
               state.gameId,
               myFinalPlayer?.tokens || 0,
@@ -1700,6 +1707,7 @@ export default function Game() {
               true,
               myFinalPlayer?.momentFlagsEarned || [],
               state.settings?.difficulty === 'COMPETITIVE',
+              (myFinalPlayer as any)?.protocolWinsEarned?.length || 0,
             );
           }
         }
@@ -1891,6 +1899,7 @@ export default function Game() {
   const p1PrevRoundStartTokensRef = useRef<number | null>(null); // SP: track p1 tokens at start of previous round
   const redemptionShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_REDEMPTION has been shown
   const nailInCoffinShownCountRef = useRef<number>(0); // MP: track how many times HIDDEN_NAIL_IN_THE_COFFIN has been shown
+  const oddOneOutShownCountRef = useRef<number>(0); // MP: track how many times ODD_ONE_OUT has been shown
   const bonusTrophiesAwardedRef = useRef<boolean>(false); // MP: prevent bonus trophy overlays from showing more than once per game
   const prevMpPlayersRef = useRef<any[]>([]); // MP: track previous player states for revival detection
   useEffect(() => {
@@ -2157,6 +2166,14 @@ export default function Game() {
       if (nailCount > nailInCoffinShownCountRef.current) {
         nailInCoffinShownCountRef.current = nailCount;
         setTimeout(() => addOverlay('hidden_nail_in_the_coffin', 'NAIL IN THE COFFIN', 'Your ability eliminated an opponent!', 0), 1800);
+        momentCount++;
+      }
+
+      // ODD_ONE_OUT: current player bid odd while all others bid even (server tracked per round)
+      const oddCount = (currentPlayerMpObj as any).momentFlagsEarned?.filter((f: string) => f === 'ODD_ONE_OUT').length || 0;
+      if (oddCount > oddOneOutShownCountRef.current) {
+        oddOneOutShownCountRef.current = oddCount;
+        setTimeout(() => addOverlay('odd_one_out', 'ODD ONE OUT', 'Your bid was the only odd one!', 0), 1000);
         momentCount++;
       }
     }
@@ -5843,6 +5860,57 @@ export default function Game() {
       }
     }
 
+    // ODD_ONE_OUT: p1's bid rounds to an odd integer while all other active bidders round to even
+    if (!isMultiplayer) {
+      const activeBidders = participants.filter(
+        p => !p.isEliminated && !p.isGhost && p.currentBid !== null && p.currentBid > 0
+      );
+      if (activeBidders.length >= 2) {
+        activeBidders.forEach(player => {
+          const bidRounded = Math.round(player.currentBid || 0);
+          const playerIsOdd = bidRounded % 2 !== 0 && bidRounded > 0;
+          if (playerIsOdd) {
+            const allOthersEven = activeBidders
+              .filter(p => p.id !== player.id)
+              .every(p => Math.round(p.currentBid || 0) % 2 === 0);
+            if (allOthersEven) {
+              if (player.id === 'p1') {
+                addOverlay('odd_one_out', 'ODD ONE OUT', 'Your bid was the only odd one!', 0);
+                momentCount++;
+                roundMomentFlags.push('ODD_ONE_OUT');
+              } else {
+                // Track for non-p1 players (game stats display)
+                setPlayers(prev => prev.map(pl =>
+                  pl.id === player.id
+                    ? { ...pl, eventDatabasePopups: [...(pl.eventDatabasePopups || []), 'ODD_ONE_OUT'] }
+                    : pl
+                ));
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // HIDDEN_ADD_IT_UP: p1 was never eliminated and bid strictly more each round (final round only)
+    if (!isMultiplayer && round === totalRounds) {
+      const p1State = players.find(p => p.id === 'p1');
+      if (p1State && !p1State.isEliminated) {
+        const bids = p1State.bidHistory || [];
+        if (bids.length >= 2) {
+          let isStrictlyIncreasing = true;
+          for (let i = 1; i < bids.length; i++) {
+            if (bids[i] <= bids[i - 1]) { isStrictlyIncreasing = false; break; }
+          }
+          if (isStrictlyIncreasing) {
+            addOverlay('hidden_add_it_up', 'ADD IT UP', 'Every bid was bigger than the last!', 0);
+            momentCount++;
+            roundMomentFlags.push('HIDDEN_ADD_IT_UP');
+          }
+        }
+      }
+    }
+
     // MIRROR_MATCH: 2+ non-eliminated players end the round with time banks within 0.1s.
     // Note: DEADLOCK_SYNC (same bid → no winner) and MIRROR_MATCH (same post-round bank) are
     // distinct flags and both fire correctly in co-occurrence cases — e.g. Round 1 deadlock where
@@ -6136,7 +6204,8 @@ export default function Game() {
               const humanTrophies = humanPlayer.tokens || 0;
               const humanFlags = humanPlayer.eventDatabasePopups?.length || 0;
               const humanFlagTypes = humanPlayer.eventDatabasePopups || [];
-              convertGameCredits(gameId, humanTrophies, humanFlags, isHumanWinner, variant, false, humanFlagTypes, difficulty === 'COMPETITIVE');
+              const humanProtocolWins = humanPlayer.protocolWins?.length || 0;
+              convertGameCredits(gameId, humanTrophies, humanFlags, isHumanWinner, variant, false, humanFlagTypes, difficulty === 'COMPETITIVE', humanProtocolWins);
             }
           }
         }
@@ -9630,6 +9699,7 @@ export default function Game() {
                     { title: "LATE PANIC", desc: "Win starting the round with the lowest time bank.", color: "text-orange-500 border-orange-500/20" },
                     { title: "DEADLOCK SYNC", desc: "Exact tie for first place. No winner.", color: "text-zinc-400 border-zinc-400/20" },
                     { title: "MIRROR MATCH", desc: "Two or more players end the round with the same time bank (within 0.1s).", color: "text-[#d2b48c] border-[#d2b48c]/20" },
+                    { title: "ODD ONE OUT", desc: "Your bid rounds to an odd second while every other active bidder's rounds to even.", color: "text-violet-400 border-violet-500/20" },
                   ].map((p, i) => (
                     <div key={i} className={`bg-black/40 p-3 rounded border ${p.color} transition-colors`}>
                       <h4 className={`font-bold text-sm mb-1 ${p.color.split(' ')[0]}`}>{p.title}</h4>
@@ -9655,6 +9725,11 @@ export default function Game() {
                         <div className="h-2 w-10 rounded bg-white/10" />
                       </div>
                     ))}
+                    {/* Blank placeholder for the Add It Up hidden flag */}
+                    <div className="h-14 rounded border border-pink-500/10 bg-pink-950/10 flex items-center justify-between px-3">
+                      <div className="h-2 w-24 rounded bg-pink-500/10" />
+                      <div className="h-2 w-10 rounded bg-pink-500/10" />
+                    </div>
                   </div>
                 </div>
               </details>

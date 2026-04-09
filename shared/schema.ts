@@ -29,6 +29,8 @@ export const playerProfiles = pgTable("player_profiles", {
   convertedMomentFlags: integer("converted_moment_flags").default(0).notNull(),
   momentFlagsPerType: jsonb("moment_flags_per_type").$type<Record<string, number>>().default({}).notNull(),
   convertedGameIds: jsonb("converted_game_ids").$type<string[]>().default([]).notNull(),
+  // ── Lifetime performance stats ─────────────────────────────────────────────
+  lifetimeProtocolWins: integer("lifetime_protocol_wins").default(0).notNull(),
   // ── Milestones ────────────────────────────────────────────────────────────
   milestoneUnlocks: jsonb("milestone_unlocks").$type<string[]>().default([]).notNull(),
   // ── Activity tracking ─────────────────────────────────────────────────────
@@ -241,6 +243,7 @@ export const convertGameSchema = z.object({
   variant: z.enum(['STANDARD', 'SOCIAL_OVERDRIVE', 'BIO_FUEL', 'HAUNTED']),
   isWinner: z.boolean(),
   isCompetitive: z.boolean().optional(),
+  protocolWins: z.number().int().min(0).max(1000).optional(), // lifetime protocol win count for this game
 });
 
 export const purchaseCosmeticSchema = z.object({

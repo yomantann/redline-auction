@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, AlertTriangle, Play, Skull, Zap, TrendingUp, Crosshair, Flame, Hourglass, X, PartyPopper, Martini, Scale, Lightbulb, Sparkles, Meh, Award, Lock, Crown, HeartPulse, Ghost, Orbit, Rocket, History, Bug, Bird, Axe } from "lucide-react";
+import { Trophy, AlertTriangle, Play, Skull, Zap, TrendingUp, Crosshair, Flame, Hourglass, X, PartyPopper, Martini, Scale, Lightbulb, Sparkles, Meh, Award, Lock, Crown, HeartPulse, Ghost, Orbit, Rocket, History, Bug, Bird, Axe, ChevronsUp, Hash } from "lucide-react";
 export type OverlayType = 
   | "round_start" 
   | "round_win" 
@@ -27,6 +27,8 @@ export type OverlayType =
   | "hidden_patch_notes"
   | "hidden_redemption"
   | "hidden_nail_in_the_coffin"
+  | "hidden_add_it_up"
+  | "odd_one_out"
   | "mirror_match"
   | "social_event" 
   | "bio_event"    
@@ -79,6 +81,9 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "hidden_patch_notes": return <Bug size={48} className="text-amber-200" />;
       case "hidden_redemption": return <Bird size={48} className="text-pink-400" />;
       case "hidden_nail_in_the_coffin": return <Axe size={48} className="text-rose-300" />;
+      case "hidden_add_it_up": return <ChevronsUp size={48} className="text-pink-400" />;
+      
+      case "odd_one_out": return <Hash size={48} className="text-violet-400" />;
       
       case "mirror_match": return <Scale size={48} className="text-[#d2b48c]" />;
       
@@ -124,7 +129,10 @@ export function GameOverlay({ overlays, onDismiss, inline = false }: GameOverlay
       case "hidden_patch_notes":
       case "hidden_redemption":
       case "hidden_nail_in_the_coffin":
+      case "hidden_add_it_up":
         return "text-pink-400 border-pink-500/50 bg-black/95 shadow-[0_0_30px_rgba(236,72,153,0.3)]";
+
+      case "odd_one_out": return "text-violet-400 border-violet-500/20 bg-black/80";
 
       case "mirror_match": return "text-[#d2b48c] border-[#d2b48c]/20 bg-black/80";
 

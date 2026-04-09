@@ -446,7 +446,7 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
     goal: 1,
     getProgress: (p) => {
       const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
-      const hidden = ['HIDDEN_67','HIDDEN_REDLINE_REVERSAL','HIDDEN_DEJA_BID','PATCH_NOTES_PENDING','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN'];
+      const hidden = ['HIDDEN_67','HIDDEN_REDLINE_REVERSAL','HIDDEN_DEJA_BID','PATCH_NOTES_PENDING','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN','HIDDEN_ADD_IT_UP'];
       return hidden.some(f => (perType[f] ?? 0) >= 1) ? 1 : 0;
     },
   },
@@ -458,7 +458,7 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
     goal: 4,
     getProgress: (p) => {
       const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
-      const hidden = ['HIDDEN_67','HIDDEN_REDLINE_REVERSAL','HIDDEN_DEJA_BID','PATCH_NOTES_PENDING','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN'];
+      const hidden = ['HIDDEN_67','HIDDEN_REDLINE_REVERSAL','HIDDEN_DEJA_BID','PATCH_NOTES_PENDING','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN','HIDDEN_ADD_IT_UP'];
       return hidden.filter(f => (perType[f] ?? 0) >= 1).length;
     },
   },
@@ -467,10 +467,10 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
     creditReward: 200000,
     label: 'Uncover every hidden secret',
     reward: '200,000 credits',
-    goal: 6,
+    goal: 7,
     getProgress: (p) => {
       const perType = (p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {};
-      const hidden = ['HIDDEN_67','HIDDEN_REDLINE_REVERSAL','HIDDEN_DEJA_BID','PATCH_NOTES_PENDING','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN'];
+      const hidden = ['HIDDEN_67','HIDDEN_REDLINE_REVERSAL','HIDDEN_DEJA_BID','PATCH_NOTES_PENDING','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN','HIDDEN_ADD_IT_UP'];
       return hidden.filter(f => (perType[f] ?? 0) >= 1).length;
     },
   },
@@ -505,6 +505,39 @@ const MILESTONES_DISPLAY: MilestoneDisplay[] = [
     reward: '10,000 credits',
     goal: 3,
     getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_DEJA_BID'] ?? 0,
+  },
+  {
+    id: 'milestone_add_it_up_first',
+    creditReward: 5000,
+    label: 'Unlock a hidden ascending pattern for the first time',
+    reward: '5,000 credits',
+    goal: 1,
+    getProgress: (p) => Math.min(((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_ADD_IT_UP'] ?? 0, 1),
+  },
+  {
+    id: 'milestone_add_it_up_5x',
+    creditReward: 20000,
+    label: 'Trigger the hidden ascending bid pattern 5 times',
+    reward: '20,000 credits',
+    goal: 5,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['HIDDEN_ADD_IT_UP'] ?? 0,
+  },
+  // Odd One Out Milestones
+  {
+    id: 'milestone_odd_one_out_first',
+    creditReward: 2000,
+    label: 'Be the Odd One Out for the first time',
+    reward: '2,000 credits',
+    goal: 1,
+    getProgress: (p) => Math.min(((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['ODD_ONE_OUT'] ?? 0, 1),
+  },
+  {
+    id: 'milestone_odd_one_out_5x',
+    creditReward: 10000,
+    label: 'Be the Odd One Out 5 times',
+    reward: '10,000 credits',
+    goal: 5,
+    getProgress: (p) => ((p.momentFlagsPerType as Record<string, number> | null | undefined) ?? {})['ODD_ONE_OUT'] ?? 0,
   },
   // Clutch / Skill Milestones
   {
@@ -663,9 +696,10 @@ const FLAG_LABELS: Record<string, string> = {
   GENIUS_MOVE: 'Genius Move', FAKE_CALM: 'Fake Calm', SMUG_CONFIDENCE: 'Smug Confidence', EASY_W: 'Easy W',
   COMEBACK_HOPE: 'Comeback Hope', LAST_ONE_STANDING: 'Last Standing', LATE_PANIC: 'Late Panic',
   ELIMINATED: 'Eliminated', AFK: 'AFK',
-  DEADLOCK_SYNC: 'Deadlock Sync', MIRROR_MATCH: 'Mirror Match',
+  DEADLOCK_SYNC: 'Deadlock Sync', MIRROR_MATCH: 'Mirror Match', ODD_ONE_OUT: 'Odd One Out',
   HIDDEN_67: '???', HIDDEN_DEJA_BID: '???', HIDDEN_REDEMPTION: '???',
   HIDDEN_NAIL_IN_THE_COFFIN: '???', HIDDEN_REDLINE_REVERSAL: '???', PATCH_NOTES_PENDING: '???',
+  HIDDEN_ADD_IT_UP: '???',
 };
 
 // ─── API helpers ───────────────────────────────────────────────────────────────
@@ -1129,6 +1163,7 @@ export default function Profile() {
   const [expandedSkin, setExpandedSkin] = useState<{ url: string; name: string } | null>(null);
   const [milestonesExpanded, setMilestonesExpanded] = useState(false);
   const [perfStatsExpanded, setPerfStatsExpanded] = useState(false);
+  const [driverStats, setDriverStats] = useState<Array<{ driverId: string; gamesSelected: number; wins: number }> | null>(null);
   const [milestoneCategories, setMilestoneCategories] = useState<Record<string, boolean>>({
     progression: false,
     victories: false,
@@ -1167,6 +1202,15 @@ export default function Profile() {
   useEffect(() => {
     if (!authLoading) load();
   }, [authLoading, authUser?.id, load]);
+
+  // Fetch driver selection stats when authenticated
+  useEffect(() => {
+    if (!authUser) return;
+    fetch('/api/player/driver-stats', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.success && d.stats) setDriverStats(d.stats); })
+      .catch(() => {});
+  }, [authUser]);
 
   const handlePurchase = async (cosmeticId: string) => {
     try {
@@ -1434,12 +1478,12 @@ export default function Profile() {
             {
               label: 'Sync & Pattern',
               icon: <Target size={13} className="text-blue-400" />,
-              keys: ['DEADLOCK_SYNC','MIRROR_MATCH'],
+              keys: ['DEADLOCK_SYNC','MIRROR_MATCH','ODD_ONE_OUT'],
             },
             {
               label: 'Hidden / Easter Egg',
               icon: <Eye size={13} className="text-purple-400" />,
-              keys: ['HIDDEN_67','HIDDEN_DEJA_BID','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN','HIDDEN_REDLINE_REVERSAL','PATCH_NOTES_PENDING'],
+              keys: ['HIDDEN_67','HIDDEN_DEJA_BID','HIDDEN_REDEMPTION','HIDDEN_NAIL_IN_THE_COFFIN','HIDDEN_REDLINE_REVERSAL','PATCH_NOTES_PENDING','HIDDEN_ADD_IT_UP'],
             },
           ];
 
@@ -1606,6 +1650,57 @@ export default function Profile() {
                   </div>
                 )}
 
+                {/* Driver Stats — top 3 most played drivers */}
+                {driverStats && driverStats.length > 0 && (() => {
+                  const top3 = driverStats.slice(0, 3);
+                  const topWinDriver = [...driverStats].sort((a, b) => b.wins - a.wins)[0];
+                  const protocolWinCount = (profile as any).lifetimeProtocolWins ?? 0;
+                  const netImpact = (profile.lifetimeEarned ?? 0) - (profile.lifetimeSpent ?? 0);
+                  return (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Career Highlights</div>
+                      <div className="rounded-lg border border-indigo-700/20 bg-indigo-950/20 px-3 py-3 space-y-3">
+
+                        {/* Top 3 drivers */}
+                        <div>
+                          <div className="text-[10px] text-indigo-300 uppercase tracking-widest mb-1.5 font-semibold">Top 3 Most Played Drivers</div>
+                          <div className="space-y-1.5">
+                            {top3.map((d, idx) => (
+                              <div key={d.driverId} className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-zinc-500 font-mono w-4">#{idx + 1}</span>
+                                  <span className="text-zinc-200 capitalize">{d.driverId.replace(/_/g, ' ')}</span>
+                                  {d.driverId === topWinDriver?.driverId && (
+                                    <span className="text-yellow-400 text-[9px] uppercase tracking-widest font-bold">★ most wins</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 text-right">
+                                  <span className="text-zinc-400">{d.gamesSelected} <span className="text-zinc-600">games</span></span>
+                                  <span className="text-yellow-400 font-bold">{d.wins}W</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Protocol wins & net impact */}
+                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
+                          <div className="text-center">
+                            <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Protocol Wins</div>
+                            <div className="text-xl font-display font-bold text-cyan-300">{protocolWinCount.toLocaleString()}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Net Credit Impact</div>
+                            <div className={`text-xl font-display font-bold ${netImpact >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {netImpact >= 0 ? '+' : ''}{netImpact.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Moment flag tallies by category */}
                 {Object.keys(flags).length > 0 && (
                   <div>
@@ -1704,6 +1799,7 @@ export default function Profile() {
                 'milestone_last_standing_3x','milestone_last_standing_10x',
                 'milestone_comeback_5x','milestone_comeback_10x',
                 'milestone_deadlock_3x','milestone_mirror_3x','milestone_deadlock_and_mirror',
+                'milestone_odd_one_out_first','milestone_odd_one_out_5x',
                 'milestone_easy_w_5x','milestone_unique_10_flag_types',
               ],
             },
@@ -1715,6 +1811,7 @@ export default function Profile() {
                 'milestone_easter_egg_first','milestone_easter_egg_two','milestone_easter_egg_all',
                 'milestone_hidden_67_3x','milestone_hidden_redemption_first',
                 'milestone_hidden_nail_3x','milestone_hidden_deja_bid',
+                'milestone_add_it_up_first','milestone_add_it_up_5x',
               ],
             },
           ];

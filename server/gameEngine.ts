@@ -1720,6 +1720,9 @@ function endRound(lobbyCode: string) {
   game.players.forEach(p => {
     if (p.currentBid && p.currentBid > 0) {
       p.totalTimeBid += p.currentBid;
+      // Track bid history per-player for Add It Up flag detection
+      if (!p.bidHistory) p.bidHistory = [];
+      p.bidHistory.push(p.currentBid);
       addGameLogEntry(game, {
         type: 'bid',
         playerId: p.id,
@@ -2292,6 +2295,28 @@ function endRound(lobbyCode: string) {
       p.momentFlagsEarned.push('HIDDEN_67');
     }
   });
+
+  // ODD_ONE_OUT: a player's bid rounds to an odd integer while every other bidder rounds to even
+  {
+    const activeBidders = game.players.filter(
+      p => !p.isEliminated && !p.isGhost && p.currentBid !== null && p.currentBid > 0
+    );
+    if (activeBidders.length >= 2) {
+      activeBidders.forEach(player => {
+        const bidRounded = Math.round(player.currentBid || 0);
+        const playerIsOdd = bidRounded % 2 !== 0 && bidRounded > 0;
+        if (playerIsOdd) {
+          const allOthersEven = activeBidders
+            .filter(p => p.id !== player.id)
+            .every(p => Math.round(p.currentBid || 0) % 2 === 0);
+          if (allOthersEven) {
+            player.momentFlagsEarned.push('ODD_ONE_OUT');
+            log(`[ODD ONE OUT] ${player.name} bid ${player.currentBid?.toFixed(1)}s (odd) while all others bid even in lobby ${lobbyCode}`, "game");
+          }
+        }
+      });
+    }
+  }
   
   //MP Server matching client for Redline Reversal:
   if (winnerId && game.round >= game.totalRounds) {
@@ -3563,6 +3588,25 @@ function endGame(lobbyCode: string) {
       }
     }
   }
+
+  // HIDDEN_ADD_IT_UP: player's bids were strictly increasing every round AND they survived
+  // Awarded after bonus trophies so no bank changes affect eligibility
+  game.players.forEach(p => {
+    if (!p.isEliminated && !p.isGhost && (p.bidHistory?.length ?? 0) >= 2) {
+      const bids = p.bidHistory!;
+      let isStrictlyIncreasing = true;
+      for (let i = 1; i < bids.length; i++) {
+        if (bids[i] <= bids[i - 1]) {
+          isStrictlyIncreasing = false;
+          break;
+        }
+      }
+      if (isStrictlyIncreasing) {
+        p.momentFlagsEarned.push('HIDDEN_ADD_IT_UP');
+        log(`[ADD IT UP] ${p.name} had strictly increasing bids all game in lobby ${lobbyCode}`, "game");
+      }
+    }
+  });
 
   game.phase = 'game_over';
   
