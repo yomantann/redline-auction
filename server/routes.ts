@@ -1089,8 +1089,8 @@ export async function registerRoutes(
         parsed.isCompetitive,
       );
 
-      // Accumulate lifetime protocol wins from this game (not idempotent-gated — intentional;
-      // the convert-game idempotency guard only prevents double-crediting, not stat accumulation)
+      // Accumulate lifetime protocol wins from this game (idempotent-gated to prevent double-counting
+      // if the same game's convert-game is re-submitted; only increments on first conversion)
       const protocolWinsThisGame = parsed.protocolWins ?? 0;
       const baseUpdate: any = { ...(updatedProfile as any), updatedAt: new Date() };
       if (!alreadyConverted && protocolWinsThisGame > 0) {
