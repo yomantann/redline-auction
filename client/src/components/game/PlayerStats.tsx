@@ -78,15 +78,21 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   const bgTextShadow: React.CSSProperties | undefined = hasImageBackground
     ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)', color: 'white' }
     : undefined;
-  // Border image overlay style: stretch the border PNG to exactly match the card bounds
-  // so the decorative ring aligns with the card's edges. The parent clips to rounded corners.
+  // Border image overlay style: fill the card exactly using background-image + background-size:100% 100%
+  // so the decorative ring always covers the full card regardless of the PNG's intrinsic aspect ratio.
+  // Using a <div> instead of <img> avoids browsers honouring intrinsic dimensions and only
+  // covering part of the card (the typical "border stops before the right edge" bug).
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
-    inset: 0,
+    top: 0,
+    left: 0,
     width: '100%',
     height: '100%',
+    backgroundImage: borderImageUrl ? `url(${borderImageUrl})` : undefined,
+    backgroundSize: '100% 100%',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center',
     pointerEvents: 'none',
-    borderRadius: 'inherit',
   };
 
   return (
@@ -104,17 +110,14 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     style={{ ...backgroundStyle, ...borderStyle, overflow: borderImageUrl ? 'hidden' : 'visible' }}
     data-testid={`player-card-${player.id}`}
     >
-      {/* Border overlay: PNG has transparent background (white areas are alpha=0),
-          so just stretch the image over the card — only the decorative ring is visible. */}
+      {/* Border overlay: background-image covers the full card rectangle via background-size:100% 100%,
+          completely bypassing the intrinsic-dimension behaviour of <img> that caused the ring to stop
+          short of the right edge. */}
       {borderImageUrl && (
-        <img
-          src={borderImageUrl}
-          alt=""
+        <div
           aria-hidden="true"
           className="pointer-events-none z-20 rounded-lg"
           style={borderImgStyle}
-          loading="eager"
-          decoding="async"
         />
       )}
       {/* Animation Container */}
