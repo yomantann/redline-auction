@@ -9283,19 +9283,20 @@ export default function Game() {
             "p-4 rounded border bg-card/50 flex flex-col gap-2 relative isolate",
             p.id === winner.id && "border-primary/50 bg-primary/10",
             p.id === loser.id && !p.isGhost ? "border-destructive/50 bg-destructive/10" : "border-white/10"
-          )} style={cardStyle}>
-            {/* Image-based border overlay: PNG has transparent background so only the decorative ring shows */}
+          )} style={{ ...cardStyle, overflow: 'visible' }}>
+            {/* Image-based border overlay: background-image fills the enlarged div (12px bleed on all sides)
+                so the decorative ring extends past the card edges consistently. */}
             {cardBorderImgUrl && (
-              <img
-                src={cardBorderImgUrl}
-                alt=""
+              <div
                 aria-hidden="true"
                 className="absolute pointer-events-none z-20 rounded"
-                style={{ top: '-14px', left: '-18px',
-                         width: 'calc(100% + 132px)', height: 'calc(100% + 28px)',
-                         objectFit: 'fill', borderRadius: 'inherit' }}
-                loading="eager"
-                decoding="async"
+                style={{
+                  inset: '-12px',
+                  backgroundImage: `url(${cardBorderImgUrl})`,
+                  backgroundSize: '100% 100%',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center',
+                }}
               />
             )}
             {p.id === winner.id && <div className="absolute top-0 right-0 bg-primary text-black text-[10px] font-bold px-2 py-0.5">WINNER</div>}

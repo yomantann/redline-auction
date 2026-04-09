@@ -2040,6 +2040,7 @@ function endRound(lobbyCode: string) {
         target.ghostReason = 'forced';
         target.ghostTimeAtDeath = savedTime;
         addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} REAPER: ${target.name} becomes a ghost!`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 REAPER STRIKES', message: `${ghost.name}'s ghost ability dragged ${target.name} into the spirit world!`, victimId: target.id });
       }
       // After reaper fires (or if no targets), ghost enters countdown.
       // Reaper waits 3 full rounds before reviving; purgatory waits 2 full rounds.
@@ -2080,6 +2081,7 @@ function endRound(lobbyCode: string) {
           ghost.ghostAbilityUsed = true;
           ghost.possessionRoundsLeft = undefined;
           addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived with ${reviveTime.toFixed(1)}s!`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🌑 PURGATORY RETURN', message: `${ghost.name} returns from purgatory with ${reviveTime.toFixed(1)}s!` });
         } else {
           ghost.possessionRoundsLeft = undefined;
         }
@@ -2456,6 +2458,7 @@ function endRound(lobbyCode: string) {
             }
           });
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} BLOOD PACT: all non-winners lost extra ${winnerTimeBid.toFixed(1)}s`, value: -winnerTimeBid, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🩸 BLOOD PACT TRIGGERED', message: `${p.name} Blood Pact — all non-winners lose an extra ${winnerTimeBid.toFixed(1)}s!` });
           // Ghost/eliminate any player whose time reached zero from the Blood Pact
           game.players.forEach(fp => { ghostOrEliminate(game, fp, 'Blood Pact'); });
         }
@@ -2468,9 +2471,11 @@ function endRound(lobbyCode: string) {
         if (gain) {
           p.remainingTime += 30;
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: +30s`, value: 30, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎲 CURSED DICE: LUCKY!', message: `${p.name} rolled lucky — +30s added to their time bank!` });
         } else {
           p.remainingTime = Math.max(0, p.remainingTime - 30);
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: -30s`, value: -30, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎲 CURSED DICE: CURSED!', message: `${p.name} rolled unlucky — -30s removed from their time bank!` });
           ghostOrEliminate(game, p, 'Cursed Dice');
         }
         p.cursedDiceActive = false;
@@ -2489,6 +2494,7 @@ function endRound(lobbyCode: string) {
         p.ghostAbility = assignGhostAbility();
         p.ghostAbilityUsed = false;
         addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} MARK TRIGGERED: won and was immediately ghosted!`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '👁️ MARK TRIGGERED', message: `${p.name} won — and was immediately ghosted by the mark!`, victimId: p.id });
         // 50% chance the marker is also ghosted
         if (marker && !marker.isGhost && !marker.isEliminated && Math.random() < 0.5) {
           const mSaved = marker.remainingTime;
@@ -2500,6 +2506,7 @@ function endRound(lobbyCode: string) {
           marker.ghostAbility = assignGhostAbility();
           marker.ghostAbilityUsed = false;
           addGameLogEntry(game, { type: 'ability', playerId: marker.id, playerName: marker.name, message: `${marker.name} MARK BACKLASH: mark claimed the marker too!`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '👁️ MARK BACKLASH', message: `The mark also claimed ${marker.name}!`, victimId: marker.id });
         }
         p.markedBy = undefined;
       }
@@ -2621,7 +2628,7 @@ function endRound(lobbyCode: string) {
       // All human players are ghosts — advance the round automatically after a short delay
       setTimeout(() => {
         const g = activeGames.get(lobbyCode);
-        if (!g || g.phase === 'game_over') return;
+        if (!g || g.phase !== 'round_end') return;
         if (g.round >= g.totalRounds) {
           // Final Writ safety check: a ghost with Final Writ should still claim the trophy
           if (!processFinalWrit(g, lobbyCode)) {
@@ -3004,6 +3011,7 @@ function processFinalWrit(game: GameState, lobbyCode: string): boolean {
   log(`FINAL WRIT: ${finalWritPlayer.name} skips final round and wins trophy in lobby ${lobbyCode}`, "game");
   game.roundWinner = { id: finalWritPlayer.id, name: finalWritPlayer.name, bid: 0, isFinalWrit: true };
   game.phase = 'round_end';
+  if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '✒️ FINAL WRIT ACTIVATED', message: `${finalWritPlayer.name} activates Final Writ — the final round is skipped! Trophy claimed automatically.` });
   broadcastGameState(lobbyCode);
   setTimeout(() => endGame(lobbyCode), 3000);
   return true;
@@ -3027,6 +3035,8 @@ function startWaitingForReady(lobbyCode: string) {
   // can correctly decrement on rounds where Block A (endRound) did not run.
   game.ghostCountdownProcessedForCurrentRound = false;
   game.overclockClickCounts = {};
+  // Reset holding start time so the ready-check interval starts fresh for this round.
+  game.allHumansHoldingStartTime = null;
   
   // --- MP: BOT RELIC ACTIVATION ---
   // Bots with unconsumed relics activate them at the start of each round (before players go ready).
@@ -3059,12 +3069,16 @@ function startWaitingForReady(lobbyCode: string) {
           if (roll < 0.25) {
             bot.remainingTime = Math.min(bot.remainingTime + 40, 9999);
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): +40s`, value: 40, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 🎯 LUCKY!', message: `${bot.name} hit Jackpot — +40s added to time bank!` });
           } else if (roll < 0.5) {
             bot.tokens += 2;
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): +2 trophies`, value: 2, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 🏆 JACKPOT!', message: `${bot.name} hit Jackpot — +2 trophies awarded!` });
           } else if (roll < 0.75) {
             bot.remainingTime = Math.max(0, bot.remainingTime - 30);
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): -30s`, value: -30, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 💀 CURSED!', message: `${bot.name} hit Jackpot — −30s removed from time bank!` });
+            ghostOrEliminate(game, bot, 'Jackpot');
           } else {
             const saved = bot.remainingTime;
             bot.isGhost = true;
@@ -3075,6 +3089,7 @@ function startWaitingForReady(lobbyCode: string) {
             bot.ghostAbility = assignGhostAbility();
             bot.ghostAbilityUsed = false;
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} JACKPOT (bot): ghosted`, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎰 JACKPOT: 👻 GHOSTED!', message: `${bot.name} hit Jackpot — they have been ghosted!` });
           }
           break;
         }
@@ -3091,6 +3106,7 @@ function startWaitingForReady(lobbyCode: string) {
               target.ghostAbility = assignGhostAbility();
               target.ghostAbilityUsed = false;
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} GHOST TOUCH (bot): ${target.name} ghosted!`, basic: true });
+              if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '👻 GHOST TOUCH', message: `${bot.name} used Ghost Touch — ${target.name} has been ghosted!`, victimId: target.id });
             } else {
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} GHOST TOUCH (bot): missed`, basic: true });
             }
@@ -3108,6 +3124,7 @@ function startWaitingForReady(lobbyCode: string) {
           if (victim) {
             victim.tokens = Math.max(0, victim.tokens - 1);
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} SACRIFICIAL LAMB (bot): ${victim.name} -1 trophy`, value: -1, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🐑 SACRIFICIAL LAMB', message: `${bot.name} used Sacrificial Lamb — ${victim.name} loses 1 trophy!`, victimId: victim.id });
           }
           break;
         }
@@ -3125,22 +3142,26 @@ function startWaitingForReady(lobbyCode: string) {
             } while (shuffled.some((t, i) => t === times[i]) && attempts < 20);
             alive.forEach((p, i) => { p.remainingTime = shuffled[i]; });
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} WILD CARD (bot): time banks redistributed`, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🌀 WILD CARD', message: `${bot.name} used Wild Card — all time banks redistributed!` });
           }
           break;
         }
         case 'death_wish': {
           bot.deathWishActive = true;
           addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} DEATH WISH (bot): win=+2, lose=-15s`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 DEATH WISH', message: `${bot.name} activated Death Wish — win for +2 trophies, lose and forfeit extra 15s!` });
           break;
         }
         case 'blood_pact': {
           bot.bloodPactActive = true;
           addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} BLOOD PACT (bot): all losers share winner's bid cost`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🩸 BLOOD PACT', message: `${bot.name} activated Blood Pact — all non-winners will pay the winner's bid time this round!` });
           break;
         }
         case 'cursed_dice': {
           bot.cursedDiceActive = true;
           addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CURSED DICE (bot): ±30s after round end`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎲 CURSED DICE ARMED', message: `${bot.name} armed Cursed Dice — 50/50 chance of ±30s after this round!` });
           break;
         }
         case 'seance': {
@@ -3172,6 +3193,7 @@ function startWaitingForReady(lobbyCode: string) {
           const picked = DARK_POOL_BOT[Math.floor(Math.random() * DARK_POOL_BOT.length)];
           game.forcedProtocolNextRound = picked;
           addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} PROTOCOL FORCER (bot): next round will be ${picked}`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⛓️ PROTOCOL FORCER', message: `${bot.name} used Protocol Forcer — next round will run: ${picked}!` });
           break;
         }
         case 'last_will': {
@@ -3182,6 +3204,7 @@ function startWaitingForReady(lobbyCode: string) {
           }
           bot.pendingLastWill = { targetId: '', curseType: 'trophy' };
           addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} LAST WILL (bot): if ghosted, a random opponent loses 1 trophy`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚰️ LAST WILL SET', message: `${bot.name} set their Last Will — if ghosted, a random opponent loses 1 trophy!` });
           break;
         }
         case 'echo': {
@@ -3190,6 +3213,8 @@ function startWaitingForReady(lobbyCode: string) {
             const lastBid = echoTarget.bidHistory[echoTarget.bidHistory.length - 1];
             echoTarget.remainingTime = Math.max(0, echoTarget.remainingTime - lastBid);
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} ECHO (bot): ${echoTarget.name} -${lastBid.toFixed(1)}s from time bank`, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO', message: `${bot.name} used Echo — ${echoTarget.name} lost ${lastBid.toFixed(1)}s from their time bank!`, victimId: echoTarget.id });
+            ghostOrEliminate(game, echoTarget, 'Echo');
           } else {
             bot.relicConsumed = false; // no valid history target
           }
@@ -3205,6 +3230,7 @@ function startWaitingForReady(lobbyCode: string) {
           if (target) {
             target.markedBy = bot.id;
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} MARKED (bot): ${target.name} is marked — ghosted on next win`, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '👁️ MARKED', message: `${bot.name} marked ${target.name} — they will be ghosted on their next win!`, victimId: target.id });
           }
           break;
         }
@@ -3214,6 +3240,7 @@ function startWaitingForReady(lobbyCode: string) {
             botTarget.corruptRoundsLeft = 3;
             botTarget.personality = 'aggressive';
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CORRUPT (bot): ${botTarget.name} is now AGGRESSIVE for 3 rounds`, basic: true });
+            if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🦠 CORRUPT', message: `${bot.name} corrupted ${botTarget.name} — they go AGGRESSIVE for 3 rounds!` });
           } else {
             bot.relicConsumed = false;
           }
@@ -3226,6 +3253,7 @@ function startWaitingForReady(lobbyCode: string) {
         case 'final_writ': {
           bot.finalWritActive = true;
           addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} FINAL WRIT (bot): will auto-win the final round`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '✒️ FINAL WRIT', message: `${bot.name} activated Final Writ — they will automatically win the final round!` });
           break;
         }
         case 'tribunal': {
@@ -3238,6 +3266,7 @@ function startWaitingForReady(lobbyCode: string) {
               target.remainingTime = Math.max(0, target.remainingTime - 30);
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): ${target.name} loses 30s immediately`, value: -30, basic: true });
               if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL', message: `${bot.name} sentenced ${target.name} — ${target.name} loses 30s!`, victimId: target.id });
+              ghostOrEliminate(game, target, 'Tribunal');
             } else {
               target.relicConsumed = true;
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): ${target.name}'s relic consumed without effect`, basic: true });
@@ -3257,6 +3286,7 @@ function startWaitingForReady(lobbyCode: string) {
               game.players.forEach(p => {
                 if (!p.isEliminated && !p.isGhost) {
                   p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10;
+                  ghostOrEliminate(game, p, 'Conclave A');
                 }
               });
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CONCLAVE (bot): all time banks halved!`, basic: true });
