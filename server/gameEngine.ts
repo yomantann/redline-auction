@@ -3206,7 +3206,7 @@ function startWaitingForReady(lobbyCode: string) {
             const lastBid = echoTarget.bidHistory[echoTarget.bidHistory.length - 1];
             echoTarget.remainingTime = Math.max(0, echoTarget.remainingTime - lastBid);
             addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} ECHO (bot): ${echoTarget.name} -${lastBid.toFixed(1)}s from time bank`, basic: true });
-            ghostOrEliminate(game, echoTarget, 'Echo bot');
+            ghostOrEliminate(game, echoTarget, 'Echo');
             if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO', message: `${bot.name} used Echo — ${echoTarget.name} lost ${lastBid.toFixed(1)}s from their time bank!`, victimId: echoTarget.id });
           } else {
             bot.relicConsumed = false; // no valid history target
@@ -3258,7 +3258,7 @@ function startWaitingForReady(lobbyCode: string) {
             if (choice === 'A') {
               target.remainingTime = Math.max(0, target.remainingTime - 30);
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} TRIBUNAL (bot): ${target.name} loses 30s immediately`, value: -30, basic: true });
-              ghostOrEliminate(game, target, 'Tribunal bot');
+              ghostOrEliminate(game, target, 'Tribunal');
               if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL', message: `${bot.name} sentenced ${target.name} — ${target.name} loses 30s!`, victimId: target.id });
             } else {
               target.relicConsumed = true;
@@ -3279,7 +3279,7 @@ function startWaitingForReady(lobbyCode: string) {
               game.players.forEach(p => {
                 if (!p.isEliminated && !p.isGhost) {
                   p.remainingTime = Math.floor(p.remainingTime / 2 * 10) / 10;
-                  ghostOrEliminate(game, p, 'Conclave A bot');
+                  ghostOrEliminate(game, p, 'Conclave A');
                 }
               });
               addGameLogEntry(game, { type: 'ability', playerId: bot.id, playerName: bot.name, message: `${bot.name} CONCLAVE (bot): all time banks halved!`, basic: true });
