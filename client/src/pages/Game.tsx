@@ -920,9 +920,10 @@ export default function Game() {
   const prevMyCosmeticsRef = useRef<EquippedCosmetics | undefined>(undefined);
   useEffect(() => {
     if (!socket || !myCosmetics) return;
-    // Only emit if cosmetics just became available (prev was undefined) or changed
+    // Shallow comparison on the known cosmetic slots
     const prev = prevMyCosmeticsRef.current;
-    const hasChanged = JSON.stringify(prev) !== JSON.stringify(myCosmetics);
+    const slots = ['border', 'background', 'logo', 'driverSkin'] as const;
+    const hasChanged = !prev || slots.some(k => (prev as Record<string, string>)[k] !== (myCosmetics as Record<string, string>)[k]);
     prevMyCosmeticsRef.current = myCosmetics;
     if (hasChanged) {
       socket.emit('update_player_cosmetics', { equippedCosmetics: myCosmetics as Record<string, string> });

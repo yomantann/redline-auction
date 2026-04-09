@@ -489,12 +489,12 @@ export async function registerRoutes(
     socket.on("update_player_cosmetics", (data: { equippedCosmetics: Record<string, string> }, callback?) => {
       const lobbyCode = playerToLobby.get(socket.id);
       if (!lobbyCode) {
-        if (callback) callback?.({ success: false, error: "Not in a lobby" });
+        callback?.({ success: false, error: "Not in a lobby" });
         return;
       }
       const { equippedCosmetics } = data;
       if (!equippedCosmetics || typeof equippedCosmetics !== 'object') {
-        if (callback) callback?.({ success: false, error: "Invalid cosmetics" });
+        callback?.({ success: false, error: "Invalid cosmetics" });
         return;
       }
 
@@ -518,7 +518,7 @@ export async function registerRoutes(
         }
       }
 
-      if (callback) callback?.({ success: true });
+      callback?.({ success: true });
     });
 
     // UPDATE PLAYER NAME (before game starts)
