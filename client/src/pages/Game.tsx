@@ -9998,8 +9998,13 @@ export default function Game() {
                     ? (isMultiplayer
                         ? ((multiplayerGameState?.players.find(mp => mp.socketId === socket?.id) as any)?.selectedDriver ?? selectedCharacter?.id)
                         : selectedCharacter?.id)
-                    : undefined;
-                  const dialogSkinUrl = isDialogCurrentPlayer && myCosmetics ? getDriverSkinUrl(myCosmetics, dialogDriverId) : null;
+                    : (selectedPlayerStats as any)?.selectedDriver;
+                  const dialogCosmetics = isDialogCurrentPlayer
+                    ? myCosmetics
+                    : ((selectedPlayerStats as any)?.equippedCosmetics && Object.keys((selectedPlayerStats as any).equippedCosmetics).length > 0
+                        ? (selectedPlayerStats as any).equippedCosmetics
+                        : null);
+                  const dialogSkinUrl = dialogCosmetics ? getDriverSkinUrl(dialogCosmetics, dialogDriverId) : null;
                   return (
                     <div
                       className="w-14 h-14 rounded-lg overflow-hidden border border-white/20 relative flex-shrink-0 cursor-zoom-in"

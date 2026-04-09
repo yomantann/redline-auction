@@ -79,14 +79,13 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     ? { textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.7)', color: 'white' }
     : undefined;
   // Border image overlay style: the border PNGs have transparent backgrounds (white areas
-  // are alpha=0), so we stretch the image to cover the card with an extension only on the right.
+  // are alpha=0), so we stretch the image symmetrically across all edges of the card.
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
-    top: '-18px',
-    left: '0',
-    width: 'calc(100% + 96px)', // extends ~1 inch to the right only
-    height: 'calc(100% + 36px)',
-    objectFit: 'fill',
+    top: '-12px',
+    left: '-12px',
+    width: 'calc(100% + 24px)',
+    height: 'calc(100% + 24px)',
     pointerEvents: 'none',
     borderRadius: 'inherit',
   };

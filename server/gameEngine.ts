@@ -143,7 +143,7 @@ export interface GamePlayer {
   remainingTime: number;
   isEliminated: boolean;
   isGhost?: boolean;              // Haunted mode: true when player runs out of time (can come back to life)
-  selectedItem?: string;          // Haunted mode: name of selected haunted relic
+  selectedItem?: string;          // Haunted mode: ID of selected haunted relic (e.g. 'ghost_touch')
   ghostImage?: string;            // Haunted mode: assigned ghost image key (e.g. 'hnt_ghost_3')
   ghostAbility?: 'reaper' | 'purgatory' | null; // Ghost ability type (25% reaper, 75% purgatory)
   ghostAbilityUsed?: boolean;     // Has this ghost's ability already been used?
@@ -647,6 +647,26 @@ export function confirmDriverInGame(lobbyCode: string, playerId: string): { succ
         p.driverConfirmed = true;
       }
     });
+
+    // HAUNTED mode: assign random relics to bots (humans pick their own relic separately)
+    if (variant === 'HAUNTED') {
+      const BOT_RELIC_IDS = [
+        'jackpot', 'ghost_touch', 'sacrificial_lamb', 'wild_card', 'death_wish',
+        'blood_pact', 'cursed_dice', 'seance', 'protocol_forcer', 'last_will',
+        'echo', 'marked', 'corrupt', 'pattern_lock', 'final_writ', 'tribunal', 'conclave',
+      ];
+      const usedRelics = new Set<string>();
+      game.players.forEach(p => {
+        if (p.isBot && !p.selectedItem) {
+          const available = BOT_RELIC_IDS.filter(r => !usedRelics.has(r));
+          if (available.length > 0) {
+            const pick = available[Math.floor(Math.random() * available.length)];
+            p.selectedItem = pick;
+            usedRelics.add(pick);
+          }
+        }
+      });
+    }
     
     broadcastGameState(lobbyCode);
     log(`All human players confirmed, bots assigned drivers in game ${lobbyCode}, starting round 1`, "game");

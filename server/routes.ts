@@ -753,7 +753,7 @@ export async function registerRoutes(
       if (!game) { if (callback) callback?.({ success: false, error: "No active game" }); return; }
       const player = game.players.find(p => p.socketId === socket.id);
       if (player) {
-        player.selectedItem = data.itemName;
+        player.selectedItem = data.itemId;
         // Broadcast full state so all players see the updated relic selection
         broadcastGameState(lobbyCode);
       }
