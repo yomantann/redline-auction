@@ -485,6 +485,42 @@ export async function registerRoutes(
       }
     });
 
+    // UPDATE PLAYER COSMETICS (can be called after profile loads; works in lobby or in-game)
+    socket.on("update_player_cosmetics", (data: { equippedCosmetics: Record<string, string> }, callback?) => {
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (!lobbyCode) {
+        if (callback) callback?.({ success: false, error: "Not in a lobby" });
+        return;
+      }
+      const { equippedCosmetics } = data;
+      if (!equippedCosmetics || typeof equippedCosmetics !== 'object') {
+        if (callback) callback?.({ success: false, error: "Invalid cosmetics" });
+        return;
+      }
+
+      // Update in lobby player list
+      const lobby = lobbies.get(lobbyCode);
+      if (lobby) {
+        const lobbyPlayer = lobby.players.find(p => p.socketId === socket.id);
+        if (lobbyPlayer) {
+          lobbyPlayer.equippedCosmetics = equippedCosmetics;
+          broadcastLobbyUpdate(lobbyCode);
+        }
+      }
+
+      // Also update in active game if one is running
+      const game = getGameState(lobbyCode);
+      if (game) {
+        const gamePlayer = game.players.find((p: any) => p.socketId === socket.id);
+        if (gamePlayer) {
+          gamePlayer.equippedCosmetics = equippedCosmetics;
+          broadcastGameState(lobbyCode);
+        }
+      }
+
+      if (callback) callback?.({ success: true });
+    });
+
     // UPDATE PLAYER NAME (before game starts)
     socket.on("update_player_name", (data: { newName: string }, callback?) => {
       const lobbyCode = playerToLobby.get(socket.id);

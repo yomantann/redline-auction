@@ -915,6 +915,20 @@ export default function Game() {
   // Shortcut to the equipped cosmetics for the local player
   const myCosmetics: EquippedCosmetics | undefined = playerProfile?.equippedCosmetics;
 
+  // When cosmetics load after the player has already joined a lobby/game, push the update to the server
+  // so other players (including guests) can see the equipped cosmetics in the live game state.
+  const prevMyCosmeticsRef = useRef<EquippedCosmetics | undefined>(undefined);
+  useEffect(() => {
+    if (!socket || !myCosmetics) return;
+    // Only emit if cosmetics just became available (prev was undefined) or changed
+    const prev = prevMyCosmeticsRef.current;
+    const hasChanged = JSON.stringify(prev) !== JSON.stringify(myCosmetics);
+    prevMyCosmeticsRef.current = myCosmetics;
+    if (hasChanged) {
+      socket.emit('update_player_cosmetics', { equippedCosmetics: myCosmetics as Record<string, string> });
+    }
+  }, [socket, myCosmetics]);
+
   // ── Game State ──
   const [phase, setPhase] = useState<GamePhase>('intro');
   const [difficulty, setDifficulty] = useState<GameDifficulty>('CASUAL');
@@ -6624,7 +6638,9 @@ export default function Game() {
       : phase;
     
     // Handle multiplayer waiting_for_ready phase - uses same UI as singleplayer ready phase
-    if (effectivePhase === 'waiting_for_ready' && isMultiplayer) {
+    // BUT skip this early return if the client is currently showing the haunted item select screen,
+    // so players in Haunted mode MP can pick their relic before the ready phase.
+    if (effectivePhase === 'waiting_for_ready' && isMultiplayer && phase !== 'haunted_item_select') {
       const activeHumanPlayers = displayPlayers.filter(p => !p.isBot && !p.isEliminated);
       const readyPlayers = activeHumanPlayers.filter(p => p.isHolding);
       const allHumansReady = activeHumanPlayers.length > 0 && readyPlayers.length === activeHumanPlayers.length;
@@ -6695,8 +6711,10 @@ export default function Game() {
     }
     
     // Map multiplayer phases to local phases for rendering
+    // In Haunted MP, the client may be on haunted_item_select even while server is waiting_for_ready
     const renderPhase = isMultiplayer 
-      ? (effectivePhase === 'driver_selection' ? 'mp_driver_select' 
+      ? (phase === 'haunted_item_select' ? 'haunted_item_select'
+        : effectivePhase === 'driver_selection' ? 'mp_driver_select' 
         : effectivePhase === 'round_end' ? 'round_end' 
         : effectivePhase === 'game_over' ? 'game_end'
         : effectivePhase)
