@@ -81,7 +81,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // Border image overlay style: stretch the border PNG to exactly match the card bounds
   // so the decorative ring aligns with the card's edges.
   // borderRadius: inherit ensures the image corners match the card's rounded-lg.
-  // The parent uses overflow: visible so the ring is never clipped by rounded corners.
+  // The parent clips to rounded corners.
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
     inset: 0,
@@ -89,7 +89,6 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
     height: '100%',
     pointerEvents: 'none',
     borderRadius: 'inherit',
-    objectFit: 'fill',
   };
 
   return (
@@ -104,7 +103,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
       !player.isGhost && player.isEliminated && !hideEliminated && "opacity-80 border-red-500/50 bg-red-950/20",
       onClick && "cursor-pointer hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98]"
     )}
-    style={{ ...backgroundStyle, ...borderStyle, overflow: 'visible' }}
+    style={{ ...backgroundStyle, ...borderStyle, overflow: borderImageUrl ? 'hidden' : 'visible' }}
     data-testid={`player-card-${player.id}`}
     >
       {/* Border overlay: PNG has transparent background (white areas are alpha=0),

@@ -2040,6 +2040,7 @@ function endRound(lobbyCode: string) {
         target.ghostReason = 'forced';
         target.ghostTimeAtDeath = savedTime;
         addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} REAPER: ${target.name} becomes a ghost!`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '💀 REAPER STRIKES', message: `${ghost.name}'s ghost ability dragged ${target.name} into the spirit world!`, victimId: target.id });
       }
       // After reaper fires (or if no targets), ghost enters countdown.
       // Reaper waits 3 full rounds before reviving; purgatory waits 2 full rounds.
@@ -2080,6 +2081,7 @@ function endRound(lobbyCode: string) {
           ghost.ghostAbilityUsed = true;
           ghost.possessionRoundsLeft = undefined;
           addGameLogEntry(game, { type: 'ability', playerId: ghost.id, playerName: ghost.name, message: `${ghost.name} revived with ${reviveTime.toFixed(1)}s!`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🌑 PURGATORY RETURN', message: `${ghost.name} returns from purgatory with ${reviveTime.toFixed(1)}s!` });
         } else {
           ghost.possessionRoundsLeft = undefined;
         }
@@ -2456,6 +2458,7 @@ function endRound(lobbyCode: string) {
             }
           });
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} BLOOD PACT: all non-winners lost extra ${winnerTimeBid.toFixed(1)}s`, value: -winnerTimeBid, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🩸 BLOOD PACT TRIGGERED', message: `${p.name} Blood Pact — all non-winners lose an extra ${winnerTimeBid.toFixed(1)}s!` });
           // Ghost/eliminate any player whose time reached zero from the Blood Pact
           game.players.forEach(fp => { ghostOrEliminate(game, fp, 'Blood Pact'); });
         }
@@ -2468,9 +2471,11 @@ function endRound(lobbyCode: string) {
         if (gain) {
           p.remainingTime += 30;
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: +30s`, value: 30, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎲 CURSED DICE: LUCKY!', message: `${p.name} rolled lucky — +30s added to their time bank!` });
         } else {
           p.remainingTime = Math.max(0, p.remainingTime - 30);
           addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} CURSED DICE: -30s`, value: -30, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🎲 CURSED DICE: CURSED!', message: `${p.name} rolled unlucky — -30s removed from their time bank!` });
           ghostOrEliminate(game, p, 'Cursed Dice');
         }
         p.cursedDiceActive = false;
@@ -2489,6 +2494,7 @@ function endRound(lobbyCode: string) {
         p.ghostAbility = assignGhostAbility();
         p.ghostAbilityUsed = false;
         addGameLogEntry(game, { type: 'ability', playerId: p.id, playerName: p.name, message: `${p.name} MARK TRIGGERED: won and was immediately ghosted!`, basic: true });
+        if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '👁️ MARK TRIGGERED', message: `${p.name} won — and was immediately ghosted by the mark!`, victimId: p.id });
         // 50% chance the marker is also ghosted
         if (marker && !marker.isGhost && !marker.isEliminated && Math.random() < 0.5) {
           const mSaved = marker.remainingTime;
@@ -2500,6 +2506,7 @@ function endRound(lobbyCode: string) {
           marker.ghostAbility = assignGhostAbility();
           marker.ghostAbilityUsed = false;
           addGameLogEntry(game, { type: 'ability', playerId: marker.id, playerName: marker.name, message: `${marker.name} MARK BACKLASH: mark claimed the marker too!`, basic: true });
+          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '👁️ MARK BACKLASH', message: `The mark also claimed ${marker.name}!`, victimId: marker.id });
         }
         p.markedBy = undefined;
       }
