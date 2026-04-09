@@ -82,6 +82,7 @@ interface LobbyPlayer {
   selectedDriver?: string;
   disconnected?: boolean;
   replitUserId?: string;
+  equippedCosmetics?: Record<string, string>;
 }
 
 interface GameSettings {
@@ -241,8 +242,9 @@ export async function registerRoutes(
       settings?: Partial<GameSettings>;
       isPublic?: boolean;
       replitUserId?: string;
+      equippedCosmetics?: Record<string, string>;
     }, callback) => {
-      const { playerName, settings: hostSettings, isPublic, replitUserId } = data;
+      const { playerName, settings: hostSettings, isPublic, replitUserId, equippedCosmetics } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -256,7 +258,8 @@ export async function registerRoutes(
         name: playerName || "Player 1",
         isHost: true,
         isReady: false,
-        ...(replitUserId ? { replitUserId } : {})
+        ...(replitUserId ? { replitUserId } : {}),
+        ...(equippedCosmetics ? { equippedCosmetics } : {})
       };
       
       // Default settings merged with host's settings
@@ -305,8 +308,8 @@ export async function registerRoutes(
     });
 
     // JOIN LOBBY
-    socket.on("join_lobby", (data: { code: string; playerName: string; replitUserId?: string }, callback) => {
-      const { code, playerName, replitUserId } = data;
+    socket.on("join_lobby", (data: { code: string; playerName: string; replitUserId?: string; equippedCosmetics?: Record<string, string> }, callback) => {
+      const { code, playerName, replitUserId, equippedCosmetics } = data;
       const upperCode = code.toUpperCase();
       
       if (playerToLobby.has(socket.id)) {
@@ -336,7 +339,8 @@ export async function registerRoutes(
         name: playerName || `Player ${lobby.players.length + 1}`,
         isHost: false,
         isReady: false,
-        ...(replitUserId ? { replitUserId } : {})
+        ...(replitUserId ? { replitUserId } : {}),
+        ...(equippedCosmetics ? { equippedCosmetics } : {})
       };
       
       lobby.players.push(player);
@@ -359,8 +363,8 @@ export async function registerRoutes(
     });
 
     // JOIN RANDOM PUBLIC LOBBY
-    socket.on("join_random_lobby", (data: { playerName: string; replitUserId?: string }, callback) => {
-      const { playerName, replitUserId } = data;
+    socket.on("join_random_lobby", (data: { playerName: string; replitUserId?: string; equippedCosmetics?: Record<string, string> }, callback) => {
+      const { playerName, replitUserId, equippedCosmetics } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -384,7 +388,8 @@ export async function registerRoutes(
         name: playerName || `Player ${lobby.players.length + 1}`,
         isHost: false,
         isReady: false,
-        ...(replitUserId ? { replitUserId } : {})
+        ...(replitUserId ? { replitUserId } : {}),
+        ...(equippedCosmetics ? { equippedCosmetics } : {})
       };
       
       lobby.players.push(player);
@@ -591,7 +596,8 @@ export async function registerRoutes(
         id: p.id,
         socketId: p.socketId,
         name: p.name,
-        selectedDriver: p.selectedDriver
+        selectedDriver: p.selectedDriver,
+        equippedCosmetics: p.equippedCosmetics
       }));
       
       const gameState = createGame(lobbyCode, gamePlayers, lobby.settings.gameDuration, {

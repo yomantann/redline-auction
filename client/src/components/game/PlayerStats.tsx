@@ -20,6 +20,7 @@ interface Player {
   impactLogs?: { value: string; reason: string; type: 'loss' | 'gain' | 'neutral' | 'trophy' | 'forced' }[]; // Structured logs
   netImpact?: number; // Net of all positive and negative impacts
   selectedItem?: string; // Haunted mode: selected item name
+  relicConsumed?: boolean; // Haunted mode: relic already consumed
   isGhost?: boolean; // Haunted mode: player converted to ghost on elimination
 }
 
@@ -194,8 +195,8 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
               </span>
             )}
             {player.selectedItem && (
-              <span className="text-[10px] text-teal-400/70 leading-tight cursor-default" title="Haunted Item">
-                🔮 {player.selectedItem}
+              <span className={cn("text-[10px] leading-tight cursor-default", player.relicConsumed ? "text-zinc-600 line-through" : "text-teal-400/70")} title={player.relicConsumed ? "Relic consumed" : "Haunted Item"}>
+                🔮 {player.selectedItem}{player.relicConsumed ? ' (used)' : ''}
               </span>
             )}
           </div>
