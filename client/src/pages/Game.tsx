@@ -1572,8 +1572,7 @@ export default function Game() {
         if (myPlayer) {
           const prevMe = prev.find((p: any) => p.id === myPlayer.id);
           if (prevMe && prevMe.isGhost && !(myPlayer as any).isGhost && !(myPlayer as any).isEliminated) {
-            const reviveTime = ((myPlayer as any).remainingTime ?? 0).toFixed(1);
-            addOverlay('ability_trigger', '🔄 REVIVED', `You have been revived with ${reviveTime}s!`, 0);
+            // No overlay needed for MP revive — the state update itself is sufficient feedback
           }
         }
         prevMpPlayersRef.current = state.players as any[];
@@ -1668,14 +1667,15 @@ export default function Game() {
         } else if (state.phase === 'game_over') {
           setPhase('game_end');
           // ── MP end-game credit conversion ──
-          // state.players contains final standings; find the local player's socket id
+          // state.players contains final standings; find the local player
           const mySocketId = socket?.id;
-          const myFinalPlayer = state.players?.find((mp: any) => mp.socketId === mySocketId);
+          const myFinalPlayer = state.players?.find((mp: any) => mp.socketId === mySocketId)
+            ?? state.players?.find((mp: any) => !mp.isBot && mp.name === playerName); // fallback by name on reconnect
           if (myFinalPlayer && state.gameId) {
             const winner = [...(state.players || [])].sort((a: any, b: any) =>
               b.tokens !== a.tokens ? b.tokens - a.tokens : b.remainingTime - a.remainingTime
             )[0];
-            const isWinner = winner?.socketId === mySocketId;
+            const isWinner = winner?.socketId === mySocketId || (!mySocketId && winner?.name === playerName);
             convertGameCredits(
               state.gameId,
               myFinalPlayer?.tokens || 0,
@@ -6677,48 +6677,6 @@ export default function Game() {
             )}
             <div className="text-zinc-600 text-xs mt-4">Watch the auction unfold below ↓</div>
           </div>
-          {/* Vote overlay: ghost players can still cast their vote */}
-          {voteRelicState && !voteRelicState.resolved && (
-            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
-              <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
-                <h3 className="text-lg font-bold text-teal-300 text-center">
-                  {voteRelicState.relicId === 'tribunal' ? '⚖️ TRIBUNAL' : '🗳️ THE CONCLAVE'}
-                </h3>
-                <p className="text-zinc-400 text-sm text-center">
-                  {voteRelicState.activatorName} called a vote{voteRelicState.targetName ? ` targeting ${voteRelicState.targetName}` : ''}!
-                </p>
-                <div className="text-center text-teal-300 font-bold tabular-nums">{voteRelicState.timeLeft}s</div>
-                <div className="space-y-2">
-                  {voteRelicState.options.map(opt => {
-                    const count = Object.values(voteRelicState.votes).filter(v => v === opt.id).length;
-                    const hasVoted = voteRelicState.myVote === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => {
-                          if (voteRelicState.myVote) return;
-                          if (socket) {
-                            socket.emit('cast_relic_vote', { optionId: opt.id });
-                            setVoteRelicState(prev => prev ? { ...prev, myVote: opt.id } : prev);
-                          }
-                        }}
-                        className={cn(
-                          "w-full py-2 px-3 rounded text-sm text-left flex justify-between transition-colors",
-                          hasVoted ? "bg-teal-900 border border-teal-500/50 text-teal-200" : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
-                          voteRelicState.myVote && !hasVoted ? "opacity-50 cursor-not-allowed" : ""
-                        )}
-                      >
-                        <span><span className="font-bold text-teal-400">{opt.id}.</span> {opt.label}</span>
-                        <span className="text-zinc-500 text-xs ml-2">{count} vote{count !== 1 ? 's' : ''}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {!voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote before time runs out!</p>}
-                {voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote cast! Waiting for others…</p>}
-              </div>
-            </div>
-          )}
           {voteRelicState?.resolved && voteRelicState.winnerLabel && (
             <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
               <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full text-center space-y-3">
@@ -6948,49 +6906,6 @@ export default function Game() {
             </div>
           );
         })()}
-
-        {/* Vote Relic overlay (MP waiting_for_ready) */}
-        {voteRelicState && !voteRelicState.resolved && (
-          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
-            <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
-              <h3 className="text-lg font-bold text-teal-300 text-center">
-                {voteRelicState.relicId === 'tribunal' ? '⚖️ TRIBUNAL' : '🗳️ THE CONCLAVE'}
-              </h3>
-              <p className="text-zinc-400 text-sm text-center">
-                {voteRelicState.activatorName} called a vote{voteRelicState.targetName ? ` targeting ${voteRelicState.targetName}` : ''}!
-              </p>
-              <div className="text-center text-teal-300 font-bold tabular-nums">{voteRelicState.timeLeft}s</div>
-              <div className="space-y-2">
-                {voteRelicState.options.map(opt => {
-                  const count = Object.values(voteRelicState.votes).filter(v => v === opt.id).length;
-                  const hasVoted = voteRelicState.myVote === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => {
-                        if (voteRelicState.myVote) return;
-                        if (socket) {
-                          socket.emit('cast_relic_vote', { optionId: opt.id });
-                          setVoteRelicState(prev => prev ? { ...prev, myVote: opt.id } : prev);
-                        }
-                      }}
-                      className={cn(
-                        "w-full py-2 px-3 rounded text-sm text-left flex justify-between transition-colors",
-                        hasVoted ? "bg-teal-900 border border-teal-500/50 text-teal-200" : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
-                        voteRelicState.myVote && !hasVoted ? "opacity-50 cursor-not-allowed" : ""
-                      )}
-                    >
-                      <span><span className="font-bold text-teal-400">{opt.id}.</span> {opt.label}</span>
-                      <span className="text-zinc-500 text-xs ml-2">{count} vote{count !== 1 ? 's' : ''}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {!voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote before time runs out!</p>}
-              {voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote cast! Waiting for others…</p>}
-            </div>
-          </div>
-        )}
 
         {/* Vote Relic result overlay (MP waiting_for_ready) */}
         {voteRelicState?.resolved && voteRelicState.winnerLabel && (
@@ -8146,19 +8061,30 @@ export default function Game() {
           Self: '🧠 Affects Self',
           Opponent: '⚔️ Affects Opponent',
         };
+
+        // In MP, track which relics other players have already claimed
+        const takenRelicIds = new Set<string>(
+          isMultiplayer && multiplayerGameState
+            ? multiplayerGameState.players
+                .filter((p: any) => p.id !== myMultiplayerPlayer?.id && p.selectedItem)
+                .map((p: any) => p.selectedItem as string)
+            : []
+        );
+
         const handleRelicSelect = (item: HauntedItem) => {
+          if (takenRelicIds.has(item.id)) return; // already claimed in MP
           if (isMultiplayer && socket) {
             socket.emit('select_haunted_item', { itemId: item.id, itemName: item.name });
             setPhase('ready');
           } else {
             setPlayers(prev => {
-              const takenItems = new Set<string>([item.id]);
+              const taken = new Set<string>([item.id]);
               return prev.map(p => {
                 if (p.id === 'p1') return { ...p, selectedItem: item.id };
                 if (p.isBot) {
-                  const available = HAUNTED_ITEMS.filter(i => !takenItems.has(i.id));
+                  const available = HAUNTED_ITEMS.filter(i => !taken.has(i.id));
                   const pick = available[Math.floor(Math.random() * available.length)] || HAUNTED_ITEMS[0];
-                  takenItems.add(pick.id);
+                  taken.add(pick.id);
                   return { ...p, selectedItem: pick.id };
                 }
                 return p;
@@ -8168,7 +8094,8 @@ export default function Game() {
           }
         };
         const handleRandomRelicSelect = () => {
-          const pick = HAUNTED_ITEMS[Math.floor(Math.random() * HAUNTED_ITEMS.length)];
+          const available = HAUNTED_ITEMS.filter(i => !takenRelicIds.has(i.id));
+          const pick = (available.length > 0 ? available : HAUNTED_ITEMS)[Math.floor(Math.random() * (available.length || HAUNTED_ITEMS.length))];
           handleRelicSelect(pick);
         };
 
@@ -8178,13 +8105,16 @@ export default function Game() {
           { target: 'Opponent', items: HAUNTED_ITEMS.filter(i => i.target === 'Opponent') },
         ];
 
-        const renderRelicCard = (item: HauntedItem) => (
+        const renderRelicCard = (item: HauntedItem) => {
+          const isTaken = takenRelicIds.has(item.id);
+          return (
           <motion.button
             key={item.id}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={isTaken ? {} : { scale: 1.02 }}
+            whileTap={isTaken ? {} : { scale: 0.98 }}
             onClick={() => handleRelicSelect(item)}
-            className="flex gap-4 p-4 rounded-xl border border-teal-500/20 bg-black/50 hover:border-teal-400/50 hover:bg-teal-950/20 transition-all text-left"
+            disabled={isTaken}
+            className={`flex gap-4 p-4 rounded-xl border text-left transition-all ${isTaken ? 'opacity-40 cursor-not-allowed border-zinc-700/30 bg-zinc-900/30' : 'border-teal-500/20 bg-black/50 hover:border-teal-400/50 hover:bg-teal-950/20'}`}
             data-testid={`card-haunted-item-${item.id}`}
           >
             {/* Icon + number */}
@@ -8197,6 +8127,7 @@ export default function Game() {
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-sm text-teal-100 leading-tight">{item.name}</span>
+                {isTaken && <span className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-600/60 bg-zinc-800/60 text-zinc-400">TAKEN</span>}
                 {item.voteType && (
                   <span className="text-[9px] px-1.5 py-0.5 rounded border border-yellow-500/40 bg-yellow-900/20 text-yellow-400">⬆ VOTE</span>
                 )}
@@ -8215,7 +8146,8 @@ export default function Game() {
               )}
             </div>
           </motion.button>
-        );
+          );
+        };
 
         return (
           <motion.div
@@ -8790,53 +8722,6 @@ export default function Game() {
               );
           })()}
 
-          {/* Vote Relic overlay (SP + MP) */}
-          {voteRelicState && !voteRelicState.resolved && (
-            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
-              <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
-                <h3 className="text-lg font-bold text-teal-300 text-center">
-                  {voteRelicState.relicId === 'tribunal' ? '⚖️ TRIBUNAL' : '🗳️ THE CONCLAVE'}
-                </h3>
-                <p className="text-zinc-400 text-sm text-center">
-                  {voteRelicState.activatorName} called a vote{voteRelicState.targetName ? ` targeting ${voteRelicState.targetName}` : ''}!
-                </p>
-                <div className="text-center text-teal-300 font-bold tabular-nums">{voteRelicState.timeLeft}s</div>
-                <div className="space-y-2">
-                  {voteRelicState.options.map(opt => {
-                    const count = Object.values(voteRelicState.votes).filter(v => v === opt.id).length;
-                    const hasVoted = voteRelicState.myVote === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => {
-                          if (voteRelicState.myVote) return; // already voted
-                          if (isMultiplayer && socket) {
-                            socket.emit('cast_relic_vote', { optionId: opt.id });
-                            setVoteRelicState(prev => prev ? { ...prev, myVote: opt.id } : prev);
-                          } else {
-                            const updated = { ...voteRelicState, votes: { ...voteRelicState.votes, p1: opt.id }, myVote: opt.id };
-                            setVoteRelicState(updated);
-                            resolveVoteRelicSP(updated);
-                          }
-                        }}
-                        className={cn(
-                          "w-full py-2 px-3 rounded text-sm text-left flex justify-between transition-colors",
-                          hasVoted ? "bg-teal-900 border border-teal-500/50 text-teal-200" : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
-                          voteRelicState.myVote && !hasVoted ? "opacity-50 cursor-not-allowed" : ""
-                        )}
-                      >
-                        <span><span className="font-bold text-teal-400">{opt.id}.</span> {opt.label}</span>
-                        <span className="text-zinc-500 text-xs ml-2">{count} vote{count !== 1 ? 's' : ''}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {!voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote before time runs out!</p>}
-                {voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote cast! Waiting for others…</p>}
-              </div>
-            </div>
-          )}
-
           {/* Vote Relic result overlay */}
           {voteRelicState?.resolved && voteRelicState.winnerLabel && (
             <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
@@ -9389,7 +9274,7 @@ export default function Game() {
                 aria-hidden="true"
                 className="absolute pointer-events-none z-20 rounded"
                 style={{
-                  inset: '-25px',
+                  inset: '-28px',
                   backgroundImage: `url(${cardBorderImgUrl})`,
                   backgroundSize: '100% 100%',
                   backgroundRepeat: 'no-repeat',
