@@ -8179,7 +8179,7 @@ export default function Game() {
         const takenRelicIds = new Set<string>(
           isMultiplayer && multiplayerGameState
             ? multiplayerGameState.players
-                .filter((p: any) => p.id !== myMultiplayerPlayer?.id && p.selectedItem)
+                .filter((p: any) => p.id !== myMultiplayerPlayer?.id && !p.isBot && p.selectedItem)
                 .map((p: any) => p.selectedItem as string)
             : []
         );
@@ -8817,16 +8817,22 @@ export default function Game() {
                           {targetList.length === 0 && (
                             <p className="text-zinc-600 text-xs text-center">No valid targets available.</p>
                           )}
-                          {targetList.map((opp: any) => (
-                            <button
-                              key={opp.id}
-                              onClick={() => fireRelic(opp.id)}
-                              className="w-full py-2 px-3 rounded bg-zinc-800 text-zinc-200 text-sm hover:bg-zinc-700 transition-colors flex items-center justify-between"
-                            >
-                              <span>{opp.name}{opp.isBot ? ' 🤖' : ''}</span>
-                              <span className="text-zinc-500 text-xs">{opp.remainingTime.toFixed(1)}s · {opp.tokens}🏆</span>
-                            </button>
-                          ))}
+                          {targetList.map((opp: any) => {
+                            const hasNoBids = relicDef.id === 'echo' && !(opp.bidHistory?.length);
+                            return (
+                              <button
+                                key={opp.id}
+                                onClick={() => fireRelic(opp.id)}
+                                className="w-full py-2 px-3 rounded bg-zinc-800 text-zinc-200 text-sm hover:bg-zinc-700 transition-colors flex items-center justify-between"
+                              >
+                                <span>
+                                  {opp.name}{opp.isBot ? ' 🤖' : ''}
+                                  {hasNoBids && <span className="text-zinc-500 text-xs ml-1">(no bids — refunded)</span>}
+                                </span>
+                                <span className="text-zinc-500 text-xs">{opp.remainingTime.toFixed(1)}s · {opp.tokens}🏆</span>
+                              </button>
+                            );
+                          })}
                         </div>
                         <button onClick={() => setRelicModalOpen(false)} className="w-full py-2 rounded bg-zinc-800 text-zinc-400 text-sm hover:bg-zinc-700 transition-colors">Cancel</button>
                       </>
@@ -9435,7 +9441,10 @@ export default function Game() {
                 aria-hidden="true"
                 className="absolute pointer-events-none z-20 rounded"
                 style={{
-                  inset: '-28px',
+                  top: '-26px',
+                  bottom: '-26px',
+                  left: '-50px',
+                  right: '-50px',
                   backgroundImage: `url(${cardBorderImgUrl})`,
                   backgroundSize: '100% 100%',
                   backgroundRepeat: 'no-repeat',
