@@ -1,6 +1,6 @@
 import { log } from "./index";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordDriverSelectionStat } from "./snapshotDb";
-import { convertGameToCurrency, applyMilestones } from "./currencyEngine";
+import { convertGameToCurrency, applyMilestones, createDefaultProfile } from "./currencyEngine";
 import { getDb } from "./db";
 import { playerProfiles } from "../shared/schema";
 import { eq } from "drizzle-orm";
@@ -1685,6 +1685,16 @@ function endRound(lobbyCode: string) {
       }
     });
 
+    // Record a proxy bid-history entry for Echo relic compatibility.
+    // OVERCLOCK rounds have no time-based bids, so we record the minimum bid penalty
+    // as a synthetic value so Echo can reference something if all prior rounds were OVERCLOCK.
+    const overclockMinBid = getMinBidPenalty(game.settings.gameDuration);
+    game.players.forEach(p => {
+      if (!p.isEliminated && !p.isGhost) {
+        p.bidHistory = [...(p.bidHistory ?? []), overclockMinBid];
+      }
+    });
+
     if (game.eliminatedThisRound.length > 0 && game.firstEliminatedIds.length === 0) {
       game.firstEliminatedIds = [...game.eliminatedThisRound];
     }
@@ -3073,6 +3083,14 @@ function startWaitingForReady(lobbyCode: string) {
   // Bots with unconsumed relics activate them at the start of each round (before players go ready).
   // Activation chance increases toward the end of the game.
   if (game.settings.variant === 'HAUNTED') {
+    // If all human players are already ghosts, skip bot relic activation entirely.
+    // This prevents bots from randomly ghosting each other (via jackpot self-ghost or
+    // ghost_touch targeting other bots), which causes all-ghost bidding rounds and
+    // makes the game appear stuck for spectating human players.
+    const allHumansGhostOrEliminated = !game.players.some(p => !p.isBot && !p.isEliminated && !p.isGhost);
+    if (allHumansGhostOrEliminated) {
+      log(`[Relics] Skipping bot relic activation — all human players are ghosts in lobby ${lobbyCode}`, "game");
+    } else {
     const isLateGame = game.round >= Math.ceil(game.totalRounds * 0.6);
     const isFinalRounds = game.round >= game.totalRounds - 1;
     const botActivationChance = isFinalRounds ? 0.9 : isLateGame ? 0.6 : 0.3;
@@ -3360,6 +3378,7 @@ function startWaitingForReady(lobbyCode: string) {
           break;
       }
     });
+    } // end else (bot relic activation skipped when all humans are ghosts)
   }
 
   // Select protocol for this round
@@ -3747,8 +3766,19 @@ function endGame(lobbyCode: string) {
       (async () => {
         try {
           const db = getDb();
-          const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, uid));
-          if (!profile) return;
+          let [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, uid));
+          if (!profile) {
+            // Profile not yet created (player may not have visited their profile page yet).
+            // Auto-create a minimal profile so stats are not lost.
+            const newProfile = createDefaultProfile(uid, p.name, null);
+            const [created] = await db.insert(playerProfiles).values({ ...newProfile } as any).returning();
+            if (!created) {
+              log(`[Stats] Failed to auto-create profile for ${p.name} (${uid})`, "game");
+              return;
+            }
+            profile = created;
+            log(`[Stats] Auto-created profile for ${p.name} (${uid})`, "game");
+          }
           const { updatedProfile } = convertGameToCurrency(
             profile as any,
             game.gameId,
@@ -4007,6 +4037,23 @@ export function reconnectPlayerToGame(lobbyCode: string, playerId: string, newSo
   log(`${player.name} reconnected to game ${lobbyCode} with socket ${newSocketId}`, "game");
   broadcastGameState(lobbyCode);
   return true;
+}
+
+/**
+ * Update a player's replitUserId in an active game.
+ * Called when auth loads after the player has already joined the lobby/game.
+ */
+export function setPlayerReplitUserId(socketId: string, replitUserId: string): boolean {
+  // Check active games
+  for (const [, game] of Array.from(activeGames)) {
+    const player = game.players.find((p: GamePlayer) => p.socketId === socketId);
+    if (player && !player.replitUserId) {
+      player.replitUserId = replitUserId;
+      log(`[Auth] Set replitUserId for ${player.name} in game ${game.lobbyCode}`, "game");
+      return true;
+    }
+  }
+  return false;
 }
 
 export function cleanupGame(lobbyCode: string) {

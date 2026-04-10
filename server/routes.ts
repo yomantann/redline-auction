@@ -14,6 +14,7 @@ import {
   removePlayerFromGame,
   disconnectPlayerFromGame,
   reconnectPlayerToGame,
+  setPlayerReplitUserId,
   cleanupGame,
   setEmitCallback,
   setEmitToPlayerCallback,
@@ -859,6 +860,25 @@ export async function registerRoutes(
       playerOverclockClick(lobbyCode, socket.id);
       
       if (callback) callback({ success: true });
+    });
+
+    // Handle authentication arriving after lobby join (e.g. auth loads after create_lobby)
+    socket.on("set_player_auth", (data: { replitUserId: string }) => {
+      const { replitUserId } = data;
+      if (!replitUserId) return;
+
+      const lobbyCode = playerToLobby.get(socket.id);
+      if (lobbyCode) {
+        const lobby = lobbies.get(lobbyCode);
+        if (lobby) {
+          const lobbyPlayer = lobby.players.find(p => p.socketId === socket.id);
+          if (lobbyPlayer && !lobbyPlayer.replitUserId) {
+            lobbyPlayer.replitUserId = replitUserId;
+          }
+        }
+      }
+      // Also update the active game player if already in-game
+      setPlayerReplitUserId(socket.id, replitUserId);
     });
 
     // Handle disconnection

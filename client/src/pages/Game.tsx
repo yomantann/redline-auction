@@ -912,6 +912,10 @@ export default function Game() {
       .catch(() => {}); // silent – cosmetics are cosmetic-only
   }, [authUser?.id]);
 
+  // When auth loads, notify the server so the lobby/game player gets the replitUserId.
+  // This handles the race where auth resolves after create_lobby/join_lobby was sent.
+  // (moved below socket declaration)
+
   // Shortcut to the equipped cosmetics for the local player
   const myCosmetics: EquippedCosmetics | undefined = playerProfile?.equippedCosmetics;
 
@@ -1465,6 +1469,13 @@ export default function Game() {
   // Socket connection
   const { socket, isConnected } = useSocket();
   const autoJoinAttemptedRef = useRef(false);
+
+  // When auth loads, notify the server so the lobby/game player gets the replitUserId.
+  // This handles the race where auth resolves after create_lobby/join_lobby was sent.
+  useEffect(() => {
+    if (!authUser?.id || !socket || !isConnected) return;
+    socket.emit("set_player_auth", { replitUserId: authUser.id });
+  }, [authUser?.id, socket, isConnected]);
 
   // Auto-join from URL ?join= parameter
   useEffect(() => {
