@@ -83,7 +83,7 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // ring to stop short of the right edge.
   // inset: -14px extends the overlay 14px beyond all four card edges so the decorative ring
   // visually bleeds outward — the parent uses overflow:visible to allow this bleed.
-  const BORDER_BLEED = 14; // px of bleed on each side
+  const BORDER_BLEED = 15; // px of bleed on each side
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
     inset: `-${BORDER_BLEED}px`,
