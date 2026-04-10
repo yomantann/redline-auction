@@ -308,6 +308,8 @@ interface Player {
   finalWritActive?: boolean;             // Final Writ: this player auto-wins the final round
   // Cosmetics (MP: received from server broadcast; SP: not set)
   equippedCosmetics?: Record<string, string>;
+  // Profile picture (Replit auth avatar URL; shown in player card avatar)
+  profileImageUrl?: string;
 }
 
 interface Character {
@@ -1365,6 +1367,7 @@ export default function Game() {
       isReady: boolean;
       selectedDriver?: string;
       equippedCosmetics?: Record<string, string>;
+      profileImageUrl?: string;
     }>;
     hostSocketId: string;
     status: 'waiting' | 'starting' | 'in_game';
@@ -1420,6 +1423,7 @@ export default function Game() {
       momentFlagsEarned?: string[];
       roundImpact?: { type: string; value: number; source: string };
       equippedCosmetics?: Record<string, string> | null;
+      profileImageUrl?: string | null;
     }>;
     roundWinner: { id: string; name: string; bid: number; isFinalWrit?: boolean } | null;
     eliminatedThisRound: string[];

@@ -162,6 +162,7 @@ export interface GamePlayer {
   cursedDiceActive?: boolean;
   finalWritActive?: boolean;      // Final Writ relic: this player auto-wins the final round
   equippedCosmetics?: Record<string, string>; // Player's equipped cosmetics for in-game display
+  profileImageUrl?: string; // Replit profile picture URL for in-game avatar display
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -441,7 +442,7 @@ function getTotalRounds(duration: GameDuration): number {
 
 export function createGame(
   lobbyCode: string,
-  lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string; equippedCosmetics?: Record<string, string> }>,
+  lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string; equippedCosmetics?: Record<string, string>; profileImageUrl?: string }>,
   duration: GameDuration = 'standard',
   lobbySettings?: Partial<GameSettings>
 ): GameState {
@@ -467,6 +468,7 @@ export function createGame(
     momentFlagsEarned: [],
     protocolWinsEarned: [],
     equippedCosmetics: p.equippedCosmetics,
+    profileImageUrl: p.profileImageUrl,
   }));
   
   // Auto-fill with bots if less than MIN_PLAYERS

@@ -83,6 +83,7 @@ interface LobbyPlayer {
   disconnected?: boolean;
   replitUserId?: string;
   equippedCosmetics?: Record<string, string>;
+  profileImageUrl?: string;
 }
 
 interface GameSettings {
@@ -243,8 +244,9 @@ export async function registerRoutes(
       isPublic?: boolean;
       replitUserId?: string;
       equippedCosmetics?: Record<string, string>;
+      profileImageUrl?: string;
     }, callback) => {
-      const { playerName, settings: hostSettings, isPublic, replitUserId, equippedCosmetics } = data;
+      const { playerName, settings: hostSettings, isPublic, replitUserId, equippedCosmetics, profileImageUrl } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -259,7 +261,8 @@ export async function registerRoutes(
         isHost: true,
         isReady: false,
         ...(replitUserId ? { replitUserId } : {}),
-        ...(equippedCosmetics ? { equippedCosmetics } : {})
+        ...(equippedCosmetics ? { equippedCosmetics } : {}),
+        ...(profileImageUrl ? { profileImageUrl } : {})
       };
       
       // Default settings merged with host's settings
@@ -308,8 +311,8 @@ export async function registerRoutes(
     });
 
     // JOIN LOBBY
-    socket.on("join_lobby", (data: { code: string; playerName: string; replitUserId?: string; equippedCosmetics?: Record<string, string> }, callback) => {
-      const { code, playerName, replitUserId, equippedCosmetics } = data;
+    socket.on("join_lobby", (data: { code: string; playerName: string; replitUserId?: string; equippedCosmetics?: Record<string, string>; profileImageUrl?: string }, callback) => {
+      const { code, playerName, replitUserId, equippedCosmetics, profileImageUrl } = data;
       const upperCode = code.toUpperCase();
       
       if (playerToLobby.has(socket.id)) {
@@ -340,7 +343,8 @@ export async function registerRoutes(
         isHost: false,
         isReady: false,
         ...(replitUserId ? { replitUserId } : {}),
-        ...(equippedCosmetics ? { equippedCosmetics } : {})
+        ...(equippedCosmetics ? { equippedCosmetics } : {}),
+        ...(profileImageUrl ? { profileImageUrl } : {})
       };
       
       lobby.players.push(player);
@@ -363,8 +367,8 @@ export async function registerRoutes(
     });
 
     // JOIN RANDOM PUBLIC LOBBY
-    socket.on("join_random_lobby", (data: { playerName: string; replitUserId?: string; equippedCosmetics?: Record<string, string> }, callback) => {
-      const { playerName, replitUserId, equippedCosmetics } = data;
+    socket.on("join_random_lobby", (data: { playerName: string; replitUserId?: string; equippedCosmetics?: Record<string, string>; profileImageUrl?: string }, callback) => {
+      const { playerName, replitUserId, equippedCosmetics, profileImageUrl } = data;
       
       if (playerToLobby.has(socket.id)) {
         callback({ success: false, error: "Already in a lobby" });
@@ -389,7 +393,8 @@ export async function registerRoutes(
         isHost: false,
         isReady: false,
         ...(replitUserId ? { replitUserId } : {}),
-        ...(equippedCosmetics ? { equippedCosmetics } : {})
+        ...(equippedCosmetics ? { equippedCosmetics } : {}),
+        ...(profileImageUrl ? { profileImageUrl } : {})
       };
       
       lobby.players.push(player);
@@ -633,7 +638,8 @@ export async function registerRoutes(
         socketId: p.socketId,
         name: p.name,
         selectedDriver: p.selectedDriver,
-        equippedCosmetics: p.equippedCosmetics
+        equippedCosmetics: p.equippedCosmetics,
+        profileImageUrl: p.profileImageUrl
       }));
       
       const gameState = createGame(lobbyCode, gamePlayers, lobby.settings.gameDuration, {
