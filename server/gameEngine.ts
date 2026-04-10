@@ -1,5 +1,9 @@
 import { log } from "./index";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordDriverSelectionStat } from "./snapshotDb";
+import { convertGameToCurrency, applyMilestones } from "./currencyEngine";
+import { getDb } from "./db";
+import { playerProfiles } from "../shared/schema";
+import { eq } from "drizzle-orm";
 
 // Game Constants
 const STANDARD_INITIAL_TIME = 300.0;
@@ -162,6 +166,7 @@ export interface GamePlayer {
   cursedDiceActive?: boolean;
   finalWritActive?: boolean;      // Final Writ relic: this player auto-wins the final round
   equippedCosmetics?: Record<string, string>; // Player's equipped cosmetics for in-game display
+  replitUserId?: string;          // Replit Auth user ID for server-side stats recording
   currentBid: number | null;
   isHolding: boolean;
   // Round statistics
@@ -441,7 +446,7 @@ function getTotalRounds(duration: GameDuration): number {
 
 export function createGame(
   lobbyCode: string,
-  lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string; equippedCosmetics?: Record<string, string> }>,
+  lobbyPlayers: Array<{ id: string; socketId: string; name: string; selectedDriver?: string; equippedCosmetics?: Record<string, string>; replitUserId?: string }>,
   duration: GameDuration = 'standard',
   lobbySettings?: Partial<GameSettings>
 ): GameState {
@@ -467,6 +472,7 @@ export function createGame(
     momentFlagsEarned: [],
     protocolWinsEarned: [],
     equippedCosmetics: p.equippedCosmetics,
+    replitUserId: p.replitUserId,
   }));
   
   // Auto-fill with bots if less than MIN_PLAYERS
@@ -648,25 +654,8 @@ export function confirmDriverInGame(lobbyCode: string, playerId: string): { succ
       }
     });
 
-    // HAUNTED mode: assign random relics to bots (humans pick their own relic separately)
-    if (variant === 'HAUNTED') {
-      const BOT_RELIC_IDS = [
-        'jackpot', 'ghost_touch', 'sacrificial_lamb', 'wild_card', 'death_wish',
-        'blood_pact', 'cursed_dice', 'seance', 'protocol_forcer', 'last_will',
-        'echo', 'marked', 'corrupt', 'pattern_lock', 'final_writ', 'tribunal', 'conclave',
-      ];
-      const usedRelics = new Set<string>();
-      game.players.forEach(p => {
-        if (p.isBot && !p.selectedItem) {
-          const available = BOT_RELIC_IDS.filter(r => !usedRelics.has(r));
-          if (available.length > 0) {
-            const pick = available[Math.floor(Math.random() * available.length)];
-            p.selectedItem = pick;
-            usedRelics.add(pick);
-          }
-        }
-      });
-    }
+    // HAUNTED mode: bot relics are assigned in select_haunted_item handler after
+    // the last human picks their relic, so bots don't block human choices.
     
     broadcastGameState(lobbyCode);
     log(`All human players confirmed, bots assigned drivers in game ${lobbyCode}, starting round 1`, "game");
@@ -817,7 +806,7 @@ function startBidding(lobbyCode: string) {
       });
       setTimeout(() => {
         const g = activeGames.get(lobbyCode);
-        if (!g) return;
+        if (!g || g.phase !== 'round_end') return;
         g.round += 1;
         if (g.round > g.totalRounds) {
           endGame(lobbyCode);
@@ -3744,7 +3733,45 @@ function endGame(lobbyCode: string) {
       recordDriverSelectionStat(p.id, p.selectedDriver, isWinner);
     }
   }
-  
+
+  // Server-side MP stats recording: update player profiles for authenticated users so
+  // stats are persisted even if the client disconnects before the convert-game API fires.
+  if (game.gameId) {
+    const variant = (game.settings.variant || 'STANDARD') as 'STANDARD' | 'SOCIAL_OVERDRIVE' | 'BIO_FUEL' | 'HAUNTED';
+    const isCompetitive = game.settings.difficulty === 'COMPETITIVE';
+    const winnerId = game.players[0]?.id ?? null;
+    for (const p of game.players) {
+      if (p.isBot || !p.replitUserId) continue;
+      const uid = p.replitUserId;
+      const isWinner = p.id === winnerId;
+      (async () => {
+        try {
+          const db = getDb();
+          const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, uid));
+          if (!profile) return;
+          const { updatedProfile } = convertGameToCurrency(
+            profile as any,
+            game.gameId,
+            p.tokens,
+            p.momentFlagsEarned.length,
+            isWinner,
+            variant,
+            true,
+            p.momentFlagsEarned,
+            isCompetitive,
+          );
+          const withMilestones = applyMilestones(updatedProfile);
+          await db.update(playerProfiles)
+            .set({ ...(withMilestones as any), updatedAt: new Date() })
+            .where(eq(playerProfiles.id, uid));
+          log(`[Stats] Server-recorded MP stats for player ${p.name} (${uid})`, "game");
+        } catch (err) {
+          log(`[Stats] Failed to record server-side MP stats for ${p.name}: ${err}`, "game");
+        }
+      })();
+    }
+  }
+
   // Cleanup
   clearGameIntervals(lobbyCode);
 }
@@ -4213,8 +4240,13 @@ export function activateRelicMP(
           if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO', message: `${activator.name} used Echo — ${target.name} lost ${lastBid.toFixed(1)}s from their time bank!`, victimId: target.id });
           ghostOrEliminate(game, target, 'Echo');
         } else {
-          addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} has no bid history — no effect`, basic: true });
-          if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO: NO HISTORY', message: `${activator.name} used Echo on ${target.name} — no bid history, no effect.` });
+          // No bid history — refund the relic so it can be used again
+          activator.relicConsumed = false;
+          addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} ECHO: ${target.name} has no bid history — relic refunded`, basic: true });
+          if (emitToLobby) {
+            emitToLobby(lobbyCode, 'relic_broadcast', { title: '🔁 ECHO: NO HISTORY', message: `${activator.name} used Echo on ${target.name} — no bid history yet. Relic refunded.` });
+            emitToLobby(lobbyCode, 'relic_private', { socketId: activator.socketId, title: '🔁 ECHO: REFUNDED', message: `${target.name} has no bid history yet. Your relic has been returned.` });
+          }
         }
       }
       break;

@@ -633,7 +633,8 @@ export async function registerRoutes(
         socketId: p.socketId,
         name: p.name,
         selectedDriver: p.selectedDriver,
-        equippedCosmetics: p.equippedCosmetics
+        equippedCosmetics: p.equippedCosmetics,
+        replitUserId: (p as any).replitUserId as string | undefined,
       }));
       
       const gameState = createGame(lobbyCode, gamePlayers, lobby.settings.gameDuration, {
@@ -760,6 +761,32 @@ export async function registerRoutes(
           return;
         }
         player.selectedItem = data.itemId;
+
+        // Once the last human has picked their relic, assign relics to bots from the remaining pool.
+        // This runs after all humans have chosen so bots never block human selections.
+        const humanPlayers = game.players.filter(p => !p.isBot && !p.isEliminated);
+        const allHumansPicked = humanPlayers.every(p => p.selectedItem);
+        if (allHumansPicked && game.settings?.variant === 'HAUNTED') {
+          const BOT_RELIC_IDS = [
+            'jackpot', 'ghost_touch', 'sacrificial_lamb', 'wild_card', 'death_wish',
+            'blood_pact', 'cursed_dice', 'seance', 'protocol_forcer', 'last_will',
+            'echo', 'marked', 'corrupt', 'pattern_lock', 'final_writ', 'tribunal', 'conclave',
+          ];
+          const usedRelics = new Set<string>(
+            game.players.filter(p => p.selectedItem).map(p => p.selectedItem as string)
+          );
+          game.players.forEach(p => {
+            if (p.isBot && !p.selectedItem) {
+              const available = BOT_RELIC_IDS.filter(r => !usedRelics.has(r));
+              if (available.length > 0) {
+                const pick = available[Math.floor(Math.random() * available.length)];
+                p.selectedItem = pick;
+                usedRelics.add(pick);
+              }
+            }
+          });
+        }
+
         // Broadcast full state so all players see the updated relic selection
         broadcastGameState(lobbyCode);
       }
