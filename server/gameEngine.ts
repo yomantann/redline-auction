@@ -4002,6 +4002,7 @@ export function broadcastGameState(lobbyCode: string) {
   
   // Send sanitized game state to all players
   const stateForClients = {
+    gameId: game.gameId,
     round: game.round,
     totalRounds: game.totalRounds,
     phase: game.phase,
