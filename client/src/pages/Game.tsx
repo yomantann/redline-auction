@@ -2807,8 +2807,11 @@ export default function Game() {
       }
   }, [phase, round, multiplayerGameState?.round]);
 
-  // MP vote countdown: tick timeLeft every second when a vote is active in multiplayer.
+  // MP vote countdown: tick timeLeft (in seconds) every second when a vote is active in multiplayer.
+  // timeLeft is set in seconds from server: Math.floor((pv.deadline - Date.now()) / 1000).
   // (SP uses voteTimerRef started inside handleUseRelicSP; this handles the MP path.)
+  // Deps intentionally use relicId/resolved (not the full object) so the interval is NOT
+  // restarted on every timeLeft decrement — only when a new vote starts or the current one resolves.
   useEffect(() => {
     if (!isMultiplayer || !voteRelicState || voteRelicState.resolved) return;
     const id = setInterval(() => {
