@@ -1704,15 +1704,15 @@ function endRound(lobbyCode: string) {
     if (game.round >= game.totalRounds) {
       setTimeout(() => endGame(lobbyCode), 3000);
     } else if (isHauntedOC) {
-      // Haunted mode: only end when no one can play (ghosts can revive)
-      const anyoneCanPlay = game.players.some(p => !p.isEliminated);
-      if (!anyoneCanPlay) {
+      // Haunted mode: only end when no one remains (ghosts can revive, so check non-eliminated)
+      const anyoneAlive = game.players.some(p => !p.isEliminated);
+      if (!anyoneAlive) {
         setTimeout(() => endGame(lobbyCode), 3000);
       }
       // If all alive players are ghosts, auto-advance without waiting for NEXT ROUND clicks
-      const humanNonEliminated = game.players.filter(p => !p.isBot && !p.isEliminated);
-      const allAutoAcknowledged = humanNonEliminated.length > 0 &&
-        humanNonEliminated.every(p => (p as any).roundEndAcknowledged === true);
+      const aliveHumanPlayers = game.players.filter(p => !p.isBot && !p.isEliminated);
+      const allAutoAcknowledged = aliveHumanPlayers.length > 0 &&
+        aliveHumanPlayers.every(p => (p as any).roundEndAcknowledged === true);
       if (allAutoAcknowledged) {
         setTimeout(() => {
           const g = activeGames.get(lobbyCode);
