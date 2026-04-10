@@ -1686,7 +1686,8 @@ function endRound(lobbyCode: string) {
     processRealityModeAbilities(game, winnerId, 'end');
 
     game.players.forEach(p => {
-      if (!p.isBot && !p.isEliminated) {
+      // Ghosts auto-acknowledge (they cannot and should not need to click NEXT ROUND)
+      if (!p.isBot && !p.isEliminated && !p.isGhost) {
         (p as any).roundEndAcknowledged = false;
       } else {
         (p as any).roundEndAcknowledged = true;
@@ -1697,9 +1698,34 @@ function endRound(lobbyCode: string) {
       game.firstEliminatedIds = [...game.eliminatedThisRound];
     }
 
+    const isHauntedOC = game.settings.variant === 'HAUNTED';
     const activePlayers = game.players.filter(p => !p.isEliminated);
     const activeHumans = activePlayers.filter(p => !p.isBot);
-    if (activePlayers.length <= 1 || game.round >= game.totalRounds) {
+    if (game.round >= game.totalRounds) {
+      setTimeout(() => endGame(lobbyCode), 3000);
+    } else if (isHauntedOC) {
+      // Haunted mode: only end when no one can play (ghosts can revive)
+      const anyoneCanPlay = game.players.some(p => !p.isEliminated);
+      if (!anyoneCanPlay) {
+        setTimeout(() => endGame(lobbyCode), 3000);
+      }
+      // If all alive players are ghosts, auto-advance without waiting for NEXT ROUND clicks
+      const humanNonEliminated = game.players.filter(p => !p.isBot && !p.isEliminated);
+      const allAutoAcknowledged = humanNonEliminated.length > 0 &&
+        humanNonEliminated.every(p => (p as any).roundEndAcknowledged === true);
+      if (allAutoAcknowledged) {
+        setTimeout(() => {
+          const g = activeGames.get(lobbyCode);
+          if (!g || g.phase !== 'round_end') return;
+          if (g.round >= g.totalRounds) {
+            if (!processFinalWrit(g, lobbyCode)) endGame(lobbyCode);
+          } else {
+            g.round++;
+            startWaitingForReady(lobbyCode);
+          }
+        }, 3500);
+      }
+    } else if (activePlayers.length <= 1) {
       setTimeout(() => endGame(lobbyCode), 3000);
     } else if (activeHumans.length === 0 && game.isMultiplayer) {
       game.round = game.totalRounds;
@@ -3856,7 +3882,8 @@ export function playerAcknowledgeRoundEnd(lobbyCode: string, socketId: string) {
   if (!game || game.phase !== 'round_end') return;
   
   const player = game.players.find(p => p.socketId === socketId);
-  if (!player || player.isEliminated) return;
+  // Ghosts auto-acknowledge; they cannot and should not send a manual ready
+  if (!player || player.isEliminated || player.isGhost) return;
   
   (player as any).roundEndAcknowledged = true;
   log(`${player.name} acknowledged round end in lobby ${lobbyCode}`, "game");

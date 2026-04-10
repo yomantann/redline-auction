@@ -6662,7 +6662,7 @@ export default function Game() {
         );
       }
 
-      const activeHumanPlayers = displayPlayers.filter(p => !p.isBot && !p.isEliminated);
+      const activeHumanPlayers = displayPlayers.filter(p => !p.isBot && !p.isEliminated && !p.isGhost);
       const readyPlayers = activeHumanPlayers.filter(p => p.isHolding);
       const allHumansReady = activeHumanPlayers.length > 0 && readyPlayers.length === activeHumanPlayers.length;
       const currentPlayerEliminated = myMultiplayerPlayer?.isEliminated;
@@ -9067,7 +9067,9 @@ export default function Game() {
             </div>
 
             {isMultiplayer ? (() => {
-              const mpHumanPlayers = displayPlayers.filter(p => !p.isBot && !p.isEliminated);
+              // Only alive (non-ghost, non-eliminated) human players need to click NEXT ROUND.
+              // Ghosts auto-acknowledge server-side and see a spectator view instead.
+              const mpHumanPlayers = displayPlayers.filter(p => !p.isBot && !p.isEliminated && !p.isGhost);
               const isCurrentPlayerEliminated = myMultiplayerPlayer?.isEliminated;
               const myAck = mpHumanPlayers.find(p => p.id === myMultiplayerPlayer?.id);
               const hasAcknowledged = (myAck as any)?.roundEndAcknowledged;
@@ -9099,7 +9101,70 @@ export default function Game() {
                 );
               }
 
-              // Ghost ability action panel for MP human ghosts
+              // Ghost spectator view for MP round_end — mirrors SP and other phase ghost views.
+              // Ghosts auto-acknowledge server-side; they watch and wait to revive.
+              if (currentPlayerIsGhost) {
+                const ghostPlayer = displayPlayers.find(p => p.id === myMultiplayerPlayer?.id);
+                const ghostImg = ghostPlayer?.ghostImage
+                  ? GHOST_IMAGES[parseInt(ghostPlayer.ghostImage.replace('hnt_ghost_', ''), 10) - 1]
+                  : null;
+                const abilityName = ghostPlayer?.ghostAbility ? GHOST_ABILITY_NAMES[ghostPlayer.ghostAbility as 'reaper' | 'purgatory'] : null;
+                const abilityDesc = ghostPlayer?.ghostAbility ? GHOST_ABILITY_DESCS[ghostPlayer.ghostAbility as 'reaper' | 'purgatory'] : null;
+                const purgatoryLeft = (ghostPlayer as any)?.possessionRoundsLeft;
+                // Allow manual REAPER target selection if ability hasn't fired yet
+                const mpGhostAbilityUsed = (myMultiplayerPlayer as any)?.ghostAbilityUsed;
+                const mpGhostAbility = (myMultiplayerPlayer as any)?.ghostAbility as GhostAbilityType | null;
+                const aliveForGhost = displayPlayers.filter(p => !p.isGhost && !p.isEliminated);
+                return (
+                  <div className="flex flex-col items-center gap-3 w-full">
+                    <div className="text-center">
+                      <div className="text-3xl mb-1">👻</div>
+                      <h3 className="text-lg font-display text-teal-300">YOU ARE A GHOST</h3>
+                      <p className="text-zinc-500 text-xs mt-1">Advancing automatically…</p>
+                    </div>
+                    {ghostImg && (
+                      <img src={ghostImg} alt="ghost" className="w-14 h-14 object-contain rounded-full border-2 border-teal-500/40 bg-zinc-900" />
+                    )}
+                    {abilityName && (
+                      <div className="bg-teal-950/30 border border-teal-500/20 rounded-lg p-3 text-center max-w-xs w-full">
+                        <div className="text-teal-300 font-bold text-sm">{abilityName}</div>
+                        <div className="text-zinc-400 text-xs mt-1">{abilityDesc}</div>
+                        {purgatoryLeft !== undefined && (
+                          <div className="text-zinc-500 text-xs mt-1">
+                            ⌛ Returns in {purgatoryLeft} round{purgatoryLeft !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Manual REAPER panel if ability hasn't auto-fired yet */}
+                    {mpGhostAbility === 'reaper' && !mpGhostAbilityUsed && socket && (
+                      <div className="bg-teal-950/40 border border-teal-500/40 rounded-xl p-3 w-full text-center space-y-2">
+                        <p className="text-xs text-zinc-400">Select a player to ghost:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {aliveForGhost.map(t => (
+                            <button key={t.id}
+                              onClick={() => {
+                                socket.emit('resolve_ghost_ability', { ability: 'reaper', targetId: t.id }, (res: any) => {
+                                  if (res?.success) addOverlay('ability_trigger', '💀 REAPER', `You ghosted ${t.name}! You will return in 3 rounds.`, 0);
+                                });
+                              }}
+                              className="flex flex-col items-center p-2 rounded-lg border border-red-500/30 bg-black/40 hover:border-red-400 text-xs text-zinc-300 transition-colors">
+                              {typeof t.characterIcon === 'string' && <img src={t.characterIcon} alt={t.name} className="w-8 h-8 rounded-full mb-1 object-cover" />}
+                              <span className="font-bold text-red-300">{t.name}</span>
+                              <span className="text-zinc-500">{t.remainingTime.toFixed(1)}s</span>
+                            </button>
+                          ))}
+                        </div>
+                        {aliveForGhost.length === 0 && (
+                          <p className="text-zinc-500 text-xs">No alive players to target.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // Ghost ability action panel for non-ghost MP humans (not used — kept for safety)
               const mpGhostAbilityUsed = (myMultiplayerPlayer as any)?.ghostAbilityUsed;
               const mpGhostAbility = (myMultiplayerPlayer as any)?.ghostAbility as GhostAbilityType | null;
               const aliveForGhost = displayPlayers.filter(p => !p.isGhost && !p.isEliminated);
@@ -9291,7 +9356,7 @@ export default function Game() {
                 aria-hidden="true"
                 className="absolute pointer-events-none z-20 rounded"
                 style={{
-                  inset: '-12px',
+                  inset: '-18px',
                   backgroundImage: `url(${cardBorderImgUrl})`,
                   backgroundSize: '100% 100%',
                   backgroundRepeat: 'no-repeat',
