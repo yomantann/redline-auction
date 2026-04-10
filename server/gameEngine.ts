@@ -4051,6 +4051,7 @@ export function broadcastGameState(lobbyCode: string) {
       abilityUsed: p.abilityUsed,
       momentFlagsEarned: p.momentFlagsEarned,
       protocolWinsEarned: p.protocolWinsEarned,
+      bidHistory: p.bidHistory || [],
       // Relic state fields
       markedBy: p.markedBy || null,
       patternLockMinBid: p.patternLockMinBid ?? null,
