@@ -81,9 +81,9 @@ export function PlayerStats({ player, isCurrentPlayer, showTime, remainingTime, 
   // Border image overlay style: use background-image + background-size:100% 100% to fill the
   // overlay div completely, avoiding the intrinsic-dimension behaviour of <img> that caused the
   // ring to stop short of the right edge.
-  // inset: -12px extends the overlay 12px beyond all four card edges so the decorative ring
+  // inset: -14px extends the overlay 14px beyond all four card edges so the decorative ring
   // visually bleeds outward — the parent uses overflow:visible to allow this bleed.
-  const BORDER_BLEED = 16; // px of bleed on each side
+  const BORDER_BLEED = 14; // px of bleed on each side
   const borderImgStyle: React.CSSProperties = {
     position: 'absolute',
     inset: `-${BORDER_BLEED}px`,

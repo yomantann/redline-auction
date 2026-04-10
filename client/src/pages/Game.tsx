@@ -2807,6 +2807,20 @@ export default function Game() {
       }
   }, [phase, round, multiplayerGameState?.round]);
 
+  // MP vote countdown: tick timeLeft every second when a vote is active in multiplayer.
+  // (SP uses voteTimerRef started inside handleUseRelicSP; this handles the MP path.)
+  useEffect(() => {
+    if (!isMultiplayer || !voteRelicState || voteRelicState.resolved) return;
+    const id = setInterval(() => {
+      setVoteRelicState(vs => {
+        if (!vs || vs.resolved) return vs;
+        return { ...vs, timeLeft: Math.max(0, vs.timeLeft - 1) };
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiplayer, voteRelicState?.relicId, voteRelicState?.resolved]);
+
   // Low Flame Immunity Popup Check
   useEffect(() => {
     if (activeProtocol && selectedCharacter?.id === 'low_flame' && abilitiesEnabled) {
@@ -6637,6 +6651,7 @@ export default function Game() {
         const abilityDesc = ghostPlayer?.ghostAbility ? GHOST_ABILITY_DESCS[ghostPlayer.ghostAbility as 'reaper' | 'purgatory'] : null;
         const purgatoryLeft = (ghostPlayer as any)?.possessionRoundsLeft;
         return (
+          <>
           <div className="flex flex-col items-center justify-center h-[450px] gap-4">
             <div className="text-center">
               <div className="text-4xl mb-2">👻</div>
@@ -6659,6 +6674,59 @@ export default function Game() {
             )}
             <div className="text-zinc-600 text-xs mt-4">Watch the auction unfold below ↓</div>
           </div>
+          {/* Vote overlay: ghost players can still cast their vote */}
+          {voteRelicState && !voteRelicState.resolved && (
+            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+              <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full space-y-4">
+                <h3 className="text-lg font-bold text-teal-300 text-center">
+                  {voteRelicState.relicId === 'tribunal' ? '⚖️ TRIBUNAL' : '🗳️ THE CONCLAVE'}
+                </h3>
+                <p className="text-zinc-400 text-sm text-center">
+                  {voteRelicState.activatorName} called a vote{voteRelicState.targetName ? ` targeting ${voteRelicState.targetName}` : ''}!
+                </p>
+                <div className="text-center text-teal-300 font-bold tabular-nums">{voteRelicState.timeLeft}s</div>
+                <div className="space-y-2">
+                  {voteRelicState.options.map(opt => {
+                    const count = Object.values(voteRelicState.votes).filter(v => v === opt.id).length;
+                    const hasVoted = voteRelicState.myVote === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => {
+                          if (voteRelicState.myVote) return;
+                          if (socket) {
+                            socket.emit('cast_relic_vote', { optionId: opt.id });
+                            setVoteRelicState(prev => prev ? { ...prev, myVote: opt.id } : prev);
+                          }
+                        }}
+                        className={cn(
+                          "w-full py-2 px-3 rounded text-sm text-left flex justify-between transition-colors",
+                          hasVoted ? "bg-teal-900 border border-teal-500/50 text-teal-200" : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
+                          voteRelicState.myVote && !hasVoted ? "opacity-50 cursor-not-allowed" : ""
+                        )}
+                      >
+                        <span><span className="font-bold text-teal-400">{opt.id}.</span> {opt.label}</span>
+                        <span className="text-zinc-500 text-xs ml-2">{count} vote{count !== 1 ? 's' : ''}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {!voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote before time runs out!</p>}
+                {voteRelicState.myVote && <p className="text-zinc-600 text-xs text-center">Vote cast! Waiting for others…</p>}
+              </div>
+            </div>
+          )}
+          {voteRelicState?.resolved && voteRelicState.winnerLabel && (
+            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+              <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-6 max-w-sm w-full text-center space-y-3">
+                <h3 className="text-lg font-bold text-teal-300">VOTE RESULT</h3>
+                <p className="text-zinc-200 text-sm font-semibold">{voteRelicState.winnerLabel}</p>
+                <p className="text-zinc-500 text-xs">Effect applied!</p>
+                <button onClick={() => setVoteRelicState(null)} className="mt-2 px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition-colors">Dismiss</button>
+              </div>
+            </div>
+          )}
+          </>
         );
       }
 
@@ -9318,7 +9386,7 @@ export default function Game() {
                 aria-hidden="true"
                 className="absolute pointer-events-none z-20 rounded"
                 style={{
-                  inset: '-28px',
+                  inset: '-22px',
                   backgroundImage: `url(${cardBorderImgUrl})`,
                   backgroundSize: '100% 100%',
                   backgroundRepeat: 'no-repeat',

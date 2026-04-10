@@ -3437,12 +3437,11 @@ function startWaitingForReady(lobbyCode: string) {
     
     // In Haunted mode: if all humans are ghosts, auto-advance after a short delay
     if (g.settings.variant === 'HAUNTED' && humanPlayers.length === 0) {
-      // Don't advance while a vote is pending
+      // No humans left to vote — resolve any pending vote immediately so the game isn't stuck.
       if (g.pendingVote && !g.pendingVote.resolved) {
-        if (g.allHumansHoldingStartTime !== null) {
-          g.allHumansHoldingStartTime = null;
-        }
-        return;
+        g.allHumansHoldingStartTime = null;
+        resolveVoteRelic(lobbyCode);
+        return; // resolveVoteRelic broadcasts state; interval will re-check next tick
       }
       if (g.allHumansHoldingStartTime === null) {
         g.allHumansHoldingStartTime = Date.now();
@@ -4330,7 +4329,7 @@ export function activateRelicMP(
         deadline: Date.now() + 30000,
       };
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} TRIBUNAL: vote started targeting ${target.name}`, basic: true });
-      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '⚖️ TRIBUNAL VOTE STARTED', message: `${activator.name} called a Tribunal against ${target.name}! Vote now.`, victimId: target.id });
+      // No relic_broadcast for vote start — the vote panel itself serves as the notification.
       if (game.pendingVote && !game.pendingVote.resolved) {
         // Another vote is active — queue this one
         if (!game.voteQueue) game.voteQueue = [];
@@ -4363,7 +4362,7 @@ export function activateRelicMP(
         deadline: Date.now() + 30000,
       };
       addGameLogEntry(game, { type: 'ability', playerId: activator.id, playerName: activator.name, message: `${activator.name} CONCLAVE: vote started!`, basic: true });
-      if (emitToLobby) emitToLobby(lobbyCode, 'relic_broadcast', { title: '🗳️ CONCLAVE VOTE STARTED', message: `${activator.name} called a Conclave! Vote now.` });
+      // No relic_broadcast for vote start — the vote panel itself serves as the notification.
       if (game.pendingVote && !game.pendingVote.resolved) {
         // Another vote is active — queue this one
         if (!game.voteQueue) game.voteQueue = [];
