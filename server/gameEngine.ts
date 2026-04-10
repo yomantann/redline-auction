@@ -695,6 +695,8 @@ function ghostOrEliminate(game: GameState, player: GamePlayer, reason: string): 
     if (!player.ghostImage) player.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
     if (!player.ghostAbility) player.ghostAbility = assignGhostAbility();
     player.ghostAbilityUsed = false;
+    // Auto-acknowledge round end for newly ghosted players so they never block the round
+    (player as any).roundEndAcknowledged = true;
     addGameLogEntry(game, { type: 'elimination', playerId: player.id, playerName: player.name, message: `${player.name} became a ghost (${reason})`, basic: true });
     return true;
   } else {
@@ -822,7 +824,7 @@ function startBidding(lobbyCode: string) {
         } else {
           startWaitingForReady(lobbyCode);
         }
-      }, 3000);
+      }, 5000);
       return;
     }
   }
@@ -1711,8 +1713,9 @@ function endRound(lobbyCode: string) {
       }
       // If all alive players are ghosts, auto-advance without waiting for NEXT ROUND clicks
       const aliveHumanPlayers = game.players.filter(p => !p.isBot && !p.isEliminated);
+      // Treat ghosts as auto-acknowledged regardless of their flag value (handles mid/post-round ghosting)
       const allAutoAcknowledged = aliveHumanPlayers.length > 0 &&
-        aliveHumanPlayers.every(p => (p as any).roundEndAcknowledged === true);
+        aliveHumanPlayers.every(p => p.isGhost || (p as any).roundEndAcknowledged === true);
       if (allAutoAcknowledged) {
         setTimeout(() => {
           const g = activeGames.get(lobbyCode);
@@ -1723,7 +1726,7 @@ function endRound(lobbyCode: string) {
             g.round++;
             startWaitingForReady(lobbyCode);
           }
-        }, 3500);
+        }, 5000);
       }
     } else if (activePlayers.length <= 1) {
       setTimeout(() => endGame(lobbyCode), 3000);
@@ -1765,6 +1768,14 @@ function endRound(lobbyCode: string) {
   // Deduct bid time first so overbidding eliminations are reflected in winner determination
   game.players.forEach(p => {
     if (p.currentBid && p.currentBid > 0) {
+      // Track bid history for Echo relic (MP)
+      p.bidHistory = [...(p.bidHistory ?? []), p.currentBid];
+
+      // Ghosts cannot hold/bid — skip time deduction if a stale currentBid is present
+      // (e.g., a player ghosted by Reaper mid-round retains their pre-ghost bid value).
+      // We still record the bid in history above so Echo relic can reference it.
+      if (p.isGhost) return;
+
       p.totalTimeBid += p.currentBid;
       addGameLogEntry(game, {
         type: 'bid',
@@ -1792,8 +1803,9 @@ function endRound(lobbyCode: string) {
             if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
             if (!p.ghostAbility) p.ghostAbility = assignGhostAbility();
             p.ghostAbilityUsed = false;
+            (p as any).roundEndAcknowledged = true; // Ghosts auto-acknowledge
             addGameLogEntry(game, { type: 'elimination', playerId: p.id, playerName: p.name, message: `${p.name} became a ghost (ran out of time)`, basic: true });
-          } else if (!p.isEliminated) {
+          } else if (!p.isGhost && !p.isEliminated) {
             p.isEliminated = true;
             if (!game.eliminatedThisRound.includes(p.id)) {
               game.eliminatedThisRound.push(p.id);
@@ -1925,6 +1937,7 @@ function endRound(lobbyCode: string) {
             if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
             if (!p.ghostAbility) p.ghostAbility = assignGhostAbility();
             p.ghostAbilityUsed = false;
+            (p as any).roundEndAcknowledged = true; // auto-acknowledge for newly ghosted
           } else {
             p.isEliminated = true;
             if (!game.eliminatedThisRound.includes(p.id)) {
@@ -1984,6 +1997,7 @@ function endRound(lobbyCode: string) {
               if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
               if (!p.ghostAbility) p.ghostAbility = assignGhostAbility();
               p.ghostAbilityUsed = false;
+              (p as any).roundEndAcknowledged = true; // auto-acknowledge for newly ghosted
               addGameLogEntry(game, { type: 'elimination', playerId: p.id, playerName: p.name, message: `${p.name} became a ghost (early release penalty)`, basic: true });
             } else {
               p.isEliminated = true;
@@ -2014,6 +2028,7 @@ function endRound(lobbyCode: string) {
         p.isGhost = true;
         p.ghostReason = 'natural';
         if (!p.ghostImage) p.ghostImage = `hnt_ghost_${Math.floor(Math.random() * 6) + 1}`;
+        (p as any).roundEndAcknowledged = true; // auto-acknowledge for newly ghosted
         addGameLogEntry(game, {
           type: 'elimination',
           playerId: p.id,
@@ -2648,8 +2663,9 @@ function endRound(lobbyCode: string) {
   // Note: game.phase is 'round_end' here; the game_over guard inside the setTimeout handles the async case.
   if (game.settings.variant === 'HAUNTED') {
     const humanNonEliminated = game.players.filter(p => !p.isBot && !p.isEliminated);
+    // Treat ghosts as auto-acknowledged regardless of their flag (handles mid/post-round ghosting)
     const allAutoAcknowledged = humanNonEliminated.length > 0 &&
-      humanNonEliminated.every(p => (p as any).roundEndAcknowledged === true);
+      humanNonEliminated.every(p => p.isGhost || (p as any).roundEndAcknowledged === true);
     if (allAutoAcknowledged) {
       // All human players are ghosts — advance the round automatically after a short delay
       setTimeout(() => {
@@ -2664,7 +2680,7 @@ function endRound(lobbyCode: string) {
           g.round++;
           startWaitingForReady(lobbyCode);
         }
-      }, 3500);
+      }, 5000);
     }
   }
   
@@ -3448,7 +3464,7 @@ function startWaitingForReady(lobbyCode: string) {
         broadcastGameState(lobbyCode);
       }
       const holdDuration = (Date.now() - g.allHumansHoldingStartTime) / 1000;
-      if (holdDuration >= 1) {
+      if (holdDuration >= 5) {
         clearInterval(readyCheckInterval);
         g.allHumansHoldingStartTime = null;
         log(`All human players are ghosts, auto-advancing round ${g.round} in lobby ${lobbyCode}`, "game");
@@ -3888,7 +3904,8 @@ export function playerAcknowledgeRoundEnd(lobbyCode: string, socketId: string) {
   log(`${player.name} acknowledged round end in lobby ${lobbyCode}`, "game");
   
   // Check if all human players have acknowledged
-  const humanPlayers = game.players.filter(p => !p.isBot && !p.isEliminated);
+  // Ghosts are treated as auto-acknowledged (they can't click NEXT ROUND and shouldn't block)
+  const humanPlayers = game.players.filter(p => !p.isBot && !p.isEliminated && !p.isGhost);
   const allAcknowledged = humanPlayers.every(p => (p as any).roundEndAcknowledged === true);
   
   if (allAcknowledged && humanPlayers.length > 0) {

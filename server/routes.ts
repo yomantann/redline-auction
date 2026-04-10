@@ -753,6 +753,12 @@ export async function registerRoutes(
       if (!game) { if (callback) callback?.({ success: false, error: "No active game" }); return; }
       const player = game.players.find(p => p.socketId === socket.id);
       if (player) {
+        // Prevent two players from picking the same relic (mirrors SP duplicate-prevention)
+        const alreadyTaken = game.players.some(p => p.id !== player.id && p.selectedItem === data.itemId);
+        if (alreadyTaken) {
+          if (callback) callback?.({ success: false, error: "Relic already chosen by another player" });
+          return;
+        }
         player.selectedItem = data.itemId;
         // Broadcast full state so all players see the updated relic selection
         broadcastGameState(lobbyCode);
