@@ -9318,7 +9318,7 @@ export default function Game() {
                 aria-hidden="true"
                 className="absolute pointer-events-none z-20 rounded"
                 style={{
-                  inset: '-18px',
+                  inset: '-28px',
                   backgroundImage: `url(${cardBorderImgUrl})`,
                   backgroundSize: '100% 100%',
                   backgroundRepeat: 'no-repeat',
