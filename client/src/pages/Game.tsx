@@ -8095,7 +8095,8 @@ export default function Game() {
         };
         const handleRandomRelicSelect = () => {
           const available = HAUNTED_ITEMS.filter(i => !takenRelicIds.has(i.id));
-          const pick = (available.length > 0 ? available : HAUNTED_ITEMS)[Math.floor(Math.random() * (available.length || HAUNTED_ITEMS.length))];
+          const pool = available.length > 0 ? available : HAUNTED_ITEMS;
+          const pick = pool[Math.floor(Math.random() * pool.length)];
           handleRelicSelect(pick);
         };
 

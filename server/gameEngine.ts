@@ -1771,7 +1771,9 @@ function endRound(lobbyCode: string) {
       // Track bid history for Echo relic (MP)
       p.bidHistory = [...(p.bidHistory ?? []), p.currentBid];
 
-      // Ghosts cannot hold/bid — skip deduction if somehow flagged
+      // Ghosts cannot hold/bid — skip time deduction if a stale currentBid is present
+      // (e.g., a player ghosted by Reaper mid-round retains their pre-ghost bid value).
+      // We still record the bid in history above so Echo relic can reference it.
       if (p.isGhost) return;
 
       p.totalTimeBid += p.currentBid;
