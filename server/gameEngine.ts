@@ -1173,6 +1173,19 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
   const isMidGame = game.round > 3 && game.round <= 6;
   const isLateGame = game.round > 6;
 
+  // SP-style ghost-only fast-forward: when all human players are ghosts (or eliminated),
+  // bots race at minimum speed so the round resolves quickly for spectating players.
+  const allHumansGhostOrElim = game.settings.variant === 'HAUNTED' &&
+    !game.players.some(p => !p.isBot && !p.isEliminated && !p.isGhost);
+  if (allHumansGhostOrElim) {
+    game.players.forEach(p => {
+      if (!p.isBot || p.isEliminated || p.isGhost) return;
+      // Spread bots slightly so there is still a clear winner, but resolve in ~1-3 s
+      bids[p.id] = minBidTime + Math.random() * 2;
+    });
+    return bids;
+  }
+
   const avgTokens = game.players.filter(p => !p.isEliminated).reduce((sum, p) => sum + p.tokens, 0) / Math.max(1, game.players.filter(p => !p.isEliminated).length);
   const maxTokens = Math.max(...game.players.filter(p => !p.isEliminated).map(p => p.tokens));
 
@@ -1716,6 +1729,9 @@ function endRound(lobbyCode: string) {
       const allAutoAcknowledged = aliveHumanPlayers.length > 0 &&
         aliveHumanPlayers.every(p => p.isGhost || (p as any).roundEndAcknowledged === true);
       if (allAutoAcknowledged) {
+        // SP-style: use 1.5 s when all humans are ghosts so the round cycles quickly.
+        const allHumansGhost = aliveHumanPlayers.every(p => p.isGhost);
+        const advanceDelay = allHumansGhost ? 1500 : 5000;
         setTimeout(() => {
           const g = activeGames.get(lobbyCode);
           if (!g || g.phase !== 'round_end') return;
@@ -1725,7 +1741,7 @@ function endRound(lobbyCode: string) {
             g.round++;
             startWaitingForReady(lobbyCode);
           }
-        }, 5000);
+        }, advanceDelay);
       }
     } else if (activePlayers.length <= 1) {
       setTimeout(() => endGame(lobbyCode), 3000);
@@ -2666,6 +2682,9 @@ function endRound(lobbyCode: string) {
     const allAutoAcknowledged = humanNonEliminated.length > 0 &&
       humanNonEliminated.every(p => p.isGhost || (p as any).roundEndAcknowledged === true);
     if (allAutoAcknowledged) {
+      // SP-style: use 1.5 s when all humans are ghosts so the round cycles quickly.
+      const allHumansGhost = humanNonEliminated.every(p => p.isGhost);
+      const advanceDelay = allHumansGhost ? 1500 : 5000;
       // All human players are ghosts — advance the round automatically after a short delay
       setTimeout(() => {
         const g = activeGames.get(lobbyCode);
@@ -2679,7 +2698,7 @@ function endRound(lobbyCode: string) {
           g.round++;
           startWaitingForReady(lobbyCode);
         }
-      }, 5000);
+      }, advanceDelay);
     }
   }
   
@@ -3472,7 +3491,8 @@ function startWaitingForReady(lobbyCode: string) {
         broadcastGameState(lobbyCode);
       }
       const holdDuration = (Date.now() - g.allHumansHoldingStartTime) / 1000;
-      if (holdDuration >= 5) {
+      // SP-style: advance quickly (0.5 s) so ghost-only rounds cycle fast
+      if (holdDuration >= 0.5) {
         clearInterval(readyCheckInterval);
         g.allHumansHoldingStartTime = null;
         log(`All human players are ghosts, auto-advancing round ${g.round} in lobby ${lobbyCode}`, "game");

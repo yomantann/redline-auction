@@ -6335,6 +6335,7 @@ export default function Game() {
         ghostAbilityUsed: (mp as any).ghostAbilityUsed || false,
         possessionRoundsLeft: (mp as any).possessionRoundsLeft ?? undefined,
         equippedCosmetics: (mp as any).equippedCosmetics || undefined,
+        bidHistory: (mp as any).bidHistory || [],
       currentBid: mp.currentBid,
         isHolding: mp.isHolding,
         totalTimeBid: (mp as any).totalTimeBid || 0,

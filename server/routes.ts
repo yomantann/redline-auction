@@ -1125,7 +1125,16 @@ export async function registerRoutes(
       const userId: string = req.user.claims.sub;
       const parsed = convertGameSchema.parse(req.body);
 
-      const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      const [existingProfile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, userId));
+      let profile = existingProfile;
+      if (!profile) {
+        // Auto-create profile so stats are recorded even if the player hasn't visited their profile page yet
+        const username = req.user.claims.first_name || req.user.claims.email?.split('@')[0] || 'Driver';
+        const profileImageUrl = req.user.claims.profile_image_url ?? null;
+        const newProfile = createDefaultProfile(userId, username, profileImageUrl);
+        const [created] = await db.insert(playerProfiles).values({ ...newProfile } as any).returning();
+        profile = created;
+      }
       if (!profile) return res.json({ success: true, skipped: true });
 
       const alreadyConverted = (profile.convertedGameIds as string[]).includes(parsed.gameId);
