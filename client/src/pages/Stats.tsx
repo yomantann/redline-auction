@@ -39,6 +39,9 @@ export default function Stats() {
     : '—';
   const winsPerMode = profile ? (profile.winsPerMode as Record<string, number>) : {};
   const modeEntries = Object.entries(winsPerMode).filter(([, v]) => v > 0);
+  const gamesPerMode = profile ? (profile.gamesPerMode as Record<string, number>) : {};
+  // Merge keys from both wins and games so every mode with any activity shows up
+  const allModeKeys = Array.from(new Set([...Object.keys(winsPerMode), ...Object.keys(gamesPerMode)])).filter(k => (winsPerMode[k] ?? 0) > 0 || (gamesPerMode[k] ?? 0) > 0);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8 flex flex-col items-center font-sans selection:bg-primary selection:text-primary-foreground">
@@ -133,20 +136,27 @@ export default function Stats() {
              <Card className="bg-zinc-900/50 border-white/10">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-sm tracking-widest text-zinc-400">
-                        <Crown size={16} className="text-purple-500"/> WINS BY MODE
+                        <Crown size={16} className="text-purple-500"/> MODE BREAKDOWN
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {modeEntries.length > 0 ? (
-                    modeEntries.map(([key, val]) => (
-                      <div key={key} className="flex justify-between items-center">
-                        <span className="text-sm text-zinc-300 capitalize">{formatModeKey(key)}</span>
-                        <span className="font-mono text-yellow-400 font-bold">{val}W</span>
-                      </div>
-                    ))
+                  {allModeKeys.length > 0 ? (
+                    allModeKeys.map((key) => {
+                      const wins = winsPerMode[key] ?? 0;
+                      const played = gamesPerMode[key] ?? 0;
+                      return (
+                        <div key={key} className="flex justify-between items-center">
+                          <span className="text-sm text-zinc-300 capitalize">{formatModeKey(key)}</span>
+                          <span className="font-mono text-xs text-zinc-400">
+                            {played > 0 && <span className="text-zinc-500">{played}G&nbsp;</span>}
+                            <span className="text-yellow-400 font-bold">{wins}W</span>
+                          </span>
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="text-xs text-zinc-600 italic">
-                      {profile ? 'No wins recorded yet.' : 'Log in to see wins by mode.'}
+                      {profile ? 'No games recorded yet.' : 'Log in to see stats by mode.'}
                     </div>
                   )}
                 </CardContent>

@@ -1,6 +1,6 @@
 import { log } from "./index";
 import { recordGameSnapshot, recordGameSummary, createGameId, recordDriverSelectionStat } from "./snapshotDb";
-import { convertGameToCurrency, applyMilestones } from "./currencyEngine";
+import { convertGameToCurrency, applyMilestones, createDefaultProfile } from "./currencyEngine";
 import { getDb } from "./db";
 import { playerProfiles } from "../shared/schema";
 import { eq } from "drizzle-orm";
@@ -1173,6 +1173,19 @@ function calculateBotTargetBids(game: GameState): Record<string, number> {
   const isMidGame = game.round > 3 && game.round <= 6;
   const isLateGame = game.round > 6;
 
+  // SP-style ghost-only fast-forward: when all human players are ghosts (or eliminated),
+  // bots race at minimum speed so the round resolves quickly for spectating players.
+  const allHumansGhostOrElim = game.settings.variant === 'HAUNTED' &&
+    !game.players.some(p => !p.isBot && !p.isEliminated && !p.isGhost);
+  if (allHumansGhostOrElim) {
+    game.players.forEach(p => {
+      if (!p.isBot || p.isEliminated || p.isGhost) return;
+      // Spread bots slightly so there is still a clear winner, but resolve in ~1-3 s
+      bids[p.id] = minBidTime + Math.random() * 2;
+    });
+    return bids;
+  }
+
   const avgTokens = game.players.filter(p => !p.isEliminated).reduce((sum, p) => sum + p.tokens, 0) / Math.max(1, game.players.filter(p => !p.isEliminated).length);
   const maxTokens = Math.max(...game.players.filter(p => !p.isEliminated).map(p => p.tokens));
 
@@ -1685,6 +1698,16 @@ function endRound(lobbyCode: string) {
       }
     });
 
+    // Record a proxy bid-history entry for Echo relic compatibility.
+    // OVERCLOCK rounds have no time-based bids, so we record the minimum bid penalty
+    // as a synthetic value so Echo can reference something if all prior rounds were OVERCLOCK.
+    const overclockMinBid = getMinBidPenalty(game.settings.gameDuration);
+    game.players.forEach(p => {
+      if (!p.isEliminated && !p.isGhost) {
+        p.bidHistory = [...(p.bidHistory ?? []), overclockMinBid];
+      }
+    });
+
     if (game.eliminatedThisRound.length > 0 && game.firstEliminatedIds.length === 0) {
       game.firstEliminatedIds = [...game.eliminatedThisRound];
     }
@@ -1706,6 +1729,9 @@ function endRound(lobbyCode: string) {
       const allAutoAcknowledged = aliveHumanPlayers.length > 0 &&
         aliveHumanPlayers.every(p => p.isGhost || (p as any).roundEndAcknowledged === true);
       if (allAutoAcknowledged) {
+        // SP-style: use 1.5 s when all humans are ghosts so the round cycles quickly.
+        const allHumansGhost = aliveHumanPlayers.every(p => p.isGhost);
+        const advanceDelay = allHumansGhost ? 1500 : 5000;
         setTimeout(() => {
           const g = activeGames.get(lobbyCode);
           if (!g || g.phase !== 'round_end') return;
@@ -1715,7 +1741,7 @@ function endRound(lobbyCode: string) {
             g.round++;
             startWaitingForReady(lobbyCode);
           }
-        }, 5000);
+        }, advanceDelay);
       }
     } else if (activePlayers.length <= 1) {
       setTimeout(() => endGame(lobbyCode), 3000);
@@ -2656,6 +2682,9 @@ function endRound(lobbyCode: string) {
     const allAutoAcknowledged = humanNonEliminated.length > 0 &&
       humanNonEliminated.every(p => p.isGhost || (p as any).roundEndAcknowledged === true);
     if (allAutoAcknowledged) {
+      // SP-style: use 1.5 s when all humans are ghosts so the round cycles quickly.
+      const allHumansGhost = humanNonEliminated.every(p => p.isGhost);
+      const advanceDelay = allHumansGhost ? 1500 : 5000;
       // All human players are ghosts — advance the round automatically after a short delay
       setTimeout(() => {
         const g = activeGames.get(lobbyCode);
@@ -2669,7 +2698,7 @@ function endRound(lobbyCode: string) {
           g.round++;
           startWaitingForReady(lobbyCode);
         }
-      }, 5000);
+      }, advanceDelay);
     }
   }
   
@@ -3073,6 +3102,14 @@ function startWaitingForReady(lobbyCode: string) {
   // Bots with unconsumed relics activate them at the start of each round (before players go ready).
   // Activation chance increases toward the end of the game.
   if (game.settings.variant === 'HAUNTED') {
+    // If all human players are already ghosts, skip bot relic activation entirely.
+    // This prevents bots from randomly ghosting each other (via jackpot self-ghost or
+    // ghost_touch targeting other bots), which causes all-ghost bidding rounds and
+    // makes the game appear stuck for spectating human players.
+    const allHumansGhostOrEliminated = !game.players.some(p => !p.isBot && !p.isEliminated && !p.isGhost);
+    if (allHumansGhostOrEliminated) {
+      log(`[Relics] Skipping bot relic activation — all human players are ghosts in lobby ${lobbyCode}`, "game");
+    } else {
     const isLateGame = game.round >= Math.ceil(game.totalRounds * 0.6);
     const isFinalRounds = game.round >= game.totalRounds - 1;
     const botActivationChance = isFinalRounds ? 0.9 : isLateGame ? 0.6 : 0.3;
@@ -3360,6 +3397,7 @@ function startWaitingForReady(lobbyCode: string) {
           break;
       }
     });
+    } // end else (bot relic activation skipped when all humans are ghosts)
   }
 
   // Select protocol for this round
@@ -3453,7 +3491,8 @@ function startWaitingForReady(lobbyCode: string) {
         broadcastGameState(lobbyCode);
       }
       const holdDuration = (Date.now() - g.allHumansHoldingStartTime) / 1000;
-      if (holdDuration >= 5) {
+      // SP-style: advance quickly (0.5 s) so ghost-only rounds cycle fast
+      if (holdDuration >= 0.5) {
         clearInterval(readyCheckInterval);
         g.allHumansHoldingStartTime = null;
         log(`All human players are ghosts, auto-advancing round ${g.round} in lobby ${lobbyCode}`, "game");
@@ -3747,8 +3786,19 @@ function endGame(lobbyCode: string) {
       (async () => {
         try {
           const db = getDb();
-          const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, uid));
-          if (!profile) return;
+          let [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.id, uid));
+          if (!profile) {
+            // Profile not yet created (player may not have visited their profile page yet).
+            // Auto-create a minimal profile so stats are not lost.
+            const newProfile = createDefaultProfile(uid, p.name, null);
+            const [created] = await db.insert(playerProfiles).values({ ...newProfile } as any).returning();
+            if (!created) {
+              log(`[Stats] Failed to auto-create profile for ${p.name} (${uid})`, "game");
+              return;
+            }
+            profile = created;
+            log(`[Stats] Auto-created profile for ${p.name} (${uid})`, "game");
+          }
           const { updatedProfile } = convertGameToCurrency(
             profile as any,
             game.gameId,
@@ -4007,6 +4057,23 @@ export function reconnectPlayerToGame(lobbyCode: string, playerId: string, newSo
   log(`${player.name} reconnected to game ${lobbyCode} with socket ${newSocketId}`, "game");
   broadcastGameState(lobbyCode);
   return true;
+}
+
+/**
+ * Update a player's replitUserId in an active game.
+ * Called when auth loads after the player has already joined the lobby/game.
+ */
+export function setPlayerReplitUserId(socketId: string, replitUserId: string): boolean {
+  // Check active games
+  for (const [, game] of Array.from(activeGames)) {
+    const player = game.players.find((p: GamePlayer) => p.socketId === socketId);
+    if (player && !player.replitUserId) {
+      player.replitUserId = replitUserId;
+      log(`[Auth] Set replitUserId for ${player.name} in game ${game.lobbyCode}`, "game");
+      return true;
+    }
+  }
+  return false;
 }
 
 export function cleanupGame(lobbyCode: string) {
