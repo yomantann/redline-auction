@@ -993,6 +993,7 @@ export default function Game() {
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactMessage, setContactMessage] = useState('');
+  const releaseLockRef = useRef(false);
   const [activeAbilities, setActiveAbilities] = useState<{ player: string, playerId: string, ability: string, effect: string, targetName?: string, targetId?: string, impactValue?: string, visibility?: string }[]>([]);
   
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<Player | null>(null);
@@ -3256,11 +3257,14 @@ export default function Game() {
       
       if (currentPhase === 'waiting_for_ready') {
         // During waiting phase, press to indicate ready
+        releaseLockRef.current = false;
         socket.emit("player_press");
         console.log('[Game] Emitted player_press (waiting - ready)');
       } else if (currentPhase === 'countdown') {
         // During countdown, clicking while holding means RELEASE (PC toggle behavior)
         if (currentPlayerIsHolding) {
+          if (releaseLockRef.current) return;
+          releaseLockRef.current = true;
           socket.emit("player_release");
           console.log('[Game] Emitted player_release (countdown - click to release)');
           
@@ -3274,12 +3278,15 @@ export default function Game() {
           });
         } else {
           // Not holding, start holding
+          releaseLockRef.current = false;
           socket.emit("player_press");
           console.log('[Game] Emitted player_press (countdown - start holding)');
         }
       } else if (currentPhase === 'bidding') {
         // During bidding, clicking while holding means RELEASE/lock in bid (PC toggle behavior)
         if (currentPlayerIsHolding) {
+          if (releaseLockRef.current) return;
+          releaseLockRef.current = true;
           socket.emit("player_release");
           console.log('[Game] Emitted player_release (bidding - click to lock in)');
         } else {
@@ -3294,6 +3301,7 @@ export default function Game() {
     
     // Single-player logic
     if (phase === 'ready') {
+       releaseLockRef.current = false;
        setPlayers(prev => prev.map(p => p.id === 'p1' ? { ...p, isHolding: true } : p));
     } else if (phase === 'overclock') {
        // OVERCLOCK: each press counts as a click
@@ -3446,6 +3454,7 @@ export default function Game() {
       if (currentPhase === 'waiting_for_ready') {
         // During waiting phase, releasing means not ready
         if (currentPlayerIsHolding) {
+          releaseLockRef.current = true;
           socket.emit("player_release");
           console.log('[Game] Emitted player_release (waiting - not ready)');
         }
