@@ -335,6 +335,20 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   // visually apply when playing a different driver.
 
   // ── Accuser Skins ───────────────────────────────────────────────────────────
+  // ── Alpha Prime Skins ───────────────────────────────────────────────────────
+   // ── The Anointed Skins ──────────────────────────────────────────────────────
+   // ── Click-Click Skins ───────────────────────────────────────────────────────
+  // ── Rainbow Dash Skins ──────────────────────────────────────────────────────
+  // ── Frostbyte Skins ─────────────────────────────────────────────────────────
+  // ── Executive P Skins ───────────────────────────────────────────────────────
+  // ── Guardian H Skins ────────────────────────────────────────────────────────
+  // ── Hotwired Skins ──────────────────────────────────────────────────────────
+   // ── Low Flame Skins ─────────────────────────────────────────────────────────
+   // ── Pain Hider Skins ────────────────────────────────────────────────────────
+   // ── Panic Bot Skins ─────────────────────────────────────────────────────────
+  // ── The Rind Skins ──────────────────────────────────────────────────────────
+   // ── Roll Safe Skins ─────────────────────────────────────────────────────────
+  // ── Wandering Eye Skins ─────────────────────────────────────────────────────
   {
     id: 'skin_accuser_dreamer',
     name: 'The Dreamer',
@@ -345,16 +359,14 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['accuser'],
   },
   {
-    id: 'skin_accuser_duchess',
-    name: 'Damning Duchess',
+    id: 'skin_anointed_divine_sentinel',
+    name: 'Divine Sentinel',
     type: 'driverSkin',
-    cost: 40000,
-    rarity: 'rare',
-    asset: 'skin_accuser_duchess',
-    driverIds: ['accuser'],
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_anointed_divine_sentinel',
+    driverIds: ['anointed'],
   },
-
-  // ── Alpha Prime Skins ───────────────────────────────────────────────────────
   {
     id: 'skin_alpha_ragnar',
     name: 'Ragnar Ironjaw',
@@ -363,6 +375,96 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     rarity: 'common',
     asset: 'skin_alpha_ragnar',
     driverIds: ['alpha_prime'],
+  },
+  {
+    id: 'skin_click_roarcat',
+    name: 'Roarcat',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_click_roarcat',
+    driverIds: ['click_click'],
+  },
+  {
+    id: 'skin_dash_stormhare',
+    name: 'Stormhare the Swift',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_dash_stormhare',
+    driverIds: ['rainbow_dash'],
+  },
+  {
+    id: 'skin_frost_glaciodon',
+    name: 'Glaciodon',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_frost_glaciodon',
+    driverIds: ['frostbyte'],
+  },
+  {
+    id: 'skin_lowflame_bounty',
+    name: 'The Bounty Can Wait',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_lowflame_bounty',
+    driverIds: ['low_flame'],
+  },
+  {
+    id: 'skin_lowflame_high_noon',
+    name: 'High Noon Nothing',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_lowflame_high_noon',
+    driverIds: ['low_flame'],
+  },
+  {
+    id: 'skin_rind_valhalla_vermin',
+    name: 'Valhalla Vermin',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_rind_valhalla_vermin',
+    driverIds: ['the_rind'],
+  },
+  {
+    id: 'skin_panic_glitchosaurus',
+    name: 'Glitchosaurus',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_panic_glitchosaurus',
+    driverIds: ['panic_bot'],
+  },
+  {
+    id: 'skin_roll_calculated',
+    name: 'Calculated Ace',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_roll_calculated',
+    driverIds: ['roll_safe'],
+  },
+  {
+    id: 'skin_wandering_nunbit',
+    name: 'Nunbit Monster',
+    type: 'driverSkin',
+    cost: 25000,
+    rarity: 'common',
+    asset: 'skin_wandering_nunbit',
+    driverIds: ['wandering_eye'],
+  },
+  {
+    id: 'skin_accuser_duchess',
+    name: 'Damning Duchess',
+    type: 'driverSkin',
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_accuser_duchess',
+    driverIds: ['accuser'],
   },
   {
     id: 'skin_alpha_graviton',
@@ -374,26 +476,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['alpha_prime'],
   },
   {
-    id: 'skin_alpha_hewn_knight',
-    name: 'The Hewn Knight',
-    type: 'driverSkin',
-    cost: 125000,
-    rarity: 'legendary',
-    asset: 'skin_alpha_hewn_knight',
-    driverIds: ['alpha_prime'],
-  },
-
-  // ── The Anointed Skins ──────────────────────────────────────────────────────
-  {
-    id: 'skin_anointed_divine_sentinel',
-    name: 'Divine Sentinel',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_anointed_divine_sentinel',
-    driverIds: ['anointed'],
-  },
-  {
     id: 'skin_anointed_masquerade',
     name: 'Masquerade Sovereign',
     type: 'driverSkin',
@@ -403,46 +485,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['anointed'],
   },
   {
-    id: 'skin_anointed_clean_cut',
-    name: 'Clean Cut',
-    type: 'driverSkin',
-    cost: 125000,
-    rarity: 'legendary',
-    asset: 'skin_anointed_clean_cut',
-    driverIds: ['anointed'],
-  },
-
-  // ── Click-Click Skins ───────────────────────────────────────────────────────
-  {
-    id: 'skin_click_roarcat',
-    name: 'Roarcat',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_click_roarcat',
-    driverIds: ['click_click'],
-  },
-  {
-    id: 'skin_click_sir_whiskers_wrong',
-    name: 'Sir Whiskers Wrong',
-    type: 'driverSkin',
-    cost: 125000,
-    rarity: 'legendary',
-    asset: 'skin_click_sir_whiskers_wrong',
-    driverIds: ['click_click'],
-  },
-
-  // ── Rainbow Dash Skins ──────────────────────────────────────────────────────
-  {
-    id: 'skin_dash_stormhare',
-    name: 'Stormhare the Swift',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_dash_stormhare',
-    driverIds: ['rainbow_dash'],
-  },
-  {
     id: 'skin_dash_colosseum_sprint',
     name: 'Colosseum Sprint',
     type: 'driverSkin',
@@ -450,26 +492,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     rarity: 'rare',
     asset: 'skin_dash_colosseum_sprint',
     driverIds: ['rainbow_dash'],
-  },
-  {
-    id: 'skin_dash_yatai_yang',
-    name: 'Yatai Yang',
-    type: 'driverSkin',
-    cost: 125000,
-    rarity: 'legendary',
-    asset: 'skin_dash_yatai_yang',
-    driverIds: ['rainbow_dash'],
-  },
-
-  // ── Frostbyte Skins ─────────────────────────────────────────────────────────
-  {
-    id: 'skin_frost_glaciodon',
-    name: 'Glaciodon',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_frost_glaciodon',
-    driverIds: ['frostbyte'],
   },
   {
     id: 'skin_frost_skaldi',
@@ -490,17 +512,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['frostbyte'],
   },
   {
-    id: 'skin_frost_frozen_front',
-    name: 'Frozen Front',
-    type: 'driverSkin',
-    cost: 125000,
-    rarity: 'legendary',
-    asset: 'skin_frost_frozen_front',
-    driverIds: ['frostbyte'],
-  },
-
-  // ── Executive P Skins ───────────────────────────────────────────────────────
-  {
     id: 'skin_executive_rail_baron',
     name: 'The Rail Baron',
     type: 'driverSkin',
@@ -509,8 +520,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_executive_rail_baron',
     driverIds: ['executive_p'],
   },
-
-  // ── Guardian H Skins ────────────────────────────────────────────────────────
   {
     id: 'skin_guardian_ironknuckle',
     name: 'Ironknuckle',
@@ -529,37 +538,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_guardian_unmoved_marshal',
     driverIds: ['guardian_h'],
   },
-
-  // ── Hotwired Skins ──────────────────────────────────────────────────────────
-  {
-    id: 'skin_hotwired_pyra',
-    name: 'Pyra',
-    type: 'driverSkin',
-    cost: 125000,
-    rarity: 'legendary',
-    asset: 'skin_hotwired_pyra',
-    driverIds: ['hotwired'],
-  },
-
-  // ── Low Flame Skins ─────────────────────────────────────────────────────────
-  {
-    id: 'skin_lowflame_bounty',
-    name: 'The Bounty Can Wait',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_lowflame_bounty',
-    driverIds: ['low_flame'],
-  },
-  {
-    id: 'skin_lowflame_high_noon',
-    name: 'High Noon Nothing',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_lowflame_high_noon',
-    driverIds: ['low_flame'],
-  },
   {
     id: 'skin_lowflame_wolfman',
     name: 'Wolfman',
@@ -570,17 +548,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['low_flame'],
   },
   {
-    id: 'skin_lowflame_orbital_rest',
-    name: 'Orbital Rest',
-    type: 'driverSkin',
-    cost: 125000,
-    rarity: 'legendary',
-    asset: 'skin_lowflame_orbital_rest',
-    driverIds: ['low_flame'],
-  },
-
-  // ── Pain Hider Skins ────────────────────────────────────────────────────────
-  {
     id: 'skin_pain_highborn',
     name: 'Highborn Elder',
     type: 'driverSkin',
@@ -588,37 +555,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     rarity: 'rare',
     asset: 'skin_pain_highborn',
     driverIds: ['pain_hider'],
-  },
-  {
-    id: 'skin_pain_walking_wound',
-    name: 'The Walking Wound',
-    type: 'driverSkin',
-    cost: 125000,
-    rarity: 'legendary',
-    asset: 'skin_pain_walking_wound',
-    driverIds: ['pain_hider'],
-  },
-
-  // ── Panic Bot Skins ─────────────────────────────────────────────────────────
-  {
-    id: 'skin_panic_glitchosaurus',
-    name: 'Glitchosaurus',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_panic_glitchosaurus',
-    driverIds: ['panic_bot'],
-  },
-
-  // ── The Rind Skins ──────────────────────────────────────────────────────────
-  {
-    id: 'skin_rind_valhalla_vermin',
-    name: 'Valhalla Vermin',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_rind_valhalla_vermin',
-    driverIds: ['the_rind'],
   },
   {
     id: 'skin_rind_gutter_gladiator',
@@ -630,25 +566,13 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     driverIds: ['the_rind'],
   },
   {
-    id: 'skin_rind_sewer',
-    name: 'Sewer Sharpshooter',
+    id: 'skin_pain_highborn',
+    name: 'Highborn Elder',
     type: 'driverSkin',
-    cost: 125000,
-    rarity: 'legendary',
-    asset: 'skin_rind_sewer',
-    driverIds: ['the_rind'],
-  },
-
-
-  // ── Roll Safe Skins ─────────────────────────────────────────────────────────
-  {
-    id: 'skin_roll_calculated',
-    name: 'Calculated Ace',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_roll_calculated',
-    driverIds: ['roll_safe'],
+    cost: 40000,
+    rarity: 'rare',
+    asset: 'skin_pain_highborn',
+    driverIds: ['pain_hider'],
   },
   {
     id: 'skin_roll_intel_officer',
@@ -659,19 +583,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_roll_intel_officer',
     driverIds: ['roll_safe'],
   },
-
-  // ── Additional Named Skins ──────────────────────────────────────────────────
-
-  // ── Wandering Eye Skins ─────────────────────────────────────────────────────
-  {
-    id: 'skin_wandering_nunbit',
-    name: 'Nunbit Monster',
-    type: 'driverSkin',
-    cost: 25000,
-    rarity: 'common',
-    asset: 'skin_wandering_nunbit',
-    driverIds: ['wandering_eye'],
-  },
   {
     id: 'skin_wandering_dohyun',
     name: "Dohyun's Last Run",
@@ -681,6 +592,88 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
     asset: 'skin_wandering_dohyun',
     driverIds: ['wandering_eye'],
   },
+  {
+    id: 'skin_alpha_hewn_knight',
+    name: 'The Hewn Knight',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_alpha_hewn_knight',
+    driverIds: ['alpha_prime'],
+  },
+  {
+    id: 'skin_anointed_clean_cut',
+    name: 'Clean Cut',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_anointed_clean_cut',
+    driverIds: ['anointed'],
+  },
+  {
+    id: 'skin_click_sir_whiskers_wrong',
+    name: 'Sir Whiskers Wrong',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_click_sir_whiskers_wrong',
+    driverIds: ['click_click'],
+  },
+  {
+    id: 'skin_dash_yatai_yang',
+    name: 'Yatai Yang',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_dash_yatai_yang',
+    driverIds: ['rainbow_dash'],
+  },
+  {
+    id: 'skin_frost_frozen_front',
+    name: 'Frozen Front',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_frost_frozen_front',
+    driverIds: ['frostbyte'],
+  },
+  {
+    id: 'skin_hotwired_pyra',
+    name: 'Pyra',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_hotwired_pyra',
+    driverIds: ['hotwired'],
+  },
+  {
+    id: 'skin_lowflame_orbital_rest',
+    name: 'Orbital Rest',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_lowflame_orbital_rest',
+    driverIds: ['low_flame'],
+  },
+  {
+    id: 'skin_pain_walking_wound',
+    name: 'The Walking Wound',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_pain_walking_wound',
+    driverIds: ['pain_hider'],
+  },
+  {
+    id: 'skin_rind_sewer',
+    name: 'Sewer Sharpshooter',
+    type: 'driverSkin',
+    cost: 125000,
+    rarity: 'legendary',
+    asset: 'skin_rind_sewer',
+    driverIds: ['the_rind'],
+  },
+
  
   // ── Limited-Time Items ──────────────────────────────────────────────────────
   // (Placeholder items removed — real limited-time items will be added here)
